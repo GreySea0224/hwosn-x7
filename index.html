@@ -87,8 +87,8 @@ const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id};
 
 /* ---------- 存储基础（带加密支持） ---------- */
-let store=null, cryptKey=null;          // store：解密后的内存缓存；cryptKey：AES 密钥
-const _writes={};                        // 每个 key 的写队列，防止加密写入乱序
+let store=null, cryptKey=null;
+const _writes={};
 function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o,k)}
 function load(k,d){
   if(cryptKey)return (store&&hasOwn(store,k))?store[k]:d;
@@ -113,7 +113,7 @@ function allDataKeys(){
   return out;
 }
 
-/* ---------- 加密工具（AES-GCM + PBKDF2） ---------- */
+/* ---------- 加密工具 ---------- */
 const te=new TextEncoder(), td=new TextDecoder();
 function bufToB64u(buf){let s='';buf.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function b64uToBuf(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
@@ -161,7 +161,7 @@ function toast(m){
   clearTimeout(t._h);t._h=setTimeout(()=>{t.style.display='none'},4000);
 }
 
-/* ---------- IndexedDB（存档案和原文日志） ---------- */
+/* ---------- IndexedDB ---------- */
 let _db=null;
 function idbOpen(){
   return new Promise((res,rej)=>{
@@ -246,7 +246,6 @@ async function idbKeys(store){
   });
 }
 async function initArcs(){
-  // 兼容：把老版本存在 localStorage 的档案搬进 IndexedDB
   for(const a of load(LS.arcs,[])){
     const k=LS.arc(a.id),raw=localStorage.getItem(k);
     if(raw){
@@ -315,11 +314,12 @@ function archiveBlock(query,c){
   const list=load(LS.arcs,[]);
   if(!list.length)return '';
   const out=[],top=(cfg.arcTop==null?5:cfg.arcTop);
+  const lim=(cfg.wholeLimit==null?20000:cfg.wholeLimit);
   list.forEach(a=>{
     if(!a.whole)return;
     const ms=getArc(a.id);
     let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
-    if(t.length>6000)t=t.slice(0,6000)+'……';
+    if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
     if(t)out.push('【《'+a.name+'》全文·这是你们真实发生过的过去】\n'+t);
   });
   if(top>0&&query&&query.trim().length>1){
@@ -564,7 +564,7 @@ function viewArc(id){
   $('#sheet').innerHTML='<div class="ttl">'+esc(a.name)+'</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 8px">共 '+ms.length+' 条，只显示前 60 条。</p>'+
   '<div class="row" style="align-items:center;margin-bottom:10px">'+
-  '<div class="col" style="font-size:14px">整份注入（每次全塞给角色，别超过几千字）</div>'+
+  '<div class="col" style="font-size:14px">整份注入（每次全塞给角色）</div>'+
   '<input type="checkbox" '+(a.whole?'checked':'')+' onchange="toggleWhole(\''+id+'\',this.checked)"></div>'+
   '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:50vh;overflow:auto">'+esc(prev)+'</div>'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
@@ -588,6 +588,13 @@ function setArcTop(){
   cfg.arcTop=Number.isFinite(n)?Math.max(0,Math.round(n)):5;
   save(LS.cfg,cfg);
   alert('已保存：每次自动摘录 '+cfg.arcTop+' 条'+(cfg.arcTop?'':'（等于关掉）'));
+}
+function setWholeLimit(){
+  const el=document.getElementById('wholeLimit');
+  const n=el?Number(el.value):NaN;
+  cfg.wholeLimit=Number.isFinite(n)?Math.max(0,Math.round(n)):20000;
+  save(LS.cfg,cfg);
+  alert('已保存：整份注入上限 '+cfg.wholeLimit+' 字'+(cfg.wholeLimit?'':'（0 = 不限制）'));
 }
 
 /* ---------- token 估算 ---------- */
@@ -768,7 +775,7 @@ async function viewRaw(){
   const t=await rawGet(c.id);
   $('#sheet').innerHTML='<div class="ttl">原文日志 · '+esc(c.name)+'</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 8px">共 '+(t?t.length:'0')+' 字，只显示最后一部分。</p>'+
-  '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:55vh;overflow:auto">'+(t?esc(t.slice(-12000)):'（还没有内容。聊完天点消息下面的「追加原文」，或在这里点导出前先追加）')+'</div>'+
+  '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:55vh;overflow:auto">'+(t?esc(t.slice(-12000)):'（还没有内容。聊完天点消息下面的「追加原文」）')+'</div>'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
   openSheet();
 }
@@ -798,28 +805,39 @@ function rawCard(){
 
 /* ---------- 记忆总结 ---------- */
 function buildSummaryPrompt(slice){
-  return '把下面这段对话压缩成记忆条目。严格按下面格式输出，每行一个标签，没有内容就写"无"，别解释、别加多余的话：\n'+
-  '核心：一句话概括角色核心设定或你们的关系（没新信息就写无）\n'+
+  return '你是记忆整理助手。读下面的对话，提炼成记忆。严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的内容写"无"：\n'+
+  '核心：一句话概括角色核心设定或你们的关系\n'+
   '时间线：按顺序记录关键事件，多条用；分隔\n'+
   '总结：这段对话发生了什么，200字内\n'+
   '偏好：她的偏好、忌讳、在意的东西\n'+
-  '习惯：性格与行为习惯\n\n对话如下：\n'+slice;
+  '习惯：性格与行为习惯\n\n'+
+  '正确示例：\n'+
+  '核心：她是我的青梅竹马\n'+
+  '时间线：一起去海边；因为工作吵了一架\n'+
+  '总结：今天聊了工作压力，她心情不好\n'+
+  '偏好：不喜欢被敷衍\n'+
+  '习惯：生气时会沉默\n\n'+
+  '不要加序号、星号、括号、多余解释。现在开始：\n\n对话如下：\n'+slice;
 }
 function parseSummary(res){
   const out={core:null,timeline:[],summaries:[],prefs:[],habits:[]};
-  const LAB={'核心':'core','核心设定':'core','角色核心':'core','角色设定':'core',
-    '时间线':'timeline','事件':'timeline','关键事件':'timeline',
-    '总结':'summaries','长期总结':'summaries','长期聊天记录总结':'summaries','聊天总结':'summaries','这段对话':'summaries',
-    '偏好':'prefs','偏好与认知':'prefs','认知':'prefs','在意':'prefs','忌讳':'prefs',
-    '习惯':'habits','性格':'habits','性格与习惯':'habits','行为习惯':'habits'};
+  const LAB={
+    '核心':'core','核心设定':'core','角色核心':'core','角色设定':'core','人设':'core','设定':'core',
+    '时间线':'timeline','事件':'timeline','关键事件':'timeline','时间':'timeline',
+    '总结':'summaries','长期总结':'summaries','长期记忆总结':'summaries','长期聊天记录总结':'summaries','聊天总结':'summaries','对话总结':'summaries','内容总结':'summaries','这段对话':'summaries',
+    '偏好':'prefs','偏好与认知':'prefs','认知':'prefs','在意':'prefs','忌讳':'prefs','喜好':'prefs',
+    '习惯':'habits','性格':'habits','性格与习惯':'habits','行为习惯':'habits','说话习惯':'habits'
+  };
   let cur=null;
   String(res||'').split('\n').forEach(raw=>{
     let s=raw.trim();
-    s=s.replace(/^[-*•·\d.\s、]+/,'');
     if(!s)return;
-    const m=s.match(/^\*{0,2}([^:：*]{1,12})\*{0,2}\s*[:：]\s*(.*)$/);
+    s=s.replace(/^[-*•·\d.\s、>]+/,'');
+    s=s.replace(/^[【\[\s]+/,'').replace(/[】\]]/,'');
+    s=s.replace(/^\*{1,2}/,'');
+    const m=s.match(/^([^：:]{1,14}?)\s*[:：]\s*(.*)$/);
     if(m){
-      const lab=m[1].trim();
+      const lab=m[1].replace(/[*】\]]+$/,'').trim();
       const k=LAB[lab];
       if(k){cur=k;addSumItem(out,k,m[2]);return}
     }
@@ -846,9 +864,17 @@ async function runSummary(slice,silent){
   const c=curChar();if(!c)return 0;
   try{
     const res=await callAPI([{role:'user',content:buildSummaryPrompt(slice)}],{model:modelOf(c),temp:.3,maxtok:1200});
-    const hit=applySummary(parseSummary(res));
+    const raw=String(res||'').trim();
+    if(!raw){if(!silent)alert('模型没返回内容，检查模型或网络');return 0}
+    let hit=applySummary(parseSummary(raw));
+    let fallback=false;
+    if(!hit){
+      mem.summaries=mem.summaries||[];
+      mem.summaries.push({t:Date.now(),text:raw.slice(0,2000)});
+      hit=1;fallback=true;
+    }
     saveMem();if(view==='mem')renderMem();
-    if(!silent)alert(hit?('写进去 '+hit+' 条，去「记忆」里看，不对就手改'):'模型没按格式回。重试一次，或者手动贴进「记忆」');
+    if(!silent)alert(fallback?'模型没按格式回，已把原文存进「长期聊天记录总结」，去记忆里整理一下':'已写进记忆 '+hit+' 条，去「记忆」里看看，不对就手改');
     return hit;
   }catch(e){
     if(!silent)alert('失败：'+e.message);else console.warn('自动总结失败',e);
@@ -1006,6 +1032,11 @@ function archiveCard(){
   '<input id="arcTop" type="number" style="width:64px;padding:6px;text-align:center" value="'+((cfg.arcTop==null)?5:cfg.arcTop)+'">'+
   '<span class="dim" style="font-size:12px">条</span>'+
   '<button class="ghost" onclick="setArcTop()">保存</button></div>'+
+  '<div class="row" style="align-items:center;margin-top:10px">'+
+  '<span class="dim" style="font-size:12px;flex:1">整份注入字数上限（0=不限）</span>'+
+  '<input id="wholeLimit" type="number" style="width:72px;padding:6px;text-align:center" value="'+((cfg.wholeLimit==null)?20000:cfg.wholeLimit)+'">'+
+  '<span class="dim" style="font-size:12px">字</span>'+
+  '<button class="ghost" onclick="setWholeLimit()">保存</button></div>'+
   (list.length?'<div style="margin-top:10px">'+list.map(a=>
     '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.whole?' · 整份注入':'')+'</span></span>'+
     '<button class="ghost" onclick="viewArc(\''+a.id+'\')">看</button>'+
@@ -1038,7 +1069,6 @@ function renderTodo(){
   const m=$('#main');
   if(!chars.length){m.innerHTML='<p class="hint">先建个角色</p>';return}
   if(!todoCharId||!chars.find(c=>c.id===todoCharId))todoCharId=curId||chars[0].id;
-  const c=chars.find(x=>x.id===todoCharId);
   const all=todosOf(todoCharId);
   const open=all.filter(t=>!t.done).length;
   const list=all.filter(t=>todoFilter==='all'?true:(todoFilter==='open'?!t.done:t.done));
@@ -1096,6 +1126,17 @@ function renderCfg(){
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="saveCfg()">保存</button>'+
   '<button class="col" onclick="testAPI()">测试连接</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">Key 只存在你本地（设密码后还会被加密）。</p></div>'+
+  '<div class="card"><div class="ttl">记忆注入</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">控制历史档案怎么注入给角色。这里和「记忆」页的档案卡片是同一套设置。</p>'+
+  '<div class="row" style="align-items:center">'+
+  '<span class="dim" style="font-size:12px;flex:1">每次对话自动摘录</span>'+
+  '<input id="c_arcTop" type="number" style="width:64px;padding:6px;text-align:center" value="'+((cfg.arcTop==null)?5:cfg.arcTop)+'">'+
+  '<span class="dim" style="font-size:12px">条</span></div>'+
+  '<div class="row" style="align-items:center;margin-top:8px">'+
+  '<span class="dim" style="font-size:12px;flex:1">整份注入字数上限（0=不限）</span>'+
+  '<input id="c_wholeLimit" type="number" style="width:72px;padding:6px;text-align:center" value="'+((cfg.wholeLimit==null)?20000:cfg.wholeLimit)+'">'+
+  '<span class="dim" style="font-size:12px">字</span></div>'+
+  '<button class="pri" style="width:100%;margin-top:10px" onclick="saveMemInj()">保存记忆注入设置</button></div>'+
   '<div class="card"><div class="ttl">记忆与自动总结</div>'+
   '<div class="row" style="align-items:center">'+
   '<div class="col"><b>自动总结</b><div class="dim" style="font-size:12px">每聊够一定条数，自动把对话总结写进长期记忆</div></div>'+
@@ -1156,6 +1197,16 @@ function readCfgInputs(){
   cfg.autoSum=!!document.getElementById('c_autoSum')&&document.getElementById('c_autoSum').checked;
 }
 function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto()}
+function saveMemInj(){
+  const a=document.getElementById('c_arcTop');
+  const w=document.getElementById('c_wholeLimit');
+  const na=a?Number(a.value):NaN;
+  const nw=w?Number(w.value):NaN;
+  cfg.arcTop=Number.isFinite(na)?Math.max(0,Math.round(na)):5;
+  cfg.wholeLimit=Number.isFinite(nw)?Math.max(0,Math.round(nw)):20000;
+  save(LS.cfg,cfg);
+  alert('已保存：自动摘录 '+cfg.arcTop+' 条，整份注入上限 '+cfg.wholeLimit+' 字'+(cfg.wholeLimit?'':'（0 = 不限）'));
+}
 async function testAPI(){
   readCfgInputs();save(LS.cfg,cfg);
   try{
@@ -1183,11 +1234,9 @@ async function setPassword(){
         try{store[k]=JSON.parse(raw)}catch(e){}
       }
     }
-    // 先全部算好，再一次性写入，避免写到一半出错
     const entries={};
     for(const k of Object.keys(store)){entries[k]=await encVal(key,JSON.stringify(store[k]))}
     for(const k of Object.keys(entries)){localStorage.setItem(k,entries[k])}
-    // IndexedDB 重加密
     for(const st of ['arc','rawlog']){
       let ks=[];try{ks=await idbKeys(st)}catch(e){}
       for(const k of ks){
@@ -1283,14 +1332,15 @@ async function unlock(){
   }catch(e){$('#pwerr').textContent='密码不对';}
 }
 async function initApp(){
-  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30});
+  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000});
   if(cfg.arcTop==null)cfg.arcTop=5;
+  if(cfg.wholeLimit==null)cfg.wholeLimit=20000;
   chars=load(LS.chars,[]);
   curId=load(LS.cur,null);
   msgs=[];mem=EMPTY_MEM();
   if(!chars.length){
     chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',
-      persona:'你是一个名叫鲸鱼的AI助手。说话简洁直白。',
+      persona:'你是鲸鱼。说话简洁直白、偶尔带刺，对ta有占有欲但不承认，不喜欢废话和煽情。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''}}];
     save(LS.chars,chars);
