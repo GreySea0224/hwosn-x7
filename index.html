@@ -237,13 +237,19 @@ function archiveBlock(query,c){
 }
 
 /* ---------- 解析：JSON / Markdown / 纯文本 ---------- */
-function isMsgLike(x){return x&&typeof x==='object'&&!Array.isArray(x)&&('content' in x||'text' in x||'message' in x)&&('role' in x||'sender' in x||'type' in x||'author' in x)}
+function isMsgLike(x){return x&&typeof x==='object'&&!Array.isArray(x)&&('content' in x||'text' in x||'message' in x||'contentParts' in x)&&('role' in x||'sender' in x||'type' in x||'author' in x)}
 function normMsg(m){
   const rs=String(m.role||m.sender||m.type||m.author||'').toLowerCase();
   if(/system|tool/.test(rs))return null;
   const role=/user|human|me$|用户|我$/.test(rs)?'user':/assist|ai|bot|gpt|model|助手|模型/.test(rs)?'assistant':null;
   if(!role)return null;
-  let c=(m.content!=null)?m.content:((m.text!=null)?m.text:m.message);
+  let c='';
+  if(Array.isArray(m.contentParts)){
+    c=m.contentParts.filter(p=>p&&p.type==='text'&&p.text).map(p=>p.text).join('\n');
+  }
+  if(!c&&m.content!=null)c=m.content;
+  if(!c&&m.text!=null)c=m.text;
+  if(!c&&m.message!=null)c=m.message;
   if(Array.isArray(c))c=c.map(p=>typeof p==='string'?p:((p&&(p.text||p.content))||'')).join('\n');
   else if(c&&typeof c==='object')c=c.text||c.content||'';
   c=String(c==null?'':c).trim();
@@ -251,12 +257,11 @@ function normMsg(m){
   return {role:role,content:c,t:(typeof m.timestamp==='number'?m.timestamp:Date.now())};
 }
 function digSessions(node,name,out,depth){
-  if(depth>8||!node)return;
+  if(depth>10||!node)return;
   if(Array.isArray(node)){
     if(node.length&&node.some(isMsgLike)){
       const ms=node.map(normMsg).filter(Boolean);
-      if(ms.length>=2)out.push({name:name||'导入的对话',messages:ms});
-      return;
+      if(ms.length>=2){out.push({name:name||'导入的对话',messages:ms});return;}
     }
     node.forEach(v=>digSessions(v,name,out,depth+1));
     return;
