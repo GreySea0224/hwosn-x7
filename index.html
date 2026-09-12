@@ -75,11 +75,13 @@ const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){alert(
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
-const SUM_N=60,MAX_SCAN=4000;
+const SUM_N=60,MAX_SCAN=20000;
 const EMPTY_MEM=()=>({core:'',timeline:[],summaries:[],prefs:[],habits:[]});
 
-let cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5});
+let cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,arcChars:40000,memChars:20000});
 if(cfg.arcTop==null)cfg.arcTop=5;
+if(cfg.arcChars==null)cfg.arcChars=40000;
+if(cfg.memChars==null)cfg.memChars=20000;
 let chars=load(LS.chars,[]);
 let curId=load(LS.cur,null);
 let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,autoT=null,arcMem={};
@@ -202,25 +204,35 @@ function sim(a,b){let h=0;a.forEach(g=>{if(b.has(g))h++});return h/Math.max(1,a.
 function archiveBlock(query,c){
   const list=load(LS.arcs,[]);
   if(!list.length)return '';
-  const out=[],top=(cfg.arcTop==null?5:cfg.arcTop);
+  const out=[];
+  const top=Math.max(0,(cfg.arcTop==null?5:cfg.arcTop));
+  const budget=Math.max(0,(cfg.arcChars==null?40000:cfg.arcChars));
+  // ① 整份注入的档案：尽量完整地给模型（超出上限时保留开头+结尾，不再只截开头）
   list.forEach(a=>{
     if(!a.whole)return;
     const ms=getArc(a.id);
+    if(!ms||!ms.length)return;
     let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
-    if(t.length>6000)t=t.slice(0,6000)+'……';
-    if(t)out.push('【《'+a.name+'》全文·这是你们真实发生过的过去】\n'+t);
+    if(budget>0&&t.length>budget){
+      const half=Math.floor(budget/2);
+      t=t.slice(0,half)+'\n【……中间 '+ms.length+' 条因字数上限略去，开头和最近都保留了……】\n'+t.slice(-half);
+    }
+    if(t)out.push('【《'+a.name+'》全文·这是你们真实发生过的过去，你要牢牢记住】\n'+t);
   });
-  if(top>0&&query&&query.trim().length>1){
-    const gq=grams(query),hits=[];
+  // ② 没开整份注入的档案：按相关性摘片段
+  const q=(query||'').trim();
+  if(top>0&&q.length>1){
+    const gq=grams(q),hits=[];
     list.forEach(a=>{
       if(a.whole)return;
       const ms=getArc(a.id);
+      if(!ms||!ms.length)return;
       const from=Math.max(0,ms.length-MAX_SCAN);
       for(let i=from;i<ms.length;i++){
         const t=ms[i].content;
         if(!t||t.length<6)continue;
         const s=sim(gq,grams(t));
-        if(s>0.16)hits.push({s:s,a:a,i:i,ms:ms});
+        if(s>0.1)hits.push({s:s,a:a,i:i,ms:ms});
       }
     });
     hits.sort((x,y)=>y.s-x.s);
@@ -235,6 +247,7 @@ function archiveBlock(query,c){
   }
   return out.join('\n\n');
 }
+
 
 /* ---------- 解析：JSON / Markdown / 纯文本 ---------- */
 function isMsgLike(x){return x&&typeof x==='object'&&!Array.isArray(x)&&('content' in x||'text' in x||'message' in x||'contentParts' in x)&&('role' in x||'sender' in x||'type' in x||'author' in x)}
@@ -309,6 +322,27 @@ function parseArchive(text){
   }
   const md=parseText(text);
   return md?[md]:[];
+}
+function collectMemFacts(node,out,depth){
+  if(depth>14||node==null)return;
+  if(typeof node==='string'){const s=node.trim();if(s.length>1)out.push(s);return;}
+  if(Array.isArray(node)){node.forEach(v=>collectMemFacts(v,out,depth+1));return;}
+  if(typeof node!=='object')return;
+  const role=String(node.role||node.sender||node.author||node.type||'').toLowerCase();
+  if(/user|assistant|assist|human|system|tool|bot|\bai\b|gpt|model/.test(role))return; // 对话消息不算记忆
+  const keys=['content','text','value','fact','note','memory','memoryText','memoryContent','memoryPrompt'];
+  for(const k of keys){
+    const v=node[k];
+    if(typeof v==='string'&&v.trim().length>1){out.push(v.trim());break;}
+  }
+  Object.keys(node).forEach(k=>{const v=node[k];if(v&&typeof v==='object')collectMemFacts(v,out,depth+1)});
+}
+function parseMemFacts(text){
+  let j=null;try{j=JSON.parse(text)}catch(e){return[]}
+  const raw=[];collectMemFacts(j,raw,0);
+  const seen=new Set(),res=[];
+  raw.forEach(s=>{if(!seen.has(s)){seen.add(s);res.push(s)}});
+  return res;
 }
 
 /* ---------- 解析：HTML ---------- */
@@ -403,10 +437,16 @@ async function importArchive(input){
     if(isHtml){const one=parseHtmlArchive(text);found=one?[one]:[]}
     else found=parseArchive(text);
   }catch(e){console.warn(e)}
-  if(!found.length){toast('没解析出来');return diagnose(text,isHtml)}
-  const st=await ingestFound(found,f.name.replace(/\.[^.]+$/,''));
+  const facts=parseMemFacts(text);
+  let st={added:0,total:0,fail:0};
+  if(found.length)st=await ingestFound(found,f.name.replace(/\.[^.]+$/,''));
+  if(facts.length)ingestMemFacts(facts);
+  if(!found.length&&!facts.length){toast('没解析出来');return diagnose(text,isHtml)}
   toast('');
-  alert('导入完成\n档案：'+st.added+' 份\n消息：'+st.total+' 条'+(st.fail?('\n失败：'+st.fail+' 份'):''));
+  let msg='导入完成';
+  if(st.added)msg+='\n档案：'+st.added+' 份，消息 '+st.total+' 条'+(st.fail?('，失败 '+st.fail+' 份'):'');
+  if(facts.length)msg+='\n记忆：'+facts.length+' 条（已放进「长期聊天记录总结」）';
+  alert(msg);
 }
 async function ingestFound(found,fileName){
   const arcs=load(LS.arcs,[]);
@@ -425,6 +465,19 @@ async function ingestFound(found,fileName){
   save(LS.arcs,arcs);
   if(view==='mem')renderMem();
   return {added:added,total:total,fail:fail};
+}
+function ingestMemFacts(facts){
+  if(!curId)return;
+  mem.summaries=mem.summaries||[];
+  facts.forEach(f=>mem.summaries.push({t:Date.now(),text:f}));
+  saveMem();
+  if(view==='mem')renderMem();
+}
+function setArcChars(){
+  const v=parseInt(document.getElementById('arcChars').value);
+  cfg.arcChars=isNaN(v)?0:Math.max(0,v);
+  save(LS.cfg,cfg);
+  alert('已保存：整份注入上限 '+cfg.arcChars+' 字'+(cfg.arcChars?'':'（不限制）'));
 }
 async function pasteArchive(){
   $('#sheet').innerHTML='<div class="ttl">粘贴导入</div>'+
@@ -445,9 +498,12 @@ async function doPaste(){
     if(isHtml){const one=parseHtmlArchive(t);found=one?[one]:[]}
     else found=parseArchive(t);
   }catch(e){}
-  if(!found.length){toast('没解析出来');return diagnose(t,isHtml)}
-  const st=await ingestFound(found,n,'');
-  alert('导入完成：'+st.added+' 份，共 '+st.total+' 条');
+    const facts=parseMemFacts(t);
+  let st={added:0,total:0,fail:0};
+  if(found.length)st=await ingestFound(found,n,'');
+  if(facts.length)ingestMemFacts(facts);
+  if(!found.length&&!facts.length){toast('没解析出来');return diagnose(t,isHtml)}
+  alert('导入完成：'+(st.added?('档案 '+st.added+' 份，共 '+st.total+' 条'):'')+(facts.length?('，记忆 '+facts.length+' 条'):''));
 }
 function viewArc(id){
   const a=load(LS.arcs,[]).find(x=>x.id===id);if(!a)return;
@@ -506,12 +562,19 @@ function renderChat(){
 function memBlock(m){
   const L=[],pk=(arr,n)=>arr.slice(-n).map(x=>'- '+x.text).join('\n');
   if(m.core)L.push('【角色核心设定】\n'+m.core);
-  if(m.timeline&&m.timeline.length)L.push('【时间线】\n'+pk(m.timeline,15));
-  if(m.summaries&&m.summaries.length)L.push('【长期聊天记录总结】\n'+pk(m.summaries,10));
-  if(m.prefs&&m.prefs.length)L.push('【偏好与认知】\n'+pk(m.prefs,20));
-  if(m.habits&&m.habits.length)L.push('【性格与习惯】\n'+pk(m.habits,15));
-  return L.join('\n\n');
+  if(m.timeline&&m.timeline.length)L.push('【时间线】\n'+pk(m.timeline,20));
+  if(m.summaries&&m.summaries.length)L.push('【长期聊天记录总结·务必全部记得】\n'+m.summaries.map(x=>'- '+x.text).join('\n'));
+  if(m.prefs&&m.prefs.length)L.push('【偏好与认知】\n'+pk(m.prefs,30));
+  if(m.habits&&m.habits.length)L.push('【性格与习惯】\n'+pk(m.habits,20));
+  let s=L.join('\n\n');
+  const budget=Math.max(0,(cfg.memChars==null?20000:cfg.memChars));
+  if(budget>0&&s.length>budget){
+    const half=Math.floor(budget/2);
+    s=s.slice(0,half)+'\n【……记忆太多，中间按上限略去……】\n'+s.slice(-half);
+  }
+  return s;
 }
+
 function buildCtx(c,extra){
   const sys=[c.persona||('你是'+c.name+'。')];
   if(c.scenario)sys.push('【当前情境】'+c.scenario);
@@ -746,6 +809,10 @@ function archiveCard(){
   '<input id="arcFile" type="file" accept=".html,.htm,.json,.md,.txt,text/html,application/json,text/plain" style="display:none" onchange="importArchive(this)">'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<span class="dim" style="font-size:12px;flex:1">每次对话自动摘录</span>'+
+  '<div class="row" style="align-items:center;margin-top:8px">'+
+  '<span class="dim" style="font-size:12px;flex:1">整份注入字数上限（0=不限制）</span>'+
+  '<input id="arcChars" type="number" style="width:76px;padding:6px;text-align:center" value="'+((cfg.arcChars==null)?40000:cfg.arcChars)+'">'+
+  '<button class="ghost" onclick="setArcChars()">保存</button></div>'+
   '<input id="arcTop" type="number" style="width:64px;padding:6px;text-align:center" value="'+((cfg.arcTop==null)?5:cfg.arcTop)+'">'+
   '<span class="dim" style="font-size:12px">条</span>'+
   '<button class="ghost" onclick="setArcTop()">保存</button></div>'+
@@ -829,6 +896,10 @@ function renderCfg(){
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
   '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">档案存在 IndexedDB 里，单独一份备份可能很大。</p></div>'+
+  '<div class="card"><div class="ttl">记忆注入</div>'+
+  '<label class="f">记忆空间总字数上限（0=不限制，超出保留开头+结尾）</label>'+
+  '<input id="c_memChars" type="number" value="'+((cfg.memChars==null)?20000:cfg.memChars)+'">'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">记忆空间里的总结/事实，会按这个上限进入每次对话。</p></div>'+
   '<p class="dim" style="font-size:12px;text-align:center;padding-bottom:24px">深蓝海域 · 本地版</p>';
   $('#c_theme').value=cfg.theme;
   $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
@@ -854,6 +925,7 @@ function readCfgInputs(){
   cfg.temp=parseFloat(v('c_temp'))||.85;
   cfg.maxtok=parseInt(v('c_maxtok'))||900;
   cfg.ctx=parseInt(v('c_ctx'))||30;
+  cfg.memChars=parseInt(v('c_memChars'))||20000;
 }
 function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto()}
 async function testAPI(){
