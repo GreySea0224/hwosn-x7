@@ -33,6 +33,9 @@ button.warn{background:transparent;border:1px solid var(--line);color:var(--warn
 .bub{max-width:84%;padding:9px 13px;border-radius:var(--bub);margin:7px 0 0;word-break:break-word;font-size:var(--fs)}
 .bub.me{margin-left:auto;background:var(--accdim);border-bottom-right-radius:6px}
 .bub.ai{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:6px}
+.think{margin:4px 0 0;max-width:84%}
+.thinkhead{background:none;border:1px solid var(--line);color:var(--dim);font-size:12px;padding:4px 11px;border-radius:9px;cursor:pointer}
+.thinkbody{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:8px 10px;margin-top:4px;font-size:12.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;display:none}
 .ops{display:flex;gap:8px;margin:5px 0 9px;flex-wrap:wrap}
 .ops.me{justify-content:flex-end}
 .ops button{background:transparent;border:1px solid var(--line);color:var(--dim);font-size:12px;padding:4px 11px;border-radius:9px}
@@ -259,6 +262,9 @@ async function initArcs(){
   if(view==='mem')renderMem();
 }
 const getArc=id=>arcMem[id]||[];
+function archiveAllowed(a,cid){return !Array.isArray(a.chars)?true:(a.chars.indexOf(cid)>=0)}
+const visOf=a=>!Array.isArray(a.chars)?'全部角色可见':(a.chars.length?a.chars.length+' 个角色可见':'无人可见');
+
 
 /* ---------- 原文日志 ---------- */
 async function rawGet(id){try{return await idbGet(id,'rawlog')||''}catch(e){return ''}}
@@ -316,7 +322,7 @@ function archiveBlock(query,c){
   const out=[],top=(cfg.arcTop==null?5:cfg.arcTop);
   const lim=(cfg.wholeLimit==null?20000:cfg.wholeLimit);
   list.forEach(a=>{
-    if(!a.whole)return;
+        if(!a.whole||!archiveAllowed(a,c.id))return;
     const ms=getArc(a.id);
     let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
     if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
@@ -325,7 +331,7 @@ function archiveBlock(query,c){
   if(top>0&&query&&query.trim().length>1){
     const gq=grams(query),hits=[];
     list.forEach(a=>{
-      if(a.whole)return;
+            if(a.whole||!archiveAllowed(a,c.id))return;
       const ms=getArc(a.id);
       const from=Math.max(0,ms.length-MAX_SCAN);
       for(let i=from;i<ms.length;i++){
@@ -561,15 +567,36 @@ function viewArc(id){
   const a=load(LS.arcs,[]).find(x=>x.id===id);if(!a)return;
   const ms=getArc(id);
   const prev=ms.slice(0,60).map(m=>(m.role==='user'?'她':(curChar()?curChar().name:'AI'))+'：'+m.content).join('\n');
+  const vis=chars.map(ch=>{
+    const on=!Array.isArray(a.chars)?true:(a.chars.indexOf(ch.id)>=0);
+    return '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="v_'+ch.id+'" '+(on?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>'+esc((ch.emoji||'')+' '+ch.name)+'</span></label>';
+  }).join('');
   $('#sheet').innerHTML='<div class="ttl">'+esc(a.name)+'</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 8px">共 '+ms.length+' 条，只显示前 60 条。</p>'+
   '<div class="row" style="align-items:center;margin-bottom:10px">'+
   '<div class="col" style="font-size:14px">整份注入（每次全塞给角色）</div>'+
   '<input type="checkbox" '+(a.whole?'checked':'')+' onchange="toggleWhole(\''+id+'\',this.checked)"></div>'+
-  '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:50vh;overflow:auto">'+esc(prev)+'</div>'+
+  '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:38vh;overflow:auto">'+esc(prev)+'</div>'+
+  '<div class="card" style="margin-top:12px"><div class="ttl">哪些角色能看见这份档案</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 6px">勾上的角色聊天时才会注入这份档案；没勾的看不到。</p>'+
+  '<div class="row" style="margin-bottom:6px"><button class="ghost col" onclick="visAll(\''+id+'\',true)">全选</button><button class="ghost col" onclick="visAll(\''+id+'\',false)">全不选</button></div>'+
+  vis+
+  '<button class="pri" style="width:100%;margin-top:8px" onclick="saveArcVis(\''+id+'\')">保存可见角色</button></div>'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
   openSheet();
 }
+function visAll(id,on){
+  chars.forEach(ch=>{const el=document.getElementById('v_'+ch.id);if(el)el.checked=on});
+}
+function saveArcVis(id){
+  const arcs=load(LS.arcs,[]);
+  const a=arcs.find(x=>x.id===id);if(!a)return;
+  const sel=chars.filter(ch=>{const el=document.getElementById('v_'+ch.id);return el&&el.checked}).map(ch=>ch.id);
+  if(sel.length===chars.length){a.chars=undefined;toast('可见角色：全部')}
+  else{a.chars=sel;toast(sel.length?('已保存：'+sel.length+' 个角色可见'):'已保存：没有角色能看见')}
+  save(LS.arcs,arcs);renderMem();
+}
+
 function toggleWhole(id,v){
   const arcs=load(LS.arcs,[]);
   const a=arcs.find(x=>x.id===id);if(!a)return;
@@ -613,11 +640,21 @@ function renderChat(){
   m.innerHTML='<div id="msgs"></div>';
   if(!msgs.length&&c.greeting){msgs.push({role:'assistant',content:c.greeting,t:Date.now()});persist()}
   const box=$('#msgs');
-  msgs.forEach((x,i)=>{
+    msgs.forEach((x,i)=>{
     const d=document.createElement('div');
     d.className='bub '+(x.role==='user'?'me':'ai');
     d.innerHTML=nl2br(x.content);
     box.appendChild(d);
+    if(x.role==='assistant'&&x.reasoning){
+      const th=document.createElement('div');
+      th.className='think';
+      const hd=document.createElement('button');
+      hd.type='button';hd.className='thinkhead';hd.textContent='🧠 展开思考链';
+      const bd=document.createElement('div');
+      bd.className='thinkbody';bd.innerHTML=nl2br(x.reasoning);
+      hd.onclick=()=>{const on=bd.style.display==='block';bd.style.display=on?'none':'block';hd.textContent=on?'🧠 展开思考链':'🧠 收起思考链'};
+      th.appendChild(hd);th.appendChild(bd);box.appendChild(th);
+    }
     if(x.tok){
       const t=document.createElement('div');
       t.className='tok'+(x.role==='user'?' me':'');
@@ -662,23 +699,44 @@ async function callAPI(messages,opt){
   const url=String(cfg.base||'').replace(/\/+$/,'')+'/chat/completions';
   const body={model:opt.model||cfg.model,messages:messages,
     temperature:(opt.temp!=null?opt.temp:cfg.temp),max_tokens:opt.maxtok||cfg.maxtok,stream:!!opt.stream};
+  if(opt.tools)body.tools=opt.tools;
+  if(opt.tool_choice)body.tool_choice=opt.tool_choice;
   if(opt.stream)body.stream_options={include_usage:true};
   const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)});
   if(!res.ok){let t='';try{t=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(t).slice(0,180))}
+  const pickReasoning=m=>{if(!m)return '';if(m.reasoning_content!=null)return String(m.reasoning_content);if(m.reasoning!=null)return String(m.reasoning);return ''};
   if(!opt.stream){
     const j=await res.json();
     if(opt.onUsage&&j.usage)opt.onUsage(j.usage);
-    return (j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'';
+    const msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
+    if(opt.onReasoning){const rc=pickReasoning(msg);if(rc)opt.onReasoning(rc)}
+    if(opt.tools)return {content:msg.content||'',tool_calls:msg.tool_calls||null};
+    return msg.content||'';
   }
+  let out='';
+  const emit=(line)=>{
+    const d=line.slice(5).trim();
+    if(d==='[DONE]')return true;
+    try{
+      const j=JSON.parse(d);
+      if(j.usage&&opt.onUsage)opt.onUsage(j.usage);
+      const de=j.choices&&j.choices[0]&&j.choices[0].delta;
+      if(de&&opt.onReasoning){const rc=pickReasoning(de);if(rc)opt.onReasoning(rc)}
+      const c=de&&de.content;
+      if(c){out+=c;if(opt.onDelta)opt.onDelta(c)}
+    }catch(e){}
+    return false;
+  };
   if(!res.body){
-    const t=await res.text();let out='';
-    t.split('\n').forEach(l=>{l=l.trim();if(l.indexOf('data:')!==0)return;const d=l.slice(5).trim();if(d==='[DONE]')return;
-      try{const j=JSON.parse(d);if(j.usage&&opt.onUsage)opt.onUsage(j.usage);
-      const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;
-      if(c){out+=c;if(opt.onDelta)opt.onDelta(c)}}catch(e){}});
+    const t=await res.text();
+    for(const l of t.split('\n')){
+      const line=l.trim();
+      if(line.indexOf('data:')!==0)continue;
+      if(emit(line))break;
+    }
     return out;
   }
-  const rd=res.body.getReader(),dec=new TextDecoder();let buf='',out='';
+  const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
   for(;;){
     const r=await rd.read();if(r.done)break;
     buf+=dec.decode(r.value,{stream:true});
@@ -686,29 +744,85 @@ async function callAPI(messages,opt){
     for(const raw of lines){
       const line=raw.trim();
       if(!line||line.indexOf('data:')!==0)continue;
-      const d=line.slice(5).trim();
-      if(d==='[DONE]')return out;
-      try{
-        const j=JSON.parse(d);
-        if(j.usage&&opt.onUsage)opt.onUsage(j.usage);
-        const de=j.choices&&j.choices[0]&&j.choices[0].delta;
-        const c=de&&de.content;
-        if(c){out+=c;if(opt.onDelta)opt.onDelta(c)}
-      }catch(e){}
+      if(emit(line))return out;
     }
   }
   return out;
 }
+/* ---------- 待办工具（角色可调用） ---------- */
+const TODO_TOOLS=[
+  {type:'function',function:{name:'add_todo',description:'给自己添加一条待办。只能添加你自己的待办，绝不能替别人或用户添加。',parameters:{type:'object',properties:{text:{type:'string',description:'待办内容'},type:{type:'string',enum:['事项','欠账','备忘'],description:'待办类型'}},required:['text']}}},
+  {type:'function',function:{name:'list_todos',description:'查看自己的待办列表（含未完成和已完成）',parameters:{type:'object',properties:{}}}},
+  {type:'function',function:{name:'complete_todo',description:'把自己的一条待办勾选为已完成。只能操作你自己的待办。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}},
+  {type:'function',function:{name:'uncomplete_todo',description:'把自己一条已完成的待办改回未完成。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}},
+  {type:'function',function:{name:'delete_todo',description:'删除自己的一条待办。只能删你自己的。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}}
+];
+function todoBrief(arr){
+  if(!arr||!arr.length)return '（空）';
+  return arr.map(t=>(t.done?'✅':'⬜')+' ['+(t.type||'事项')+'] '+t.text+'（id:'+t.id+'）').join('\n');
+}
+function execTodoTool(name,args,cid){
+  const arr=todosOf(cid);
+  if(name==='add_todo'){
+    const text=String(args&&args.text||'').trim();
+    if(!text)return {ok:false,msg:'内容为空，没添加'};
+    const type=(args&&['事项','欠账','备忘'].indexOf(args.type)>=0)?args.type:'事项';
+    const t={id:uid(),text:text,type:type,done:false,t:Date.now()};
+    arr.push(t);saveTodos(cid,arr);
+    return {ok:true,msg:'已添加待办：'+text,todos:todoBrief(arr)};
+  }
+  if(name==='list_todos')return {ok:true,msg:'你的待办列表',todos:todoBrief(arr)};
+  const id=String(args&&args.id||'');
+  const t=arr.find(x=>x.id===id);
+  if(!t)return {ok:false,msg:'没找到这条待办。它可能是别人的或已被删除，你只能操作自己的待办。'};
+  if(name==='complete_todo'){t.done=true;saveTodos(cid,arr);return {ok:true,msg:'已完成：'+t.text,todos:todoBrief(arr)}}
+  if(name==='uncomplete_todo'){t.done=false;saveTodos(cid,arr);return {ok:true,msg:'已改回未完成：'+t.text,todos:todoBrief(arr)}}
+  if(name==='delete_todo'){saveTodos(cid,arr.filter(x=>x.id!==id));return {ok:true,msg:'已删除：'+t.text,todos:todoBrief(arr)}}
+  return {ok:false,msg:'未知操作'};
+}
+async function todoToolLoop(c,ctx){
+  const msgs=ctx.slice();
+  let reasoning='',usage=null,rounds=0,didTool=false;
+  while(rounds<5){
+    rounds++;
+    const resp=await callAPI(msgs,{stream:false,model:modelOf(c),tools:TODO_TOOLS,tool_choice:'auto',onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
+    if(!resp)return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:didTool};
+    if(!resp.tool_calls||!resp.tool_calls.length)return {finalText:resp.content||'',reasoning:reasoning,usage:usage,messages:msgs,didTool:didTool};
+    didTool=true;
+    msgs.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
+    for(const tc of resp.tool_calls){
+      let args={};try{args=JSON.parse(tc.function.arguments||'{}')}catch(e){args={}}
+      const r=execTodoTool(tc.function.name,args,c.id);
+      msgs.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
+    }
+    if(view==='todo')renderTodo();
+  }
+  return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:true};
+}
+
 async function askAndAppend(){
   const c=curChar(),box=$('#msgs');
   if(!box)return;
   const a=document.createElement('div');a.className='bub ai';a.textContent='…';box.appendChild(a);scrollDown();
-  busy=true;let ok=false;let usage=null;
+  busy=true;let ok=false;let usage=null;let reasoning='';
   try{
     let out='';
-    await callAPI(buildCtx(c),{stream:true,model:modelOf(c),onDelta:d=>{out+=d;a.innerHTML=nl2br(out);scrollDown()},onUsage:u=>usage=u});
+    const tools=(c&&c.todoPerm&&c.todoPerm.on)?TODO_TOOLS:null;
+    if(tools){
+      const r=await todoToolLoop(c,buildCtx(c));
+      reasoning=r.reasoning;usage=r.usage;out=r.finalText;
+      if(!out){
+        const ctx2=r.messages.concat([{role:'system',content:'继续用中文、短句、像发消息一样回复她。不要调用工具，直接说话。'}]);
+        await callAPI(ctx2,{stream:true,model:modelOf(c),onDelta:d=>{out+=d;a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>reasoning+=rr,onUsage:u=>usage=u});
+      }else{
+        a.innerHTML=nl2br(out);scrollDown();
+      }
+    }else{
+      await callAPI(buildCtx(c),{stream:true,model:modelOf(c),onDelta:d=>{out+=d;a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
+    }
     if(!out)throw new Error('模型没返回内容');
     const m={role:'assistant',content:out,t:Date.now()};
+    if(reasoning)m.reasoning=reasoning;
     m.tok=(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out);
     if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
     msgs.push(m);persist();ok=true;
@@ -718,6 +832,7 @@ async function askAndAppend(){
   busy=false;
   if(ok){renderChat();maybeAutoSummary();}
 }
+
 async function send(){
   const c=curChar(),inp=$('#inp');
   const text=inp.value.trim();
@@ -971,7 +1086,10 @@ function editChar(id){
   '<div class="col"><label class="f">最长（分钟）</label><input id="e_max" type="number" value="'+a.max+'"></div></div>'+
   '<div class="row" style="margin-top:10px"><div class="col"><label class="f">免打扰 起（整点）</label><input id="e_qs" type="number" value="'+a.quietStart+'"></div>'+
   '<div class="col"><label class="f">免打扰 止（整点）</label><input id="e_qe" type="number" value="'+a.quietEnd+'"></div></div>'+
-  '<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'"></div>'+
+'<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'"></div>'+
+'<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+'<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成自己的待办（碰不到别人和你的）</div></div>'+
+'<input type="checkbox" id="e_todo" '+((c.todoPerm&&c.todoPerm.on)?'checked':'')+'></div></div>'+
   '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
   '<button class="warn" onclick="delChar(\''+id+'\')">删除</button></div>'+
   '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="closeSheet()">取消</button></div>';
@@ -987,8 +1105,9 @@ function saveChar(id){
   c.style=v('e_style').trim();
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
-  c.auto={on:document.getElementById('e_auto').checked,min:+v('e_min')||30,max:+v('e_max')||90,
+    c.auto={on:document.getElementById('e_auto').checked,min:+v('e_min')||30,max:+v('e_max')||90,
     quietStart:+v('e_qs')||0,quietEnd:+v('e_qe')||8,hint:v('e_hint').trim()};
+  c.todoPerm={on:document.getElementById('e_todo').checked};
   save(LS.chars,chars);closeSheet();draw();
 }
 async function delChar(id){
@@ -1038,7 +1157,7 @@ function archiveCard(){
   '<span class="dim" style="font-size:12px">字</span>'+
   '<button class="ghost" onclick="setWholeLimit()">保存</button></div>'+
   (list.length?'<div style="margin-top:10px">'+list.map(a=>
-    '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.whole?' · 整份注入':'')+'</span></span>'+
+'<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.whole?' · 整份注入':'')+' · '+visOf(a)+'</span></span>'+
     '<button class="ghost" onclick="viewArc(\''+a.id+'\')">看</button>'+
     '<button class="x" onclick="delArc(\''+a.id+'\')">×</button></div>').join('')+'</div>'
     :'<p class="dim" style="font-size:13px;margin:10px 0 0">还没有档案</p>')+
@@ -1144,7 +1263,9 @@ function renderCfg(){
   '<div class="row" style="margin-top:10px;align-items:center">'+
   '<span class="dim" style="font-size:12px;flex:1">每聊满</span>'+
   '<input id="c_autoSumEvery" type="number" style="width:64px;padding:6px;text-align:center" value="'+(cfg.autoSumEvery||30)+'">'+
-  '<span class="dim" style="font-size:12px">条自动总结一次</span></div></div>'+
+'<span class="dim" style="font-size:12px">条自动总结一次</span></div>'+
+'<button class="pri" style="width:100%;margin-top:10px" onclick="saveAutoSum()">保存自动总结设置</button></div>'+
+
   '<div class="card"><div class="ttl">外观与交互</div>'+
   '<label class="f">主题</label><select id="c_theme"><option value="dark">深海</option><option value="light">浅色</option></select>'+
   '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
@@ -1197,6 +1318,15 @@ function readCfgInputs(){
   cfg.autoSum=!!document.getElementById('c_autoSum')&&document.getElementById('c_autoSum').checked;
 }
 function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto()}
+function saveAutoSum(){
+  const el=document.getElementById('c_autoSumEvery');
+  const n=el?parseInt(el.value,10):NaN;
+  cfg.autoSumEvery=(Number.isFinite(n)&&n>=4)?n:30;
+  cfg.autoSum=!!document.getElementById('c_autoSum')&&document.getElementById('c_autoSum').checked;
+  save(LS.cfg,cfg);
+  scheduleAuto();
+  alert('已保存自动总结设置');
+}
 function saveMemInj(){
   const a=document.getElementById('c_arcTop');
   const w=document.getElementById('c_wholeLimit');
@@ -1342,7 +1472,7 @@ async function initApp(){
     chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',
       persona:'你是鲸鱼。说话简洁直白、偶尔带刺，对ta有占有欲但不承认，不喜欢废话和煽情。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
-      auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''}}];
+          auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}};
     save(LS.chars,chars);
   }
   if(!curId||!chars.find(c=>c.id===curId))curId=chars[0]?chars[0].id:null;
