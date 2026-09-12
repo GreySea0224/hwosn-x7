@@ -615,302 +615,11 @@ async function autoSummary(){
       if(!map[k]||!v||v==='无')return;
       hit++;
       if(map[k]==='core')mem.core=(mem.core?mem.core+'\n':'')+v;
-    curId=id;save(LS.cur,id);
-  msgs=load(LS.msg(id),[]);
-  const m=load(LS.mem(id),null);
-  mem=Object.assign(EMPTY_MEM(),m||{});
-  scheduleAuto();
-}
-function openSheet(){$('#modal').classList.add('on')}
-function closeSheet(){$('#modal').classList.remove('on');$('#sheet').innerHTML=''}
-$('#modal').onclick=e=>{if(e.target.id==='modal')closeSheet()};
-
-/* ---------- 视图 ---------- */
-function go(v){
-  view=v;
-  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
-  $('#composer').style.display=(v==='chat')?'flex':'none';
-  draw();scheduleAuto();
-}
-function draw(){
-  $('#title').textContent={chat:'聊天',roles:'角色列表',mem:'记忆空间',cfg:'设置'}[view];
-  const c=curChar();
-  $('#who').textContent=(view!=='cfg'&&c)?((c.emoji||'')+' '+c.name):'';
-  if(view==='chat')renderChat();
-  else if(view==='roles')renderRoles();
-  else if(view==='mem')renderMem();
-  else renderCfg();
-}
-const scrollDown=()=>{const m=$('#main');m.scrollTop=m.scrollHeight};
-
-/* ---------- 聊天 ---------- */
-function renderChat(){
-  const c=curChar(),m=$('#main');
-  if(!c){m.innerHTML='<div class="hint">还没有角色<br><br><button class="pri" onclick="newChar()">＋ 新建角色</button></div>';return;}
-  m.innerHTML='<div id="msgs"></div>';
-  if(!msgs.length&&c.greeting){msgs.push({role:'assistant',content:c.greeting,t:Date.now()});persist();}
-  const box=$('#msgs');
-  msgs.forEach(x=>{
-    const d=document.createElement('div');
-    d.className='bub '+(x.role==='user'?'me':'ai');
-    d.innerHTML=nl2br(x.content);
-    box.appendChild(d);
-  });
-  scrollDown();
-}
-function memBlock(m){
-  const L=[];
-  const pk=(arr,n)=>arr.slice(-n).map(x=>'- '+x.text).join('\n');
-  if(m.core)L.push('【角色核心设定】\n'+m.core);
-  if(m.timeline&&m.timeline.length)L.push('【时间线】\n'+pk(m.timeline,15));
-  if(m.summaries&&m.summaries.length)L.push('【长期聊天记录总结】\n'+pk(m.summaries,10));
-  if(m.prefs&&m.prefs.length)L.push('【偏好与认知】\n'+pk(m.prefs,20));
-  if(m.habits&&m.habits.length)L.push('【性格与习惯】\n'+pk(m.habits,15));
-  return L.join('\n\n');
-}
-function buildCtx(c,extra){
-  const sys=[c.persona||('你是'+c.name+'。')];
-  if(c.scenario)sys.push('【当前情境】'+c.scenario);
-  const mb=memBlock(mem); if(mb)sys.push(mb);
-  if(c.style)sys.push('【说话风格】'+c.style);
-  sys.push('【硬性要求】中文回复；像真人发消息一样，短句为主；不要写括号旁白、不要解释设定、不要自称AI或模型。');
-  if(extra)sys.push(extra);
-  const hist=msgs.slice(-(cfg.ctx||30)).map(x=>({role:x.role,content:x.content}));
-  return [{role:'system',content:sys.join('\n\n')}].concat(hist);
-}
-async function callAPI(messages,opt){
-  opt=opt||{};
-  if(!cfg.key)throw new Error('先去设置里填 API Key');
-  const url=String(cfg.base||'').replace(/\/+$/,'')+'/chat/completions';
-  const body={model:opt.model||cfg.model,messages:messages,
-    temperature:(opt.temp!=null?opt.temp:cfg.temp),
-    max_tokens:opt.maxtok||cfg.maxtok,stream:!!opt.stream};
-  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)});
-  if(!res.ok){let t='';try{t=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(t).slice(0,180));}
-  if(!opt.stream){
-    const j=await res.json();
-    return (j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'';
-  }
-  if(!res.body){ // 老浏览器兜底：一次性读
-    const t=await res.text();let out='';
-    t.split('\n').forEach(l=>{l=l.trim();if(l.indexOf('data:')!==0)return;const d=l.slice(5).trim();if(d==='[DONE]')return;
-      try{const j=JSON.parse(d);const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;
-      if(c){out+=c;if(opt.onDelta)opt.onDelta(c)}}catch(e){}});
-    return out;
-  }
-  const rd=res.body.getReader(),dec=new TextDecoder();let buf='',out='';
-  for(;;){
-    const r=await rd.read(); if(r.done)break;
-    buf+=dec.decode(r.value,{stream:true});
-    const lines=buf.split('\n'); buf=lines.pop();
-    for(const raw of lines){
-      const line=raw.trim();
-      if(!line||line.indexOf('data:')!==0)continue;
-      const d=line.slice(5).trim();
-      if(d==='[DONE]')return out;
-      try{
-        const j=JSON.parse(d);
-        const de=j.choices&&j.choices[0]&&j.choices[0].delta;
-        const c=de&&de.content;
-        if(c){out+=c;if(opt.onDelta)opt.onDelta(c);}
-      }catch(e){}
-    }
-  }
-  return out;
-}
-async function send(){
-  const c=curChar(),inp=$('#inp');
-  const text=inp.value.trim();
-  if(!text||busy||!c)return;
-  inp.value='';inp.style.height='auto';
-  msgs.push({role:'user',content:text,t:Date.now()});persist();
-  if(view!=='chat')go('chat');
-  const box=$('#msgs');
-  const u=document.createElement('div');u.className='bub me';u.innerHTML=nl2br(text);box.appendChild(u);
-  const a=document.createElement('div');a.className='bub ai';a.textContent='…';box.appendChild(a);scrollDown();
-  busy=true;
-  try{
-    let out='';
-    await callAPI(buildCtx(c),{stream:true,model:modelOf(c),onDelta:d=>{out+=d;a.innerHTML=nl2br(out);scrollDown();}});
-    if(!out)throw new Error('模型没返回内容');
-    msgs.push({role:'assistant',content:out,t:Date.now()});persist();
-    a.innerHTML=nl2br(out);
-  }catch(e){
-    a.innerHTML='<span style="color:var(--warn)">出错：'+esc(e.message)+'</span>';
-  }
-  busy=false;
-}
-
-/* ---------- 自动发消息 ---------- */
-function scheduleAuto(){
-  clearTimeout(autoT);
-  const c=curChar();
-  if(!c||!cfg.autoOn||!c.auto||!c.auto.on||!cfg.key)return;
-  const a=c.auto,mi=Math.max(1,+a.min||30),ma=Math.max(mi+1,+a.max||90);
-  const wait=(mi+Math.random()*(ma-mi))*60000;
-  autoT=setTimeout(fireAuto,wait);
-}
-function isQuiet(a){
-  const h=new Date().getHours(),qs=+a.quietStart,qe=+a.quietEnd;
-  if(isNaN(qs)||isNaN(qe))return false;
-  return qs<=qe?(h>=qs&&h<qe):(h>=qs||h<qe);
-}
-async function fireAuto(){
-  const c=curChar();
-  if(c&&c.auto&&c.auto.on&&cfg.autoOn&&!isQuiet(c.auto)){
-    try{
-      const hint=c.auto.hint?('（'+c.auto.hint+'）'):'';
-      const extra='【系统】现在你先开口。主动给ta发一条消息，1-2句，符合你的性格和你们平时的相处方式，不解释为什么发。'+hint;
-      const out=await callAPI(buildCtx(c,extra),{model:modelOf(c),temp:Math.min(1,(cfg.temp||.85)+.1)});
-      if(out){
-        msgs.push({role:'assistant',content:out,t:Date.now()});persist();
-        if(view==='chat')renderChat();
-        notify(c.name,(c.emoji||'')+out.slice(0,80));
-      }
-    }catch(e){console.warn('自动消息失败',e);}
-  }
-  scheduleAuto();
-}
-function notify(title,body){
-  if(!cfg.notify)return;
-  if(document.visibilityState==='visible')return;
-  try{if('Notification' in window&&Notification.permission==='granted')new Notification(title,{body:body});}catch(e){}
-}
-
-/* ---------- 角色 ---------- */
-function renderRoles(){
-  const box=$('#main');
-  box.innerHTML='<div class="row" style="margin-bottom:10px"><button class="pri col" onclick="newChar()">＋ 新建角色</button></div>'+
-  (chars.length?chars.map(c=>{
-    const a=c.auto||{};
-    return '<div class="card '+(c.id===curId?'sel':'')+'" onclick="pick(\''+c.id+'\')">'+
-      '<div class="row" style="align-items:center">'+
-      '<div style="font-size:26px">'+esc(c.emoji||'🐋')+'</div>'+
-      '<div class="col"><b>'+esc(c.name)+'</b><div class="dim" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc((c.persona||'没有设定').slice(0,46))+'</div></div>'+
-      '<button class="ghost" onclick="event.stopPropagation();editChar(\''+c.id+'\')">编辑</button></div>'+
-      '<div class="dim" style="font-size:11px;margin-top:6px">'+(a.on?'自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟':'自动发消息：关')+'</div>'+
-      '</div>';
-  }).join(''):'<p class="hint">还没有角色</p>');
-}
-function pick(id){loadChar(id);go('chat');}
-function newChar(){
-  const c={id:uid(),name:'新角色',emoji:'🐋',persona:'',scenario:'',style:'',greeting:'',model:'',
-    auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''}};
-  chars.push(c);save(LS.chars,chars);loadChar(c.id);draw();editChar(c.id);
-}
-function editChar(id){
-  const c=chars.find(x=>x.id===id);if(!c)return;
-  const a=c.auto||(c.auto={on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''});
-  $('#sheet').innerHTML=
-  '<div class="ttl">角色设定</div>'+
-  '<div class="row"><div style="width:74px"><label class="f">头像</label><input id="e_emoji" value="'+esc(c.emoji||'')+'"></div>'+
-  '<div class="col"><label class="f">名字</label><input id="e_name" value="'+esc(c.name||'')+'"></div></div>'+
-  '<label class="f">人设（ta是谁、怎么说话、和你的关系）</label><textarea id="e_persona">'+esc(c.persona||'')+'</textarea>'+
-  '<label class="f">情境 / 世界观</label><textarea id="e_scenario">'+esc(c.scenario||'')+'</textarea>'+
-  '<label class="f">说话风格补充</label><input id="e_style" value="'+esc(c.style||'')+'">'+
-  '<label class="f">开场白（第一次进聊天自动发）</label><textarea id="e_greeting">'+esc(c.greeting||'')+'</textarea>'+
-  '<label class="f">单独指定模型（留空用默认）</label><input id="e_model" value="'+esc(c.model||'')+'">'+
-  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>自动发消息</b><div class="dim" style="font-size:12px">页面开着时，按随机间隔主动找你</div></div>'+
-  '<input type="checkbox" id="e_auto" '+(a.on?'checked':'')+'></div>'+
-  '<div class="row" style="margin-top:10px"><div class="col"><label class="f">最短（分钟）</label><input id="e_min" type="number" value="'+a.min+'"></div>'+
-  '<div class="col"><label class="f">最长（分钟）</label><input id="e_max" type="number" value="'+a.max+'"></div></div>'+
-  '<div class="row" style="margin-top:10px"><div class="col"><label class="f">免打扰 起（整点）</label><input id="e_qs" type="number" value="'+a.quietStart+'"></div>'+
-  '<div class="col"><label class="f">免打扰 止（整点）</label><input id="e_qe" type="number" value="'+a.quietEnd+'"></div></div>'+
-  '<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'"></div>'+
-  '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
-  '<button class="warn" onclick="delChar(\''+id+'\')">删除</button></div>'+
-  '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="closeSheet()">取消</button></div>';
-  openSheet();
-}
-function saveChar(id){
-  const c=chars.find(x=>x.id===id);if(!c)return;
-  const v=i=>{const el=document.getElementById(i);return el?el.value:''};
-  c.emoji=v('e_emoji').trim()||'🐋';
-  c.name=v('e_name').trim()||'无名';
-  c.persona=v('e_persona').trim();
-  c.scenario=v('e_scenario').trim();
-  c.style=v('e_style').trim();
-  c.greeting=v('e_greeting').trim();
-  c.model=v('e_model').trim();
-  c.auto={on:document.getElementById('e_auto').checked,min:+v('e_min')||30,max:+v('e_max')||90,
-    quietStart:+v('e_qs')||0,quietEnd:+v('e_qe')||8,hint:v('e_hint').trim()};
-  save(LS.chars,chars);closeSheet();draw();
-}
-function delChar(id){
-  if(!confirm('删掉这个角色？聊天记录和记忆一起没'))return;
-  localStorage.removeItem(LS.msg(id));localStorage.removeItem(LS.mem(id));
-  chars=chars.filter(c=>c.id!==id);save(LS.chars,chars);
-  if(curId===id){
-    curId=chars[0]?chars[0].id:null;save(LS.cur,curId);
-    if(curId)loadChar(curId);else{msgs=[];mem=EMPTY_MEM();}
-  }
-  closeSheet();draw();
-}
-
-/* ---------- 记忆空间 ---------- */
-function renderMem(){
-  const c=curChar(),m=$('#main');
-  if(!c){m.innerHTML='<p class="hint">先选个角色</p>';return;}
-  m.innerHTML=
-  '<div class="card"><div class="ttl">角色核心设定</div>'+
-  '<textarea id="mcore" style="min-height:96px" placeholder="这个角色是谁、核心是什么…">'+esc(mem.core||'')+'</textarea>'+
-  '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存</button>'+
-  '<button class="col" onclick="autoSummary()">总结最近 '+SUM_N+' 条</button></div></div>'+
-  listCard('时间线','timeline')+
-  listCard('长期聊天记录总结','summaries')+
-  listCard('角色偏好与认知','prefs')+
-  listCard('性格与习惯','habits')+
-  '<div style="height:16px"></div>';
-}
-function listCard(title,key){
-  const arr=mem[key]||[];
-  return '<div class="card"><div class="ttl">'+title+' <span class="dim" style="font-weight:400">('+arr.length+')</span></div>'+
-  '<div>'+(arr.length?arr.map((x,i)=>'<div class="li"><span>'+esc(x.text)+'</span><button class="x" onclick="delMem(\''+key+'\','+i+')">×</button></div>').join(''):'<p class="dim" style="font-size:13px">空</p>')+'</div>'+
-  '<div class="row" style="margin-top:8px"><input id="I_'+key+'" placeholder="新增一条…"><button onclick="addMem(\''+key+'\')">＋</button></div></div>';
-}
-function addMem(k){
-  const el=document.getElementById('I_'+k);if(!el)return;
-  const v=el.value.trim();if(!v)return;
-  mem[k]=mem[k]||[];mem[k].push({t:Date.now(),text:v});saveMem();renderMem();
-}
-function delMem(k,i){
-  if(!mem[k])return;
-  if(!confirm('删掉这条记忆？'))return;
-  mem[k].splice(i,1);saveMem();renderMem();
-}
-function saveCore(){
-  mem.core=$('#mcore').value.trim();saveMem();alert('已保存');
-}
-async function autoSummary(){
-  const c=curChar();
-  if(!c)return;
-  if(msgs.length<4)return alert('聊天记录太少，没什么可总结的');
-  const n=Math.min(SUM_N,msgs.length);
-  const slice=msgs.slice(-n).map(x=>(x.role==='user'?'她':c.name)+'：'+x.content).join('\n');
-  const q='把下面这段对话压缩成记忆条目。严格按格式输出，每行一个标签，没内容的写"无"，不要额外解释：\n'+
-  '核心:<一句话概括核心设定或关系，可写无>\n'+
-  '时间线:<按顺序记关键事件，多条用；分隔>\n'+
-  '总结:<这段对话发生了什么，200字内>\n'+
-  '偏好:<她的偏好、忌讳、在意的东西>\n'+
-  '习惯:<性格与行为习惯>\n\n对话如下：\n'+slice;
-  try{
-    const res=await callAPI([{role:'user',content:q}],{model:modelOf(c),temp:.3,maxtok:900});
-    const map={核心:'core',时间线:'timeline',总结:'summaries',偏好:'prefs',习惯:'habits'};
-    let hit=0;
-    res.split('\n').forEach(line=>{
-      const s=line.replace('：',':').replace(/^[-*\d.、\s]+/,'').trim();
-      const i=s.indexOf(':');
-      if(i<0)return;
-      const k=s.slice(0,i).trim(),v=s.slice(i+1).trim();
-      if(!map[k]||!v||v==='无')return;
-      hit++;
-      if(map[k]==='core'){mem.core=(mem.core?mem.core+'\n':'')+v;}
-      else{const kk=map[k];mem[kk]=mem[kk]||[];mem[kk].push({t:Date.now(),text:v});}
+      else{const kk=map[k];mem[kk]=mem[kk]||[];mem[kk].push({t:Date.now(),text:v})}
     });
     saveMem();renderMem();
-    alert(hit?('写进去 '+hit+' 条，自己看一遍，不对就手改'):'模型没按格式回，重试或直接把内容贴到对应框里');
-  }catch(e){alert('失败：'+e.message);}
+    alert(hit?('写进去 '+hit+' 条，自己看一遍，不对就手改'):'模型没按格式回，重试或手动贴');
+  }catch(e){alert('失败：'+e.message)}
 }
 
 /* ---------- 设置 ---------- */
@@ -926,8 +635,7 @@ function renderCfg(){
   '<div class="col"><label class="f">上下文条数</label><input id="c_ctx" type="number" value="'+cfg.ctx+'"></div></div>'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="saveCfg()">保存</button>'+
   '<button class="col" onclick="testAPI()">测试连接</button></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">Key 只存在你手机本地，不经过任何第三方。别人的手机别填。</p></div>'+
-
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">Key 只存在你手机本地。别人的手机别填。</p></div>'+
   '<div class="card"><div class="ttl">外观与交互</div>'+
   '<label class="f">主题</label><select id="c_theme"><option value="dark">深海</option><option value="light">浅色</option></select>'+
   '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
@@ -938,26 +646,24 @@ function renderCfg(){
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>系统通知</b><div class="dim" style="font-size:12px">页面在后台时弹通知（需授权）</div></div>'+
   '<input type="checkbox" id="c_notify" '+(cfg.notify?'checked':'')+'></div></div>'+
-
   '<div class="card"><div class="ttl">数据与备份</div>'+
   '<div class="row"><button class="col" onclick="exportAll()">导出备份</button>'+
   '<button class="col" onclick="document.getElementById(\'imp\').click()">导入备份</button></div>'+
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
   '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">换手机、清浏览器缓存之前记得先导出一次。</p></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">浏览器存储上限大概 5MB，档案别一次导太多。</p></div>'+
   '<p class="dim" style="font-size:12px;text-align:center;padding-bottom:24px">深蓝海域 · 本地版</p>';
-
   $('#c_theme').value=cfg.theme;
-  $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme();};
-  $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg);};
-  $('#c_auto').onchange=e=>{cfg.autoOn=e.target.checked;save(LS.cfg,cfg);scheduleAuto();};
+  $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
+  $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
+  $('#c_auto').onchange=e=>{cfg.autoOn=e.target.checked;save(LS.cfg,cfg);scheduleAuto()};
   $('#c_notify').onchange=async e=>{
     if(e.target.checked){
       if('Notification' in window){
         const p=await Notification.requestPermission();
         cfg.notify=(p==='granted');
         if(!cfg.notify)alert('通知权限没给，去浏览器设置里开');
-      }else{alert('这个浏览器不支持通知');cfg.notify=false;}
+      }else{alert('这个浏览器不支持通知');cfg.notify=false}
     }else cfg.notify=false;
     e.target.checked=cfg.notify;save(LS.cfg,cfg);
   };
@@ -972,17 +678,18 @@ function readCfgInputs(){
   cfg.maxtok=parseInt(v('c_maxtok'))||900;
   cfg.ctx=parseInt(v('c_ctx'))||30;
 }
-function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto();}
+function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto()}
 async function testAPI(){
   readCfgInputs();save(LS.cfg,cfg);
   try{
     const t=await callAPI([{role:'user',content:'回复一个字：好'}],{maxtok:10,stream:false});
     alert('通了 ✅ 模型回：'+t);
-  }catch(e){alert('失败：'+e.message);}
+  }catch(e){alert('失败：'+e.message)}
 }
 function exportAll(){
-  const d={v:1,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{}};
-  chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);});
+  const d={v:2,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},arcs:load(LS.arcs,[]),arcData:{}};
+  chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null)});
+  d.arcs.forEach(a=>{d.arcData[a.id]=load(LS.arc(a.id),[])});
   const blob=new Blob([JSON.stringify(d)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -999,15 +706,17 @@ function importAll(input){
       if(d.cfg)save(LS.cfg,d.cfg);
       if(d.chars)save(LS.chars,d.chars);
       if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
-      if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k]);});
+      if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
+      if(d.arcs)save(LS.arcs,d.arcs);
+      if(d.arcData)Object.keys(d.arcData).forEach(k=>save(LS.arc(k),d.arcData[k]));
       alert('导入完成，刷新一下');
       location.reload();
-    }catch(e){alert('文件读不了：'+e.message);}
+    }catch(e){alert('文件读不了：'+e.message)}
   };
   rd.readAsText(f);
 }
 function wipe(){
-  if(!confirm('清空全部数据？角色、聊天、记忆全没，不可恢复'))return;
+  if(!confirm('清空全部数据？角色、聊天、记忆、档案全没，不可恢复'))return;
   localStorage.clear();location.reload();
 }
 
@@ -1021,12 +730,11 @@ if(!chars.length){
 }
 if(!curId||!chars.find(c=>c.id===curId))curId=chars[0]?chars[0].id:null;
 if(curId)loadChar(curId);
-
 applyTheme();
 $$('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
 $('#send').onclick=send;
-$('#inp').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleAuto();});
+$('#inp').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleAuto()});
 go('chat');
 </script>
 </body>
