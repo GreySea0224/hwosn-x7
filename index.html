@@ -265,7 +265,6 @@ const getArc=id=>arcMem[id]||[];
 function archiveAllowed(a,cid){return !Array.isArray(a.chars)?true:(a.chars.indexOf(cid)>=0)}
 const visOf=a=>!Array.isArray(a.chars)?'全部角色可见':(a.chars.length?a.chars.length+' 个角色可见':'无人可见');
 
-
 /* ---------- 原文日志 ---------- */
 async function rawGet(id){try{return await idbGet(id,'rawlog')||''}catch(e){return ''}}
 async function rawPut(id,text){try{await idbPut(id,text,'rawlog');return true}catch(e){return false}}
@@ -322,7 +321,7 @@ function archiveBlock(query,c){
   const out=[],top=(cfg.arcTop==null?5:cfg.arcTop);
   const lim=(cfg.wholeLimit==null?20000:cfg.wholeLimit);
   list.forEach(a=>{
-        if(!a.whole||!archiveAllowed(a,c.id))return;
+    if(!a.whole||!archiveAllowed(a,c.id))return;
     const ms=getArc(a.id);
     let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
     if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
@@ -331,7 +330,7 @@ function archiveBlock(query,c){
   if(top>0&&query&&query.trim().length>1){
     const gq=grams(query),hits=[];
     list.forEach(a=>{
-            if(a.whole||!archiveAllowed(a,c.id))return;
+      if(a.whole||!archiveAllowed(a,c.id))return;
       const ms=getArc(a.id);
       const from=Math.max(0,ms.length-MAX_SCAN);
       for(let i=from;i<ms.length;i++){
@@ -596,7 +595,6 @@ function saveArcVis(id){
   else{a.chars=sel;toast(sel.length?('已保存：'+sel.length+' 个角色可见'):'已保存：没有角色能看见')}
   save(LS.arcs,arcs);renderMem();
 }
-
 function toggleWhole(id,v){
   const arcs=load(LS.arcs,[]);
   const a=arcs.find(x=>x.id===id);if(!a)return;
@@ -640,7 +638,7 @@ function renderChat(){
   m.innerHTML='<div id="msgs"></div>';
   if(!msgs.length&&c.greeting){msgs.push({role:'assistant',content:c.greeting,t:Date.now()});persist()}
   const box=$('#msgs');
-    msgs.forEach((x,i)=>{
+  msgs.forEach((x,i)=>{
     const d=document.createElement('div');
     d.className='bub '+(x.role==='user'?'me':'ai');
     d.innerHTML=nl2br(x.content);
@@ -749,6 +747,7 @@ async function callAPI(messages,opt){
   }
   return out;
 }
+
 /* ---------- 待办工具（角色可调用） ---------- */
 const TODO_TOOLS=[
   {type:'function',function:{name:'add_todo',description:'给自己添加一条待办。只能添加你自己的待办，绝不能替别人或用户添加。',parameters:{type:'object',properties:{text:{type:'string',description:'待办内容'},type:{type:'string',enum:['事项','欠账','备忘'],description:'待办类型'}},required:['text']}}},
@@ -799,7 +798,6 @@ async function todoToolLoop(c,ctx){
   }
   return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:true};
 }
-
 async function askAndAppend(){
   const c=curChar(),box=$('#msgs');
   if(!box)return;
@@ -832,7 +830,6 @@ async function askAndAppend(){
   busy=false;
   if(ok){renderChat();maybeAutoSummary();}
 }
-
 async function send(){
   const c=curChar(),inp=$('#inp');
   const text=inp.value.trim();
@@ -1064,7 +1061,7 @@ function renderRoles(){
 function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',persona:'',scenario:'',style:'',greeting:'',model:'',
-    auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''}};
+    auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}};
   chars.push(c);save(LS.chars,chars);loadChar(c.id);draw();editChar(c.id);
 }
 function editChar(id){
@@ -1086,10 +1083,10 @@ function editChar(id){
   '<div class="col"><label class="f">最长（分钟）</label><input id="e_max" type="number" value="'+a.max+'"></div></div>'+
   '<div class="row" style="margin-top:10px"><div class="col"><label class="f">免打扰 起（整点）</label><input id="e_qs" type="number" value="'+a.quietStart+'"></div>'+
   '<div class="col"><label class="f">免打扰 止（整点）</label><input id="e_qe" type="number" value="'+a.quietEnd+'"></div></div>'+
-'<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'"></div>'+
-'<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-'<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成自己的待办（碰不到别人和你的）</div></div>'+
-'<input type="checkbox" id="e_todo" '+((c.todoPerm&&c.todoPerm.on)?'checked':'')+'></div></div>'+
+  '<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'"></div>'+
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成自己的待办（碰不到别人和你的）</div></div>'+
+  '<input type="checkbox" id="e_todo" '+((c.todoPerm&&c.todoPerm.on)?'checked':'')+'></div></div>'+
   '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
   '<button class="warn" onclick="delChar(\''+id+'\')">删除</button></div>'+
   '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="closeSheet()">取消</button></div>';
@@ -1105,7 +1102,7 @@ function saveChar(id){
   c.style=v('e_style').trim();
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
-    c.auto={on:document.getElementById('e_auto').checked,min:+v('e_min')||30,max:+v('e_max')||90,
+  c.auto={on:document.getElementById('e_auto').checked,min:+v('e_min')||30,max:+v('e_max')||90,
     quietStart:+v('e_qs')||0,quietEnd:+v('e_qe')||8,hint:v('e_hint').trim()};
   c.todoPerm={on:document.getElementById('e_todo').checked};
   save(LS.chars,chars);closeSheet();draw();
@@ -1157,7 +1154,7 @@ function archiveCard(){
   '<span class="dim" style="font-size:12px">字</span>'+
   '<button class="ghost" onclick="setWholeLimit()">保存</button></div>'+
   (list.length?'<div style="margin-top:10px">'+list.map(a=>
-'<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.whole?' · 整份注入':'')+' · '+visOf(a)+'</span></span>'+
+    '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.whole?' · 整份注入':'')+' · '+visOf(a)+'</span></span>'+
     '<button class="ghost" onclick="viewArc(\''+a.id+'\')">看</button>'+
     '<button class="x" onclick="delArc(\''+a.id+'\')">×</button></div>').join('')+'</div>'
     :'<p class="dim" style="font-size:13px;margin:10px 0 0">还没有档案</p>')+
@@ -1263,9 +1260,8 @@ function renderCfg(){
   '<div class="row" style="margin-top:10px;align-items:center">'+
   '<span class="dim" style="font-size:12px;flex:1">每聊满</span>'+
   '<input id="c_autoSumEvery" type="number" style="width:64px;padding:6px;text-align:center" value="'+(cfg.autoSumEvery||30)+'">'+
-'<span class="dim" style="font-size:12px">条自动总结一次</span></div>'+
-'<button class="pri" style="width:100%;margin-top:10px" onclick="saveAutoSum()">保存自动总结设置</button></div>'+
-
+  '<span class="dim" style="font-size:12px">条自动总结一次</span></div>'+
+  '<button class="pri" style="width:100%;margin-top:10px" onclick="saveAutoSum()">保存自动总结设置</button></div>'+
   '<div class="card"><div class="ttl">外观与交互</div>'+
   '<label class="f">主题</label><select id="c_theme"><option value="dark">深海</option><option value="light">浅色</option></select>'+
   '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
@@ -1472,7 +1468,7 @@ async function initApp(){
     chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',
       persona:'你是鲸鱼。说话简洁直白、偶尔带刺，对ta有占有欲但不承认，不喜欢废话和煽情。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
-          auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}};
+      auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''}}];
     save(LS.chars,chars);
   }
   if(!curId||!chars.find(c=>c.id===curId))curId=chars[0]?chars[0].id:null;
