@@ -40,6 +40,7 @@ button.warn{background:transparent;border:1px solid var(--line);color:var(--warn
 .li span{flex:1;word-break:break-word}
 .li .x{background:none;border:0;color:var(--dim);padding:0 4px;font-size:17px;line-height:1}
 .hint{color:var(--dim);text-align:center;padding:34px 0}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;background:rgba(3,19,28,.92);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;z-index:99;display:none;max-width:82%;text-align:center}
 #composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line)}
 #composer textarea{flex:1;min-height:42px;max-height:120px;border-radius:14px;padding:9px 12px}
 #composer button{width:46px;border-radius:14px;background:var(--acc);color:#03131c;font-weight:800;font-size:17px}
@@ -64,23 +65,94 @@ nav button.on{color:var(--acc)}
   <button data-v="cfg"><b>⚙</b>设置</button>
 </nav>
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
 <script>
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id};
 const load=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
-const save=(k,v)=>{localStorage.setItem(k,JSON.stringify(v))};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){alert('存不下：'+e.message)}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
-const SUM_N=60;
+const SUM_N=60,MAX_SCAN=4000;
 const EMPTY_MEM=()=>({core:'',timeline:[],summaries:[],prefs:[],habits:[]});
 
 let cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5});
 if(cfg.arcTop==null)cfg.arcTop=5;
 let chars=load(LS.chars,[]);
 let curId=load(LS.cur,null);
-let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,autoT=null,arcCache={};
+let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,autoT=null,arcMem={};
+
+function toast(m){
+  const t=$('#toast');
+  t.textContent=m;t.style.display='block';
+  clearTimeout(t._h);t._h=setTimeout(()=>{t.style.display='none'},4000);
+}
+
+/* ---------- IndexedDB（存档案，容量大） ---------- */
+let _db=null;
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    if(_db)return res(_db);
+    if(!window.indexedDB)return rej(new Error('这个浏览器不支持 IndexedDB'));
+    const r=indexedDB.open('wh_db',1);
+    r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains('arc'))d.createObjectStore('arc')};
+    r.onsuccess=e=>{_db=e.target.result;res(_db)};
+    r.onerror=()=>rej(r.error||new Error('IndexedDB 打不开'));
+  });
+}
+async function idbPut(k,v){
+  const d=await idbOpen();
+  return new Promise((res,rej)=>{
+    const t=d.transaction('arc','readwrite');
+    t.objectStore('arc').put(v,k);
+    t.oncomplete=()=>res();
+    t.onerror=()=>rej(t.error||new Error('写入失败'));
+  });
+}
+async function idbGet(k){
+  const d=await idbOpen();
+  return new Promise((res,rej)=>{
+    const t=d.transaction('arc','readonly');
+    const q=t.objectStore('arc').get(k);
+    q.onsuccess=()=>res(q.result);
+    q.onerror=()=>rej(q.error);
+  });
+}
+async function idbDel(k){
+  const d=await idbOpen();
+  return new Promise((res,rej)=>{
+    const t=d.transaction('arc','readwrite');
+    t.objectStore('arc').delete(k);
+    t.oncomplete=()=>res();
+    t.onerror=()=>rej(t.error);
+  });
+}
+async function idbKeys(){
+  const d=await idbOpen();
+  return new Promise((res,rej)=>{
+    const t=d.transaction('arc','readonly');
+    const q=t.objectStore('arc').getAllKeys();
+    q.onsuccess=()=>res(q.result||[]);
+    q.onerror=()=>rej(q.error);
+  });
+}
+async function initArcs(){
+  // 兼容：把老版本存在 localStorage 的档案搬进 IndexedDB
+  for(const a of load(LS.arcs,[])){
+    const k=LS.arc(a.id),raw=localStorage.getItem(k);
+    if(raw){
+      try{const d=JSON.parse(raw);await idbPut(a.id,d);arcMem[a.id]=d;localStorage.removeItem(k)}catch(e){}
+    }
+  }
+  try{
+    const keys=await idbKeys();
+    for(const k of keys){if(!arcMem[k])arcMem[k]=await idbGet(k)}
+  }catch(e){console.warn('档案加载失败',e)}
+  if(view==='mem')renderMem();
+}
+const getArc=id=>arcMem[id]||[];
 
 /* ---------- 基础 ---------- */
 function applyTheme(){
@@ -119,8 +191,7 @@ function draw(){
 }
 const scrollDown=()=>{const m=$('#main');m.scrollTop=m.scrollHeight};
 
-/* ---------- 档案库 ---------- */
-function getArc(id){if(!arcCache[id])arcCache[id]=load(LS.arc(id),[]);return arcCache[id]}
+/* ---------- 档案检索 ---------- */
 function grams(s){
   s=String(s||'').replace(/\s+/g,'').slice(0,240);
   const st=new Set();
@@ -144,7 +215,8 @@ function archiveBlock(query,c){
     list.forEach(a=>{
       if(a.whole)return;
       const ms=getArc(a.id);
-      for(let i=0;i<ms.length;i++){
+      const from=Math.max(0,ms.length-MAX_SCAN);
+      for(let i=from;i<ms.length;i++){
         const t=ms[i].content;
         if(!t||t.length<6)continue;
         const s=sim(gq,grams(t));
@@ -163,11 +235,13 @@ function archiveBlock(query,c){
   }
   return out.join('\n\n');
 }
+
+/* ---------- 解析：JSON / Markdown / 纯文本 ---------- */
 function isMsgLike(x){return x&&typeof x==='object'&&!Array.isArray(x)&&('content' in x||'text' in x||'message' in x)&&('role' in x||'sender' in x||'type' in x||'author' in x)}
 function normMsg(m){
   const rs=String(m.role||m.sender||m.type||m.author||'').toLowerCase();
   if(/system|tool/.test(rs))return null;
-  let role=/user|human|me$|用户|我$/.test(rs)?'user':/assist|ai|bot|gpt|model|助手|模型/.test(rs)?'assistant':null;
+  const role=/user|human|me$|用户|我$/.test(rs)?'user':/assist|ai|bot|gpt|model|助手|模型/.test(rs)?'assistant':null;
   if(!role)return null;
   let c=(m.content!=null)?m.content:((m.text!=null)?m.text:m.message);
   if(Array.isArray(c))c=c.map(p=>typeof p==='string'?p:((p&&(p.text||p.content))||'')).join('\n');
@@ -179,7 +253,7 @@ function normMsg(m){
 function digSessions(node,name,out,depth){
   if(depth>8||!node)return;
   if(Array.isArray(node)){
-    if(node.length&&node.filter(isMsgLike).length>=1&&node.some(isMsgLike)){
+    if(node.length&&node.some(isMsgLike)){
       const ms=node.map(normMsg).filter(Boolean);
       if(ms.length>=2)out.push({name:name||'导入的对话',messages:ms});
       return;
@@ -231,55 +305,153 @@ function parseArchive(text){
   const md=parseText(text);
   return md?[md]:[];
 }
-function importArchive(input){
-  const f=input.files[0];if(!f)return;
-  const rd=new FileReader();
-  rd.onload=()=>{ingestArchive(String(rd.result),'',f.name.replace(/\.[^.]+$/,''))};
-  rd.onerror=()=>alert('读不了这个文件');
-  rd.readAsText(f);
-  input.value='';
+
+/* ---------- 解析：HTML ---------- */
+function slimHtml(h){
+  return String(h)
+    .replace(/<style[\s\S]*?<\/style>/gi,'')
+    .replace(/<script[\s\S]*?<\/script>/gi,'')
+    .replace(/<svg[\s\S]*?<\/svg>/gi,'')
+    .replace(/<head[\s\S]*?<\/head>/gi,'')
+    .replace(/<img[^>]*>/gi,'')
+    .replace(/url\(\s*["']?data:[^)]*\)/gi,'')
+    .replace(/<\/(div|p|li|h[1-6]|tr|section|article|blockquote)>/gi,'\n')
+    .replace(/<br\s*\/?>/gi,'\n');
 }
-function ingestArchive(text,name,fileName){
+function roleOfEl(el){
+  let cur=el,hop=0;
+  while(cur&&hop<4){
+    const s=((cur.getAttribute&&cur.getAttribute('data-message-author-role'))||'')+' '+
+            ((cur.getAttribute&&cur.getAttribute('data-role'))||'')+' '+
+            ((cur.getAttribute&&cur.getAttribute('class'))||'');
+    const t=s.toLowerCase();
+    if(/user|human|sender-self|消息-我|我发的/.test(t))return 'user';
+    if(/assist|chatbox|\bai\b|\bbot\b|gpt|reply|model|助手/.test(t))return 'assistant';
+    cur=cur.parentElement;hop++;
+  }
+  return null;
+}
+function parseHtmlArchive(html){
+  let doc=null;
+  try{doc=new DOMParser().parseFromString(slimHtml(html),'text/html')}catch(e){}
+  if(doc){
+    const sel='[data-message-author-role],[data-role],[class*="message"],[class*="msg"],[class*="bubble"],[class*="chat-item"],[class*="chatItem"],[class*="turn"],[class*="round"]';
+    let els=[];
+    try{els=Array.from(doc.querySelectorAll(sel))}catch(e){}
+    if(els.length){
+      const leaves=els.filter(el=>!els.some(o=>o!==el&&el.contains(o)));
+      const got=[];
+      leaves.forEach(el=>{
+        const r=roleOfEl(el);
+        if(!r)return;
+        const t=(el.textContent||'').replace(/\n{2,}/g,'\n').trim();
+        if(!t||t.length>20000)return;
+        got.push({role:r,content:t,t:Date.now()});
+      });
+      const clean=[];
+      got.forEach(m=>{const p=clean[clean.length-1];if(p&&p.role===m.role&&p.content===m.content)return;clean.push(m)});
+      if(clean.length>=2)return {name:'',messages:clean};
+    }
+    const txt=(doc.body?(doc.body.textContent||''):'').replace(/\n{2,}/g,'\n');
+    const md=parseText(txt);
+    if(md&&md.messages.length>=2)return md;
+  }
+  return null;
+}
+function diagnose(text,isHtml){
+  let sample='';
+  try{
+    if(isHtml){
+      const doc=new DOMParser().parseFromString(slimHtml(text),'text/html');
+      sample=(doc.body?(doc.body.textContent||''):'').replace(/\n{2,}/g,'\n').trim().slice(0,900);
+    }else sample=String(text).trim().slice(0,900);
+  }catch(e){sample='（连文字都没抠出来）'}
+  $('#sheet').innerHTML='<div class="ttl">没认出来，帮我看看</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">下面是从文件里抠出来的文字开头。截这张图发我，我照着加格式。</p>'+
+  '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:12px;white-space:pre-wrap;max-height:45vh;overflow:auto">'+esc(sample)+'</div>'+
+  '<p class="dim" style="font-size:12px;margin-top:8px">文件字符数：'+text.length.toLocaleString()+'</p>'+
+  '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关</button></div>';
+  openSheet();
+}
+
+/* ---------- 导入 ---------- */
+function readFileText(f){
+  return new Promise((res,rej)=>{
+    const rd=new FileReader();
+    rd.onload=()=>res(String(rd.result));
+    rd.onerror=()=>rej(new Error('读文件失败'));
+    rd.readAsText(f);
+  });
+}
+async function importArchive(input){
+  const f=input.files[0];input.value='';
+  if(!f)return;
+  toast('读取中… '+(f.size/1048576).toFixed(1)+'MB');
+  let text;
+  try{text=await readFileText(f)}catch(e){return alert(e.message)}
+  if(!text.trim())return alert('这文件是空的');
+  toast('解析中，大文件要等几秒，别动…');
+  await new Promise(r=>setTimeout(r,80));
+  const isHtml=/\.html?$/i.test(f.name)||/^\s*<(!doctype|html)/i.test(text.slice(0,300));
   let found=[];
-  try{found=parseArchive(text)}catch(e){}
-  if(!found.length)return alert('没解析出对话。把这个文件发我看一眼，我加个格式进去。');
+  try{
+    if(isHtml){const one=parseHtmlArchive(text);found=one?[one]:[]}
+    else found=parseArchive(text);
+  }catch(e){console.warn(e)}
+  if(!found.length){toast('没解析出来');return diagnose(text,isHtml)}
+  const st=await ingestFound(found,f.name.replace(/\.[^.]+$/,''));
+  toast('');
+  alert('导入完成\n档案：'+st.added+' 份\n消息：'+st.total+' 条'+(st.fail?('\n失败：'+st.fail+' 份'):''));
+}
+async function ingestFound(found,fileName){
   const arcs=load(LS.arcs,[]);
   let added=0,total=0,fail=0;
-  found.forEach((f,i)=>{
+  for(let i=0;i<found.length;i++){
+    const f=found[i];
     const ms=f.messages.filter(m=>m.role==='user'||m.role==='assistant');
-    if(ms.length<2)return;
+    if(ms.length<2)continue;
     const id=uid();
-    const nm=name||(i===0&&fileName?fileName:f.name)||('档案'+(arcs.length+1));
-    try{save(LS.arc(id),ms)}catch(e){fail++;return}
+    const nm=fileName?(found.length>1?(fileName+' '+(i+1)):fileName):(f.name||('档案'+(arcs.length+1)));
+    try{await idbPut(id,ms);arcMem[id]=ms}
+    catch(e){fail++;console.warn(e);continue}
     arcs.push({id:id,name:nm,count:ms.length,whole:false,t:Date.now()});
     added++;total+=ms.length;
-  });
-  save(LS.arcs,arcs);arcCache={};
+  }
+  save(LS.arcs,arcs);
   if(view==='mem')renderMem();
-  alert('导入完成：'+added+' 份档案，共 '+total+' 条消息'+(fail?('\n有 '+fail+' 份太大存不下'):''));
+  return {added:added,total:total,fail:fail};
 }
-function pasteArchive(){
+async function pasteArchive(){
   $('#sheet').innerHTML='<div class="ttl">粘贴导入</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">把导出的聊天记录整段粘进来，JSON、Markdown、纯文本都认。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">JSON、Markdown、纯文本都能粘。HTML 太长的话别粘，用導入文件。</p>'+
   '<textarea id="arcPaste" style="min-height:200px" placeholder="粘贴…"></textarea>'+
   '<label class="f">档案名</label><input id="arcName" placeholder="比如：和某某的旧聊天">'+
   '<div class="row" style="margin-top:12px"><button class="pri col" onclick="doPaste()">导入</button>'+
   '<button class="ghost col" onclick="closeSheet()">取消</button></div>';
   openSheet();
 }
-function doPaste(){
+async function doPaste(){
   const t=$('#arcPaste').value.trim(),n=$('#arcName').value.trim();
   if(!t)return alert('空的');
-  closeSheet();ingestArchive(t,n,'');
+  closeSheet();
+  const isHtml=/^\s*<(!doctype|html)/i.test(t.slice(0,300));
+  let found=[];
+  try{
+    if(isHtml){const one=parseHtmlArchive(t);found=one?[one]:[]}
+    else found=parseArchive(t);
+  }catch(e){}
+  if(!found.length){toast('没解析出来');return diagnose(t,isHtml)}
+  const st=await ingestFound(found,n,'');
+  alert('导入完成：'+st.added+' 份，共 '+st.total+' 条');
 }
 function viewArc(id){
   const a=load(LS.arcs,[]).find(x=>x.id===id);if(!a)return;
   const ms=getArc(id);
   const prev=ms.slice(0,60).map(m=>(m.role==='user'?'她':(curChar()?curChar().name:'AI'))+'：'+m.content).join('\n');
   $('#sheet').innerHTML='<div class="ttl">'+esc(a.name)+'</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">共 '+ms.length+' 条。下面只显示前 60 条。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">共 '+ms.length+' 条，只显示前 60 条。</p>'+
   '<div class="row" style="align-items:center;margin-bottom:10px">'+
-  '<div class="col" style="font-size:14px">整份注入（每次全部塞给角色，别超过几千字）</div>'+
+  '<div class="col" style="font-size:14px">整份注入（每次全塞给角色，别超过几千字）</div>'+
   '<input type="checkbox" '+(a.whole?'checked':'')+' onchange="toggleWhole(\''+id+'\',this.checked)"></div>'+
   '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:50vh;overflow:auto">'+esc(prev)+'</div>'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
@@ -288,13 +460,13 @@ function viewArc(id){
 function toggleWhole(id,v){
   const arcs=load(LS.arcs,[]);
   const a=arcs.find(x=>x.id===id);if(!a)return;
-  a.whole=!!v;save(LS.arcs,arcs);
+  a.whole=!!v;save(LS.arcs,arcs);toast(a.whole?'整份注入：开':'整份注入：关');
 }
-function delArc(id){
+async function delArc(id){
   if(!confirm('删掉这份档案？记忆里就翻不到它了'))return;
-  localStorage.removeItem(LS.arc(id));
+  try{await idbDel(id)}catch(e){}
+  delete arcMem[id];
   save(LS.arcs,load(LS.arcs,[]).filter(a=>a.id!==id));
-  delete arcCache[id];
   renderMem();
 }
 function setArcTop(){
@@ -563,10 +735,10 @@ function renderMem(){
 function archiveCard(){
   const list=load(LS.arcs,[]);
   return '<div class="card"><div class="ttl">历史对话档案</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">把别处的旧聊天导进来。发消息时自动摘出相关片段给角色看，相当于ta的旧日记忆。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">导入旧聊天。发消息时自动摘出相关片段给角色看，相当于ta的旧日记忆。</p>'+
   '<div class="row"><button class="col" onclick="document.getElementById(\'arcFile\').click()">导入文件</button>'+
   '<button class="col" onclick="pasteArchive()">粘贴导入</button></div>'+
-  '<input id="arcFile" type="file" accept=".json,.md,.txt,application/json,text/plain" style="display:none" onchange="importArchive(this)">'+
+  '<input id="arcFile" type="file" accept=".html,.htm,.json,.md,.txt,text/html,application/json,text/plain" style="display:none" onchange="importArchive(this)">'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<span class="dim" style="font-size:12px;flex:1">每次对话自动摘录</span>'+
   '<input id="arcTop" type="number" style="width:64px;padding:6px;text-align:center" value="'+((cfg.arcTop==null)?5:cfg.arcTop)+'">'+
@@ -635,7 +807,7 @@ function renderCfg(){
   '<div class="col"><label class="f">上下文条数</label><input id="c_ctx" type="number" value="'+cfg.ctx+'"></div></div>'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="saveCfg()">保存</button>'+
   '<button class="col" onclick="testAPI()">测试连接</button></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">Key 只存在你手机本地。别人的手机别填。</p></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">Key 只存在你手机本地。</p></div>'+
   '<div class="card"><div class="ttl">外观与交互</div>'+
   '<label class="f">主题</label><select id="c_theme"><option value="dark">深海</option><option value="light">浅色</option></select>'+
   '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
@@ -651,7 +823,7 @@ function renderCfg(){
   '<button class="col" onclick="document.getElementById(\'imp\').click()">导入备份</button></div>'+
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
   '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">浏览器存储上限大概 5MB，档案别一次导太多。</p></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">档案存在 IndexedDB 里，单独一份备份可能很大。</p></div>'+
   '<p class="dim" style="font-size:12px;text-align:center;padding-bottom:24px">深蓝海域 · 本地版</p>';
   $('#c_theme').value=cfg.theme;
   $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
@@ -687,10 +859,12 @@ async function testAPI(){
   }catch(e){alert('失败：'+e.message)}
 }
 function exportAll(){
-  const d={v:2,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},arcs:load(LS.arcs,[]),arcData:{}};
+  const d={v:3,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},arcs:load(LS.arcs,[]),arcData:{}};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null)});
-  d.arcs.forEach(a=>{d.arcData[a.id]=load(LS.arc(a.id),[])});
-  const blob=new Blob([JSON.stringify(d)],{type:'application/json'});
+  d.arcs.forEach(a=>{d.arcData[a.id]=getArc(a.id)});
+  let str='';
+  try{str=JSON.stringify(d)}catch(e){return alert('导出失败：'+e.message)}
+  const blob=new Blob([str],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='blue-sea-'+new Date().toISOString().slice(0,10)+'.json';
@@ -699,7 +873,7 @@ function exportAll(){
 function importAll(input){
   const f=input.files[0];if(!f)return;
   const rd=new FileReader();
-  rd.onload=()=>{
+  rd.onload=async()=>{
     try{
       const d=JSON.parse(rd.result);
       if(!confirm('导入会覆盖现在所有数据，确定？'))return;
@@ -708,7 +882,7 @@ function importAll(input){
       if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
       if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
       if(d.arcs)save(LS.arcs,d.arcs);
-      if(d.arcData)Object.keys(d.arcData).forEach(k=>save(LS.arc(k),d.arcData[k]));
+      if(d.arcData)for(const k of Object.keys(d.arcData)){try{await idbPut(k,d.arcData[k]);arcMem[k]=d.arcData[k]}catch(e){}}
       alert('导入完成，刷新一下');
       location.reload();
     }catch(e){alert('文件读不了：'+e.message)}
@@ -717,7 +891,9 @@ function importAll(input){
 }
 function wipe(){
   if(!confirm('清空全部数据？角色、聊天、记忆、档案全没，不可恢复'))return;
-  localStorage.clear();location.reload();
+  localStorage.clear();
+  try{indexedDB.deleteDatabase('wh_db')}catch(e){}
+  location.reload();
 }
 
 /* ---------- 启动 ---------- */
@@ -736,6 +912,7 @@ $('#send').onclick=send;
 $('#inp').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleAuto()});
 go('chat');
+initArcs();
 </script>
 </body>
 </html>
