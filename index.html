@@ -184,6 +184,15 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
 const SUM_N=60,MAX_SCAN=4000;
+/* ---------- 历史档案「总结版」参数 ---------- */
+const ARC_CHUNK=40;          // 每段精读条数（越小越不容易丢记忆，但调用次数越多）
+const ARC_OVERLAP=4;         // 段与段重叠条数，防止边界事件被截断丢失
+const ARC_ONE_MSG_MAX=1500;  // 单条消息最多保留字数，防止超长单条撑爆
+const ARC_MAP_TOK=1600;      // 单段笔记最大输出 token
+const ARC_REDUCE_TOK=3200;   // 归并输出最大 token
+const ARC_NOTE_CAP=3000;     // 单段笔记保存上限（字数）
+const ARC_REDUCE_BATCH=2400; // 归并时每批笔记字数上限
+const ARC_SUM_BUDGET=2600;   // 最终总结版目标字数上限
 const EMPTY_MEM=()=>({core:'',timeline:[],summaries:[],prefs:[],habits:[]});
 
 let cfg=null, chars=[], curId=null;
@@ -381,13 +390,20 @@ function archiveBlock(query,c){
   if(!list.length)return '';
   const out=[],top=(cfg.arcTop==null?5:cfg.arcTop);
   const lim=(cfg.wholeLimit==null?20000:cfg.wholeLimit);
-  list.forEach(a=>{
-    if(!a.whole||a.off||!archiveAllowed(a,c.id))return;
-    const ms=getArc(a.id);
-    let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
-    if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
-    if(t)out.push('【《'+a.name+'》全文·这是你们真实发生过的过去】\n'+t);
+    list.forEach(a=>{
+    if(a.off||!archiveAllowed(a,c.id))return;
+    if(a.whole){
+      const ms=getArc(a.id);
+      let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
+      if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
+      if(t)out.push('【《'+a.name+'》全文·这是你们真实发生过的过去】\n'+t);
+    }else if(a.summOn&&a.sum){
+      let s=a.sum;
+      if(lim>0&&s.length>lim)s=s.slice(0,lim)+'……';
+      out.push('【《'+a.name+'》总结版·这是你们真实经历过的事，你记得这些】\n'+s);
+    }
   });
+
   if(top>0&&query&&query.trim().length>1){
     const gq=grams(query),hits=[];
     list.forEach(a=>{
@@ -637,9 +653,10 @@ function viewArc(id){
   '<div class="col" style="font-size:14px">整份注入（每次全塞给角色）</div>'+
   '<input type="checkbox" '+(a.whole?'checked':'')+' onchange="toggleWhole(\''+id+'\',this.checked)"></div>'+
   '<div class="row" style="margin-bottom:10px">'+
-  '<button class="col" onclick="summarizeArc(\''+id+'\')">🧠 总结进记忆</button>'+
+  '<button class="col" onclick="summarizeArc(\''+id+'\')">🧠 '+(a.sum?'重新生成总结版':'生成总结版')+'</button>'+
   '<button class="col" onclick="'+(a.off?('toggleArcOff(\''+id+'\',false)'):('toggleArcOff(\''+id+'\',true)'))+'">'+(a.off?'打开注入':'关闭注入')+'</button></div>'+
-  (a.summarized?'<p class="dim" style="font-size:12px;margin:0 0 8px">已总结过，当前'+(a.off?'已关闭注入':'仍在注入')+'</p>':'')+
+  summaryPanel(a)+
+
   '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:38vh;overflow:auto">'+esc(prev)+'</div>'+
   '<div class="card" style="margin-top:12px"><div class="ttl">哪些角色能看见这份档案</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 6px">勾上的角色聊天时才会注入这份档案；没勾的看不到。</p>'+
@@ -649,6 +666,28 @@ function viewArc(id){
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
   openSheet();
 }
+function summaryPanel(a){
+  if(!a.sum)return '<p class="dim" style="font-size:12px;margin:0 0 10px">还没有总结版。点上面的按钮生成，生成后角色聊天时就能读到。</p>';
+  return '<div class="card" style="margin:0 0 12px;background:var(--bg)">'+
+  '<div class="row" style="align-items:center"><div class="col" style="font-size:13px"><b>总结版</b> '+
+  '<span class="dim">（'+a.sum.length+' 字'+(a.sumCount?('，基于 '+a.sumCount+' 条'):'')+'，'+(a.sumChunks?a.sumChunks+' 段归并':'')+'）</span></div>'+
+  '<input type="checkbox" '+(a.summOn?'checked':'')+' onchange="toggleArcSum(\''+a.id+'\',this.checked)"></div>'+
+  '<p class="dim" style="font-size:12px;margin:6px 0">勾上＝聊天时把这份总结版注入给角色读。可直接编辑后保存。</p>'+
+  '<textarea id="arcSumBox" style="min-height:240px;font-size:13px">'+esc(a.sum)+'</textarea>'+
+  '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveArcSum(\''+a.id+'\')">保存总结版</button></div></div>';
+}
+function toggleArcSum(id,v){
+  const arcs=load(LS.arcs,[]);const a=arcs.find(x=>x.id===id);if(!a)return;
+  a.summOn=!!v;save(LS.arcs,arcs);scheduleBackup();
+  toast(a.summOn?'已开启：聊天时注入总结版':'已关闭：不再注入总结版');
+}
+function saveArcSum(id){
+  const el=document.getElementById('arcSumBox');if(!el)return;
+  const arcs=load(LS.arcs,[]);const a=arcs.find(x=>x.id===id);if(!a)return;
+  a.sum=el.value.trim();a.sumAt=Date.now();save(LS.arcs,arcs);scheduleBackup();
+  toast('总结版已保存');if(view==='mem')renderMem();
+}
+
 function visAll(id,on){
   chars.forEach(ch=>{const el=document.getElementById('v_'+ch.id);if(el)el.checked=on});
 }
@@ -672,42 +711,130 @@ function toggleArcOff(id,v){
   toast(a.off?'已归档：以后发消息不再自动读这份记忆':'已打开：发消息时会重新读这份记忆');
   if(view==='mem')renderMem();
 }
+/* ---------- 历史档案：分段精读 → 全局归并 → 总结版 ---------- */
+function arcLines(ms,from,to,cname){
+  return ms.slice(from,to).map(m=>{
+    let t=String(m.content||'').replace(/\s+/g,' ').trim();
+    if(t.length>ARC_ONE_MSG_MAX)t=t.slice(0,ARC_ONE_MSG_MAX)+'…';
+    return (m.role==='user'?'她':cname)+'：'+t;
+  }).filter(x=>x.length>3).join('\n');
+}
+
+function buildArcMapPrompt(a,i,n,prevTail,sliceText){
+  return '你是严谨的记忆档案整理员。下面是一段历史对话存档，请把它压缩成「分段笔记」。\n'+
+  '【铁律】\n'+
+  '1. 只记录对话里真实出现的信息，绝对不许编造、脑补、推测、美化。\n'+
+  '2. 保持事件发生的先后顺序，不许打乱时间线。\n'+
+  '3. 专有名词、称呼、数字、日期、地点、礼物、承诺一律保留原文，不许改写或省略。\n'+
+  '4. 越具体越好：谁对谁做了什么、说了哪句关键的话、约定了什么。\n'+
+  '5. 拿不准的地方标注「（不确定）」。\n'+
+  '6. 不要写感想、点评，不要多余修饰。\n\n'+
+  '【格式】严格照抄下面结构，每项都填，没有内容写「无」：\n'+
+  '范围：第 '+(i+1)+'/'+n+' 段\n'+
+  '场景：时间、地点、当下氛围（未说明就写「未说明」）\n'+
+  '事件：\n- 按发生顺序，一条一行\n- 动宾短句，写清谁做了什么\n'+
+  '细节：\n- 称呼、约定、承诺、礼物、金额、地点、秘密、争执、身体接触等\n'+
+  '关系：\n- 这一段里两人关系的变化或确认\n'+
+  '结尾状态：这一段的最后一刻，双方处在什么状态（下一段要接着这里）\n'+
+  '存疑：\n- 记不准的地方\n\n'+
+  (prevTail?('【上一段笔记的结尾状态，供你衔接，不要重复，只用来理解指代】\n'+prevTail+'\n\n'):'')+
+  '对话如下：\n'+sliceText;
+}
+
+function buildArcReducePrompt(a,notes,budget){
+  return '你是严谨的记忆档案整理员。下面是同一份历史对话档案《'+a.name+'》的分段笔记，已按时间顺序排好。\n'+
+  '请把它们合并成一份《总结版》，供角色日后回忆往事时阅读。\n'+
+  '【铁律】\n'+
+  '1. 严格保持原始先后顺序，禁止打乱，禁止把不同时间点的事合并成一件。\n'+
+  '2. 保留全部专有名词、称呼、数字、日期、地点，原样照抄。\n'+
+  '3. 合并重复内容，但不得因为"重复"而丢掉任何信息。\n'+
+  '4. 若前后信息冲突，两条都保留，并标「（前后不一致）」。\n'+
+  '5. 不许编造、不许推测动机、不许加感想。\n'+
+  '6. 语言精简、信息密度高，总长控制在 '+budget+' 字以内。\n\n'+
+  '【格式】\n'+
+  '整体概括：（不超过120字，讲清这段关系/故事的整体面貌）\n'+
+  '时间线：\n1. （第1件）\n2. （第2件）\n…按发生顺序全部列出，可标注阶段（如 初期 / 转折 / 现在）\n'+
+  '重要事件与细节：\n- …\n'+
+  '关系变化：\n- …\n'+
+  '承诺·约定·未了事项：\n- …\n'+
+  'TA 的重要偏好与忌讳：\n- …\n'+
+  '存疑：\n- …（没有就写「无」）\n\n'+
+  '分段笔记如下：\n'+notes;
+}
+
+async function reduceArcNotes(a,notes,budget,model){
+  const joined=notes.filter(Boolean).map((t,i)=>'--- 第 '+(i+1)+' 部分 ---\n'+t).join('\n\n');
+  const res=await callAPI([{role:'user',content:buildArcReducePrompt(a,joined,budget)}],
+    {model:model,temp:.2,maxtok:ARC_REDUCE_TOK});
+  return String(res||'').trim();
+}
+
 async function summarizeArc(id){
   const arcs=load(LS.arcs,[]);
   const a=arcs.find(x=>x.id===id);if(!a)return;
   const ms=getArc(id);if(!ms||!ms.length)return alert('这份档案是空的');
   const c=curChar();if(!c)return alert('先在「角色」里选一个角色');
   if(!cfg.key)return alert('先去设置里填 API Key');
-  const CH=50, n=Math.ceil(ms.length/CH);
-  if(!confirm('用「'+c.name+'」的模型，把《'+a.name+'》（'+ms.length+' 条）分成 '+n+' 段总结，写进 '+c.name+' 的时间线和长期总结。会消耗一些 token，确定？'))return;
-  toast('开始总结，共 '+n+' 段…');
-  let total=0;
+
+  const CH=ARC_CHUNK, OV=ARC_OVERLAP;
+  const n=Math.max(1,Math.ceil(ms.length/CH));
+  const cost=n+Math.ceil(n/6)+1;
+  if(!confirm('用「'+c.name+'」的模型，把《'+a.name+'》（'+ms.length+' 条）整理成一份「总结版」。\n'+
+    '流程：分 '+n+' 段精读 → 再归并成一份总结版，预计调用模型 '+cost+' 次左右，会消耗一些 token。\n'+
+    '生成后保存在这份档案里，角色聊天时能读到。确定开始？'))return;
+
+  const model=modelOf(c);
+  const notes=[];
   try{
+    let prevTail='';
     for(let i=0;i<n;i++){
-      const slice=ms.slice(i*CH,(i+1)*CH).map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
-      const prompt='你是记忆整理助手。下面是历史档案《'+a.name+'》的第 '+(i+1)+'/'+n+' 段。请提炼成记忆，严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的写"无"：\n'+
-        '核心：一句话概括角色核心设定或你们的关系\n'+
-        '时间线：按顺序记录关键事件，多条用；分隔\n'+
-        '总结：这段发生了什么，200字内\n'+
-        '偏好：她的偏好、忌讳、在意的东西\n'+
-        '习惯：性格与行为习惯\n'+
-        '不要加序号、星号、括号、多余解释。\n\n对话如下：\n'+slice;
-      const res=await callAPI([{role:'user',content:prompt}],{model:modelOf(c),temp:.3,maxtok:1200});
-      const raw=String(res||'').trim();
-      if(raw){
-        const hit=applySummary(parseSummary(raw));
-        if(hit)total+=hit;
-        else{mem.summaries=mem.summaries||[];mem.summaries.push({t:Date.now(),text:raw.slice(0,2000)});total++}
+      const from=Math.max(0,i*CH-(i>0?OV:0));
+      const to=Math.min(ms.length,(i+1)*CH);
+      const text=arcLines(ms,from,to,c.name);
+      if(!text){notes.push('');continue}
+      const prompt=buildArcMapPrompt(a,i,n,prevTail,text);
+      const res=await callAPI([{role:'user',content:prompt}],{model:model,temp:.2,maxtok:ARC_MAP_TOK});
+      let note=String(res||'').trim();
+      if(note.length>ARC_NOTE_CAP)note=note.slice(0,ARC_NOTE_CAP);
+      if(!note){ // 兜底：模型没回就保留原始片段，保证不丢
+        note='范围：第 '+(i+1)+'/'+n+' 段\n事件：\n- （模型未返回，以下为原始片段）\n'+text.slice(0,1200);
       }
-      toast('已总结 '+Math.min(i+1,n)+'/'+n+' 段');
+      notes.push(note);
+      const m=note.match(/结尾状态[：:]\s*([\s\S]{0,200})/);
+      prevTail=m?m[1].trim():note.slice(-200);
+      toast('精读 '+(i+1)+'/'+n+' 段…');
     }
-    saveMem();
-    a.summarized=true;a.off=true;
+
+    toast('归并中…');
+    let merged;
+    if(notes.join('\n').length<=ARC_REDUCE_BATCH*1.5){
+      merged=await reduceArcNotes(a,notes,ARC_SUM_BUDGET,model);
+    }else{
+      const groupSize=6, mids=[];
+      for(let i=0;i<notes.length;i+=groupSize){
+        mids.push(await reduceArcNotes(a,notes.slice(i,i+groupSize),ARC_REDUCE_BATCH,model));
+        toast('归并 '+Math.min(i+groupSize,notes.length)+'/'+notes.length+'…');
+      }
+      merged=await reduceArcNotes(a,mids,ARC_SUM_BUDGET,model);
+    }
+
+    a.sum=String(merged||'').trim();
+    if(!a.sum)throw new Error('模型没返回总结内容');
+    a.sumAt=Date.now();
+    a.sumChunks=n;
+    a.sumCount=ms.length;
+    a.summOn=true;     // 默认开启：聊天时注入总结版
+    a.off=false;       // 不再自动归档
+    a.summarized=true;
     save(LS.arcs,arcs);scheduleBackup();
     if(view==='mem')renderMem();
-    alert('总结完成：写进记忆 '+total+' 条。已自动「归档」这份档案（不再注入）。想让它再被读到，去记忆页点它的「打开」。');
-  }catch(e){alert('总结中断：'+e.message)}
+    if(document.getElementById('modal').classList.contains('on'))viewArc(id);
+    alert('总结版已生成（约 '+a.sum.length+' 字），已保存在《'+a.name+'》里，聊天时会注入给角色。\n可在档案页直接查看、编辑，或点「重新生成总结版」。');
+  }catch(e){
+    alert('总结中断：'+e.message+'\n已生成的分段笔记不会白费，可再点一次重试。');
+  }
 }
+
 async function delArc(id){
   if(!confirm('删掉这份档案？记忆里就翻不到它了'))return;
   try{await idbDel(id)}catch(e){}
@@ -1318,7 +1445,10 @@ function archiveCard(){
   '<span class="dim" style="font-size:12px">字</span>'+
   '<button class="ghost" onclick="setWholeLimit()">保存</button></div>'+
   (list.length?'<div style="margin-top:10px">'+list.map(a=>
-    '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.off?' · 已归档':(a.whole?' · 整份注入':' · 智能摘录'))+' · '+visOf(a)+'</span></span>'+
+    '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+
+      (a.off?' · 已关闭注入':(a.whole?' · 整份注入':(a.summOn&&a.sum?' · 总结版注入':' · 智能摘录')))+
+      (a.sum?(' · 总结版 '+a.sum.length+' 字'):'')+' · '+visOf(a)+'</span></span>'+
+
     '<button class="ghost" onclick="viewArc(\''+a.id+'\')">看</button>'+
     '<button class="ghost" onclick="'+(a.off?('toggleArcOff(\''+a.id+'\',false)'):('toggleArcOff(\''+a.id+'\',true)'))+'">'+(a.off?'打开':'归档')+'</button>'+
     '<button class="x" onclick="delArc(\''+a.id+'\')">×</button></div>').join('')+'</div>'
