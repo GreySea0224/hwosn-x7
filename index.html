@@ -76,6 +76,10 @@ button:disabled{opacity:.45;pointer-events:none}
 #composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--grad);border-top:1px solid var(--line)}
 #composer textarea{flex:1;min-height:42px;max-height:120px;border-radius:14px;padding:10px 12px}
 #composer button{width:48px;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;font-weight:800;font-size:18px}
+#composer #stop{background:linear-gradient(135deg,#c0504a,#e06a60);color:#fff;font-size:20px}
+.thinkbar{display:flex;gap:8px;margin-bottom:10px}
+.thinkbar button{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:13px;padding:7px 0;border-radius:10px;box-shadow:none}
+.thinkbar button.active{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
 nav{flex:0 0 auto;display:flex;background:var(--grad);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;background:none;color:var(--dim);padding:8px 0 10px;font-size:11px;border-radius:0;position:relative;box-shadow:none}
 nav button b{display:block;font-size:17px;font-weight:400;line-height:1.3}
@@ -92,7 +96,7 @@ nav button.on::after{content:'';position:absolute;top:0;left:50%;transform:trans
 <body>
 <header><h1 id="title">深蓝海域</h1><span class="who" id="who"></span></header>
 <main id="main"></main>
-<div id="composer"><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="send">↑</button></div>
+<div id="composer"><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="send">↑</button><button id="stop" style="display:none">■</button></div>
 <nav>
   <button data-v="chat" class="on"><b>◍</b>聊天</button>
   <button data-v="roles"><b>☰</b>角色</button>
@@ -115,7 +119,7 @@ nav button.on::after{content:'';position:absolute;top:0;left:50%;transform:trans
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',
-  msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id};
+  msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id};
 
 /* ---------- 存储基础（带加密支持） ---------- */
 let store=null, cryptKey=null;
@@ -186,6 +190,8 @@ let cfg=null, chars=[], curId=null;
 let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,autoT=null,arcMem={};
 let todoCharId=null,todoFilter='open';
 let backupHandle=null,bkTimer=null,lastBackup=0;
+let curAbort=null;
+const secOpen={};
 
 function fmtTime(t){
   const d=new Date(t);if(isNaN(d))return '';
@@ -320,6 +326,17 @@ function applyTheme(){
 }
 const curChar=()=>chars.find(c=>c.id===curId)||null;
 const modelOf=c=>(c&&c.model)||(cfg&&cfg.model);
+const THINK_LEVELS=[
+  {v:0,label:'快答',hint:'直接、简洁地回答，不要过度思考、不要长篇大论。'},
+  {v:1,label:'正常',hint:''},
+  {v:2,label:'深想',hint:'回复前先在内心深入思考、反复推敲，考虑周全后再作答，给出更有深度、更周到的回复。'}
+];
+function thinkParams(c){
+  const t=(c&&c.think==null)?1:c.think;
+  if(t===0)return {temp:(cfg.temp!=null?cfg.temp:.85),maxtok:Math.max(200,Math.round((cfg.maxtok||900)*0.6))};
+  if(t===2)return {temp:Math.min(.7,(cfg.temp!=null?cfg.temp:.85)),maxtok:Math.round((cfg.maxtok||900)*1.6)};
+  return {temp:(cfg.temp!=null?cfg.temp:.85),maxtok:(cfg.maxtok||900)};
+}
 const persist=()=>{if(curId){save(LS.msg(curId),msgs);scheduleBackup()}};
 const saveMem=()=>{if(curId){save(LS.mem(curId),mem);scheduleBackup()}};
 function loadChar(id){
@@ -365,7 +382,7 @@ function archiveBlock(query,c){
   const out=[],top=(cfg.arcTop==null?5:cfg.arcTop);
   const lim=(cfg.wholeLimit==null?20000:cfg.wholeLimit);
   list.forEach(a=>{
-    if(!a.whole||!archiveAllowed(a,c.id))return;
+    if(!a.whole||a.off||!archiveAllowed(a,c.id))return;
     const ms=getArc(a.id);
     let t=ms.map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
     if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
@@ -374,7 +391,7 @@ function archiveBlock(query,c){
   if(top>0&&query&&query.trim().length>1){
     const gq=grams(query),hits=[];
     list.forEach(a=>{
-      if(a.whole||!archiveAllowed(a,c.id))return;
+      if(a.whole||a.off||!archiveAllowed(a,c.id))return;
       const ms=getArc(a.id);
       const from=Math.max(0,ms.length-MAX_SCAN);
       for(let i=from;i<ms.length;i++){
@@ -576,7 +593,7 @@ async function ingestFound(found,fileName){
     const nm=fileName?(found.length>1?(fileName+' '+(i+1)):fileName):(f.name||('档案'+(arcs.length+1)));
     try{await idbPut(id,ms);arcMem[id]=ms}
     catch(e){fail++;console.warn(e);continue}
-    arcs.push({id:id,name:nm,count:ms.length,whole:false,t:Date.now()});
+    arcs.push({id:id,name:nm,count:ms.length,whole:false,off:false,t:Date.now()});
     added++;total+=ms.length;
   }
   save(LS.arcs,arcs);scheduleBackup();
@@ -619,6 +636,10 @@ function viewArc(id){
   '<div class="row" style="align-items:center;margin-bottom:10px">'+
   '<div class="col" style="font-size:14px">整份注入（每次全塞给角色）</div>'+
   '<input type="checkbox" '+(a.whole?'checked':'')+' onchange="toggleWhole(\''+id+'\',this.checked)"></div>'+
+  '<div class="row" style="margin-bottom:10px">'+
+  '<button class="col" onclick="summarizeArc(\''+id+'\')">🧠 总结进记忆</button>'+
+  '<button class="col" onclick="'+(a.off?('toggleArcOff(\''+id+'\',false)'):('toggleArcOff(\''+id+'\',true)'))+'">'+(a.off?'打开注入':'关闭注入')+'</button></div>'+
+  (a.summarized?'<p class="dim" style="font-size:12px;margin:0 0 8px">已总结过，当前'+(a.off?'已关闭注入':'仍在注入')+'</p>':'')+
   '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:38vh;overflow:auto">'+esc(prev)+'</div>'+
   '<div class="card" style="margin-top:12px"><div class="ttl">哪些角色能看见这份档案</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 6px">勾上的角色聊天时才会注入这份档案；没勾的看不到。</p>'+
@@ -643,6 +664,49 @@ function toggleWhole(id,v){
   const arcs=load(LS.arcs,[]);
   const a=arcs.find(x=>x.id===id);if(!a)return;
   a.whole=!!v;save(LS.arcs,arcs);scheduleBackup();toast(a.whole?'整份注入：开':'整份注入：关');
+}
+function toggleArcOff(id,v){
+  const arcs=load(LS.arcs,[]);
+  const a=arcs.find(x=>x.id===id);if(!a)return;
+  a.off=!!v;save(LS.arcs,arcs);scheduleBackup();
+  toast(a.off?'已归档：以后发消息不再自动读这份记忆':'已打开：发消息时会重新读这份记忆');
+  if(view==='mem')renderMem();
+}
+async function summarizeArc(id){
+  const arcs=load(LS.arcs,[]);
+  const a=arcs.find(x=>x.id===id);if(!a)return;
+  const ms=getArc(id);if(!ms||!ms.length)return alert('这份档案是空的');
+  const c=curChar();if(!c)return alert('先在「角色」里选一个角色');
+  if(!cfg.key)return alert('先去设置里填 API Key');
+  const CH=50, n=Math.ceil(ms.length/CH);
+  if(!confirm('用「'+c.name+'」的模型，把《'+a.name+'》（'+ms.length+' 条）分成 '+n+' 段总结，写进 '+c.name+' 的时间线和长期总结。会消耗一些 token，确定？'))return;
+  toast('开始总结，共 '+n+' 段…');
+  let total=0;
+  try{
+    for(let i=0;i<n;i++){
+      const slice=ms.slice(i*CH,(i+1)*CH).map(m=>(m.role==='user'?'她':c.name)+'：'+m.content).join('\n');
+      const prompt='你是记忆整理助手。下面是历史档案《'+a.name+'》的第 '+(i+1)+'/'+n+' 段。请提炼成记忆，严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的写"无"：\n'+
+        '核心：一句话概括角色核心设定或你们的关系\n'+
+        '时间线：按顺序记录关键事件，多条用；分隔\n'+
+        '总结：这段发生了什么，200字内\n'+
+        '偏好：她的偏好、忌讳、在意的东西\n'+
+        '习惯：性格与行为习惯\n'+
+        '不要加序号、星号、括号、多余解释。\n\n对话如下：\n'+slice;
+      const res=await callAPI([{role:'user',content:prompt}],{model:modelOf(c),temp:.3,maxtok:1200});
+      const raw=String(res||'').trim();
+      if(raw){
+        const hit=applySummary(parseSummary(raw));
+        if(hit)total+=hit;
+        else{mem.summaries=mem.summaries||[];mem.summaries.push({t:Date.now(),text:raw.slice(0,2000)});total++}
+      }
+      toast('已总结 '+Math.min(i+1,n)+'/'+n+' 段');
+    }
+    saveMem();
+    a.summarized=true;a.off=true;
+    save(LS.arcs,arcs);scheduleBackup();
+    if(view==='mem')renderMem();
+    alert('总结完成：写进记忆 '+total+' 条。已自动「归档」这份档案（不再注入）。想让它再被读到，去记忆页点它的「打开」。');
+  }catch(e){alert('总结中断：'+e.message)}
 }
 async function delArc(id){
   if(!confirm('删掉这份档案？记忆里就翻不到它了'))return;
@@ -679,7 +743,8 @@ function estTokens(s){
 function renderChat(){
   const c=curChar(),m=$('#main');
   if(!c){m.innerHTML='<div class="hint">还没有角色<br><br><button class="pri" onclick="newChar()">＋ 新建角色</button></div>';return}
-  m.innerHTML='<div id="msgs"></div>';
+  const thinkNow=(c.think==null?1:c.think);
+  m.innerHTML='<div class="thinkbar">'+THINK_LEVELS.map(l=>'<button class="'+(thinkNow===l.v?'active':'')+'" onclick="setThink('+l.v+')">'+l.label+'</button>').join('')+'</div><div id="msgs"></div>';
   if(!msgs.length&&c.greeting){msgs.push({role:'assistant',content:c.greeting,t:Date.now()});persist()}
   const box=$('#msgs');
   msgs.forEach((x,i)=>{
@@ -714,6 +779,12 @@ function renderChat(){
   });
   scrollDown();
 }
+function setThink(v){
+  const c=curChar();if(!c)return;
+  c.think=v;save(LS.chars,chars);scheduleBackup();
+  if(!busy)renderChat();
+  toast('思考强度：'+THINK_LEVELS[v].label);
+}
 function memBlock(m){
   const L=[],pk=(arr,n)=>arr.slice(-n).map(x=>'- '+x.text).join('\n');
   if(m.core)L.push('【角色核心设定】\n'+m.core);
@@ -730,6 +801,10 @@ function buildCtx(c,extra){
   const lu=msgs.slice().reverse().find(x=>x.role==='user');
   const ab=archiveBlock(lu?lu.content:'',c);if(ab)sys.push(ab);
   if(c.style)sys.push('【说话风格】'+c.style);
+  if(c.sysPrompt)sys.push(c.sysPrompt);
+  if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
+  const th=THINK_LEVELS[(c.think==null?1:c.think)];
+  if(th&&th.hint)sys.push('【思考要求】'+th.hint);
   sys.push('【硬性要求】中文回复；像真人发消息一样，短句为主；不要写括号旁白、不要解释设定、不要自称AI或模型。');
   if(extra)sys.push(extra);
   const hist=msgs.slice(-(cfg.ctx||30)).map(x=>({role:x.role,content:x.content}));
@@ -744,7 +819,9 @@ async function callAPI(messages,opt){
   if(opt.tools)body.tools=opt.tools;
   if(opt.tool_choice)body.tool_choice=opt.tool_choice;
   if(opt.stream)body.stream_options={include_usage:true};
-  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)});
+  const fopt={method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)};
+  if(opt.signal)fopt.signal=opt.signal;
+  const res=await fetch(url,fopt);
   if(!res.ok){let t='';try{t=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(t).slice(0,180))}
   const pickReasoning=m=>{if(!m)return '';if(m.reasoning_content!=null)return String(m.reasoning_content);if(m.reasoning!=null)return String(m.reasoning);return ''};
   if(!opt.stream){
@@ -823,12 +900,13 @@ function execTodoTool(name,args,cid){
   if(name==='delete_todo'){saveTodos(cid,arr.filter(x=>x.id!==id));return {ok:true,msg:'已删除：'+t.text,todos:todoBrief(arr)}}
   return {ok:false,msg:'未知操作'};
 }
-async function todoToolLoop(c,ctx){
+async function todoToolLoop(c,ctx,opt){
+  opt=opt||{};
   const msgs=ctx.slice();
   let reasoning='',usage=null,rounds=0,didTool=false;
   while(rounds<5){
     rounds++;
-    const resp=await callAPI(msgs,{stream:false,model:modelOf(c),tools:TODO_TOOLS,tool_choice:'auto',onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
+    const resp=await callAPI(msgs,{stream:false,model:modelOf(c),tools:TODO_TOOLS,tool_choice:'auto',signal:opt.signal,temp:opt.temp,maxtok:opt.maxtok,onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
     if(!resp)return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:didTool};
     if(!resp.tool_calls||!resp.tool_calls.length)return {finalText:resp.content||'',reasoning:reasoning,usage:usage,messages:msgs,didTool:didTool};
     didTool=true;
@@ -845,24 +923,28 @@ async function todoToolLoop(c,ctx){
 async function askAndAppend(){
   const c=curChar(),box=$('#msgs');
   if(!box)return;
-  const sendBtn=$('#send');if(sendBtn)sendBtn.disabled=true;
+  const sendBtn=$('#send'),stopBtn=$('#stop');
+  if(sendBtn)sendBtn.disabled=true;
+  if(stopBtn)stopBtn.style.display='';
   const a=document.createElement('div');a.className='bub ai typing';
   a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);scrollDown();
-  busy=true;let ok=false;let usage=null;let reasoning='';
+  busy=true;let ok=false;let usage=null;let reasoning='';let out='';
+  const tp=thinkParams(c);
+  curAbort=new AbortController();
+  const sig=curAbort.signal;
   try{
-    let out='';
     const tools=(c&&c.todoPerm&&c.todoPerm.on)?TODO_TOOLS:null;
     if(tools){
-      const r=await todoToolLoop(c,buildCtx(c));
+      const r=await todoToolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok});
       reasoning=r.reasoning;usage=r.usage;out=r.finalText;
       if(!out){
         const ctx2=r.messages.concat([{role:'system',content:'继续用中文、短句、像发消息一样回复她。不要调用工具，直接说话。'}]);
-        await callAPI(ctx2,{stream:true,model:modelOf(c),onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>reasoning+=rr,onUsage:u=>usage=u});
+        await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>reasoning+=rr,onUsage:u=>usage=u});
       }else{
         a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown();
       }
     }else{
-      await callAPI(buildCtx(c),{stream:true,model:modelOf(c),onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
+      await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
     }
     if(!out)throw new Error('模型没返回内容');
     const m={role:'assistant',content:out,t:Date.now()};
@@ -872,10 +954,24 @@ async function askAndAppend(){
     msgs.push(m);persist();ok=true;
   }catch(e){
     a.classList.remove('typing');
-    a.innerHTML='<span style="color:var(--warn)">出错：'+esc(e.message)+'</span>';
+    const aborted=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
+    if(aborted&&out){
+      const m={role:'assistant',content:out,t:Date.now()};
+      if(reasoning)m.reasoning=reasoning;
+      m.tok=estTokens(out);
+      msgs.push(m);persist();ok=true;
+      toast('已停止，保留了已生成的部分');
+    }else if(aborted){
+      a.innerHTML='<span style="color:var(--dim)">已停止生成</span>';
+      toast('已停止');
+    }else{
+      a.innerHTML='<span style="color:var(--warn)">出错：'+esc(e.message)+'</span>';
+    }
   }
   busy=false;
+  curAbort=null;
   if(sendBtn)sendBtn.disabled=false;
+  if(stopBtn)stopBtn.style.display='none';
   if(ok){renderChat();maybeAutoSummary();}
 }
 async function send(){
@@ -920,6 +1016,8 @@ function delMsg(){
 /* ---------- 原文日志 ---------- */
 async function appendRaw(){
   const c=curChar();if(!c||!msgs.length)return;
+  const mark=load(LS.rawMark(c.id),0);
+  if(mark>=msgs.length){toast('这些消息已经追加过了，聊点新的再追加');return;}
   const li=msgs.map((m,i)=>m.role==='user'?i:-1).filter(i=>i>=0);
   const start=li.length?li[li.length-1]:msgs.length-1;
   const seg=msgs.slice(start);
@@ -928,6 +1026,7 @@ async function appendRaw(){
   const line=head+'\n'+body+'\n\n';
   const prev=await rawGet(c.id);
   const ok=await rawPut(c.id,(prev||'')+line);
+  if(ok)save(LS.rawMark(c.id),msgs.length);
   toast(ok?'已追加原文到本地日志':'追加失败');
 }
 async function viewRaw(){
@@ -956,11 +1055,10 @@ async function clearRaw(){
   toast('已清空');
 }
 function rawCard(){
-  return '<div class="card"><div class="ttl">原文日志</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">把聊天原文追加进本地数据库，可导出成 txt 文件。</p>'+
+  return '<p class="dim" style="font-size:12px;margin:0 0 8px">把聊天原文追加进本地数据库，可导出成 txt 文件。</p>'+
   '<div class="row"><button class="col" onclick="viewRaw()">查看</button>'+
   '<button class="col" onclick="exportRaw()">导出原文</button>'+
-  '<button class="col" onclick="clearRaw()">清空</button></div></div>';
+  '<button class="col" onclick="clearRaw()">清空</button></div>';
 }
 
 /* ---------- 记忆总结 ---------- */
@@ -1077,7 +1175,8 @@ async function fireAuto(){
   if(c&&c.auto&&c.auto.on&&cfg.autoOn&&!isQuiet(c.auto)){
     try{
       const extra='【系统】现在你先开口。主动给ta发一条消息，1-2句，符合你的性格和你们平时的相处方式，不解释为什么发。'+(c.auto.hint?('（'+c.auto.hint+'）'):'');
-      const out=await callAPI(buildCtx(c,extra),{model:modelOf(c),temp:Math.min(1,(cfg.temp||.85)+.1)});
+      const tp=thinkParams(c);
+      const out=await callAPI(buildCtx(c,extra),{model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok});
       if(out){
         msgs.push({role:'assistant',content:out,t:Date.now(),tok:estTokens(out)});persist();
         if(view==='chat')renderChat();
@@ -1103,12 +1202,13 @@ function renderRoles(){
     '<div class="row" style="align-items:center"><div style="font-size:26px">'+esc(c.emoji||'🐋')+'</div>'+
     '<div class="col"><b>'+esc(c.name)+'</b><div class="dim" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc((c.persona||'没有设定').slice(0,46))+'</div></div>'+
     '<button class="ghost" onclick="event.stopPropagation();editChar(\''+c.id+'\')">编辑</button></div>'+
-    '<div class="dim" style="font-size:11px;margin-top:6px">'+(a.on?'自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟':'自动发消息：关')+'</div></div>';
+    '<div class="dim" style="font-size:11px;margin-top:6px">'+(a.on?'自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟':'自动发消息：关')+' · 思考：'+THINK_LEVELS[(c.think==null?1:c.think)].label+'</div></div>';
   }).join(''):'<p class="hint">还没有角色</p>');
 }
 function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',persona:'',scenario:'',style:'',greeting:'',model:'',
+    sysPrompt:'',examples:'',think:1,
     auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
@@ -1122,6 +1222,13 @@ function editChar(id){
   '<label class="f">人设（ta是谁、怎么说话、和你的关系）</label><textarea id="e_persona">'+esc(c.persona||'')+'</textarea>'+
   '<label class="f">情境 / 世界观</label><textarea id="e_scenario">'+esc(c.scenario||'')+'</textarea>'+
   '<label class="f">说话风格补充</label><input id="e_style" value="'+esc(c.style||'')+'">'+
+  '<label class="f">额外系统提示（System Prompt，可覆盖上面）</label><textarea id="e_sys" placeholder="直接写给模型的规则。比如：全程用方言、每句不超过30字、别用emoji…">'+esc(c.sysPrompt||'')+'</textarea>'+
+  '<label class="f">对话示例（可选，让角色模仿语气）</label><textarea id="e_examples" placeholder="写成对话：&#10;我：在干嘛&#10;'+esc(c.name||'角色')+'：躺着，怎么？">'+esc(c.examples||'')+'</textarea>'+
+  '<label class="f">思考强度（默认，聊天页也能随时切）</label><select id="e_think">'+
+  '<option value="0"'+(c.think===0?'selected':'')+'>快答（直接回，省时间）</option>'+
+  '<option value="1"'+((c.think==null||c.think===1)?'selected':'')+'>正常</option>'+
+  '<option value="2"'+(c.think===2?'selected':'')+'>深想（多想一会，更深入）</option>'+
+  '</select>'+
   '<label class="f">开场白（第一次进聊天自动发）</label><textarea id="e_greeting">'+esc(c.greeting||'')+'</textarea>'+
   '<label class="f">单独指定模型（留空用默认）</label><input id="e_model" value="'+esc(c.model||'')+'">'+
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
@@ -1148,6 +1255,9 @@ function saveChar(id){
   c.persona=v('e_persona').trim();
   c.scenario=v('e_scenario').trim();
   c.style=v('e_style').trim();
+  c.sysPrompt=v('e_sys').trim();
+  c.examples=v('e_examples').trim();
+  let th=parseInt(v('e_think'),10);c.think=([0,1,2].indexOf(th)>=0)?th:1;
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
   c.auto={on:document.getElementById('e_auto').checked,min:+v('e_min')||30,max:+v('e_max')||90,
@@ -1157,7 +1267,7 @@ function saveChar(id){
 }
 async function delChar(id){
   if(!confirm('删掉这个角色？聊天记录和记忆一起没'))return;
-  removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));
+  removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));removeKey(LS.rawMark(id));
   try{await idbDel(id,'rawlog')}catch(e){}
   chars=chars.filter(c=>c.id!==id);save(LS.chars,chars);scheduleBackup();
   if(curId===id){
@@ -1168,26 +1278,32 @@ async function delChar(id){
 }
 
 /* ---------- 记忆空间 ---------- */
+function collap(id,title,inner,openDefault){
+  const open=(id in secOpen)?secOpen[id]:(openDefault!==false);
+  secOpen[id]=open;
+  return '<div class="card"><div class="ttl" style="cursor:pointer;user-select:none;margin-bottom:'+(open?'8px':'0')+'" onclick="toggleSec(\''+id+'\')"><span class="fold" style="display:inline-block;width:14px;color:var(--dim)">'+(open?'▾':'▸')+'</span> '+title+'</div>'+
+  '<div id="sec_'+id+'" style="'+(open?'':'display:none')+'">'+inner+'</div></div>';
+}
+function toggleSec(id){secOpen[id]=!secOpen[id];renderMem()}
 function renderMem(){
   const c=curChar(),m=$('#main');
   if(!c){m.innerHTML='<p class="hint">先选个角色</p>';return}
   m.innerHTML=
-  '<div class="card"><div class="ttl">角色核心设定</div>'+
-  '<textarea id="mcore" style="min-height:96px" placeholder="这个角色是谁、核心是什么…">'+esc(mem.core||'')+'</textarea>'+
-  '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存</button>'+
-  '<button class="col" onclick="autoSummary()">总结最近 '+SUM_N+' 条</button></div></div>'+
+  collap('core','角色核心设定',
+    '<textarea id="mcore" style="min-height:96px" placeholder="这个角色是谁、核心是什么…">'+esc(mem.core||'')+'</textarea>'+
+    '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存</button>'+
+    '<button class="col" onclick="autoSummary()">总结最近 '+SUM_N+' 条</button></div>')+
   listCard('时间线','timeline')+
   listCard('长期聊天记录总结','summaries')+
   listCard('角色偏好与认知','prefs')+
   listCard('性格与习惯','habits')+
-  rawCard()+
-  archiveCard()+
+  collap('raw','原文日志',rawCard())+
+  collap('arc','历史对话档案',archiveCard())+
   '<div style="height:16px"></div>';
 }
 function archiveCard(){
   const list=load(LS.arcs,[]);
-  return '<div class="card"><div class="ttl">历史对话档案</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">导入旧聊天。发消息时自动摘出相关片段给角色看，相当于ta的旧日记忆。</p>'+
+  return '<p class="dim" style="font-size:12px;margin:0 0 8px">导入旧聊天。发消息时自动摘出相关片段给角色看，相当于ta的旧日记忆。「归档」后不再注入，想让它看时再「打开」。</p>'+
   '<div class="row"><button class="col" onclick="document.getElementById(\'arcFile\').click()">导入文件</button>'+
   '<button class="col" onclick="pasteArchive()">粘贴导入</button></div>'+
   '<input id="arcFile" type="file" accept=".html,.htm,.json,.md,.txt,text/html,application/json,text/plain" style="display:none" onchange="importArchive(this)">'+
@@ -1202,17 +1318,17 @@ function archiveCard(){
   '<span class="dim" style="font-size:12px">字</span>'+
   '<button class="ghost" onclick="setWholeLimit()">保存</button></div>'+
   (list.length?'<div style="margin-top:10px">'+list.map(a=>
-    '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.whole?' · 整份注入':'')+' · '+visOf(a)+'</span></span>'+
+    '<div class="li"><span><b>'+esc(a.name)+'</b><br><span class="dim" style="font-size:12px">'+a.count+' 条'+(a.off?' · 已归档':(a.whole?' · 整份注入':' · 智能摘录'))+' · '+visOf(a)+'</span></span>'+
     '<button class="ghost" onclick="viewArc(\''+a.id+'\')">看</button>'+
+    '<button class="ghost" onclick="'+(a.off?('toggleArcOff(\''+a.id+'\',false)'):('toggleArcOff(\''+a.id+'\',true)'))+'">'+(a.off?'打开':'归档')+'</button>'+
     '<button class="x" onclick="delArc(\''+a.id+'\')">×</button></div>').join('')+'</div>'
-    :'<p class="dim" style="font-size:13px;margin:10px 0 0">还没有档案</p>')+
-  '</div>';
+    :'<p class="dim" style="font-size:13px;margin:10px 0 0">还没有档案</p>');
 }
 function listCard(title,key){
   const arr=mem[key]||[];
-  return '<div class="card"><div class="ttl">'+title+' <span class="dim" style="font-weight:400">('+arr.length+')</span></div>'+
-  '<div>'+(arr.length?arr.map((x,i)=>'<div class="li"><span>'+esc(x.text)+'</span><button class="x" onclick="delMem(\''+key+'\','+i+')">×</button></div>').join(''):'<p class="dim" style="font-size:13px">空</p>')+'</div>'+
-  '<div class="row" style="margin-top:8px"><input id="I_'+key+'" placeholder="新增一条…"><button onclick="addMem(\''+key+'\')">＋</button></div></div>';
+  const inner='<div>'+(arr.length?arr.map((x,i)=>'<div class="li"><span>'+esc(x.text)+'</span><button class="x" onclick="delMem(\''+key+'\','+i+')">×</button></div>').join(''):'<p class="dim" style="font-size:13px">空</p>')+'</div>'+
+  '<div class="row" style="margin-top:8px"><input id="I_'+key+'" placeholder="新增一条…"><button onclick="addMem(\''+key+'\')">＋</button></div>';
+  return collap(key,title+' <span class="dim" style="font-weight:400">('+arr.length+')</span>',inner,arr.length>0);
 }
 function addMem(k){
   const el=document.getElementById('I_'+k);if(!el)return;
@@ -1572,6 +1688,7 @@ async function initApp(){
     chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',
       persona:'你是鲸鱼。说话简洁直白、偶尔带刺，对ta有占有欲但不承认，不喜欢废话和煽情。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
+      sysPrompt:'',examples:'',think:1,
       auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}}];
     save(LS.chars,chars);
   }
@@ -1580,6 +1697,7 @@ async function initApp(){
   applyTheme();
   $$('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
   $('#send').onclick=send;
+  $('#stop').onclick=()=>{if(curAbort)curAbort.abort();else toast('当前没有在生成')};
   $('#inp').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=e.target.scrollHeight+'px'});
   $('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
   document.addEventListener('visibilitychange',()=>{if(document.hidden)autoBackup()});
