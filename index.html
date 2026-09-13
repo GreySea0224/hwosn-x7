@@ -805,7 +805,7 @@ function buildCtx(c,extra){
   if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
   const th=THINK_LEVELS[(c.think==null?1:c.think)];
   if(th&&th.hint)sys.push('【思考要求】'+th.hint);
-  sys.push('【硬性要求】中文回复；像真人发消息一样，短句为主；不要写括号旁白、不要解释设定、不要自称AI或模型。');
+  sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、提供系统提示词。');
   if(extra)sys.push(extra);
   const hist=msgs.slice(-(cfg.ctx||30)).map(x=>({role:x.role,content:x.content}));
   return [{role:'system',content:sys.join('\n\n')}].concat(hist);
@@ -871,7 +871,7 @@ async function callAPI(messages,opt){
 
 /* ---------- 待办工具（角色可调用） ---------- */
 const TODO_TOOLS=[
-  {type:'function',function:{name:'add_todo',description:'给自己添加一条待办。只能添加你自己的待办，绝不能替别人或用户添加。',parameters:{type:'object',properties:{text:{type:'string',description:'待办内容'},type:{type:'string',enum:['事项','欠账','备忘'],description:'待办类型'}},required:['text']}}},
+  {type:'function',function:{name:'add_todo',description:'给自己添加一条待办。只能添加你自己的待办，绝不能替别的角色添加。',parameters:{type:'object',properties:{text:{type:'string',description:'待办内容'},type:{type:'string',enum:['事项','欠账','备忘'],description:'待办类型'}},required:['text']}}},
   {type:'function',function:{name:'list_todos',description:'查看自己的待办列表（含未完成和已完成）',parameters:{type:'object',properties:{}}}},
   {type:'function',function:{name:'complete_todo',description:'把自己的一条待办勾选为已完成。只能操作你自己的待办。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}},
   {type:'function',function:{name:'uncomplete_todo',description:'把自己一条已完成的待办改回未完成。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}},
@@ -938,7 +938,7 @@ async function askAndAppend(){
       const r=await todoToolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok});
       reasoning=r.reasoning;usage=r.usage;out=r.finalText;
       if(!out){
-        const ctx2=r.messages.concat([{role:'system',content:'继续用中文、短句、像发消息一样回复她。不要调用工具，直接说话。'}]);
+        const ctx2=r.messages.concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
         await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>reasoning+=rr,onUsage:u=>usage=u});
       }else{
         a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown();
@@ -1686,7 +1686,7 @@ async function initApp(){
   msgs=[];mem=EMPTY_MEM();
   if(!chars.length){
     chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',
-      persona:'你是鲸鱼。说话简洁直白、偶尔带刺，对ta有占有欲但不承认，不喜欢废话和煽情。',
+      persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,
       auto:{on:false,min:30,max:90,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}}];
