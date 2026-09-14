@@ -2085,11 +2085,9 @@ function renderCfg(){
   '</select></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">'+bkStatusText()+'</p>'+
   '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
-
-    :'⚪ 未开启自动备份。建议开启，避免清浏览器数据时聊天记录丢失。')+'</p>'+
-  '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">档案存在 IndexedDB 里，单独一份备份可能很大。设密码后导出的备份文件会被加密。</p></div>'+
   '<p class="dim" style="font-size:12px;text-align:center;padding-bottom:24px">深蓝海域 · 本地版</p>';
+
   $('#c_theme').value=cfg.theme;
   $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
   $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
@@ -2255,7 +2253,7 @@ async function backupNow(){
   if(!backupHandle){toast('还没开启自动备份');return}
   toast('备份中…');
   const ok=await autoBackup(true);
-  toast(ok?'已备份到文件':'备份失败'+(bkErr?('：'+bkErr):'');
+  toast(ok?'已备份到文件':'备份失败'+(bkErr?('：'+bkErr):''));
   if(view==='cfg')renderCfg();
 }
 async function backupPayload(){
