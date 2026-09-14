@@ -16,7 +16,9 @@
   --shadow:0 2px 10px rgba(0,0,0,.18);
   --grad:linear-gradient(160deg,#0e2c3f 0%,#081a29 60%);
   --bubme:linear-gradient(135deg,#1b4a63,#17445c);
+  --scbg:rgba(10,22,32,.82);--scfg:#eaf3f8;
 }
+
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0}
 html{-webkit-text-size-adjust:100%}
@@ -54,12 +56,17 @@ button:disabled{opacity:.45;pointer-events:none}
 .bub.typing span:nth-child(3){animation-delay:.3s}
 @keyframes tp{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-4px);opacity:1}}
 @keyframes pop{from{transform:translateY(4px);opacity:0}}
-.think{margin:4px 0 0;max-width:84%}
-.thinkhead{background:none;border:1px solid var(--line);color:var(--dim);font-size:12px;padding:4px 11px;border-radius:9px;cursor:pointer;box-shadow:none}
-.thinkbody{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:8px 10px;margin-top:4px;font-size:12.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;display:none}
-.ops{display:flex;gap:8px;margin:5px 0 9px;flex-wrap:wrap}
+.think{margin:6px 0 0;max-width:84%}
+.thinkhead{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:12px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:color .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
+.thinkhead::after{content:'▾';font-size:10px;line-height:1;transform:translateY(-1px);transition:transform .18s ease}
+.thinkhead.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);box-shadow:0 2px 10px rgba(63,169,216,.18)}
+.thinkhead.on::after{transform:rotate(180deg) translateY(-1px)}
+.thinkbody{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;padding:10px 12px;margin-top:6px;font-size:12.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;display:none;animation:pop .16s ease}
+.ops{display:flex;gap:7px;margin:7px 0 10px;flex-wrap:wrap}
 .ops.me{justify-content:flex-end}
-.ops button{background:transparent;border:1px solid var(--line);color:var(--dim);font-size:12px;padding:4px 11px;border-radius:9px;box-shadow:none}
+.ops button{display:inline-flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);color:var(--dim);font-size:12px;padding:5px 13px;border-radius:999px;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:color .15s ease,border-color .15s ease,background .15s ease,transform .1s ease}
+.ops button.hot{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
+
 .tok{font-size:11px;color:var(--dim);margin:2px 0 6px}
 .tok.me{text-align:right}
 .li{display:flex;gap:6px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;flex-wrap:wrap}
@@ -83,6 +90,8 @@ button:disabled{opacity:.45;pointer-events:none}
 .privbox{margin-top:16px;padding:10px 12px;border:1px dashed var(--line);border-radius:14px;background:var(--panel);opacity:.85;box-shadow:none}
 .privav{width:48px;height:48px;padding:0;font-size:24px;line-height:1;border-radius:14px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;opacity:.8}
 .privav.on{border-color:var(--acc);opacity:1}
+.privunit{display:flex;flex-direction:column;align-items:center;gap:6px}
+.privunit .privset{font-size:11px;padding:3px 9px;border-radius:999px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:rgba(4,20,30,.94);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;z-index:99;display:none;max-width:82%;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 #composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--grad);border-top:1px solid var(--line)}
 #composer textarea{flex:1;min-height:42px;max-height:120px;border-radius:14px;padding:10px 12px}
@@ -105,7 +114,7 @@ nav button.on::after{content:'';position:absolute;top:1px;left:50%;transform:tra
 .modal.on{display:flex;align-items:flex-end}
 .sheet{background:var(--panel);width:100%;max-height:90vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:20px 14px calc(env(safe-area-inset-bottom) + 18px);animation:up .18s ease;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
 /* ---------- 弹层右上角常驻关闭键 ---------- */
-.sheetclose{display:none;position:fixed;top:calc(env(safe-area-inset-top) + 8px);right:10px;z-index:70;width:40px;height:40px;align-items:center;justify-content:center;border-radius:50%;background:rgba(10,22,32,.82);border:1px solid var(--line);color:var(--txt);font-size:16px;line-height:1;padding:0;box-shadow:0 6px 18px rgba(0,0,0,.34);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.sheetclose{display:none;position:fixed;top:calc(env(safe-area-inset-top) + 8px);right:10px;z-index:70;width:40px;height:40px;align-items:center;justify-content:center;border-radius:50%;background:var(--scbg,rgba(10,22,32,.82));border:1px solid var(--line);color:var(--scfg,#eaf3f8);font-size:15px;font-weight:700;line-height:1;padding:0;box-shadow:0 6px 18px rgba(0,0,0,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .15s ease,color .15s ease,transform .12s ease}
 #modal.on .sheetclose{display:flex}
 .sheetclose:active{transform:scale(.92)}
 @keyframes up{from{transform:translateY(30px);opacity:.4}}
@@ -157,6 +166,16 @@ function applyTheme(){
   const r=document.documentElement.style;
   for(const k in t.v)r.setProperty(k,t.v[k]);
   r.setProperty('--fs',(((cfg&&cfg.fs)||15))+'px');
+  /* 自动判断深浅：浅色主题给关闭键用白底深字，深色主题用深底浅字 */
+  const lit=(()=>{
+    let h=String(t.v['--bg']||'#050e16').replace('#','');
+    if(h.length===3)h=h.split('').map(c=>c+c).join('');
+    const n=parseInt(h,16)||0;
+    const R=(n>>16)&255,G=(n>>8)&255,B=n&255;
+    return (0.299*R+0.587*G+0.114*B)>140;
+  })();
+  r.setProperty('--scbg',lit?'rgba(255,255,255,.94)':'rgba(10,22,32,.82)');
+  r.setProperty('--scfg',lit?(t.v['--txt']||'#12313f'):'#eaf3f8');
 }
 
 /* ---------- 存储基础（带加密支持） ---------- */
@@ -240,7 +259,7 @@ const EMPTY_MEM=()=>({core:'',timeline:[],summaries:[],prefs:[],habits:[]});
 let cfg=null, chars=[], curId=null;
 let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,arcMem={};
 let todoCharId=null,todoFilter='open';
-let backupHandle=null,bkTimer=null,lastBackup=0;
+let backupHandle=null,bkTimer=null,bkTick=null,lastBackup=0,bkNeed=false,bkArmed=false,bkErr='';
 let curAbort=null;
 let autoMap={},autoTick=null,autoKeep=null;
 let arcBusy=false;                    /* 总结版生成中，防重复点击 */
@@ -701,7 +720,11 @@ async function importArchive(input){
   if(!found.length){toast('没解析出来');return diagnose(text,isHtml)}
   const st=await ingestFound(found,f.name.replace(/\.[^.]+$/,''));
   toast('');
-  alert('导入完成\n档案：'+st.added+' 份\n消息：'+st.total+' 条'+(st.fail?('\n失败：'+st.fail+' 份'):'')+st.empty?('\n\n⚠️ 有 '+st.empty+' 条消息没读出内容，这份档案可能没法总结。'):'');
+  let msg='导入完成\n档案：'+st.added+' 份\n消息：'+st.total+' 条';
+  if(st.fail)msg+='\n失败：'+st.fail+' 份';
+  if(st.empty)msg+='\n\n⚠️ 有 '+st.empty+' 条消息没读出内容，这份档案可能没法总结。';
+  alert(msg);
+
 }
 async function ingestFound(found,fileName){
   const arcs=load(LS.arcs,[]);
@@ -822,7 +845,7 @@ function summaryPanel(a){
   '<p class="dim" style="font-size:12px;margin:6px 0">勾上＝聊天时把这份总结版注入给角色读。可直接编辑后保存。</p>'+
   '<textarea id="arcSumBox" style="min-height:240px;font-size:13px">'+esc(a.sum)+'</textarea>'+
   '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveArcSum(\''+a.id+'\')">保存总结版</button>'+
-  '<button class="ghost col" style="color:var(--warn)" onclick="delArcSum(\''+a.id+'\')">清空</button></div></div>';
+  '<button class="ghost col" style="color:var(--warn)" onclick="delArcSum(\''+a.id+'\')">🗑 清空（含分段笔记）</button></div></div>';
 }
 function toggleArcSum(id,v){
   const arcs=load(LS.arcs,[]);const a=arcs.find(x=>x.id===id);if(!a)return;
@@ -838,11 +861,18 @@ function saveArcSum(id){
   if(view==='mem')renderMem();
 }
 function delArcSum(id){
-  if(!confirm('清空这份档案的总结版？（角色会退回「智能摘录 / 整份注入」的方式读它）'))return;
+  if(!confirm('清空这份档案的总结版 / 分段笔记？\n（分段笔记缓存会一起清掉，下次要重新精读）'))return;
   const arcs=load(LS.arcs,[]);const a=arcs.find(x=>x.id===id);if(!a)return;
-  a.sum='';a.summarized=false;a.summOn=false;a.sumAt=0;
-  save(LS.arcs,arcs);scheduleBackup();
-  toast('已清空总结版');
+  a.sum='';a.summarized=false;a.summOn=false;a.sumAt=0;a.sumChunks=0;a.sumCount=0;
+  try{save(LS.arcs,arcs)}catch(e){}
+  const chk=(load(LS.arcs,[]).find(x=>x.id===id)||{}).sum;
+  if(chk){
+    alert('清空没写进本地存储（多半是浏览器存储空间满了）。\n建议：先在设置里「导出备份」，再删掉几份旧档案，然后重试。');
+    return;
+  }
+  delete arcNotesCache[id];
+  scheduleBackup();
+  toast('已清空总结版和分段笔记缓存');
   if(view==='mem')renderMem();
   viewArc(id);
 }
@@ -1129,10 +1159,16 @@ function renderChat(){
       const th=document.createElement('div');
       th.className='think';
       const hd=document.createElement('button');
-      hd.type='button';hd.className='thinkhead';hd.textContent='🧠 展开思考链';
+      hd.type='button';hd.className='thinkhead';hd.innerHTML='🧠 展开思考链';
       const bd=document.createElement('div');
-      bd.className='thinkbody';bd.innerHTML=nl2br(x.reasoning);
-      hd.onclick=()=>{const on=bd.style.display==='block';bd.style.display=on?'none':'block';hd.textContent=on?'🧠 展开思考链':'🧠 收起思考链'};
+      bd.className='thinkbody';bd.innerHTML=nl2br(x.reasoning);bd.style.display='none';
+      hd.onclick=()=>{
+        const on=(bd.style.display==='block');
+        bd.style.display=on?'none':'block';
+        hd.classList.toggle('on',!on);
+        hd.innerHTML=on?'🧠 展开思考链':'🧠 收起思考链';
+      };
+
       th.appendChild(hd);th.appendChild(bd);box.appendChild(th);
     }
     if(x.tok){
@@ -1144,7 +1180,7 @@ function renderChat(){
     if(i===msgs.length-1&&!busy){
       const o=document.createElement('div');
       o.className='ops'+(x.role==='user'?' me':'');
-      o.innerHTML=(x.role==='assistant'?'<button onclick="regen()">↻ 重新生成</button>':'')+
+      o.innerHTML=(x.role==='assistant'?'<button class="hot" onclick="regen()">↻ 重新生成</button>':'')+
         '<button onclick="editMsg()">✎ 编辑</button><button onclick="delMsg()">🗑 删除</button>'+
         (x.role==='assistant'?'<button onclick="appendRaw()">📄 追加原文</button>':'');
       box.appendChild(o);
@@ -1630,9 +1666,32 @@ function renderRoles(){
 function privBox(priv){
   return '<div class="privbox">'+
   '<div class="dim" style="font-size:11px;letter-spacing:2px;margin-bottom:8px">· · ·</div>'+
-  '<div class="row" style="gap:10px;flex-wrap:wrap">'+
-  priv.map(ch=>'<button class="privav '+(ch.id===curId?'on':'')+'" onclick="openPriv(\''+ch.id+'\')">'+esc(ch.emoji||'🐋')+'</button>').join('')+
+  '<div class="row" style="gap:14px;flex-wrap:wrap">'+
+  priv.map(ch=>'<div class="privunit">'+
+    '<button class="privav '+(ch.id===curId?'on':'')+'" onclick="openPriv(\''+ch.id+'\')">'+esc(ch.emoji||'🐋')+'</button>'+
+    '<button class="iconbtn privset" onclick="editPriv(\''+ch.id+'\')">⚙ 设置</button>'+
+  '</div>').join('')+
   '</div></div>';
+}
+function editPriv(id){
+  const c=chars.find(x=>x.id===id);if(!c)return;
+  if(!hasAnyPrivPw())return editChar(id);   /* 没设过密码就直接进 */
+  $('#sheet').innerHTML='<div class="ttl">🔒 改私密角色要先验证</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">为保护隐私，修改「'+esc(c.name)+'」的设定前要输一次密码。</p>'+
+  '<input id="epw" type="password" placeholder="密码" autocomplete="off">'+
+  '<p id="eperr" class="dim" style="font-size:12px;color:var(--warn);min-height:18px;margin:6px 0 0"></p>'+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="tryEditPriv(\''+id+'\')">验证并编辑</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>';
+  openSheet();
+  setTimeout(()=>{const el=document.getElementById('epw');if(el){el.focus();el.addEventListener('keydown',e=>{if(e.key==='Enter')tryEditPriv(id)})}},80);
+}
+async function tryEditPriv(id){
+  const el=document.getElementById('epw'),err=document.getElementById('eperr');
+  const pw=el?el.value:'';
+  if(!pw){if(err)err.textContent='请输入密码';return}
+  let ok=false;try{ok=await verifyPriv(pw)}catch(e){ok=false}
+  if(!ok){if(err)err.textContent='密码不对';return}
+  closeSheet();editChar(id);
 }
 function moveChar(id,dir){
   const i=chars.findIndex(c=>c.id===id);if(i<0)return;
@@ -2018,8 +2077,15 @@ function renderCfg(){
   '<button class="col" onclick="document.getElementById(\'imp\').click()">导入备份</button></div>'+
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="chooseBackupFile()">'+(backupHandle?'更换自动备份文件':'开启自动备份到文件')+'</button></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">'+
-  (backupHandle?'🟢 自动备份已开启 · 上次：'+ago(lastBackup)+'。清缓存不影响磁盘上的备份文件。'
+  (backupHandle?('<div class="row" style="margin-top:8px"><button class="col" onclick="backupNow()">💾 立即备份一次</button></div>'):'')+
+  '<div class="setrow" style="margin-top:10px">'+
+  '<span class="lbl">自动备份频率</span>'+
+  '<select id="c_bkEvery" style="width:auto;flex:1 1 140px;padding:7px 10px;font-size:13px">'+
+  [['0','实时（有改动就存）'],['5','每 5 分钟'],['15','每 15 分钟'],['30','每 30 分钟'],['60','每 1 小时'],['360','每 6 小时']].map(o=>'<option value="'+o[0]+'"'+(((+cfg.bkEvery||0)===+o[0])?' selected':'')+'>'+o[1]+'</option>').join('')+
+  '</select></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">'+bkStatusText()+'</p>'+
+  '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
+
     :'⚪ 未开启自动备份。建议开启，避免清浏览器数据时聊天记录丢失。')+'</p>'+
   '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">档案存在 IndexedDB 里，单独一份备份可能很大。设密码后导出的备份文件会被加密。</p></div>'+
@@ -2029,6 +2095,14 @@ function renderCfg(){
   $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
   $('#c_time').onchange=e=>{cfg.timeOn=e.target.checked;save(LS.cfg,cfg);toast(cfg.timeOn?'已开启：角色能看到时间':'已关闭时间注入')};
   $('#c_auto').onchange=e=>{cfg.autoOn=e.target.checked;save(LS.cfg,cfg);scheduleAuto(true);toast(cfg.autoOn?'全局自动发消息：开':'全局自动发消息：关')};
+  const bek=$('#c_bkEvery');
+  if(bek)bek.onchange=e=>{
+    cfg.bkEvery=+e.target.value||0;save(LS.cfg,cfg);
+    stopBkTick();startBkTick();
+    if(backupHandle)scheduleBackup();
+    toast('备份频率：'+e.target.selectedOptions[0].textContent);renderCfg();
+  };
+
   $('#c_notify').onchange=async e=>{
     if(e.target.checked){
       if('Notification' in window){
@@ -2138,6 +2212,52 @@ async function removePassword(){
 
 /* ---------- 备份 ---------- */
 const BK='wh_backup_handle';
+const bkEveryMin=()=>{const n=+(cfg&&cfg.bkEvery);return (isFinite(n)&&n>0)?n:0;};   /* 0=实时 */
+const bkWatchMs=()=>{const m=bkEveryMin();return m?m*60000:600000;};
+async function bkPermState(){
+  if(!backupHandle)return 'none';
+  try{return await backupHandle.queryPermission({mode:'readwrite'})}catch(e){return 'prompt'}
+}
+async function ensureBkPerm(){
+  try{
+    if(await bkPermState()==='granted')return true;
+    const p=await backupHandle.requestPermission({mode:'readwrite'});
+    if(p==='granted'){bkNeed=false;return true}
+  }catch(e){}
+  bkNeed=true;return false;
+}
+/* 浏览器规定「重新授权」必须由用户点击触发：挂一个只生效一次的监听，你下次点屏幕就自动补授权 */
+function armBkReauth(){
+  if(bkArmed)return;bkArmed=true;
+  const h=async()=>{
+    document.removeEventListener('pointerdown',h,true);bkArmed=false;
+    if(bkNeed&&backupHandle&&await ensureBkPerm()){await autoBackup(true);if(view==='cfg')renderCfg()}
+  };
+  document.addEventListener('pointerdown',h,true);
+}
+function startBkTick(){
+  if(bkTick)return;
+  bkTick=setInterval(()=>{
+    if(!backupHandle)return;
+    if(Date.now()-lastBackup<bkWatchMs())return;
+    autoBackup();
+  },30000);
+}
+function stopBkTick(){if(bkTick){clearInterval(bkTick);bkTick=null}}
+function bkStatusText(){
+  if(!backupHandle)return '⚪ 未开启自动备份。建议开启，避免清浏览器数据时聊天记录丢失。';
+  const every=bkEveryMin();
+  const mode=every?('每 '+every+' 分钟自动存一次'):'有改动就自动存（约 2.5 秒后落盘）';
+  if(bkNeed)return '🟡 自动备份已开启（'+mode+'），但浏览器收回了写文件权限。点屏幕任意位置、或点下面「立即备份一次」重新授权。上次成功：'+ago(lastBackup)+'。';
+  return '🟢 自动备份已开启 · '+mode+' · 上次：'+ago(lastBackup)+(bkErr?(' · 上次出错：'+bkErr):'');
+}
+async function backupNow(){
+  if(!backupHandle){toast('还没开启自动备份');return}
+  toast('备份中…');
+  const ok=await autoBackup(true);
+  toast(ok?'已备份到文件':'备份失败'+(bkErr?('：'+bkErr):'');
+  if(view==='cfg')renderCfg();
+}
 async function backupPayload(){
   const d={v:5,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},todos:{},arcs:load(LS.arcs,[]),arcData:{}};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id)});
@@ -2192,7 +2312,13 @@ function wipe(){
 async function initBackup(){
   try{backupHandle=(await idbGetRaw(BK,'meta'))||null}catch(e){backupHandle=null}
   lastBackup=load('wh_lastBackup',0);
+  if(backupHandle){
+    if(await bkPermState()!=='granted'){bkNeed=true;armBkReauth()}
+    startBkTick();
+    if(Date.now()-lastBackup>bkWatchMs())autoBackup();
+  }
 }
+
 async function chooseBackupFile(){
   if(!window.showSaveFilePicker)return alert('当前浏览器不支持自动落盘（需 Chrome/Edge 86+）。你可以继续用「导出备份」手动保存。');
   try{
@@ -2201,32 +2327,41 @@ async function chooseBackupFile(){
       types:[{description:'JSON',accept:{'application/json':['.json']}}]
     });
     await idbPutRaw(BK,backupHandle,'meta');
-    await autoBackup(true);
-    toast('已开启自动备份到文件');
+    const ok=await autoBackup(true);
+    if(ok){lastBackup=Date.now();save('wh_lastBackup',lastBackup)}
+    startBkTick();
+    toast(ok?'已开启自动备份到文件':'文件已选定，但写入失败：'+(bkErr||'未知原因'));
     renderCfg();
   }catch(e){}
 }
 function scheduleBackup(){
   if(!backupHandle)return;
+  if(bkEveryMin()>0){startBkTick();return;}   /* 定时模式：不每次改动都写 */
   clearTimeout(bkTimer);
-  bkTimer=setTimeout(()=>autoBackup(),2500);
+  bkTimer=setTimeout(()=>{bkTimer=null;autoBackup()},2500);
 }
 async function autoBackup(force){
-  if(!backupHandle)return;
+  if(!backupHandle)return false;
+  clearTimeout(bkTimer);bkTimer=null;
   try{
-    let p=await backupHandle.queryPermission({mode:'readwrite'});
+    let p='prompt';
+    try{p=await backupHandle.queryPermission({mode:'readwrite'})}catch(e){p='prompt'}
     if(p!=='granted'){
-      if(!force)return;
-      p=await backupHandle.requestPermission({mode:'readwrite'});
-      if(p!=='granted'){toast('没有写文件权限，自动备份被跳过');return}
+      if(!force){bkNeed=true;armBkReauth();return false}   /* 先记下，等你点屏幕时补授权 */
+      if(!(await ensureBkPerm())){bkErr='没有写文件权限';return false}
     }
     const payload=await backupPayload();
     const w=await backupHandle.createWritable();
     await w.write(payload.str);
     await w.close();
-    lastBackup=Date.now();
+    lastBackup=Date.now();bkErr='';bkNeed=false;
     save('wh_lastBackup',lastBackup);
-  }catch(e){console.warn('自动备份失败',e)}
+    return true;
+  }catch(e){
+    bkErr=(e&&e.message)||'写入失败';
+    console.warn('自动备份失败',e);
+    return false;
+  }
 }
 
 /* ---------- 启动 ---------- */
@@ -2249,7 +2384,7 @@ async function unlock(){
   }catch(e){$('#pwerr').textContent='密码不对';}
 }
 async function initApp(){
-  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true});
+  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0});
   if(cfg.arcTop==null)cfg.arcTop=5;
   if(cfg.wholeLimit==null)cfg.wholeLimit=20000;
   if(!THEMES[cfg.theme])cfg.theme='dark';
