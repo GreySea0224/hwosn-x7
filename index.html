@@ -101,8 +101,12 @@ button:disabled{opacity:.45;pointer-events:none}
 #picked.on{display:flex}
 #picked img{height:66px;border-radius:10px;border:1px solid var(--line);box-shadow:var(--shadow)}
 #picked button{width:30px;height:30px;padding:0;border-radius:50%;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:13px;box-shadow:none}
-#composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--grad);border-top:1px solid var(--line)}
-#composer textarea{flex:1;min-height:42px;max-height:120px;border-radius:14px;padding:10px 12px}
+/* ---------- 底部输入栏：去掉右下角小点 + 更圆润 ---------- */
+#composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--grad);border-top:1px solid var(--line);align-items:flex-end}
+#composer textarea{flex:1;min-height:42px;max-height:120px;border-radius:16px;padding:10px 14px;resize:none;background:var(--bg2);border-color:transparent;box-shadow:inset 0 0 0 1px var(--line);overflow-y:auto;scrollbar-width:none}
+#composer textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(63,169,216,.12)}
+#composer textarea::-webkit-scrollbar{width:0;height:0}
+#composer textarea::-webkit-resizer{display:none;background:transparent}
 #composer button{width:48px;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;font-weight:800;font-size:18px}
 #composer #pic{background:var(--bg2);border:1px solid var(--line);color:var(--acc);font-size:17px;box-shadow:none}
 #composer #stop{background:linear-gradient(135deg,#c0504a,#e06a60);color:#fff;font-size:20px}
@@ -175,6 +179,24 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .gm{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:4px 8px 4px 4px}
 .gm .nm{font-size:12.5px;line-height:1.2}
 .gm .tg{font-size:10.5px;color:var(--dim);line-height:1.2}
+/* ---------- 小工具：随机中 → 随机完成 动画 ---------- */
+.funroll{text-align:center;padding:10px 0 4px}
+.funroll-in{font-size:22px;font-weight:700;color:var(--acc);letter-spacing:1px;animation:funshuffle .3s linear infinite}
+@keyframes funshuffle{0%{transform:translateY(-3px) scale(1);opacity:.6}50%{transform:translateY(3px) scale(1.06);opacity:1}100%{transform:translateY(-3px) scale(1);opacity:.6}}
+.funbar{height:6px;border-radius:99px;background:var(--bg);border:1px solid var(--line);overflow:hidden;margin:12px auto 8px;max-width:230px}
+.funbar i{display:block;height:100%;width:36%;border-radius:99px;background:linear-gradient(90deg,var(--acc),var(--acc2));animation:funslide .95s ease-in-out infinite}
+@keyframes funslide{0%{transform:translateX(-115%)}100%{transform:translateX(300%)}}
+.funrolltip{font-size:12px;color:var(--dim);letter-spacing:1px}
+.funres{font-size:22px;font-weight:700;text-align:center;padding:12px 0;color:var(--acc);white-space:pre-wrap;animation:funpop .5s cubic-bezier(.2,1.5,.4,1)}
+@keyframes funpop{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.13)}100%{transform:scale(1);opacity:1}}
+.funok{text-align:center;font-size:12px;color:var(--acc);opacity:.9;margin-bottom:4px;animation:pop .3s ease}
+/* ---------- 群聊：token 显示 + 单条删除 ---------- */
+.gbub .gname{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gbub.me .gname{justify-content:flex-end}
+.gdel{background:none;border:0;color:var(--dim);font-size:11px;line-height:1;padding:2px 5px;border-radius:6px;box-shadow:none;opacity:.5}
+.gdel:active{transform:scale(.92)}
+.gtok{font-size:10.5px;color:var(--dim);opacity:.72;margin-top:3px;user-select:none}
+.gbub.me .gtok{text-align:right}
 </style>
 </head>
 <body>
@@ -208,7 +230,7 @@ const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',priv:'wh_priv',unread:'wh_unread',
   groups:'wh_groups',gauto:'wh_gauto',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
-  summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id};
+  summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id};
 
 /* ---------- 主题 ---------- */
 const THEMES={
@@ -1232,7 +1254,6 @@ async function summarizeArc(id){
     arcBusy=false;
   }
 }
-
 async function delArc(id){
   if(!confirm('删掉这份档案？记忆里就翻不到它了'))return;
   try{await idbDel(id)}catch(e){}
@@ -1393,6 +1414,8 @@ function buildCtx(c,extra){
   const mb=memBlock(mem);if(mb)sys.push(mb);
   const lu=msgs.slice().reverse().find(x=>x.role==='user'&&x.content);
   const ab=archiveBlock(lu?lu.content:'',c);if(ab)sys.push(ab);
+  /* 【新增】开了「群聊权限」的角色，会带上它在群里的记忆 */
+  const gb=groupMemBlock(c);if(gb)sys.push(gb);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
   if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
@@ -1508,25 +1531,42 @@ function execTodoTool(name,args,cid){
   if(name==='delete_todo'){saveTodos(cid,arr.filter(x=>x.id!==id));return {ok:true,msg:'已删除：'+t.text,todos:todoBrief(arr)}}
   return {ok:false,msg:'未知操作'};
 }
-async function todoToolLoop(c,ctx,opt){
+/* ================= 【新增】角色可调用的工具集合 =================
+   按角色的权限拼装：待办权限 → 待办工具；群聊权限 → 群聊工具。
+   角色因此在私聊时也能「自己看群消息、自己在群里发言」。 */
+function toolsFor(c){
+  const t=[];
+  if(c&&c.todoPerm&&c.todoPerm.on)t.push.apply(t,TODO_TOOLS);
+  if(c&&c.groupPerm&&c.groupPerm.on)t.push.apply(t,GROUP_TOOLS);
+  return t;
+}
+function execCharTool(name,args,cid){
+  if(TODO_TOOLS.some(t=>t.function.name===name))return execTodoTool(name,args,cid);
+  if(GROUP_TOOLS.some(t=>t.function.name===name))return execGroupTool(name,args,cid);
+  return {ok:false,msg:'未知工具'};
+}
+async function toolLoop(c,ctx,opt){
   opt=opt||{};
-  const msgs=ctx.slice();
+  const tools=opt.tools||toolsFor(c);
+  const msgs2=ctx.slice();
+  if(!tools.length)return {finalText:'',reasoning:'',usage:null,messages:msgs2,didTool:false};
   let reasoning='',usage=null,rounds=0,didTool=false;
-  while(rounds<5){
+  while(rounds<6){
     rounds++;
-    const resp=await callAPI(msgs,{stream:false,model:modelOf(c),tools:TODO_TOOLS,tool_choice:'auto',signal:opt.signal,temp:opt.temp,maxtok:opt.maxtok,onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
-    if(!resp)return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:didTool};
-    if(!resp.tool_calls||!resp.tool_calls.length)return {finalText:resp.content||'',reasoning:reasoning,usage:usage,messages:msgs,didTool:didTool};
+    const resp=await callAPI(msgs2,{stream:false,model:modelOf(c),tools:tools,tool_choice:'auto',signal:opt.signal,temp:opt.temp,maxtok:opt.maxtok,onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
+    if(!resp)return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+    if(!resp.tool_calls||!resp.tool_calls.length)return {finalText:resp.content||'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
     didTool=true;
-    msgs.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
+    msgs2.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
     for(const tc of resp.tool_calls){
       let args={};try{args=JSON.parse(tc.function.arguments||'{}')}catch(e){args={}}
-      const r=execTodoTool(tc.function.name,args,c.id);
-      msgs.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
+      let r;
+      try{r=execCharTool(tc.function.name,args,c.id)}catch(e){r={ok:false,msg:'工具执行出错：'+((e&&e.message)||e)}}
+      msgs2.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
     }
-    if(view==='tools')renderTodo();
+    if(view==='tools'&&toolTab==='todo')renderTodo();
   }
-  return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:true};
+  return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:true};
 }
 async function askAndAppend(){
   const c=curChar(),box=$('#msgs');
@@ -1541,9 +1581,9 @@ async function askAndAppend(){
   curAbort=new AbortController();
   const sig=curAbort.signal;
   try{
-    const tools=(c&&c.todoPerm&&c.todoPerm.on)?TODO_TOOLS:null;
-    if(tools){
-      const r=await todoToolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok});
+    const tools=toolsFor(c);
+    if(tools.length){
+      const r=await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools});
       reasoning=r.reasoning;usage=r.usage;out=r.finalText;
       if(!out){
         const ctx2=r.messages.concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
@@ -1816,7 +1856,9 @@ async function maybeAutoSummary(showToast){
   const el=document.getElementById('memPane');if(el)refreshMem();
 }
 /* ---------- 自动发消息 ---------- */
+/* 【新增】免打扰可以不设置：把「免打扰时段」的开关关掉，就任何时间都可能主动发消息 */
 function isQuiet(a){
+  if(!a||a.quietOn===false)return false;
   const h=new Date().getHours(),qs=+a.quietStart,qe=+a.quietEnd;
   if(isNaN(qs)||isNaN(qe))return false;
   return qs<=qe?(h>=qs&&h<qe):(h>=qs||h<qe);
@@ -1935,7 +1977,7 @@ function renderRoles(){
     '<button class="ghost" onclick="event.stopPropagation();editChar(\''+c.id+'\',\'mem\')">记忆</button>'+
     '<button class="ghost" onclick="event.stopPropagation();editChar(\''+c.id+'\')">编辑</button></div>'+
     '<div class="row" style="align-items:center;margin-top:8px;gap:8px">'+
-    '<div class="dim col" style="font-size:11px;min-width:0">'+(a.on?'自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟':'自动发消息：关')+' · 思考：'+THINK_LEVELS[(c.think==null?1:c.think)].label+'</div>'+
+    '<div class="dim col" style="font-size:11px;min-width:0">'+(a.on?('自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟'+(a.quietOn===false?' · 不设免打扰':'')):'自动发消息：关')+' · 思考：'+THINK_LEVELS[(c.think==null?1:c.think)].label+((c.groupPerm&&c.groupPerm.on)?' · 可用群聊':'')+'</div>'+
     '<button class="iconbtn" title="复制这个角色" onclick="event.stopPropagation();copyChar(\''+c.id+'\')">'+ICON.copy+'</button>'+
     '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',-1)">↑</button>'+
     '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',1)">↓</button></div></div>';
@@ -1996,7 +2038,7 @@ function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     sysPrompt:'',examples:'',think:1,priv:false,
-    auto:{on:false,min:10,max:30,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -2012,7 +2054,7 @@ function editChar(id,tema){
     refreshMem();
     return;
   }
-  const a=c.auto||(c.auto={on:false,min:10,max:30,quietStart:1,quietEnd:8,hint:''});
+  const a=c.auto||(c.auto={on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''});
   showSheet(tabs+
   '<div class="card" style="margin:0 0 12px"><div class="row" style="align-items:center;gap:12px">'+
   '<div id="e_avaprev">'+avBox(c,60)+'</div>'+
@@ -2040,8 +2082,13 @@ function editChar(id,tema){
   '<input type="checkbox" id="e_auto" '+(a.on?'checked':'')+'></div>'+
   '<div class="row" style="margin-top:10px"><div class="col"><label class="f">最短（分钟）</label><input id="e_min" type="number" value="'+a.min+'"></div>'+
   '<div class="col"><label class="f">最长（分钟）</label><input id="e_max" type="number" value="'+a.max+'"></div></div>'+
-  '<div class="row" style="margin-top:10px"><div class="col"><label class="f">免打扰 起（整点）</label><input id="e_qs" type="number" value="'+a.quietStart+'"></div>'+
-  '<div class="col"><label class="f">免打扰 止（整点）</label><input id="e_qe" type="number" value="'+a.quietEnd+'"></div></div>'+
+  /* 【新增】免打扰可以不设置：关掉这个开关，就任何时间都可能主动发消息 */
+  '<div class="row" style="align-items:center;margin-top:12px">'+
+  '<div class="col"><b style="font-size:13px">免打扰时段</b><div class="dim" style="font-size:11.5px">关掉＝不设免打扰，全天任意时间都可能主动发消息</div></div>'+
+  '<input type="checkbox" id="e_quieton" '+((a.quietOn!==false)?'checked':'')+' onchange="toggleQuietRow(this.checked)"></div>'+
+  '<div class="row" id="e_quietrow" style="margin-top:8px;'+((a.quietOn!==false)?'':'display:none')+'">'+
+  '<div class="col"><label class="f">免打扰 起（整点 0-23）</label><input id="e_qs" type="number" min="0" max="23" value="'+(a.quietStart==null?1:a.quietStart)+'"></div>'+
+  '<div class="col"><label class="f">免打扰 止（整点 0-23）</label><input id="e_qe" type="number" min="0" max="23" value="'+(a.quietEnd==null?8:a.quietEnd)+'"></div></div>'+
   '<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'">'+
   '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="testAuto(\''+id+'\')">✨ 保存并试一条</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">想快点验证效果，可把「最短」设成 1~3 分钟。保存后立刻生效，不用刷新页面。</p></div>'+
@@ -2053,10 +2100,19 @@ function editChar(id,tema){
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成自己的待办（碰不到别人和你的）</div></div>'+
   '<input type="checkbox" id="e_todo" '+((c.todoPerm&&c.todoPerm.on)?'checked':'')+'></div></div>'+
+  /* 【新增】群聊权限：开了以后它在私聊里也能自己看群消息、在群里发言，并记住自己在群里说过的话 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>群聊权限</b><div class="dim" style="font-size:12px">允许它在和你聊天时自己查看所在的群、自己在群里发言（它会记得自己在群里说过的话）</div></div>'+
+  '<input type="checkbox" id="e_group" '+((c.groupPerm&&c.groupPerm.on)?'checked':'')+'></div></div>'+
   '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
   '<button class="col" onclick="copyChar(\''+id+'\')">复制这个角色</button></div>'+
   '<div class="row" style="margin-top:8px"><button class="warn col" onclick="delChar(\''+id+'\')">删除角色</button>'+
   '<button class="ghost col" onclick="closeSheet()">取消</button></div>',true);
+}
+/* 免打扰时段开关：关掉就把起止输入隐藏（等于不设免打扰） */
+function toggleQuietRow(on){
+  const el=document.getElementById('e_quietrow');
+  if(el)el.style.display=on?'flex':'none';
 }
 function applyCharInputs(id){
   const c=chars.find(x=>x.id===id);if(!c)return null;
@@ -2073,9 +2129,11 @@ function applyCharInputs(id){
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
   c.auto={on:ck('e_auto'),min:+v('e_min')||30,max:+v('e_max')||90,
+    quietOn:ck('e_quieton'),
     quietStart:+v('e_qs')||0,quietEnd:+v('e_qe')||8,hint:v('e_hint').trim()};
   if(c.auto.max<=c.auto.min)c.auto.max=c.auto.min+1;
   c.todoPerm={on:ck('e_todo')};
+  c.groupPerm={on:ck('e_group')};
   c.priv=ck('e_priv');
   if(typeof c.avatar!=='string')c.avatar='';
   return c;
@@ -2099,7 +2157,7 @@ async function testAuto(id){
 async function delChar(id){
   if(!confirm('删掉这个角色？聊天记录和记忆一起没'))return;
   clearUnread(id);
-  removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));removeKey(LS.rawMark(id));removeKey(LS.summark(id));
+  removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));removeKey(LS.rawMark(id));removeKey(LS.summark(id));removeKey(LS.gmem(id));
   try{await idbDel(id,'rawlog')}catch(e){}
   chars=chars.filter(c=>c.id!==id);delete autoMap[id];
   /* 【新增】把它从所有群里移出去 */
@@ -2430,7 +2488,7 @@ function todosOf(id){return load(LS.todo(id),[])}
 function saveTodos(id,arr){save(LS.todo(id),arr);scheduleBackup()}
 
 /* ================= 工具页（待办 / 群聊 / 小工具） ================= */
-let funResult='';
+let funResult='',funRolling=false,funSpin=null,funTxt='',funEnd=0;
 function renderTools(){
   const tabs=[['todo','待办'],['group','群聊'],['fun','小工具']];
   $('#main').innerHTML='<div class="tabs" style="margin-bottom:12px">'+
@@ -2498,33 +2556,130 @@ function delTodo(id){
   saveTodos(todoCharId,todosOf(todoCharId).filter(x=>x.id!==id));renderToolPane();
 }
 
-/* ---------- 小工具（纯本地互动） ---------- */
+/* ---------- 小工具（纯本地互动）
+   【改动】加了「随机中 → 随机完成」的过渡动画：滚动预览 + 进度条 + 结果弹出。
+   动画只刷新结果区（#funBoxOut），所以不会清空你填的输入框。 */
+function funBoxHTML(){
+  if(funRolling){
+    return '<div class="card" style="margin-top:10px;overflow:hidden"><div class="dim" style="font-size:12px">结果</div>'+
+    '<div class="funroll"><div class="funroll-in">'+esc(funTxt||'· · ·')+'</div>'+
+    '<div class="funbar"><i></i></div>'+
+    '<div class="funrolltip">随机中…</div></div></div>';
+  }
+  if(funResult){
+    return '<div class="card" style="margin-top:10px"><div class="dim" style="font-size:12px">结果</div>'+
+    '<div class="funres">'+esc(funResult)+'</div>'+
+    '<div class="funok">✓ 随机完成</div></div>';
+  }
+  return '';
+}
+function funRefresh(){const el=document.getElementById('funBoxOut');if(el)el.innerHTML=funBoxHTML()}
 function funHTML(){
-  const r=funResult?'<div class="card" style="margin-top:10px"><div class="tl dim" style="font-size:12px">结果</div><div style="font-size:20px;font-weight:700;text-align:center;padding:10px 0;color:var(--acc);white-space:pre-wrap">'+esc(funResult)+'</div></div>':'';
   return '<div class="card"><div class="ttl">小工具（互动）</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 10px">不用联网的小玩法，纯本地随机。</p>'+
   '<div class="row"><button class="col" onclick="funDice()">🎲 掷骰子</button>'+
   '<button class="col" onclick="funCoin()">🪙 抛硬币</button></div>'+
   '<div class="row" style="margin-top:8px"><input id="funMax" class="col" type="number" value="100" placeholder="最大数"><button onclick="funRand()">抽数字</button></div>'+
   '<div class="row" style="margin-top:8px"><input id="funList" class="col" placeholder="逗号分隔，比如：吃火锅,吃面,点外卖"><button onclick="funPick()">抽一个</button></div>'+
-  r+'</div>';
+  '<div id="funBoxOut">'+funBoxHTML()+'</div></div>';
 }
-function funSet(t){funResult=t;renderToolPane()}
-function funDice(){funSet('🎲 '+(1+Math.floor(Math.random()*6)))}
-function funCoin(){funSet(Math.random()<.5?'🪙 正面':'🪙 反面')}
-function funRand(){const el=$('#funMax');const n=Math.max(1,Math.round(Number(el?el.value:100)||100));funSet('🔢 '+(1+Math.floor(Math.random()*n)))}
+/* preview()：滚动时随机显示的假结果；result()：真正的结果 */
+function funRun(preview,result){
+  if(funRolling)return;
+  funRolling=true;funResult='';funTxt='· · ·';
+  funEnd=Date.now()+820;
+  clearInterval(funSpin);
+  funRefresh();
+  funSpin=setInterval(()=>{
+    funTxt=preview();
+    funRefresh();
+    if(Date.now()>=funEnd){
+      clearInterval(funSpin);funSpin=null;
+      funRolling=false;funTxt='';
+      funResult=result();
+      funRefresh();
+      toast('✅ 随机完成');
+    }
+  },80);
+}
+function funDice(){funRun(()=>'🎲 '+(1+Math.floor(Math.random()*6)),()=>'🎲 '+(1+Math.floor(Math.random()*6)))}
+function funCoin(){funRun(()=>Math.random()<.5?'🪙 正面':'🪙 反面',()=>Math.random()<.5?'🪙 正面':'🪙 反面')}
+function funRand(){const el=$('#funMax');const n=Math.max(1,Math.round(Number(el?el.value:100)||100));funRun(()=>'🔢 '+(1+Math.floor(Math.random()*n)),()=>'🔢 '+(1+Math.floor(Math.random()*n)))}
 function funPick(){
   const el=$('#funList');
   const arr=String(el?el.value:'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean);
   if(!arr.length)return toast('先填几个选项，用逗号隔开');
-  funSet('👉 '+arr[Math.floor(Math.random()*arr.length)]);
+  funRun(()=>'👉 '+arr[Math.floor(Math.random()*arr.length)],()=>'👉 '+arr[Math.floor(Math.random()*arr.length)]);
+}
+
+/* ---------- 群聊记忆：角色记得自己在群里说过什么 ---------- */
+function gmemOf(cid){return load(LS.gmem(cid),[])}
+function gmemAdd(cid,gid,gname,text,self){
+  const arr=gmemOf(cid);
+  arr.push({t:Date.now(),gid:gid,gn:gname,tx:String(text||'').slice(0,300),me:!!self});
+  while(arr.length>120)arr.shift();
+  save(LS.gmem(cid),arr);scheduleBackup();
+}
+function gmemBlock(cid,gid,limit){
+  const arr=gmemOf(cid).filter(x=>!gid||x.gid===gid).slice(-(limit||10));
+  if(!arr.length)return '';
+  return arr.map(x=>'- 在《'+(x.gn||'群')+'》里你说：'+x.tx).join('\n');
+}
+/* 私聊时注入「你在群里的事」（只有开了群聊权限的角色才有） */
+function groupMemBlock(c){
+  if(!c||!c.groupPerm||!c.groupPerm.on)return '';
+  const arr=gmemOf(c.id);
+  if(!arr.length)return '';
+  return '【你在群聊里的事】你加过群聊，下面是你自己在群里说过的话，你记得这些（聊天时聊到相关话题可以自然提起，不要生硬罗列）：\n'+
+  arr.slice(-10).map(x=>'- 在《'+(x.gn||'群')+'》里你说：'+x.tx).join('\n');
+}
+/* ================= 群聊工具（【新增】角色可调用） =================
+   角色开了「群聊权限」后，在私聊里也能自己看群、自己在群里发言。 */
+const GROUP_TOOLS=[
+  {type:'function',function:{name:'list_my_groups',description:'查看自己所在的群聊列表（群名、成员、群id）。想参与群聊前先看这个。',parameters:{type:'object',properties:{}}}},
+  {type:'function',function:{name:'read_group',description:'读取某个群聊最近的聊天消息，看看大家在聊什么。',parameters:{type:'object',properties:{group:{type:'string',description:'群名或群id'},limit:{type:'integer',description:'读几条，默认10，最多30'}},required:['group']}}},
+  {type:'function',function:{name:'send_group_message',description:'以你自己的身份，在某个群里发一条消息。只能用自己的身份发，不能替别人说话。',parameters:{type:'object',properties:{group:{type:'string',description:'群名或群id'},text:{type:'string',description:'要发的内容'}},required:['group','text']}}}
+];
+function groupsOfChar(cid){return groupsAll().filter(g=>(g.members||[]).some(m=>m.cid===cid))}
+function findGroupFlex(q,cid){
+  q=String(q||'').trim();if(!q)return null;
+  const gs=groupsOfChar(cid);
+  return gs.find(g=>g.id===q)||gs.find(g=>g.name===q)||gs.find(g=>String(g.name).indexOf(q)>=0)||null;
+}
+function execGroupTool(name,args,cid){
+  const nmOf=id=>{const x=charOf(id);return x?x.name:'某人'};
+  if(name==='list_my_groups'){
+    const gs=groupsOfChar(cid);
+    if(!gs.length)return {ok:true,msg:'你还没有加入任何群聊。'};
+    return {ok:true,msg:'你所在的群：\n'+gs.map(g=>'· 群名：'+g.name+'（id:'+g.id+'，'+g.members.length+'人，成员：'+g.members.map(m=>nmOf(m.cid)).join('、')+'）').join('\n')};
+  }
+  const g=findGroupFlex(args&&args.group,cid);
+  if(!g)return {ok:false,msg:'没找到这个群。先调用 list_my_groups 看看你在哪些群里。'};
+  if(name==='read_group'){
+    const lim=Math.max(1,Math.min(30,Math.round(Number(args&&args.limit)||10)));
+    const arr=gmsgsOf(g.id).slice(-lim);
+    if(!arr.length)return {ok:true,msg:'《'+g.name+'》里还没有人说话。'};
+    return {ok:true,msg:'《'+g.name+'》最近的聊天：\n'+arr.map(m=>(m.role==='user'?(cfg.userName||'她'):nmOf(m.cid))+'：'+(m.content||'')).join('\n')};
+  }
+  if(name==='send_group_message'){
+    const text=String((args&&args.text)||'').trim().slice(0,500);
+    if(!text)return {ok:false,msg:'内容为空，没发出去。'};
+    const arr=gmsgsOf(g.id);
+    arr.push({role:'char',cid:cid,content:text,t:Date.now(),tok:estTokens(text)});
+    saveGmsgs(g.id,arr);
+    gmemAdd(cid,g.id,g.name,text,true);
+    if(view==='tools'&&toolTab==='group'){renderToolPane();if(groupOpenId===g.id)scrollGroupDown()}
+    return {ok:true,msg:'已在《'+g.name+'》里以你的身份发出：'+text};
+  }
+  return {ok:false,msg:'未知操作'};
 }
 
 /* ================= 群聊 =================
    数据结构：
    LS.groups  = [{id,name,members:[{cid,reply:'user'|'both',auto:bool}],
                   chain:0.6,maxAI:6,maxRound:3,autoMin:15,autoMax:60,created:t}]
-   LS.gmsg(id)= [{role:'user'|'char',cid,content,t}]
+   LS.gmsg(id)= [{role:'user'|'char',cid,content,t,tok}]
+   LS.gmem(cid)=[{t,gid,gn,tx,me}]  角色在群里的记忆（它自己说过的话）
    reply='user' 只在收到用户消息时回应；'both' 还可以接其他角色的话。 */
 const GRP_CHAIN_DEF=0.6, GRP_MAXAI_DEF=6, GRP_MAXROUND_DEF=3;
 function groupsAll(){return load(LS.groups,[])}
@@ -2540,7 +2695,7 @@ function groupHTML(){
   const g=groupOpenId?findGroup(groupOpenId):null;
   if(g)return groupChatHTML(g);
   let h='<div class="card"><div class="ttl">群聊</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 10px">把几个角色拉进一个群，让它们一起聊。每个角色的「怎么回应」「能不能自动冒泡」都能单独设置。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">把几个角色拉进一个群，让它们一起聊。每个角色的「怎么回应」「能不能自动冒泡」都能单独设置。角色若开了「群聊权限」，在私聊里也能自己看群、自己在群里发言。</p>'+
   '<button class="pri" style="width:100%" onclick="newGroupSheet()">＋ 新建群聊</button></div>';
   if(!gs.length)return h+'<p class="hint">还没有群聊</p>';
   h+='<div class="card"><div class="ttl">我的群</div>'+gs.map(x=>{
@@ -2557,26 +2712,36 @@ function groupHTML(){
 }
 function openGroup(id){groupOpenId=id;toolTab='group';renderTools();}
 function backGroups(){groupOpenId=null;renderToolPane();}
+/* 【改动】每条群消息都显示 token 消耗，并带一个 ✕ 可以单条删除 */
+function gtokText(m){
+  return (m.role==='user'?'约 ':'生成 ')+(m.tok||estTokens(m.content||''))+' tok';
+}
 function groupChatHTML(g){
   const ms=gmsgsOf(g.id);
-  const rows=ms.map(m=>{
+  const rows=ms.map((m,i)=>{
+    const del='<button class="gdel" title="删除这条" onclick="delGmsg('+i+')">✕</button>';
     if(m.role==='user'){
       return '<div class="gbub me">'+avBox({emoji:cfg.userEmoji,avatar:cfg.userAvatar},34)+
-      '<div class="gmain"><div class="gname">'+esc(cfg.userName||'我')+' · '+fmtStamp(m.t)+'</div><div class="gtext">'+nl2br(m.content||'')+'</div></div></div>';
+      '<div class="gmain"><div class="gname">'+esc(cfg.userName||'我')+' · '+fmtStamp(m.t)+del+'</div>'+
+      '<div class="gtext">'+nl2br(m.content||'')+'</div>'+
+      '<div class="gtok">'+gtokText(m)+'</div></div></div>';
     }
     const c=charOf(m.cid);
     return '<div class="gbub">'+(c?avBox(c,34):'<div class="gav">?</div>')+
-    '<div class="gmain"><div class="gname">'+esc(c?c.name:'（角色已删除）')+' · '+fmtStamp(m.t)+'</div><div class="gtext">'+nl2br(m.content||'')+'</div></div></div>';
+    '<div class="gmain"><div class="gname">'+esc(c?c.name:'（角色已删除）')+' · '+fmtStamp(m.t)+del+'</div>'+
+    '<div class="gtext">'+nl2br(m.content||'')+'</div>'+
+    '<div class="gtok">'+gtokText(m)+'</div></div></div>';
   }).join('')||'<div class="gbub sys"><div class="gtext">还没人说话，打个招呼吧</div></div>';
   const mem=g.members.map(m=>{
     const c=charOf(m.cid);if(!c)return '';
-    const tag=(m.reply==='both'?'可接话':'只答我')+(m.auto?' · 自动':'');
+    const tag=(m.reply==='both'?'可接话':'只答我')+(m.auto?' · 自动':'')+((c.groupPerm&&c.groupPerm.on)?' · 可调群聊':'');
     return '<span class="gm">'+avBox(c,26)+'<span><span class="nm">'+esc(c.name)+'</span><br><span class="tg">'+tag+'</span></span></span>';
   }).join('');
   const chain=(typeof g.chain==='number')?g.chain:GRP_CHAIN_DEF;
   return '<div class="gwrap">'+
   '<div class="gbar"><button class="ghost" onclick="backGroups()">‹ 返回</button>'+
   '<div class="col" style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(g.name)+'</div>'+
+  '<button class="ghost" onclick="clearGmsgs()">清空消息</button>'+
   '<button class="ghost" onclick="editGroupSheet(\''+g.id+'\')">成员设置</button></div>'+
   '<div class="gmem">'+mem+'</div>'+
   '<div class="gmsgs" id="gmsgs">'+rows+'</div>'+
@@ -2584,9 +2749,29 @@ function groupChatHTML(g){
   '<button class="pri" style="width:58px;flex:0 0 58px" onclick="groupSend()" '+(groupBusy?'disabled':'')+'>发送</button></div>'+
   '<div class="row"><button class="col" onclick="groupKick()" '+(groupBusy?'disabled':'')+'>▶ 让大家自己聊两句</button></div>'+
   '<p class="dim" style="font-size:11.5px;margin:0">防刷屏：一次触发最多 '+ (g.maxAI||GRP_MAXAI_DEF) +' 条角色消息、最多来回 '+ (g.maxRound||GRP_MAXROUND_DEF) +' 轮，角色接别人话的概率 '+Math.round(chain*100)+'%。都能在「成员设置」里调。</p>'+
+  '<p class="dim" style="font-size:11.5px;margin:6px 0 0">提示：在「角色 → 编辑 → 群聊权限」里打开开关后，那个角色在私聊时也能自己读群消息、自己在群里发言，并记住自己在群里说过的话。</p>'+
   '</div>';
 }
 function scrollGroupDown(){const b=document.getElementById('gmsgs');if(b)b.scrollTop=b.scrollHeight}
+/* 【新增】删除单条群消息 / 清空本群消息 */
+function delGmsg(i){
+  const g=findGroup(groupOpenId);if(!g)return;
+  const arr=gmsgsOf(g.id);
+  const n=Number(i);
+  if(!(n>=0&&n<arr.length))return;
+  if(!confirm('删除这条群消息？'))return;
+  arr.splice(n,1);
+  saveGmsgs(g.id,arr);
+  renderToolPane();scrollGroupDown();
+  toast('已删除这条群消息');
+}
+function clearGmsgs(){
+  const g=findGroup(groupOpenId);if(!g)return;
+  if(!confirm('清空《'+g.name+'》的全部聊天记录？（角色本人的群聊记忆不受影响）'))return;
+  saveGmsgs(g.id,[]);
+  renderToolPane();
+  toast('已清空群消息');
+}
 async function groupSend(){
   const g=findGroup(groupOpenId);if(!g)return;
   if(groupBusy)return toast('群里还在说话，等一下');
@@ -2595,7 +2780,7 @@ async function groupSend(){
   if(!t)return;
   el.value='';
   const arr=gmsgsOf(g.id);
-  arr.push({role:'user',content:t,t:Date.now()});
+  arr.push({role:'user',content:t,t:Date.now(),tok:estTokens(t)});
   saveGmsgs(g.id,arr);
   renderToolPane();scrollGroupDown();
   await groupRun(g,'user');
@@ -2632,10 +2817,11 @@ async function groupRun(g,trigger){
         if(last&&last.role==='char'&&last.cid===m.cid)continue;
         if(round>1&&Math.random()>chain)continue;
         const out=await groupGenerate(g,c);
-        if(!out)continue;
+        if(!out||!out.text)continue;
         const a2=gmsgsOf(g.id);
-        a2.push({role:'char',cid:c.id,content:out,t:Date.now()});
+        a2.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok});
         saveGmsgs(g.id,a2);
+        gmemAdd(c.id,g.id,g.name,out.text,true);   /* 【新增】记进它自己的群聊记忆 */
         total++;spoke=true;
         renderToolPane();scrollGroupDown();
       }
@@ -2650,7 +2836,7 @@ async function groupRun(g,trigger){
     scheduleGroupAuto(false);
   }
 }
-/* 让某个角色在群里说一句 */
+/* 让某个角色在群里说一句（返回 {text,tok}，失败返回 null） */
 async function groupGenerate(g,c){
   const arr=gmsgsOf(g.id).slice(-24);
   const nm=id=>{const x=charOf(id);return x?x.name:'某人'};
@@ -2660,6 +2846,8 @@ async function groupGenerate(g,c){
   sys.push(c.persona||('你是'+c.name+'。'));
   sys.push('【群聊】你正在一个叫《'+g.name+'》的群里聊天。群里还有：'+(others.join('、')||'没有别人')+'。'+(cfg.userName?('用户（'+cfg.userName+'）也在群里。'):'用户也在群里。'));
   sys.push('【群聊规则】像真人在群里发消息：1-2 句，短、口语、自然；可以顺着别人刚说的话接，也可以自己开个话头，或者点名问某个群友；不要替别人说话；不要写旁白、动作、括号；不要复述别人说过的话；不要重复自己刚说过的话。');
+  const gm=gmemBlock(c.id,g.id,10);           /* 【新增】带上它自己的群聊记忆 */
+  if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
   if(c.examples)sys.push('【对话示例】'+c.examples);
@@ -2668,10 +2856,10 @@ async function groupGenerate(g,c){
   const ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
   ctx.push({role:'user',content:'（继续群聊，现在轮到你发言，用你的身份发一条）'});
   const tp=thinkParams(c);
-  let out='';
+  let out='',usage=null;
   try{
-    out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400)})||'').trim();
-  }catch(e){return ''}
+    out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400),onUsage:u=>usage=u})||'').trim();
+  }catch(e){return null}
   const names=[c.name].concat(g.members.map(m=>nm(m.cid)));
   for(const n of names){
     if(!n)continue;
@@ -2680,7 +2868,8 @@ async function groupGenerate(g,c){
   }
   out=out.replace(/^["'“”]+|["'“”]+$/g,'').trim();
   if(out.length>500)out=out.slice(0,500);
-  return out;
+  if(!out)return null;
+  return {text:out,tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out)};
 }
 /* 群里的自动发消息 */
 function groupAutoEligible(g,m){return !!(cfg&&cfg.key&&m&&m.auto&&charOf(m.cid))}
@@ -2709,6 +2898,9 @@ async function checkGroupAuto(){
       const k=g.id+'|'+m.cid;
       const rec=gAutoMap[k];
       if(!rec||rec.at>now)continue;
+      /* 【新增】角色自己设了免打扰时段（且开着）时，群里也不打扰 */
+      const mc=charOf(m.cid);
+      if(mc&&isQuiet(mc.auto||{}))continue;
       const r=groupAutoRange(g);
       gAutoMap[k].at=Date.now()+(r.mi+Math.random()*(r.ma-r.mi))*60000;
       await groupAutoSpeak(g,m);
@@ -2722,12 +2914,13 @@ async function groupAutoSpeak(g,m){
   groupBusy=true;
   try{
     const out=await groupGenerate(g,c);
-    if(!out)return;
+    if(!out||!out.text)return;
     const arr=gmsgsOf(g.id);
-    arr.push({role:'char',cid:c.id,content:out,t:Date.now()});
+    arr.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok});
     saveGmsgs(g.id,arr);
+    gmemAdd(c.id,g.id,g.name,out.text,true);
     const watching=(groupOpenId===g.id&&view==='tools'&&toolTab==='group'&&!document.hidden);
-    if(watching){renderToolPane();scrollGroupDown();toast((c.emoji||'')+' '+c.name+'：'+out.slice(0,22));}
+    if(watching){renderToolPane();scrollGroupDown();toast((c.emoji||'')+' '+c.name+'：'+out.text.slice(0,22));}
     else{markUnread(c.id);toast((c.emoji||'')+' '+c.name+' 在《'+g.name+'》里发了一条');}
   }catch(e){}finally{
     groupBusy=false;
@@ -2785,7 +2978,7 @@ function editGroupSheet(id){
   '<div class="setrow" style="margin-top:8px"><span class="lbl">一次触发最多几条角色消息</span><input id="ge_maxai" type="number" value="'+(g.maxAI||GRP_MAXAI_DEF)+'"><span class="unit">条</span></div>'+
   '<div class="setrow" style="margin-top:8px"><span class="lbl">最多来回几轮</span><input id="ge_round" type="number" value="'+(g.maxRound||GRP_MAXROUND_DEF)+'"><span class="unit">轮</span></div>'+
   '<div class="setrow" style="margin-top:8px"><span class="lbl">自动发言间隔（分钟）</span><input id="ge_amin" type="number" value="'+(g.autoMin||15)+'"><input id="ge_amax" type="number" value="'+(g.autoMax||60)+'"></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">这两个数调小，就更不容易聊到停不下来。</p></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">这两个数调小，就更不容易聊到停不下来。角色自己开了「免打扰时段」的话，这段时间里它在群里也不会自动冒泡。</p></div>'+
   '<div class="row" style="margin-top:12px"><button class="pri col" onclick="saveGroupSettings(\''+g.id+'\')">保存</button>'+
   '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
 }
@@ -2819,7 +3012,9 @@ function kickMember(id,i){
 }
 function delGroup(id){
   if(!confirm('删掉这个群？群里的聊天记录也会一起清掉（角色本人的聊天和记忆不受影响）'))return;
-  saveGroups(groupsAll().filter(g=>g.id!==id));
+  const g=findGroup(id);
+  if(g)(g.members||[]).forEach(m=>{const cur=gmemOf(m.cid);const left=cur.filter(x=>x.gid!==id);if(left.length!==cur.length)save(LS.gmem(m.cid),left)});
+  saveGroups(groupsAll().filter(g2=>g2.id!==id));
   removeKey(LS.gmsg(id));
   if(groupOpenId===id)groupOpenId=null;
   if(view==='tools')renderTools();
@@ -3117,9 +3312,9 @@ async function backupNow(){
   if(view==='cfg')renderCfg();
 }
 async function backupPayload(){
-  const d={v:6,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},todos:{},arcs:load(LS.arcs,[]),arcData:{},
+  const d={v:7,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{}};
-  chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id)});
+  chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id);d.gmems[c.id]=gmemOf(c.id)});
   d.arcs.forEach(a=>{d.arcData[a.id]=getArc(a.id)});
   d.groups.forEach(g=>{d.gmsgs[g.id]=gmsgsOf(g.id)});
   const str=JSON.stringify(d);
@@ -3153,6 +3348,7 @@ function importAll(input){
       if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
       if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
       if(d.todos)Object.keys(d.todos).forEach(k=>{if(d.todos[k]&&d.todos[k].length)save(LS.todo(k),d.todos[k])});
+      if(d.gmems)Object.keys(d.gmems).forEach(k=>{if(d.gmems[k]&&d.gmems[k].length)save(LS.gmem(k),d.gmems[k])});
       if(d.arcs)save(LS.arcs,d.arcs);
       if(d.arcData)for(const k of Object.keys(d.arcData)){try{const v=Array.isArray(d.arcData[k])?sanitizeArcMs(d.arcData[k]):d.arcData[k];await idbPut(k,v);arcMem[k]=v}catch(e){}}
       if(d.groups)save(LS.groups,d.groups);
@@ -3269,7 +3465,8 @@ async function initApp(){
     histMode:'auto',fullLimit:20000,sumWrite:'append',userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:''});
   fixCfg();
   chars=load(LS.chars,[]);
-  chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar=''});
+  /* 老数据补默认字段：头像、群聊权限、免打扰开关 */
+  chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar='';if(!c.groupPerm)c.groupPerm={on:false};if(c.auto&&c.auto.quietOn==null)c.auto.quietOn=true});
   curId=load(LS.cur,null);
   msgs=[];mem=EMPTY_MEM();memCtx={id:null,obj:null};
   if(!chars.length){
@@ -3277,7 +3474,7 @@ async function initApp(){
       persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,priv:false,
-      auto:{on:false,min:10,max:30,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}}];
+      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false}}];
     save(LS.chars,chars);
   }
   /* 上次如果停在隐私角色上，重启后不自动进入它 */
@@ -3322,6 +3519,175 @@ async function boot(){
   }
   initApp();
 }
+/* ================= 补丁：自动总结报错可见 + 设置保存加固 ================= */
+/* 1) 底层请求：把接口的真实报错原样抛出来（原来被吞掉了，所以只看到“模型不对”） */
+async function rawChat(messages,opt){
+  opt=opt||{};
+  const url=String(cfg.base||'').replace(/\/+$/,'')+'/chat/completions';
+  const body={model:(opt.model||cfg.model),messages:messages,stream:!!opt.stream};
+  if(opt.temp!=null)body.temperature=opt.temp;
+  if(opt.maxtok)body[opt.tokName||'max_tokens']=opt.maxtok;
+  if(opt.stream)body.stream_options={include_usage:true};
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)});
+  if(!res.ok){let t='';try{t=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(t).replace(/\s+/g,' ').slice(0,200))}
+  if(!opt.stream){
+    const j=await res.json();
+    const m=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
+    return String(m.content||'');
+  }
+  let out='';
+  const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
+  for(;;){
+    const r=await rd.read();if(r.done)break;
+    buf+=dec.decode(r.value,{stream:true});
+    const ls=buf.split('\n');buf=ls.pop();
+    for(const raw of ls){
+      const line=raw.trim();if(!line||line.indexOf('data:')!==0)continue;
+      const d=line.slice(5).trim();if(d==='[DONE]')return out;
+      try{const j=JSON.parse(d);const c=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;if(c)out+=c}catch(e){}
+    }
+  }
+  return out;
+}
+/* 2) 给「非流式」调用加一层自动重试：换模型 → 去掉参数 → 换 max_completion_tokens → 改流式 */
+/*    （聊天用的流式请求完全不动；带 tools 的请求原样走，避免破坏工具调用） */
+const _origCallAPI=callAPI;
+callAPI=async function(messages,opt){
+  opt=opt||{};
+  if(opt.stream||opt.tools)return _origCallAPI(messages,opt);
+  const model=opt.model||cfg.model;
+  const model2=(cfg.model&&cfg.model!==model)?cfg.model:null;
+  const base={temp:(opt.temp!=null?opt.temp:cfg.temp),maxtok:(opt.maxtok||cfg.maxtok)};
+  const tries=[
+    {model:model,temp:base.temp,maxtok:base.maxtok},
+    model2?{model:model2,temp:base.temp,maxtok:base.maxtok}:null,
+    {model:model,temp:null,maxtok:null},
+    {model:model2||model,temp:null,maxtok:null,tokName:'max_completion_tokens'},
+    {model:model,temp:null,maxtok:null,stream:true}
+  ].filter(Boolean);
+  let lastErr=null;
+  for(const t of tries){
+    try{
+      const r=await rawChat(messages,t);
+      if(String(r==null?'':r).trim())return r;
+      lastErr=new Error('模型返回空内容');
+    }catch(e){lastErr=e}
+  }
+  throw (lastErr||new Error('调用失败'));
+};
+/* 3) 重写总结：失败时把真实原因显示出来，不再只说“检查模型” */
+runSummary=async function(slice,silent,targetId){
+  const c=chars.find(x=>x.id===(targetId||curId))||curChar();
+  if(!c)return 0;
+  const isCur=(!targetId||targetId===curId);
+  const M=isCur?mem:(memCtx.id===targetId?memCtx.obj:Object.assign(EMPTY_MEM(),load(LS.mem(targetId),null)||{}));
+  try{
+    const prev=(M.summaries&&M.summaries.length)?M.summaries[M.summaries.length-1].text:'';
+    const res=await callAPI([{role:'user',content:buildSummaryPrompt(slice,prev)}],{model:modelOf(c),temp:.3,maxtok:1600});
+    const raw=String(res||'').trim();
+    if(!raw){if(!silent)alert('模型没返回内容（可能被限流，或这个模型不支持长输出）');return 0}
+    let hit=applySummary(M,parseSummary(raw));
+    let fallback=false;
+    if(!hit){
+      if((cfg.sumWrite||'append')==='replace')M.summaries=[];
+      M.summaries=M.summaries||[];
+      M.summaries.push({t:Date.now(),text:raw.slice(0,2000)});
+      hit=1;fallback=true;
+    }
+    if(isCur)saveMem();else save(LS.mem(targetId),M);
+    refreshMem();
+    if(!silent)alert(fallback?'模型没按格式回，已把原文存进「长期聊天记录总结」，去记忆里整理一下':'已写进记忆 '+hit+' 条（原始聊天记录没有删）');
+    return hit;
+  }catch(e){
+    const m=String((e&&e.message)||e).slice(0,200);
+    if(!silent)alert('总结失败，接口原话：\n'+m+'\n\n怎么排查：\n· 提到 model / 不存在 → 模型名写错了，看「设置 → 默认模型」，也检查角色里单独指定的模型\n· 401 / 403 → Key 不对\n· 429 → 额度或频率用完\n· 400 参数 → 已经把 temperature / max_tokens 去掉重试过了，还是不行就换个模型');
+    else toast('自动总结失败：'+m.slice(0,90));
+    console.warn('总结失败',e);
+    return 0;
+  }
+};
+/* 4) 设置保存加固：不再把过小的值悄悄改成 30，并回报真正保存了什么 */
+readCfgInputs=function(){
+  const v=i=>{const el=document.getElementById(i);return el?el.value.trim():''};
+  if(!document.getElementById('c_base'))return;
+  cfg.base=v('c_base')||cfg.base;
+  cfg.key=v('c_key');
+  cfg.model=v('c_model')||cfg.model;
+  const t=Number(v('c_temp'));cfg.temp=Number.isFinite(t)?t:.85;
+  const mt=parseInt(v('c_maxtok'),10);cfg.maxtok=(Number.isFinite(mt)&&mt>0)?mt:900;
+  const cx=parseInt(v('c_ctx'),10);cfg.ctx=Number.isFinite(cx)?cx:30;
+  const se=parseInt(v('c_autoSumEvery'),10);
+  if(Number.isFinite(se))cfg.autoSumEvery=Math.max(2,Math.min(2000,Math.round(se)));
+  const ck=document.getElementById('c_autoSum');
+  if(ck)cfg.autoSum=!!ck.checked;
+};
+saveAutoSum=function(){
+  const ck=document.getElementById('c_autoSum');
+  const el=document.getElementById('c_autoSumEvery');
+  const raw=el?String(el.value).trim():'';
+  let n=parseInt(raw,10);
+  const bad=!Number.isFinite(n);
+  if(bad)n=30;
+  const clamped=Math.max(2,Math.min(2000,Math.round(n)));
+  cfg.autoSum=!!(ck&&ck.checked);
+  cfg.autoSumEvery=clamped;
+  save(LS.cfg,cfg);
+  if(el)el.value=clamped;
+  alert('✅ 设置已保存\n自动总结：'+(cfg.autoSum?'开':'关')+'\n每聊满 '+clamped+' 条，总结一次'+
+    (bad?('\n\n（“'+raw+'”不是数字，已按 30 处理）'):(String(clamped)!==raw?('\n\n（最小 2、最大 2000，你填的“'+raw+'”已按 '+clamped+' 处理）'):''))+
+    (cfg.autoSum?('\n\n'+autoSumStatus(curChar())):''));
+  renderCfg();
+};
+saveMemInj=function(){
+  const a=document.getElementById('c_arcTop');
+  const w=document.getElementById('c_wholeLimit');
+  const f=document.getElementById('c_fullLimit');
+  const se=document.getElementById('c_autoSumEvery');
+  const sa=document.getElementById('c_autoSum');
+  const na=a?Number(a.value):NaN;
+  const nw=w?Number(w.value):NaN;
+  const nf=f?Number(f.value):NaN;
+  cfg.arcTop=Number.isFinite(na)?Math.max(0,Math.round(na)):5;
+  cfg.wholeLimit=Number.isFinite(nw)?Math.max(0,Math.round(nw)):20000;
+  cfg.fullLimit=Number.isFinite(nf)?Math.max(0,Math.round(nf)):20000;
+  if(se){const n=parseInt(se.value,10);if(Number.isFinite(n))cfg.autoSumEvery=Math.max(2,Math.min(2000,Math.round(n)));}
+  if(sa)cfg.autoSum=!!sa.checked;
+  save(LS.cfg,cfg);
+  alert('✅ 已保存\n· 自动摘录 '+(cfg.arcTop||'关')+' 条\n· 整份注入上限 '+(cfg.wholeLimit||'不限')+' 字\n· 完整记录上限 '+(cfg.fullLimit||'不限')+' 字\n· 自动总结：'+(cfg.autoSum?('开，每 '+cfg.autoSumEvery+' 条'):'关'));
+  renderCfg();
+};
+/* 5) 万一默认模型是空的，兜一个默认值，避免请求里没有 model 字段 */
+const _origFixCfg=fixCfg;
+fixCfg=function(){_origFixCfg();if(!cfg.model)cfg.model='gpt-4o-mini';};
+/* ================= 补丁2：修「条数改了没用」+ 让总结更精炼 ================= */
+/* 1) 真正的原因在这：之前这里写死了「必须 ≥ 4 条」，所以你填 3 会被当成 30 用。
+      现在改成 ≥ 2 都算数，填 3 就真的是 3 条总结一次。 */
+autoSumEvery=function(){
+  const n=parseInt(cfg.autoSumEvery,10);
+  return (Number.isFinite(n)&&n>=2)?n:30;
+};
+/* 2) 换一套「提炼型」的总结提示词，不再流水账 */
+buildSummaryPrompt=function(slice,prev){
+  return '你是记忆整理助手。请把下面的对话【提炼】成精炼的记忆，不要复述、不要照抄对话。严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的内容写"无"：\n'+
+  '核心：一句话说明角色是谁、和用户什么关系（40字内）\n'+
+  '时间线：只记关键事件的先后顺序，用；分隔，每条25字内，写成「谁做了什么→结果」。挑最重要的，最多 8 条。绝对不要抄对话原话，不要写心情、表情、对话细节。\n'+
+  '总结：一段连贯的话，100~180 字，让不认识你们的人也能看懂：这段时间用户和角色主要在做什么、关系有没有变化。要像在讲故事，不要逐条罗列，不要出现「她说」「他说」这种对话原文。\n'+
+  '偏好：用户表现出的偏好、忌讳、在意的东西，每条20字内，最多5条\n'+
+  '习惯：角色和用户表现出的性格、行为习惯，每条20字内，最多5条\n\n'+
+  '【最重要的一条】你是「提炼」不是「誊写」：\n'+
+  '· 一句话能说清的事，不要用三句话；\n'+
+  '· 不许编造、推测、美化；名字、称呼、数字、日期、地点、承诺要原样保留；\n'+
+  '· 不要加序号、星号、括号、多余解释。\n\n'+
+  (prev?('（上一份总结的结尾，只用来衔接、避免重复）\n'+String(prev).slice(-300)+'\n\n'):'')+
+  '正确的例子（照这个风格来）：\n'+
+  '核心：她是用户的女朋友，嘴硬心软\n'+
+  '时间线：用户加班到深夜→她嫌烦却点了宵夜；为养猫吵架→她先服软；周末去海边→约定每年都去\n'+
+  '总结：这段时间她和用户的感情在日常拌嘴里越来越深。用户工作忙，她嘴上嫌弃、实际很照顾；因为养猫的事吵过一架，最后是她先低头。周末两人出去玩了一趟，比之前亲密，还约好每年去一次海边。\n'+
+  '偏好：讨厌被敷衍；喜欢甜食；不喜欢太晚回消息\n'+
+  '习惯：生气时先沉默；嘴硬但会偷偷照顾人\n\n'+
+  '现在开始，对话如下：\n'+slice;
+};
+
 boot();
 </script>
 </body>
