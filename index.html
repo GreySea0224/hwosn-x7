@@ -160,25 +160,61 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 #composer #stop svg{width:19px;height:19px;fill:currentColor;stroke:none}
 #composer #pic{transition:color .15s ease,border-color .15s ease,background .15s ease}
 #composer #pic:active{background:var(--accdim);border-color:var(--acc)}
-/* ---------- 工具页 / 群聊 ---------- */
-.gwrap{display:flex;flex-direction:column;gap:10px}
-.gbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.gmsgs{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 10px 4px;max-height:44vh;overflow:auto;display:flex;flex-direction:column}
-.gbub{display:flex;gap:8px;margin-bottom:10px;align-items:flex-start}
-.gbub .gav{width:34px;height:34px;border-radius:11px;overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--line);font-size:17px;line-height:1}
+/* ---------- 应用宫格（仿手机桌面） ---------- */
+.appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:14px;margin-top:4px}
+.apptile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px 15px;background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s ease,border-color .18s ease}
+.apptile:active{transform:scale(.95)}
+.apptile .ai{width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(63,169,216,.18),rgba(63,169,216,.05));border:1px solid var(--line)}
+.apptile .ai svg{width:26px;height:26px;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.apptile .an{font-size:13px;font-weight:600}
+.apptile .ad{font-size:10.5px;color:var(--dim);text-align:center;line-height:1.3}
+.appbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.appbar .at{flex:1;font-size:15px;font-weight:700;letter-spacing:.3px}
+.appback{width:36px;height:36px;flex:0 0 36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);font-size:18px;padding:0;box-shadow:none}
+/* ---------- 群聊（仿微信 · 现代扁平） ---------- */
+.gwrap{display:flex;flex-direction:column;gap:8px}
+.ghead{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:16px;background:var(--grad);border:1px solid var(--line);box-shadow:var(--shadow)}
+.ghead .gname2{flex:1;min-width:0;text-align:center;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gicon{width:36px;height:36px;flex:0 0 36px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:16px;padding:0;box-shadow:none}
+.gicon:active{transform:scale(.92)}
+.gstatus{display:none;font-size:12px;color:var(--dim);background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;line-height:1.5;word-break:break-word}
+.gstatus b{color:var(--acc)}
+.gmsgs{background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:14px 10px;height:58vh;min-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:13px}
+.gmsgs::-webkit-scrollbar{width:5px}
+.gmsgs::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.gbub{display:flex;gap:9px;align-items:flex-start;animation:pop .16s ease}
+.gbub .gav{width:38px;height:38px;border-radius:13px;overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--line);font-size:19px;line-height:1}
 .gbub .gav img{width:100%;height:100%;object-fit:cover}
-.gbub .gmain{flex:1;min-width:0;display:flex;flex-direction:column}
-.gbub .gname{font-size:11px;color:var(--dim);margin-bottom:2px}
-.gbub .gtext{background:var(--panel);border:1px solid var(--line);border-radius:4px 12px 12px 12px;padding:8px 11px;font-size:14px;word-break:break-word;box-shadow:var(--shadow);white-space:pre-wrap}
+.gbub .gmain{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.gbub .gname{font-size:11px;color:var(--dim);margin:0 0 4px 5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gbub .gtext{max-width:86%;background:var(--panel);border:1px solid var(--line);border-radius:6px 16px 16px 16px;padding:9px 13px;font-size:14px;line-height:1.6;word-break:break-word;box-shadow:var(--shadow);white-space:pre-wrap}
 .gbub.me{flex-direction:row-reverse}
 .gbub.me .gmain{align-items:flex-end}
-.gbub.me .gtext{background:var(--bubme);border-color:transparent;border-radius:12px 4px 12px 12px}
+.gbub.me .gname{margin:0 5px 4px 0;justify-content:flex-end}
+.gbub.me .gtext{background:var(--bubme);border-color:transparent;border-radius:16px 6px 16px 16px}
 .gbub.sys{justify-content:center}
-.gbub.sys .gtext{background:transparent;border:1px dashed var(--line);color:var(--dim);font-size:12px;box-shadow:none}
-.gmem{display:flex;flex-wrap:wrap;gap:8px}
-.gm{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:4px 8px 4px 4px}
+.gbub.sys .gtext{background:transparent;border:1px dashed var(--line);color:var(--dim);font-size:12px;box-shadow:none;border-radius:12px;max-width:100%}
+.gdel{background:none;border:0;color:var(--dim);font-size:11px;line-height:1;padding:2px 5px;border-radius:6px;box-shadow:none;opacity:.5}
+.gdel:active{transform:scale(.92)}
+.gtok{font-size:10.5px;color:var(--dim);opacity:.72;margin-top:4px;padding:0 5px;user-select:none}
+.gbub.me .gtok{text-align:right}
+.ginbar{display:flex;gap:8px;align-items:flex-end}
+.ginbar textarea{flex:1;min-height:44px;max-height:110px;resize:none;border-radius:16px;padding:11px 14px;background:var(--bg2);border:1px solid transparent;box-shadow:inset 0 0 0 1px var(--line);overflow-y:auto;scrollbar-width:none;font:inherit;font-size:14px;color:var(--txt)}
+.ginbar textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(63,169,216,.12)}
+.ginbar textarea::-webkit-scrollbar{width:0;height:0}
+.ginbar textarea::-webkit-resizer{display:none;background:transparent}
+.gsend{width:62px;flex:0 0 62px;height:44px;border-radius:15px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;font-weight:800;font-size:15px}
+.gmem{display:flex;flex-wrap:wrap;gap:6px}
+.gm{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:4px 9px 4px 4px}
 .gm .nm{font-size:12.5px;line-height:1.2}
 .gm .tg{font-size:10.5px;color:var(--dim);line-height:1.2}
+/* ---------- 联网搜索提示 ---------- */
+.searchline{display:block;width:fit-content;max-width:88%;font-size:12px;color:var(--dim);background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;margin:7px 0 0}
+.searchline b{color:var(--acc)}
+.searchline.on{border-color:var(--acc);color:var(--acc)}
+.srcline{display:block;width:fit-content;font-size:11.5px;color:var(--dim);padding:4px 11px;border:1px dashed var(--line);border-radius:999px;margin:5px 0 0;cursor:pointer}
+.srcline.me{margin-left:auto}
+.srcline u{text-decoration:none;color:var(--acc)}
 /* ---------- 小工具：随机中 → 随机完成 动画 ---------- */
 .funroll{text-align:center;padding:10px 0 4px}
 .funroll-in{font-size:22px;font-weight:700;color:var(--acc);letter-spacing:1px;animation:funshuffle .3s linear infinite}
@@ -190,13 +226,6 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .funres{font-size:22px;font-weight:700;text-align:center;padding:12px 0;color:var(--acc);white-space:pre-wrap;animation:funpop .5s cubic-bezier(.2,1.5,.4,1)}
 @keyframes funpop{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.13)}100%{transform:scale(1);opacity:1}}
 .funok{text-align:center;font-size:12px;color:var(--acc);opacity:.9;margin-bottom:4px;animation:pop .3s ease}
-/* ---------- 群聊：token 显示 + 单条删除 ---------- */
-.gbub .gname{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.gbub.me .gname{justify-content:flex-end}
-.gdel{background:none;border:0;color:var(--dim);font-size:11px;line-height:1;padding:2px 5px;border-radius:6px;box-shadow:none;opacity:.5}
-.gdel:active{transform:scale(.92)}
-.gtok{font-size:10.5px;color:var(--dim);opacity:.72;margin-top:3px;user-select:none}
-.gbub.me .gtok{text-align:right}
 </style>
 </head>
 <body>
@@ -210,7 +239,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   <button data-v="chat" class="on"><svg viewBox="0 0 24 24"><path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/></svg><span>聊天</span><i class="dot" id="navDot"></i></button>
   <button data-v="roles"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/></svg><span>角色</span></button>
   <button data-v="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.7"/><path d="M4.9 19.8c0-3.5 3.2-5.7 7.1-5.7s7.1 2.2 7.1 5.7"/></svg><span>我的</span></button>
-  <button data-v="tools"><svg viewBox="0 0 24 24"><path d="M14.6 6.1a4.3 4.3 0 0 0 5.6 5.6l-8.4 8.4a2.3 2.3 0 0 1-3.2 0l-2.4-2.4a2.3 2.3 0 0 1 0-3.2Z"/><path d="m16.4 4.3 3.3 3.3"/></svg><span>工具</span></button>
+  <button data-v="tools"><svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="3.6" y="13.2" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="13.2" width="7.2" height="7.2" rx="2.2"/></svg><span>应用</span></button>
   <button data-v="cfg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/></svg><span>设置</span></button>
 </nav>
 <div class="modal" id="modal"><button class="sheetclose" onclick="closeSheet()" aria-label="关闭">✕</button><div class="sheet" id="sheet"></div></div>
@@ -341,7 +370,7 @@ const EMPTY_MEM=()=>({core:'',timeline:[],summaries:[],prefs:[],habits:[]});
 let cfg=null, chars=[], curId=null;
 let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,arcMem={};
 let todoCharId=null,todoFilter='open';
-let toolTab='todo';                 /* 工具页当前子页：todo / group / fun */
+let toolTab='todo';                 /* 应用页当前子页：todo / group / fun */
 let groupOpenId=null,groupBusy=false,groupTick=null;
 const gAutoMap={};                  /* 群聊自动发消息的下次时间 */
 let backupHandle=null,bkTimer=null,bkTick=null,lastBackup=0,bkNeed=false,bkArmed=false,bkErr='';
@@ -620,7 +649,7 @@ function go(v){
   draw();
 }
 function draw(){
-  $('#title').textContent={chat:'聊天',roles:'角色列表',me:'我的主页',tools:'工具',cfg:'设置'}[view]||'深蓝海域';
+  $('#title').textContent={chat:'聊天',roles:'角色列表',me:'我的主页',tools:'应用',cfg:'设置'}[view]||'深蓝海域';
   const c=curChar();
   $('#who').textContent=(view==='chat'&&c)?((c.emoji||'')+' '+c.name):'';
   if(view==='chat')renderChat();
@@ -840,7 +869,6 @@ function diagnose(text,isHtml){
   '<p class="dim" style="font-size:12px;margin-top:8px">文件字符数：'+text.length.toLocaleString()+'</p>'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关</button></div>');
 }
-
 /* ---------- 导入 ---------- */
 function readFileText(f){
   return new Promise((res,rej)=>{
@@ -2934,7 +2962,7 @@ function newGroupSheet(){
   '<label class="f">群名</label><input id="g_name" placeholder="比如：周末茶话会">'+
   '<label class="f">选成员（勾上就拉进群）</label>'+
   (chars.map(c=>'<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="gm_'+c.id+'" style="flex:0 0 auto;margin-top:3px"><span>'+esc((c.emoji||'')+' '+c.name)+(c.priv?' <span class="dim">（私密角色）</span>':'')+'</span></label>').join(''))+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">建好后可以逐个设置「只在收到你的消息时回应 / 也能接其他角色的话 / 能不能自动发消息」。</p>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">建好后可以逐个设置「只在收到你的消息时回应 / 也能接其他角色的话 / 能不能自动发消息 / 要不要同步你们的私聊记录」。</p>'+
   '<div class="row" style="margin-top:12px"><button class="pri col" onclick="createGroup()">创建</button>'+
   '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
 }
@@ -3090,7 +3118,7 @@ function renderCfg(){
   '<label class="f">隐私密码</label><input id="priv_pw" type="password" placeholder="至少 4 位" autocomplete="off">'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="setPrivPw()">保存隐私密码</button>'+
   (hasPrivPwRaw()?'<button class="warn col" onclick="clearPrivPw()">清除</button>':'')+'</div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">在角色设定里勾上「隐私角色」后：它只以头像出现在角色列表最下方，点它要输这个密码（或应用锁密码）才能进入聊天。<br>档案的「隐私显示」也用同一个密码。</p></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">在角色设定里勾上「隐私角色」后：它只以头像出现在角色列表最下方，点它要输这个密码（或应用锁密码）才能进入聊天。隐私档案和「隐私群聊」也用同一个密码。</p></div>'+
   '<div class="card"><div class="ttl">隐私与安全</div>'+
   (cryptKey?'<p class="dim" style="font-size:12px;margin:0 0 6px">✅ 已加密锁定。数据以 AES 加密存在本地。</p>':'<p class="dim" style="font-size:12px;margin:0 0 6px">⚠️ 未加密。任何拿到你手机的人都能翻到聊天记录。</p>')+
   '<label class="f">'+(cryptKey?'新密码':'设置密码')+'</label><input id="s_pw" type="password" placeholder="至少 4 位">'+
@@ -3465,8 +3493,8 @@ async function initApp(){
     histMode:'auto',fullLimit:20000,sumWrite:'append',userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:''});
   fixCfg();
   chars=load(LS.chars,[]);
-  /* 老数据补默认字段：头像、群聊权限、免打扰开关 */
-  chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar='';if(!c.groupPerm)c.groupPerm={on:false};if(c.auto&&c.auto.quietOn==null)c.auto.quietOn=true});
+  /* 老数据补默认字段：头像、群聊权限、免打扰开关、联网搜索开关 */
+  chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar='';if(!c.groupPerm)c.groupPerm={on:false};if(c.auto&&c.auto.quietOn==null)c.auto.quietOn=true;if(!c.search)c.search={on:false}});
   curId=load(LS.cur,null);
   msgs=[];mem=EMPTY_MEM();memCtx={id:null,obj:null};
   if(!chars.length){
@@ -3474,7 +3502,7 @@ async function initApp(){
       persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,priv:false,
-      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false}}];
+      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false}}];
     save(LS.chars,chars);
   }
   /* 上次如果停在隐私角色上，重启后不自动进入它 */
@@ -3686,6 +3714,563 @@ buildSummaryPrompt=function(slice,prev){
   '偏好：讨厌被敷衍；喜欢甜食；不喜欢太晚回消息\n'+
   '习惯：生气时先沉默；嘴硬但会偷偷照顾人\n\n'+
   '现在开始，对话如下：\n'+slice;
+};
+
+/* ================= 补丁3：应用 / 隐私群聊 / 私聊同步 / 上下文token / 联网搜索 ================= */
+
+/* ---------- ⑥ 应用：手机桌面式宫格 ---------- */
+const APPS=[
+  {k:'todo',n:'待办',d:'角色的小清单',
+   ic:'<svg viewBox="0 0 24 24"><path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/></svg>'},
+  {k:'group',n:'群聊',d:'让角色们一起聊',
+   ic:'<svg viewBox="0 0 24 24"><circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/></svg>'},
+  {k:'fun',n:'小工具',d:'骰子 · 抽签 · 随机',
+   ic:'<svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>'}
+];
+let appOpen=false;
+renderTools=function(){
+  if(!appOpen){
+    $('#main').innerHTML='<div class="card"><div class="ttl">应用</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">点下面的方块就能打开。</p>'+
+    '<div class="appgrid">'+APPS.map(a=>'<button class="apptile" onclick="openApp(\''+a.k+'\')"><span class="ai">'+a.ic+'</span><span class="an">'+a.n+'</span><span class="ad">'+a.d+'</span></button>').join('')+'</div></div>'+
+    '<p class="dim" style="font-size:12px">「群聊」里的角色会记得自己说过的话；角色自己也能调用「待办」。</p>';
+    return;
+  }
+  const a=APPS.find(x=>x.k===toolTab)||{n:'应用'};
+  $('#main').innerHTML='<div class="appbar"><button class="appback" onclick="closeApp()" title="返回">‹</button><span class="at">'+a.n+'</span></div><div id="toolPane"></div>';
+  renderToolPane();
+};
+function openApp(k){toolTab=k;appOpen=true;renderTools()}
+function closeApp(){appOpen=false;renderTools()}
+renderTodo=function(){
+  if(view!=='tools')return;
+  appOpen=true;toolTab='todo';
+  if(document.getElementById('toolPane'))renderToolPane();else renderTools();
+};
+createGroup=function(){
+  const nmEl=$('#g_name');
+  const name=(nmEl&&nmEl.value.trim())||'新群聊';
+  const sel=chars.filter(c=>{const el=document.getElementById('gm_'+c.id);return el&&el.checked});
+  if(!sel.length)return alert('至少勾一个角色');
+  const gs=groupsAll();
+  const g={id:uid(),name:name,members:sel.map(c=>({cid:c.id,reply:'user',auto:false,sync:false})),
+    chain:GRP_CHAIN_DEF,maxAI:GRP_MAXAI_DEF,maxRound:GRP_MAXROUND_DEF,autoMin:15,autoMax:60,syncN:20,priv:false,created:Date.now()};
+  gs.push(g);saveGroups(gs);
+  closeSheet();
+  groupOpenId=g.id;toolTab='group';appOpen=true;
+  if(view!=='tools')go('tools');else renderTools();
+  scheduleGroupAuto(true);
+  toast('群聊已创建：'+name);
+};
+
+/* ---------- ① 隐私群聊（要密码才能打开） ---------- */
+const gOpen={};                     /* 本次已解锁的群 */
+function groupLocked(g){return !!(g&&g.priv&&!gOpen[g.id])}
+openGroup=function(id){
+  const g=findGroup(id);if(!g)return;
+  if(!g.priv||gOpen[id]){groupOpenId=id;toolTab='group';appOpen=true;if(view!=='tools')go('tools');else renderTools();return}
+  if(!hasAnyPrivPw())return alert('这个群设了「隐私群聊」，但你还没设置任何密码。\n先去「设置 → 隐私角色」设一个密码，再用它进入。');
+  showSheet('<div class="ttl">🔒 需要密码</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">这是一个隐私群聊，输入密码才能打开。</p>'+
+  '<input id="gpw" type="password" placeholder="密码" autocomplete="off">'+
+  '<p id="gperr" class="dim" style="font-size:12px;color:var(--warn);min-height:18px;margin:6px 0 0"></p>'+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="tryGroupPw(\''+id+'\')">进入</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(()=>{const el=document.getElementById('gpw');if(el){el.focus();el.addEventListener('keydown',e=>{if(e.key==='Enter')tryGroupPw(id)})}},80);
+};
+async function tryGroupPw(id){
+  const el=document.getElementById('gpw'),err=document.getElementById('gperr');
+  const pw=el?el.value:'';
+  if(!pw){if(err)err.textContent='请输入密码';return}
+  let ok=false;try{ok=await verifyPriv(pw)}catch(e){ok=false}
+  if(!ok){if(err)err.textContent='密码不对';return}
+  gOpen[id]=true;
+  closeSheet();
+  openGroup(id);
+  toast('已解锁这个群');
+}
+
+/* ---------- ⑤ 群聊列表 / 仿微信群聊界面 ---------- */
+groupHTML=function(){
+  const gs=groupsAll();
+  const g=groupOpenId?findGroup(groupOpenId):null;
+  if(g)return groupChatHTML(g);
+  let h='<div class="card"><div class="ttl">群聊</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">把几个角色拉进一个群，让它们一起聊。可以给群设密码变成「隐私群聊」，也可以让某个角色带上你们私聊的记录进群。</p>'+
+  '<button class="pri" style="width:100%" onclick="newGroupSheet()">＋ 新建群聊</button></div>';
+  if(!gs.length)return h+'<p class="hint">还没有群聊</p>';
+  h+='<div class="card"><div class="ttl">我的群</div>'+gs.map(x=>{
+    const locked=!!(x.priv&&!gOpen[x.id]);
+    const ms=gmsgsOf(x.id);
+    return '<div class="arcitem"><div class="arcname"><b>'+(locked?'🔒 私密群聊':esc(x.name))+'</b></div>'+
+    '<div class="arcmeta">'+(locked?'已设为隐私群聊，进入要输密码':(x.members.length+' 个成员 · '+ms.length+' 条消息'+(x.priv?' · 隐私群聊':'')))+'</div>'+
+    '<div class="row arcfoot">'+
+    '<button class="ghost" onclick="openGroup(\''+x.id+'\')">'+(locked?'🔒 进入':'进入')+'</button>'+
+    '<button class="ghost" onclick="groupSetSheet(\''+x.id+'\')">设置</button>'+
+    '<button class="ghost" style="color:var(--warn)" onclick="delGroup(\''+x.id+'\')">删除</button>'+
+    '</div></div>';
+  }).join('')+'</div>';
+  return h;
+};
+/* ③ 每条群消息显示：生成 token + 上下文 token */
+gtokText=function(m){
+  return (m.role==='user'?'约 ':'生成 ')+(m.tok||estTokens(m.content||''))+' tok'+(m.ptok?(' · 上下文 '+m.ptok+' tok'):'');
+};
+function groupStatusLine(gid,txt){
+  const el=document.getElementById('gstatus');
+  if(!el)return;
+  if(!txt){el.style.display='none';el.innerHTML='';return}
+  el.style.display='block';el.innerHTML=txt;
+}
+groupChatHTML=function(g){
+  const ms=gmsgsOf(g.id);
+  const rows=ms.map((m,i)=>{
+    const del='<button class="gdel" title="删除这条" onclick="delGmsg('+i+')">✕</button>';
+    if(m.role==='user'){
+      return '<div class="gbub me">'+avBox({emoji:cfg.userEmoji,avatar:cfg.userAvatar},38)+
+      '<div class="gmain"><div class="gname">'+esc(cfg.userName||'我')+' · '+fmtStamp(m.t)+del+'</div>'+
+      '<div class="gtext">'+nl2br(m.content||'')+'</div>'+
+      '<div class="gtok">'+gtokText(m)+'</div></div></div>';
+    }
+    const c=charOf(m.cid);
+    return '<div class="gbub">'+(c?avBox(c,38):'<div class="gav">?</div>')+
+    '<div class="gmain"><div class="gname">'+esc(c?c.name:'（角色已删除）')+' · '+fmtStamp(m.t)+del+'</div>'+
+    '<div class="gtext">'+nl2br(m.content||'')+'</div>'+
+    '<div class="gtok">'+gtokText(m)+'</div></div></div>';
+  }).join('')||'<div class="gbub sys"><div class="gtext">还没人说话，打个招呼吧</div></div>';
+  return '<div class="gwrap">'+
+  '<div class="ghead"><button class="gicon" onclick="backGroups()" title="返回">‹</button>'+
+  '<span class="gname2">'+(g.priv?'🔒 ':'')+esc(g.name)+'</span>'+
+  '<button class="gicon" onclick="groupSetSheet(\''+g.id+'\')" title="群设置">⚙</button></div>'+
+  '<div class="gstatus" id="gstatus"></div>'+
+  '<div class="gmsgs" id="gmsgs">'+rows+'</div>'+
+  '<div class="ginbar"><textarea id="ginp" rows="1" placeholder="在群里说点什么…"></textarea>'+
+  '<button class="gsend" onclick="groupSend()" '+(groupBusy?'disabled':'')+'>发送</button></div>'+
+  '<div class="row"><button class="ghost col" onclick="groupKick()" '+(groupBusy?'disabled':'')+'>▶ 让大家自己聊两句</button></div>'+
+  '<div class="row"><button class="ghost col" onclick="clearGmsgs()">清空消息</button>'+
+  '<button class="ghost col" onclick="groupSetSheet(\''+g.id+'\')">成员与设置</button></div>'+
+  '<p class="dim" style="font-size:11.5px;margin:0">防刷屏：一次最多 '+(g.maxAI||GRP_MAXAI_DEF)+' 条角色消息、最多来回 '+(g.maxRound||GRP_MAXROUND_DEF)+' 轮。成员、同步、隐私都在右上角 ⚙ 里。</p>'+
+  '</div>';
+};
+
+/* ---------- 群设置（隐私群聊 / 私聊同步 / 成员 / 防刷屏） ---------- */
+function groupSetSheet(id){
+  const g=findGroup(id);if(!g)return;
+  const rows=(g.members||[]).map((m,i)=>{
+    const c=charOf(m.cid);if(!c)return '';
+    return '<div class="card" style="margin:0 0 10px"><div class="row" style="align-items:center;gap:10px">'+avBox(c,40)+
+    '<div class="col"><b>'+esc(c.name)+'</b><div class="dim" style="font-size:11.5px">回应方式 / 自动发言 / 私聊同步</div></div></div>'+
+    '<label class="f">回应方式</label><select id="gr_'+i+'">'+
+    '<option value="user"'+(m.reply==='user'?' selected':'')+'>只在收到我的消息时回应（安静）</option>'+
+    '<option value="both"'+(m.reply==='both'?' selected':'')+'>也可以接其他角色的话（更热闹）</option></select>'+
+    '<label class="li" style="border:0;padding:8px 0"><input type="checkbox" id="ga_'+i+'" '+(m.auto?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许自动发消息（没人说话时自己冒个泡）</span></label>'+
+    '<label class="li" style="border:0;padding:2px 0"><input type="checkbox" id="gs_'+i+'" '+(m.sync?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>同步私聊聊天记录：进群时带上你和它私聊的最近记录，它就记得你们私下聊过什么</span></label>'+
+    '<div class="row"><button class="ghost col" onclick="myKick(\''+g.id+'\','+i+')">移出群聊</button></div></div>';
+  }).join('');
+  const addable=chars.filter(c=>!memberOf(g,c.id));
+  showSheet('<div class="ttl">群设置 · '+esc(g.name)+'</div>'+
+  '<label class="f">群名</label><input id="ge_name" value="'+esc(g.name)+'">'+
+  '<div class="card" style="margin-top:10px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>隐私群聊</b><div class="dim" style="font-size:12px">列表里只显示「私密群聊」，进入要输密码（和隐私角色、隐私档案同一个密码）</div></div>'+
+  '<input type="checkbox" id="ge_priv" '+(g.priv?'checked':'')+'></div>'+
+  (hasAnyPrivPw()?'<p class="dim" style="font-size:12px;margin:8px 0 0">✅ 已设置密码，可以直接用。</p>':'<p class="dim" style="font-size:12px;margin:8px 0 0;color:var(--warn)">⚠️ 你还没设过任何密码，先去「设置 → 隐私角色」设一个，否则会进不去。</p>')+'</div>'+
+  '<div class="card" style="margin-top:12px"><div class="ttl">② 私聊记录同步</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 6px">勾了下面对应角色的「同步私聊聊天记录」，它在这个群发言时就会带上你和它私聊的最近记录。</p>'+
+  '<div class="setrow"><span class="lbl">同步时带最近多少条私聊</span><input id="ge_syncn" type="number" value="'+(g.syncN||20)+'"><span class="unit">条</span></div></div>'+
+  '<label class="f">还没进群的角色（勾上一起拉进来）</label>'+
+  (addable.length?addable.map(c=>'<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="gadd_'+c.id+'" style="flex:0 0 auto;margin-top:3px"><span>'+esc((c.emoji||'')+' '+c.name)+'</span></label>').join(''):'<p class="dim" style="font-size:12px">（都进群了）</p>')+
+  '<div style="height:10px"></div>'+
+  (rows||'<p class="dim" style="font-size:12px">群里还没有角色</p>')+
+  '<div class="card" style="margin:0"><div class="ttl">防刷屏 / 自动发言节奏</div>'+
+  '<div class="setrow"><span class="lbl">角色接别人话的概率</span><input id="ge_chain" type="number" value="'+Math.round(((g.chain==null?GRP_CHAIN_DEF:g.chain))*100)+'"><span class="unit">%</span></div>'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">一次触发最多几条角色消息</span><input id="ge_maxai" type="number" value="'+(g.maxAI||GRP_MAXAI_DEF)+'"><span class="unit">条</span></div>'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">最多来回几轮</span><input id="ge_round" type="number" value="'+(g.maxRound||GRP_MAXROUND_DEF)+'"><span class="unit">轮</span></div>'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">自动发言间隔（分钟）</span><input id="ge_amin" type="number" value="'+(g.autoMin||15)+'"><input id="ge_amax" type="number" value="'+(g.autoMax||60)+'"></div></div>'+
+  '<div class="row" style="margin-top:12px"><button class="pri col" onclick="saveGroupSet(\''+g.id+'\')">保存</button>'+
+  '<button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+}
+function saveGroupSet(id){
+  const gs=groupsAll();const g=gs.find(x=>x.id===id);if(!g)return;
+  const v=i=>{const el=document.getElementById(i);return el?el.value:''};
+  const ck=i=>{const el=document.getElementById(i);return !!(el&&el.checked)};
+  const wasPriv=!!g.priv;
+  g.name=(v('ge_name').trim()||g.name);
+  g.priv=ck('ge_priv');
+  g.syncN=Math.max(1,Math.min(60,Math.round(Number(v('ge_syncn'))||20)));
+  (g.members||[]).forEach((m,i)=>{
+    const sel=document.getElementById('gr_'+i);
+    if(sel)m.reply=(sel.value==='both')?'both':'user';
+    m.auto=ck('ga_'+i);
+    m.sync=ck('gs_'+i);
+  });
+  chars.forEach(c=>{if(ck('gadd_'+c.id)&&!memberOf(g,c.id))g.members.push({cid:c.id,reply:'user',auto:false,sync:false})});
+  g.chain=Math.min(1,Math.max(0,(Number(v('ge_chain'))||60)/100));
+  g.maxAI=Math.min(20,Math.max(1,Math.round(Number(v('ge_maxai'))||GRP_MAXAI_DEF)));
+  g.maxRound=Math.min(6,Math.max(1,Math.round(Number(v('ge_round'))||GRP_MAXROUND_DEF)));
+  g.autoMin=Math.max(1,Math.round(Number(v('ge_amin'))||15));
+  g.autoMax=Math.max(g.autoMin+1,Math.round(Number(v('ge_amax'))||60));
+  saveGroups(gs);
+  closeSheet();
+  scheduleGroupAuto(true);
+  if(view==='tools')renderTools();
+  toast(g.priv&&!wasPriv?'已设为隐私群聊（下次进入要输密码）':'群设置已保存');
+}
+function myKick(id,i){
+  const gs=groupsAll();const g=gs.find(x=>x.id===id);if(!g)return;
+  const m=g.members[i];if(!m)return;
+  const c=charOf(m.cid);
+  if(!confirm('把「'+((c&&c.name)||'这个角色')+'」移出群聊？'))return;
+  g.members.splice(i,1);
+  saveGroups(gs);scheduleGroupAuto(true);
+  groupSetSheet(id);
+}
+
+/* ---------- ②③ 群聊发言：同步私聊记录 + 记上下文 token ---------- */
+groupGenerate=async function(g,c){
+  const arr=gmsgsOf(g.id).slice(-24);
+  const nm=id=>{const x=charOf(id);return x?x.name:'某人'};
+  const me=(cfg.userName||'她');
+  const others=g.members.filter(m=>m.cid!==c.id).map(m=>nm(m.cid)).filter(Boolean);
+  const sys=[];
+  sys.push(c.persona||('你是'+c.name+'。'));
+  sys.push('【群聊】你正在一个叫《'+g.name+'》的群里聊天。群里还有：'+(others.join('、')||'没有别人')+'。'+(cfg.userName?('用户（'+cfg.userName+'）也在群里。'):'用户也在群里。'));
+  sys.push('【群聊规则】像真人在群里发消息：1-2 句，短、口语、自然；可以顺着别人刚说的话接，也可以自己开个话头，或者点名问某个群友；不要替别人说话；不要写旁白、动作、括号；不要复述别人说过的话；不要重复自己刚说过的话。');
+  /* ② 同步私聊的聊天记录 */
+  const mm=memberOf(g,c.id);
+  if(mm&&mm.sync){
+    const pv=load(LS.msg(c.id),[]).slice(-Math.max(1,Math.min(60,Number(g.syncN)||20)));
+    if(pv.length){
+      const t=pv.map(x=>(x.role==='user'?me:c.name)+'：'+(x.content||'[图片]')).join('\n');
+      sys.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+t);
+    }
+  }
+  const gm=gmemBlock(c.id,g.id,10);
+  if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
+  if(c.style)sys.push('【说话风格】'+c.style);
+  if(c.sysPrompt)sys.push(c.sysPrompt);
+  if(c.examples)sys.push('【对话示例】'+c.examples);
+  /* ⑦ 联网搜索（角色开了才用，搜索过程实时显示在群聊上方） */
+  let sMeta=null;
+  if(c.search&&c.search.on&&cfg.key){
+    try{
+      const conv=arr.slice(-6).map(m=>(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')).join('\n');
+      const r=await searchForChar(c,conv,function(t){groupStatusLine(g.id,t)});
+      if(r){sys.push(r.block);sMeta={q:r.q,list:r.list}}
+      groupStatusLine(g.id,'');
+    }catch(e){groupStatusLine(g.id,'')}
+  }
+  sys.push('【硬性要求】中文回复；只输出你要发的那条群消息本身，不要加任何名字前缀。');
+  const hist=arr.map(m=>({role:(m.role==='user'?'user':'assistant'),content:(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}));
+  const ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
+  ctx.push({role:'user',content:'（继续群聊，现在轮到你发言，用你的身份发一条）'});
+  const tp=thinkParams(c);
+  let out='',usage=null;
+  try{
+    out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400),onUsage:u=>usage=u})||'').trim();
+  }catch(e){return null}
+  const names=[c.name].concat(g.members.map(m=>nm(m.cid)));
+  for(const n of names){
+    if(!n)continue;
+    if(out.indexOf(n+'：')===0)out=out.slice((n+'：').length).trim();
+    if(out.indexOf(n+':')===0)out=out.slice((n+':').length).trim();
+  }
+  out=out.replace(/^["'“”]+|["'“”]+$/g,'').trim();
+  if(out.length>500)out=out.slice(0,500);
+  if(!out)return null;
+  return {text:out,tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out),ptok:(usage&&usage.prompt_tokens)?usage.prompt_tokens:0,search:sMeta};
+};
+groupRun=async function(g,trigger){
+  if(groupBusy)return;
+  groupBusy=true;
+  renderToolPane();
+  const chain=(typeof g.chain==='number')?g.chain:GRP_CHAIN_DEF;
+  const maxAI=Math.max(1,Math.min(20,Number(g.maxAI)||GRP_MAXAI_DEF));
+  const maxRound=Math.max(1,Math.min(6,Number(g.maxRound)||GRP_MAXROUND_DEF));
+  let total=0;
+  try{
+    for(let round=1;round<=maxRound;round++){
+      const roster=g.members.filter(m=>round===1?true:(m.reply==='both'));
+      for(let i=roster.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=roster[i];roster[i]=roster[j];roster[j]=t}
+      let spoke=false;
+      for(const m of roster){
+        if(total>=maxAI)break;
+        const c=charOf(m.cid);if(!c)continue;
+        const arr=gmsgsOf(g.id);
+        const last=arr[arr.length-1];
+        if(last&&last.role==='char'&&last.cid===m.cid)continue;
+        if(round>1&&Math.random()>chain)continue;
+        const out=await groupGenerate(g,c);
+        if(!out||!out.text)continue;
+        const a2=gmsgsOf(g.id);
+        a2.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,search:out.search});
+        saveGmsgs(g.id,a2);
+        gmemAdd(c.id,g.id,g.name,out.text,true);
+        total++;spoke=true;
+        renderToolPane();scrollGroupDown();
+      }
+      if(!spoke)break;
+    }
+    if(total>=maxAI)toast('本轮发言到上限了，先歇一歇（防刷屏）');
+  }catch(e){
+    toast('群聊出错：'+((e&&e.message)||e));
+  }finally{
+    groupBusy=false;
+    renderToolPane();scrollGroupDown();
+    scheduleGroupAuto(false);
+  }
+};
+groupAutoSpeak=async function(g,m){
+  const c=charOf(m.cid);if(!c)return;
+  if(groupBusy)return;
+  groupBusy=true;
+  try{
+    const out=await groupGenerate(g,c);
+    if(!out||!out.text)return;
+    const arr=gmsgsOf(g.id);
+    arr.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,search:out.search});
+    saveGmsgs(g.id,arr);
+    gmemAdd(c.id,g.id,g.name,out.text,true);
+    const watching=(groupOpenId===g.id&&view==='tools'&&toolTab==='group'&&!document.hidden);
+    if(watching){renderToolPane();scrollGroupDown();toast((c.emoji||'')+' '+c.name+'：'+out.text.slice(0,22));}
+    else{markUnread(c.id);toast((c.emoji||'')+' '+c.name+' 在《'+g.name+'》里发了一条');}
+  }catch(e){}finally{
+    groupBusy=false;
+    if(view==='tools'&&toolTab==='group'){renderToolPane();scrollGroupDown()}
+  }
+};
+/* 群聊输入框：自动长高 + 回车发送（顺手去掉右下角那个小黑点） */
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el&&el.id==='ginp'){el.style.height='auto';el.style.height=Math.min(110,el.scrollHeight)+'px'}
+});
+document.addEventListener('keydown',e=>{
+  const el=e.target;
+  if(el&&el.id==='ginp'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!groupBusy)groupSend()}
+});
+
+/* ---------- ⑦ 联网搜索 ---------- */
+function webCfg(){
+  if(!cfg.web)cfg.web={engine:'wiki',key:'',base:'',lang:'zh',count:5};
+  return cfg.web;
+}
+async function webSearch(q){
+  const w=webCfg();
+  const n=Math.max(1,Math.min(10,Number(w.count)||5));
+  const eng=w.engine||'wiki';
+  if(eng==='tavily'){
+    const r=await fetch(String(w.base||'https://api.tavily.com').replace(/\/+$/,'')+'/search',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:w.key,query:q,max_results:n,search_depth:'basic'})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error('HTTP '+r.status+' '+String(j.detail||j.message||'').slice(0,120));
+    return (j.results||[]).map(x=>({title:String(x.title||''),url:String(x.url||''),snippet:String(x.content||'')}));
+  }
+  if(eng==='serper'){
+    const r=await fetch(String(w.base||'https://google.serper.dev').replace(/\/+$/,'')+'/search',
+      {method:'POST',headers:{'Content-Type':'application/json','X-API-KEY':w.key||''},body:JSON.stringify({q:q,gl:'cn',hl:'zh-cn',num:n})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error('HTTP '+r.status+' '+String(j.message||'').slice(0,120));
+    return (j.organic||[]).map(x=>({title:String(x.title||''),url:String(x.link||''),snippet:String(x.snippet||'')}));
+  }
+  if(eng==='bing'){
+    const r=await fetch('https://api.bing.microsoft.com/v7.0/search?count='+n+'&mkt=zh-CN&q='+encodeURIComponent(q),
+      {headers:{'Ocp-Apim-Subscription-Key':w.key||''}});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return (((j.webPages||{}).value)||[]).map(x=>({title:String(x.name||''),url:String(x.url||''),snippet:String(x.snippet||'')}));
+  }
+  if(eng==='custom'){
+    let u=String(w.base||'');
+    if(!u)throw new Error('还没填自定义接口地址');
+    if(u.indexOf('{q}')<0)u+=(u.indexOf('?')<0?'?':'&')+'q={q}';
+    u=u.replace('{q}',encodeURIComponent(q));
+    const r=await fetch(u,{headers:w.key?{'Authorization':'Bearer '+w.key}:{}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    const pick=arr=>arr.map(x=>({title:String(x.title||x.name||x.headline||''),url:String(x.url||x.link||x.href||''),snippet:String(x.snippet||x.content||x.description||x.text||'')}));
+    if(Array.isArray(j))return pick(j);
+    for(const k of ['results','organic','items','data','list','webPages','hits'])if(Array.isArray(j[k]))return pick(j[k]);
+    return [];
+  }
+  /* 默认：维基百科（免 Key，浏览器直接可用） */
+  const lang=String(w.lang||'zh').replace(/[^a-z-]/gi,'')||'zh';
+  const r=await fetch('https://'+lang+'.wikipedia.org/w/api.php?action=query&list=search&format=json&origin=*&srlimit='+n+'&srsearch='+encodeURIComponent(q));
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const j=await r.json();
+  return (((j.query||{}).search)||[]).map(x=>({title:String(x.title||''),url:'https://'+lang+'.wikipedia.org/wiki/'+encodeURIComponent(x.title||''),snippet:String(x.snippet||'').replace(/<[^>]+>/g,'')}));
+}
+function fmtSearchBlock(q,list){
+  return '【联网搜索结果】下面是刚刚从网上查到的真实资料，请优先依据它们回答；资料里没提到的就直说不知道，不要编造：\n搜索词：'+q+'\n'+
+  list.map((x,i)=>(i+1)+'. '+x.title+'\n'+String(x.snippet||'').replace(/\s+/g,' ').slice(0,400)+'\n（来源：'+x.url+'）').join('\n');
+}
+async function searchForChar(c,conv,onStatus){
+  const st=onStatus||function(){};
+  if(!cfg.key||!conv||!conv.trim())return null;
+  st('🔎 正在想：要不要上网查一下…');
+  let q='';
+  try{
+    const r=await callAPI([{role:'system',content:'你是联网检索助手。看下面这段对话，判断是否需要联网查资料（新闻、天气、赛事、价格、时事、人物近况、不确定的事实等才需要）。需要就只输出一行：SEARCH: 关键词（中文，尽量精确，可带年份）；不需要就只输出：NO'},
+      {role:'user',content:conv.slice(-1200)}],{stream:false,temp:0,maxtok:40,model:modelOf(c)});
+    const m=String(r||'').match(/SEARCH\s*[:：]\s*([^\n\r]+)/i);
+    if(m)q=m[1].trim().replace(/^["'“”]+|["'“”]+$/g,'').slice(0,80);
+  }catch(e){st('');return null}
+  if(!q){st('');return null}
+  st('🔎 正在联网搜索：<b>'+esc(q)+'</b> …');
+  let list=[];
+  try{list=await webSearch(q)}
+  catch(e){st('⚠️ 搜索失败：'+esc(String((e&&e.message)||e).slice(0,90)));return null}
+  if(!list.length){st('🌐 搜了「'+esc(q)+'」，没有找到有用结果');return null}
+  st('🌐 已联网搜索：<b>'+esc(q)+'</b> · 找到 '+list.length+' 条资料');
+  return {q:q,list:list,block:fmtSearchBlock(q,list)};
+}
+function showSearchRes(s){
+  if(!s||!s.list)return;
+  showSheet('<div class="ttl">🌐 联网搜索</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">搜索词：'+esc(s.q)+' · 共 '+s.list.length+' 条</p>'+
+  s.list.map((x,i)=>'<div class="arcitem"><div class="arcname"><b>'+(i+1)+'. '+esc(x.title)+'</b></div>'+
+  '<div class="arcmeta">'+esc(String(x.snippet||'').slice(0,300))+'</div>'+
+  '<div class="row arcfoot"><a class="ghost iconbtn" style="text-decoration:none" href="'+esc(x.url)+'" target="_blank" rel="noopener">打开来源</a></div></div>').join('')+
+  '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+}
+let pendingSearch='',pendingSM=null;
+async function doSearchStep(c){
+  pendingSearch='';pendingSM=null;
+  const box=$('#msgs');if(!box||!cfg.key)return;
+  const st=document.createElement('div');
+  st.className='searchline';
+  st.innerHTML='🔎 正在想：要不要上网查一下…';
+  box.appendChild(st);scrollDown();
+  const conv=(msgs||[]).slice(-6).map(m=>(m.role==='user'?'她':c.name)+'：'+(m.content||'')).join('\n');
+  let r=null;
+  try{r=await searchForChar(c,conv,t=>{st.innerHTML=t;scrollDown()})}catch(e){}
+  if(!r){if(st.parentNode)st.remove();return}
+  pendingSearch=r.block;
+  pendingSM={q:r.q,list:r.list};
+  st.className='searchline on';
+  st.innerHTML='🌐 联网搜索：<b>'+esc(r.q)+'</b> · '+r.list.length+' 条资料（点这里看来源）';
+  st.onclick=()=>showSearchRes(pendingSM);
+  scrollDown();
+}
+/* 把搜索结果塞进系统提示 */
+const _buildCtx=buildCtx;
+buildCtx=function(c,extra){
+  return _buildCtx(c,(extra||'')+(pendingSearch?('\n\n'+pendingSearch):''));
+};
+/* 发消息前先「判断→搜索→实时显示」，然后照常生成 */
+const _askAndAppend=askAndAppend;
+askAndAppend=async function(){
+  const c=curChar();
+  pendingSearch='';pendingSM=null;
+  if(c&&c.search&&c.search.on)try{await doSearchStep(c)}catch(e){}
+  const before=msgs.length;
+  await _askAndAppend();
+  if(pendingSM&&msgs.length>before){
+    const m=msgs[msgs.length-1];
+    if(m&&m.role==='assistant'){m.search=pendingSM;persist();renderChat();}
+  }
+  pendingSearch='';pendingSM=null;
+};
+/* 聊过天的地方标一个「查过网上资料」的小条，点开看来源 */
+const _renderChat=renderChat;
+renderChat=function(){
+  _renderChat();
+  const box=$('#msgs');if(!box)return;
+  const bubs=box.querySelectorAll('.bub');
+  if(!bubs.length)return;
+  msgs.forEach((x,i)=>{
+    if(!x.search||!x.search.q||!x.search.list)return;
+    const b=bubs[i];if(!b)return;
+    const t=document.createElement('div');
+    t.className='srcline'+(x.role==='user'?' me':'');
+    t.innerHTML='🌐 联网查过：'+esc(x.search.q)+'（'+x.search.list.length+' 条）· <u>看来源</u>';
+    t.onclick=()=>showSearchRes(x.search);
+    if(b.nextSibling)b.parentNode.insertBefore(t,b.nextSibling);else b.parentNode.appendChild(t);
+  });
+};
+/* 设置页里的「联网搜索」卡片 */
+function webCardHTML(){
+  const w=webCfg();
+  const eng=w.engine||'wiki';
+  const opt=(v,t)=>'<option value="'+v+'"'+(eng===v?' selected':'')+'>'+t+'</option>';
+  return '<div class="ttl">联网搜索</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">给角色打开「联网搜索」后，它回答前会自己上网查资料，聊天里会实时显示它在搜什么。<br>默认「维基百科」：免费、不用 Key、点开就能用；想搜新闻、搜全网，就选 Tavily / Serper / Bing（要自己申请 Key）。</p>'+
+  '<label class="f">服务商</label><select id="w_engine" onchange="setWebEngine(this.value)">'+
+  opt('wiki','维基百科（免 Key · 可直接用）')+opt('tavily','Tavily（需 Key）')+opt('serper','Serper 谷歌搜索（需 Key）')+opt('bing','Bing 搜索（需 Key）')+opt('custom','自定义接口')+'</select>'+
+  (eng==='wiki'
+    ?('<label class="f">语言版本</label><input id="w_lang" value="'+esc(w.lang||'zh')+'" placeholder="zh / en">')
+    :('<label class="f">API Key</label><input id="w_key" type="password" value="'+esc(w.key||'')+'" placeholder="搜索服务的 Key">'))+
+  ((eng==='custom'||eng==='tavily'||eng==='serper')
+    ?('<label class="f">接口地址（留空用默认）</label><input id="w_base" value="'+esc(w.base||'')+'" placeholder="'+(eng==='custom'?'https://你的转发服务/search?q={q}':'https://…')+'">')
+    :'')+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">每次取几条资料</span><input id="w_count" type="number" value="'+(w.count||5)+'"><span class="unit">条</span></div>'+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="saveWebCfg()">保存搜索设置</button>'+
+  '<button class="col" onclick="testWeb()">测试搜索</button></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">如果提示「搜索失败」并提到跨域 / CORS：Bing、Serper 这类接口一般不允许网页直接调用，换「维基百科」，或用「自定义接口」填一个自己能跨域的转发地址。记得再去「角色 → 编辑」打开「联网搜索」开关才会用。</p>';
+}
+function refreshWebCard(){const el=document.getElementById('webCard');if(el)el.innerHTML=webCardHTML()}
+function setWebEngine(v){webCfg().engine=v;save(LS.cfg,cfg);refreshWebCard()}
+function saveWebCfg(){
+  const w=webCfg();
+  const v=i=>{const el=document.getElementById(i);return el?el.value.trim():''};
+  if(document.getElementById('w_engine'))w.engine=v('w_engine')||w.engine;
+  if(document.getElementById('w_key'))w.key=v('w_key');
+  if(document.getElementById('w_base'))w.base=v('w_base');
+  if(document.getElementById('w_lang'))w.lang=v('w_lang')||'zh';
+  const n=parseInt(v('w_count'),10);w.count=(Number.isFinite(n)&&n>0)?Math.min(10,n):5;
+  save(LS.cfg,cfg);
+  toast('已保存搜索设置');
+}
+async function testWeb(){
+  saveWebCfg();
+  const w=webCfg();
+  if(w.engine!=='wiki'&&!w.key)return alert('这个服务商需要 Key，请先填好再测。');
+  toast('搜索中…');
+  try{
+    const l=await webSearch('深海');
+    alert(l.length?('搜索通了 ✅ 拿到 '+l.length+' 条，例如：\n'+l.slice(0,3).map(x=>'· '+x.title).join('\n')):'通了，但这个词没结果，换个词试试');
+  }catch(e){
+    alert('搜索失败：'+((e&&e.message)||e)+'\n\n如果提到 Failed to fetch / CORS，就是浏览器跨域限制：\n· 换「维基百科」\n· 或自建一个转发接口，用「自定义接口」填上。');
+  }
+}
+/* 把「联网搜索」设置卡插到设置页第一张卡后面 */
+const _renderCfg=renderCfg;
+renderCfg=function(){
+  _renderCfg();
+  const m=$('#main');if(!m)return;
+  if(document.getElementById('webCard'))return;
+  const card=document.createElement('div');
+  card.className='card';card.id='webCard';card.innerHTML=webCardHTML();
+  const first=m.querySelector('.card');
+  if(first&&first.nextSibling)m.insertBefore(card,first.nextSibling);else m.appendChild(card);
+};
+/* 角色设定里插入「联网搜索」开关 */
+const _editChar=editChar;
+editChar=function(id,tema){
+  _editChar(id,tema);
+  const sheet=$('#sheet');
+  if(!sheet||!document.getElementById('e_persona'))return;      /* 只在「角色设定」标签页插 */
+  if(document.getElementById('e_search'))return;
+  const c=chars.find(x=>x.id===id);if(!c)return;
+  const w=webCfg();
+  const card=document.createElement('div');
+  card.className='card';card.style.marginTop='12px';
+  card.innerHTML='<div class="row" style="align-items:center">'+
+  '<div class="col"><b>联网搜索</b><div class="dim" style="font-size:12px">打开后，它回答前会自己上网查资料，搜索过程会实时显示在聊天里（服务商在「设置 → 联网搜索」里选，默认维基百科，免 Key）</div></div>'+
+  '<input type="checkbox" id="e_search" '+((c.search&&c.search.on)?'checked':'')+'></div>'+
+  ((w.engine!=='wiki'&&!w.key)
+    ?'<p class="dim" style="font-size:12px;margin:8px 0 0;color:var(--warn)">⚠️ 当前搜索服务商（'+esc(w.engine)+'）还没填 Key，先去「设置 → 联网搜索」填好，否则搜不了。</p>'
+    :'<p class="dim" style="font-size:12px;margin:8px 0 0">当前服务商：'+esc(w.engine||'wiki')+'（可在「设置 → 联网搜索」里改）</p>')+
+  '</div>';
+  const rows=sheet.querySelectorAll('.row');
+  let anchor=null;
+  for(const r of rows){if((r.innerHTML||'').indexOf('saveChar(')>=0){anchor=r;break}}
+  if(anchor)anchor.parentNode.insertBefore(card,anchor);else sheet.appendChild(card);
+};
+const _applyCharInputs=applyCharInputs;
+applyCharInputs=function(id){
+  const c=_applyCharInputs(id);if(!c)return c;
+  const el=document.getElementById('e_search');
+  if(el)c.search={on:!!el.checked};
+  return c;
 };
 
 boot();
