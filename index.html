@@ -91,7 +91,8 @@ button:disabled{opacity:.45;pointer-events:none}
 .iconbtn{background:transparent;border:1px solid var(--line);color:var(--dim);padding:4px 11px;border-radius:9px;box-shadow:none;font-size:13px;line-height:1.2}
 /* 隐私角色 */
 .privbox{margin-top:16px;padding:10px 12px;border:1px dashed var(--line);border-radius:14px;background:var(--panel);opacity:.85;box-shadow:none}
-.privav{width:48px;height:48px;padding:0;font-size:24px;line-height:1;border-radius:14px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;opacity:.8}
+.privav{width:48px;height:48px;padding:0;font-size:24px;line-height:1;border-radius:14px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;opacity:.8;overflow:hidden}
+.privav img{width:100%;height:100%;object-fit:cover;display:block}
 .privav.on{border-color:var(--acc);opacity:1}
 .privunit{display:flex;flex-direction:column;align-items:center;gap:6px}
 .privunit .privset{font-size:11px;padding:3px 9px;border-radius:999px}
@@ -143,19 +144,51 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .seg button.on{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
 /* 用户主页头像 */
 .meavatar{width:64px;height:64px;font-size:32px;line-height:1;padding:0;border-radius:18px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none}
+.meavatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+/* ---------- 头像框：emoji 或图片都能装 ---------- */
+.avbox{display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg2);border:1px solid var(--line);border-radius:16px;flex:0 0 auto;line-height:1;box-shadow:none}
+.avbox img{width:100%;height:100%;object-fit:cover;display:block}
+.meavatar{cursor:pointer}
+/* ---------- 底部工具栏按钮（发图 / 发送 / 停止） ---------- */
+#composer button{display:flex;align-items:center;justify-content:center}
+#composer #pic svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#composer #send svg{width:23px;height:23px;fill:currentColor;stroke:none}
+#composer #stop svg{width:19px;height:19px;fill:currentColor;stroke:none}
+#composer #pic{transition:color .15s ease,border-color .15s ease,background .15s ease}
+#composer #pic:active{background:var(--accdim);border-color:var(--acc)}
+/* ---------- 工具页 / 群聊 ---------- */
+.gwrap{display:flex;flex-direction:column;gap:10px}
+.gbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gmsgs{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 10px 4px;max-height:44vh;overflow:auto;display:flex;flex-direction:column}
+.gbub{display:flex;gap:8px;margin-bottom:10px;align-items:flex-start}
+.gbub .gav{width:34px;height:34px;border-radius:11px;overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--line);font-size:17px;line-height:1}
+.gbub .gav img{width:100%;height:100%;object-fit:cover}
+.gbub .gmain{flex:1;min-width:0;display:flex;flex-direction:column}
+.gbub .gname{font-size:11px;color:var(--dim);margin-bottom:2px}
+.gbub .gtext{background:var(--panel);border:1px solid var(--line);border-radius:4px 12px 12px 12px;padding:8px 11px;font-size:14px;word-break:break-word;box-shadow:var(--shadow);white-space:pre-wrap}
+.gbub.me{flex-direction:row-reverse}
+.gbub.me .gmain{align-items:flex-end}
+.gbub.me .gtext{background:var(--bubme);border-color:transparent;border-radius:12px 4px 12px 12px}
+.gbub.sys{justify-content:center}
+.gbub.sys .gtext{background:transparent;border:1px dashed var(--line);color:var(--dim);font-size:12px;box-shadow:none}
+.gmem{display:flex;flex-wrap:wrap;gap:8px}
+.gm{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:4px 8px 4px 4px}
+.gm .nm{font-size:12.5px;line-height:1.2}
+.gm .tg{font-size:10.5px;color:var(--dim);line-height:1.2}
 </style>
 </head>
 <body>
 <header><h1 id="title">深蓝海域</h1><span class="who" id="who"></span></header>
 <main id="main"></main>
 <div id="picked"><img id="thumb" alt=""><button id="pickedX" onclick="clearPicked()">✕</button></div>
-<div id="composer"><button id="pic" title="发图片给ta看">🖼</button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="send">↑</button><button id="stop" style="display:none">■</button></div>
+<div id="composer"><button id="pic" title="发图片给ta看" aria-label="发送图片"><svg viewBox="0 0 24 24"><rect x="3.4" y="4.8" width="17.2" height="14.4" rx="3.4"/><circle cx="8.7" cy="9.8" r="1.7"/><path d="m4.2 17.6 4.8-4.5 3.4 3 3.3-2.9 4.5 4.2"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="send" aria-label="发送"><svg viewBox="0 0 24 24"><path d="M3.7 20.4 21 12 3.7 3.6l.1 6.7L14.6 12 3.8 13.7Z"/></svg></button><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button></div>
 <input id="imgIn" type="file" accept="image/*" style="display:none" onchange="pickImage(this)">
+<input id="avaIn" type="file" accept="image/*" style="display:none" onchange="avaChange(this)">
 <nav>
   <button data-v="chat" class="on"><svg viewBox="0 0 24 24"><path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/></svg><span>聊天</span><i class="dot" id="navDot"></i></button>
   <button data-v="roles"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/></svg><span>角色</span></button>
   <button data-v="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.7"/><path d="M4.9 19.8c0-3.5 3.2-5.7 7.1-5.7s7.1 2.2 7.1 5.7"/></svg><span>我的</span></button>
-  <button data-v="todo"><svg viewBox="0 0 24 24"><rect x="4.2" y="4.2" width="15.6" height="15.6" rx="4.2"/><path d="m8.4 12.4 2.5 2.5 4.7-5"/></svg><span>待办</span></button>
+  <button data-v="tools"><svg viewBox="0 0 24 24"><path d="M14.6 6.1a4.3 4.3 0 0 0 5.6 5.6l-8.4 8.4a2.3 2.3 0 0 1-3.2 0l-2.4-2.4a2.3 2.3 0 0 1 0-3.2Z"/><path d="m16.4 4.3 3.3 3.3"/></svg><span>工具</span></button>
   <button data-v="cfg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/></svg><span>设置</span></button>
 </nav>
 <div class="modal" id="modal"><button class="sheetclose" onclick="closeSheet()" aria-label="关闭">✕</button><div class="sheet" id="sheet"></div></div>
@@ -173,7 +206,9 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',priv:'wh_priv',unread:'wh_unread',
-  msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id};
+  groups:'wh_groups',gauto:'wh_gauto',
+  msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
+  summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id};
 
 /* ---------- 主题 ---------- */
 const THEMES={
@@ -284,6 +319,9 @@ const EMPTY_MEM=()=>({core:'',timeline:[],summaries:[],prefs:[],habits:[]});
 let cfg=null, chars=[], curId=null;
 let msgs=[],mem=EMPTY_MEM(),view='chat',busy=false,arcMem={};
 let todoCharId=null,todoFilter='open';
+let toolTab='todo';                 /* 工具页当前子页：todo / group / fun */
+let groupOpenId=null,groupBusy=false,groupTick=null;
+const gAutoMap={};                  /* 群聊自动发消息的下次时间 */
 let backupHandle=null,bkTimer=null,bkTick=null,lastBackup=0,bkNeed=false,bkArmed=false,bkErr='';
 let curAbort=null;
 let autoMap={},autoTick=null,autoKeep=null;
@@ -292,13 +330,14 @@ const arcNotesCache={};               /* id → {len,notes}：分段笔记缓存
 const hushOpen={};                    /* id → true：本次打开已通过隐私档案密码 */
 const _arcFixed=new WeakSet();        /* 已整理过格式的档案数组 */
 const secOpen={};
-/* ---------- 新增：记忆上下文 / 弹层栈 / 待发送图片 ---------- */
+/* ---------- 记忆上下文 / 弹层栈 / 待发送图片 / 头像上传目标 ---------- */
 let memCtx={id:null,obj:null};        /* 正在编辑的是哪个角色的记忆 */
 const sheetStack=[];                  /* 弹层逐层返回 */
 let pendImg=null;                     /* 待发送的图片 dataURL */
+let avaTarget=null;                   /* {kind:'me'} 或 {kind:'char',id:...} */
 const HIST_HINT={
   auto:'自动：给角色最近 '+(30)+' 条左右的原文，再加上下面的记忆总结。省 token，也记得住大致经过（推荐）。',
-  full:'完整记录：每次发消息都把整段聊天记录都带上（超出上限会自动截取最早的部分）。角色记得最细，token 消耗最大。',
+  full:'完整记录：每次发消息都把整段聊天记录都带上（上限填 0 = 不限制，整段全带上）。角色记得最细，token 消耗最大。',
   sum:'只看总结：只带最近 4 条做衔接，其余全靠下面的记忆总结。最省 token，但早期细节会变模糊。'
 };
 
@@ -335,6 +374,17 @@ function toast(m){
   const t=$('#toast');
   t.textContent=m;t.style.display='block';
   clearTimeout(t._h);t._h=setTimeout(()=>{t.style.display='none'},4000);
+}
+
+/* ---------- 头像（emoji 或图片） ---------- */
+const emojiOf=o=>((o&&o.emoji)||'🐋');
+function avaInner(o){
+  const a=o&&o.avatar;
+  if(a)return '<img src="'+a+'" alt="">';
+  return esc(emojiOf(o));
+}
+function avBox(o,size,extra){
+  return '<div class="avbox '+(extra||'')+'" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*0.5)+'px">'+avaInner(o)+'</div>';
 }
 
 /* ---------- IndexedDB ---------- */
@@ -548,13 +598,13 @@ function go(v){
   draw();
 }
 function draw(){
-  $('#title').textContent={chat:'聊天',roles:'角色列表',me:'我的主页',todo:'待办事项',cfg:'设置'}[view]||'深蓝海域';
+  $('#title').textContent={chat:'聊天',roles:'角色列表',me:'我的主页',tools:'工具',cfg:'设置'}[view]||'深蓝海域';
   const c=curChar();
   $('#who').textContent=(view==='chat'&&c)?((c.emoji||'')+' '+c.name):'';
   if(view==='chat')renderChat();
   else if(view==='roles')renderRoles();
   else if(view==='me')renderMe();
-  else if(view==='todo')renderTodo();
+  else if(view==='tools')renderTools();
   else renderCfg();
 }
 const scrollDown=()=>{const m=$('#main');m.scrollTop=m.scrollHeight};
@@ -1208,9 +1258,9 @@ function setWholeLimit(){
 function saveFullLimit(){
   const el=document.getElementById('c_fullLimit');
   const n=el?Number(el.value):NaN;
-  cfg.fullLimit=Number.isFinite(n)?Math.max(1000,Math.round(n)):20000;
+  cfg.fullLimit=Number.isFinite(n)?Math.max(0,Math.round(n)):20000;
   save(LS.cfg,cfg);
-  toast('已保存：完整记录上限 '+cfg.fullLimit+' 字');
+  toast('已保存：完整记录上限 '+(cfg.fullLimit?cfg.fullLimit+' 字':'不限（整段全带上）'));
 }
 /* 切换「发消息时给角色看什么」 */
 function setHistMode(v){
@@ -1240,7 +1290,11 @@ const ICON={
   edit:'<svg viewBox="0 0 24 24"><path d="M15.2 4.9 19.1 8.8"/><path d="M4.6 19.4l1-4.2L16.3 4.5a1.6 1.6 0 0 1 2.3 0l.9.9a1.6 1.6 0 0 1 0 2.3L8.8 18.4l-4.2 1Z"/></svg>',
   del:'<svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M9.6 7V5.5c0-.6.4-1 1-1h2.8c.6 0 1 .4 1 1V7"/><path d="M7.1 7l.9 11.2c.1.9.8 1.6 1.7 1.6h4.6c.9 0 1.6-.7 1.7-1.6L17 7"/></svg>',
   raw:'<svg viewBox="0 0 24 24"><path d="M13.6 3.6H7.5c-.8 0-1.4.6-1.4 1.4v14c0 .8.6 1.4 1.4 1.4h9c.8 0 1.4-.6 1.4-1.4V8Z"/><path d="M13.6 3.6V8H18"/><path d="M9.2 13h5.6M9.2 16.4h3.6"/></svg>',
-  think:'<svg viewBox="0 0 24 24"><path d="M12 3.7a6.3 6.3 0 0 0-3.8 11.4c.5.4.8 1 .8 1.6v.5h6v-.5c0-.6.3-1.2.8-1.6A6.3 6.3 0 0 0 12 3.7Z"/><path d="M10.1 20.2h3.8"/></svg>'
+  think:'<svg viewBox="0 0 24 24"><path d="M12 3.7a6.3 6.3 0 0 0-3.8 11.4c.5.4.8 1 .8 1.6v.5h6v-.5c0-.6.3-1.2.8-1.6A6.3 6.3 0 0 0 12 3.7Z"/><path d="M10.1 20.2h3.8"/></svg>',
+  copy:'<svg viewBox="0 0 24 24"><rect x="8.6" y="8.6" width="11" height="11" rx="3"/><path d="M15.6 5.6v-.2a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 2 2h.2"/></svg>',
+  group:'<svg viewBox="0 0 24 24"><circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/></svg>',
+  tools:'<svg viewBox="0 0 24 24"><path d="M14.6 6.1a4.3 4.3 0 0 0 5.6 5.6l-8.4 8.4a2.3 2.3 0 0 1-3.2 0l-2.4-2.4a2.3 2.3 0 0 1 0-3.2Z"/><path d="m16.4 4.3 3.3 3.3"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5.4v13.2M5.4 12h13.2"/></svg>'
 };
 
 /* ---------- 聊天 ---------- */
@@ -1276,7 +1330,7 @@ function renderChat(){
     if(x.tok){
       const t=document.createElement('div');
       t.className='tok'+(x.role==='user'?' me':'');
-      t.textContent=(x.role==='assistant'?'🔤 生成 '+x.tok+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):''):'✍ 约 '+x.tok+' tok');
+      t.textContent=(x.role==='assistant'?('生成 '+x.tok+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):'')):'约 '+x.tok+' tok');
       box.appendChild(t);
     }
     if(i===msgs.length-1&&!busy){
@@ -1323,7 +1377,8 @@ function userBlock(){
 function historySlice(){
   const mode=(cfg.histMode||'auto');
   if(mode==='full'){
-    const lim=Math.max(1000,(cfg.fullLimit==null?20000:cfg.fullLimit));
+    const lim=(cfg.fullLimit==null?20000:cfg.fullLimit);
+    if(lim<=0)return msgs.slice();          /* 0 = 不限制：整段聊天记录全带上 */
     let total=0,start=0;
     for(let i=msgs.length-1;i>=0;i--){total+=String(msgs[i].content||'').length+12;if(total>lim){start=i+1;break}}
     return msgs.slice(start);
@@ -1469,7 +1524,7 @@ async function todoToolLoop(c,ctx,opt){
       const r=execTodoTool(tc.function.name,args,c.id);
       msgs.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
     }
-    if(view==='todo')renderTodo();
+    if(view==='tools')renderTodo();
   }
   return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs,didTool:true};
 }
@@ -1525,7 +1580,7 @@ async function askAndAppend(){
   curAbort=null;
   if(sendBtn)sendBtn.disabled=false;
   if(stopBtn)stopBtn.style.display='none';
-  if(ok){renderChat();maybeAutoSummary();}
+  if(ok){renderChat();maybeAutoSummary(true);}
 }
 async function send(){
   const c=curChar(),inp=$('#inp');
@@ -1617,7 +1672,6 @@ function rawCard(){
   '<button class="col" onclick="exportRaw()">导出原文</button>'+
   '<button class="col" onclick="clearRaw()">清空</button></div>';
 }
-
 /* ---------- 记忆总结（写进记忆，不覆盖原始记录） ---------- */
 function buildSummaryPrompt(slice,prev){
   return '你是记忆整理助手。读下面的对话，提炼成记忆。严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的内容写"无"：\n'+
@@ -1723,18 +1777,44 @@ async function summarizeNow(){
   const hit=await runSummary(slice,true,id);
   toast(hit?('已写进记忆 '+hit+' 条'):'总结失败，检查一下模型');
 }
-async function maybeAutoSummary(){
-  if(!cfg.autoSum||!cfg.key||!curChar())return;
-  const every=Math.max(6,parseInt(cfg.autoSumEvery,10)||30);
-  const base=mem._lastSum||0;
-  if(msgs.length-base<every)return;
-  mem._lastSum=msgs.length;saveMem();
-  const from=Math.max(0,msgs.length-every);
-  const c=curChar();
-  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
-  await runSummary(slice,true);
-}
 
+/* ================= 【重写】自动总结 =================
+   进度单独存在 wh_summark_<角色id> 里，和记忆内容完全分开，
+   所以不管记忆怎么改，都不会被覆盖，也不会重复总结同一段。
+   只往记忆里「加」，永远不动聊天记录。 */
+function autoSumMark(id){const m=load(LS.summark(id),null);return (m&&typeof m.n==='number'&&m.n>=0)?Math.round(m.n):0}
+function setAutoSumMark(id,n){save(LS.summark(id),{n:Math.max(0,Math.round(n)),t:Date.now()})}
+function autoSumEvery(){const n=parseInt(cfg.autoSumEvery,10);return (Number.isFinite(n)&&n>=4)?n:30}
+/* 还差多少条才会自动总结一次（给设置页显示用） */
+function autoSumStatus(c){
+  if(!c)return '';
+  const need=autoSumEvery();
+  const done=Math.min(autoSumMark(c.id),msgs.length);
+  const left=Math.max(0,need-(msgs.length-done));
+  return '当前 '+msgs.length+' 条，上次总结到第 '+done+' 条，再聊 '+left+' 条就自动总结。';
+}
+async function maybeAutoSummary(showToast){
+  if(!cfg.autoSum)return;
+  if(!cfg.key){if(showToast)toast('自动总结已开启，但还没填 API Key');return}
+  if(busy)return;
+  const c=curChar();if(!c)return;
+  const every=autoSumEvery();
+  const done=Math.min(autoSumMark(c.id),msgs.length);
+  if(msgs.length-done<every)return;
+  const from=Math.max(0,msgs.length-every);
+  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  setAutoSumMark(c.id,msgs.length);       /* 先记进度，防止重复总结 */
+  saveMem();
+  if(showToast)toast('正在自动总结第 '+(from+1)+'~'+msgs.length+' 条…');
+  const hit=await runSummary(slice,true);
+  if(hit){
+    if(showToast)toast('✅ 已自动总结 '+hit+' 条，写进「长期聊天记录总结」（聊天记录没动）');
+  }else{
+    setAutoSumMark(c.id,done);            /* 失败就退回进度，下次补上，不会漏 */
+    if(showToast)toast('自动总结没成功，下次发消息会自动重试');
+  }
+  const el=document.getElementById('memPane');if(el)refreshMem();
+}
 /* ---------- 自动发消息 ---------- */
 function isQuiet(a){
   const h=new Date().getHours(),qs=+a.quietStart,qe=+a.quietEnd;
@@ -1783,7 +1863,21 @@ async function autoGenerate(c){
     markUnread(c.id);
     toast((c.emoji||'')+' '+c.name+' 发来一条消息');
   }
+  /* 【新增】自动发的消息也算进度，够条数就一起自动总结 */
+  try{await autoSumForLoaded(c)}catch(e){}
   return true;
+}
+/* 给「当前 msgs 就是这个角色的聊天记录」这种场景用的自动总结 */
+async function autoSumForLoaded(c){
+  if(!cfg.autoSum||!cfg.key||!c)return;
+  const every=autoSumEvery();
+  const done=Math.min(autoSumMark(c.id),msgs.length);
+  if(msgs.length-done<every)return;
+  const from=Math.max(0,msgs.length-every);
+  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  setAutoSumMark(c.id,msgs.length);
+  const hit=await runSummary(slice,true,c.id);
+  if(!hit)setAutoSumMark(c.id,done);
 }
 async function runAutoNow(c){
   busy=true;curAbort=new AbortController();
@@ -1823,6 +1917,12 @@ function notify(title,body){
 }
 
 /* ---------- 角色 ---------- */
+/* 补一点图标样式（矢量图标在按钮里需要定尺寸） */
+(function(){
+  const st=document.createElement('style');
+  st.textContent='.iconbtn{display:inline-flex;align-items:center;justify-content:center;gap:4px}.iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.gav svg{width:18px;height:18px}.gm .avbox{border-radius:9px}';
+  document.head.appendChild(st);
+})();
 function renderRoles(){
   const box=$('#main');
   const pub=chars.filter(x=>!x.priv),priv=chars.filter(x=>x.priv);
@@ -1830,23 +1930,38 @@ function renderRoles(){
   (pub.length?pub.map(c=>{
     const a=c.auto||{};
     return '<div class="card '+(c.id===curId?'sel':'')+'" onclick="pick(\''+c.id+'\')">'+
-    '<div class="row" style="align-items:center"><div style="font-size:26px">'+esc(c.emoji||'🐋')+'</div>'+
+    '<div class="row" style="align-items:center">'+avBox(c,44)+
     '<div class="col"><b>'+esc(c.name)+(hasUnread(c.id)?'<i class="udot"></i>':'')+'</b><div class="dim" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc((c.persona||'没有设定').slice(0,46))+'</div></div>'+
     '<button class="ghost" onclick="event.stopPropagation();editChar(\''+c.id+'\',\'mem\')">记忆</button>'+
     '<button class="ghost" onclick="event.stopPropagation();editChar(\''+c.id+'\')">编辑</button></div>'+
     '<div class="row" style="align-items:center;margin-top:8px;gap:8px">'+
     '<div class="dim col" style="font-size:11px;min-width:0">'+(a.on?'自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟':'自动发消息：关')+' · 思考：'+THINK_LEVELS[(c.think==null?1:c.think)].label+'</div>'+
+    '<button class="iconbtn" title="复制这个角色" onclick="event.stopPropagation();copyChar(\''+c.id+'\')">'+ICON.copy+'</button>'+
     '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',-1)">↑</button>'+
     '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',1)">↓</button></div></div>';
   }).join(''):'<p class="hint">还没有角色</p>')+
   (priv.length?privBox(priv):'');
+}
+/* 复制角色：设定/头像/风格/思考强度全照抄，聊天记录和记忆不复制 */
+function copyChar(id){
+  const c=chars.find(x=>x.id===id);if(!c)return;
+  if(!confirm('复制「'+(c.name||'角色')+'」？\n设定、头像、说话风格、思考强度、自动发消息设置都会照抄一份。\n（聊天记录和记忆不会复制，是全新的空档案）'))return;
+  const n=JSON.parse(JSON.stringify(c));
+  n.id=uid();
+  n.name=(c.name||'角色')+' 副本';
+  n.priv=false;
+  if(n.auto)n.auto.on=false;          /* 副本默认关掉自动发消息，免得突然刷屏 */
+  chars.push(n);
+  save(LS.chars,chars);scheduleBackup();scheduleAuto(false);
+  renderRoles();
+  toast('已复制：'+n.name+'（点「编辑」就能改它）');
 }
 function privBox(priv){
   return '<div class="privbox">'+
   '<div class="dim" style="font-size:11px;letter-spacing:2px;margin-bottom:8px">· · ·</div>'+
   '<div class="row" style="gap:14px;flex-wrap:wrap">'+
   priv.map(ch=>'<div class="privunit">'+
-    '<button class="privav '+(ch.id===curId?'on':'')+'" onclick="openPriv(\''+ch.id+'\')">'+esc(ch.emoji||'🐋')+(hasUnread(ch.id)?'<i class="udot"></i>':'')+'</button>'+
+    '<button class="privav '+(ch.id===curId?'on':'')+'" onclick="openPriv(\''+ch.id+'\')">'+avaInner(ch)+(hasUnread(ch.id)?'<i class="udot"></i>':'')+'</button>'+
     '<button class="iconbtn privset" onclick="editPriv(\''+ch.id+'\')">⚙ 设置</button>'+
   '</div>').join('')+
   '</div></div>';
@@ -1879,7 +1994,7 @@ function moveChar(id,dir){
 }
 function pick(id){loadChar(id);go('chat')}
 function newChar(){
-  const c={id:uid(),name:'新角色',emoji:'🐋',persona:'',scenario:'',style:'',greeting:'',model:'',
+  const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     sysPrompt:'',examples:'',think:1,priv:false,
     auto:{on:false,min:10,max:30,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
@@ -1899,7 +2014,14 @@ function editChar(id,tema){
   }
   const a=c.auto||(c.auto={on:false,min:10,max:30,quietStart:1,quietEnd:8,hint:''});
   showSheet(tabs+
-  '<div class="row"><div style="width:74px"><label class="f">头像</label><input id="e_emoji" value="'+esc(c.emoji||'')+'"></div>'+
+  '<div class="card" style="margin:0 0 12px"><div class="row" style="align-items:center;gap:12px">'+
+  '<div id="e_avaprev">'+avBox(c,60)+'</div>'+
+  '<div class="col"><div style="font-size:13px;font-weight:600">头像</div>'+
+  '<div class="dim" style="font-size:11.5px;margin:2px 0 6px">可以上传一张图片当头像；不想用图片，就在下面那格填一个 emoji。有图片时优先显示图片。</div>'+
+  '<div class="row" style="gap:6px"><button class="ghost" onclick="pickAvatar(\'char\',\''+id+'\')">上传图片头像</button>'+
+  (c.avatar?'<button class="ghost" style="color:var(--warn)" onclick="clearCharAvatar(\''+id+'\')">去掉图片</button>':'')+
+  '</div></div></div></div>'+
+  '<div class="row"><div style="width:74px"><label class="f">emoji</label><input id="e_emoji" value="'+esc(c.emoji||'')+'"></div>'+
   '<div class="col"><label class="f">名字</label><input id="e_name" value="'+esc(c.name||'')+'"></div></div>'+
   '<label class="f">人设（ta是谁、怎么说话、和你的关系）</label><textarea id="e_persona">'+esc(c.persona||'')+'</textarea>'+
   '<label class="f">情境 / 世界观</label><textarea id="e_scenario">'+esc(c.scenario||'')+'</textarea>'+
@@ -1932,8 +2054,9 @@ function editChar(id,tema){
   '<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成自己的待办（碰不到别人和你的）</div></div>'+
   '<input type="checkbox" id="e_todo" '+((c.todoPerm&&c.todoPerm.on)?'checked':'')+'></div></div>'+
   '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
-  '<button class="warn" onclick="delChar(\''+id+'\')">删除</button></div>'+
-  '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="closeSheet()">取消</button></div>',true);
+  '<button class="col" onclick="copyChar(\''+id+'\')">复制这个角色</button></div>'+
+  '<div class="row" style="margin-top:8px"><button class="warn col" onclick="delChar(\''+id+'\')">删除角色</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>',true);
 }
 function applyCharInputs(id){
   const c=chars.find(x=>x.id===id);if(!c)return null;
@@ -1954,6 +2077,7 @@ function applyCharInputs(id){
   if(c.auto.max<=c.auto.min)c.auto.max=c.auto.min+1;
   c.todoPerm={on:ck('e_todo')};
   c.priv=ck('e_priv');
+  if(typeof c.avatar!=='string')c.avatar='';
   return c;
 }
 function saveChar(id){
@@ -1975,9 +2099,15 @@ async function testAuto(id){
 async function delChar(id){
   if(!confirm('删掉这个角色？聊天记录和记忆一起没'))return;
   clearUnread(id);
-  removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));removeKey(LS.rawMark(id));
+  removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));removeKey(LS.rawMark(id));removeKey(LS.summark(id));
   try{await idbDel(id,'rawlog')}catch(e){}
   chars=chars.filter(c=>c.id!==id);delete autoMap[id];
+  /* 【新增】把它从所有群里移出去 */
+  try{
+    const gs=groupsAll();let ch=false;
+    gs.forEach(g=>{const n=g.members.filter(m=>m.cid!==id);if(n.length!==g.members.length){g.members=n;ch=true}});
+    if(ch)saveGroups(gs);
+  }catch(e){}
   save(LS.chars,chars);scheduleBackup();scheduleAuto(false);
   if(curId===id){
     const first=chars.find(c=>!c.priv)||null;
@@ -1985,6 +2115,40 @@ async function delChar(id){
     if(curId)loadChar(curId);else{msgs=[];mem=EMPTY_MEM();memCtx={id:null,obj:null}}
   }
   closeSheet();draw();
+}
+
+/* ---------- 头像上传（用户 & 角色都能用图片） ---------- */
+function pickAvatar(kind,id){
+  avaTarget={kind:kind,id:id||null};
+  const i=$('#avaIn');if(i){i.value='';i.click()}
+}
+async function avaChange(input){
+  const f=input.files&&input.files[0];input.value='';
+  if(!f||!avaTarget)return;
+  const tgt=avaTarget;
+  toast('处理图片…');
+  try{
+    const url=await shrinkImage(f,320,.85);
+    if(tgt.kind==='me'){
+      cfg.userAvatar=url;save(LS.cfg,cfg);
+      if(view==='me')renderMe();
+      toast('头像已换好');
+    }else{
+      const c=chars.find(x=>x.id===tgt.id);if(!c)return;
+      c.avatar=url;save(LS.chars,chars);scheduleBackup();
+      const p=document.getElementById('e_avaprev');if(p)p.innerHTML=avBox(c,60);
+      if(view==='roles')renderRoles();
+      toast('头像已换好（已立即生效）');
+    }
+  }catch(e){toast('图片读不了：'+((e&&e.message)||e))}
+  avaTarget=null;
+}
+function clearUserAvatar(){cfg.userAvatar='';save(LS.cfg,cfg);renderMe();toast('已去掉图片头像，用回 emoji')}
+function clearCharAvatar(id){
+  const c=chars.find(x=>x.id===id);if(!c)return;
+  c.avatar='';save(LS.chars,chars);scheduleBackup();
+  editChar(id);
+  toast('已去掉图片头像');
 }
 
 /* ---------- 隐私角色：密码 ---------- */
@@ -2053,12 +2217,18 @@ function clearPrivPw(){
 /* ---------- 我的主页 ---------- */
 const USER_EMOJI=['🙂','😀','😎','🌙','⭐','🐳','🦋','🌸','🍀','🔥','☕','🎧','📚','🐱','🐰','🦊'];
 function renderMe(){
+  const me={emoji:cfg.userEmoji||'🙂',avatar:cfg.userAvatar||''};
   $('#main').innerHTML=
   '<div class="card"><div class="ttl">我的资料</div>'+
   '<div class="row" style="align-items:center;gap:12px">'+
-  '<button class="meavatar" onclick="cycleUserEmoji()">'+esc(cfg.userEmoji||'🙂')+'</button>'+
-  '<div class="col dim" style="font-size:12px">点左边的头像可以换个表情。这些信息每次聊天都会告诉角色，让它知道「你是谁」。</div></div>'+
-  '<label class="f">头像（一个 emoji）</label><input id="me_emoji" value="'+esc(cfg.userEmoji||'🙂')+'">'+
+  avBox(me,64)+
+  '<div class="col dim" style="font-size:12px">这就是「你」的头像。可以上传一张图片，也可以只用 emoji。这些信息每次聊天都会告诉角色，让它知道「你是谁」。</div></div>'+
+  '<div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">'+
+  '<button class="ghost" onclick="pickAvatar(\'me\')">上传图片头像</button>'+
+  '<button class="ghost" onclick="cycleUserEmoji()">换个 emoji</button>'+
+  (cfg.userAvatar?'<button class="ghost" style="color:var(--warn)" onclick="clearUserAvatar()">去掉图片</button>':'')+
+  '</div>'+
+  '<label class="f">emoji 头像（没有上传图片时用它）</label><input id="me_emoji" value="'+esc(cfg.userEmoji||'🙂')+'">'+
   '<label class="f">我的名字（角色会这样称呼你）</label><input id="me_name" value="'+esc(cfg.userName||'')+'" placeholder="比如：阿岚">'+
   '<label class="f">性别</label><select id="me_gender">'+
   ['','女','男','其他'].map(g=>'<option value="'+g+'"'+((cfg.userGender||'')===g?' selected':'')+'>'+(g||'不设置')+'</option>').join('')+
@@ -2082,9 +2252,8 @@ function cycleUserEmoji(){
   const cur=cfg.userEmoji||'🙂';
   const i=USER_EMOJI.indexOf(cur);
   cfg.userEmoji=USER_EMOJI[(i+1)%USER_EMOJI.length];
-  save(LS.cfg,cfg);
   const el=document.getElementById('me_emoji');if(el)el.value=cfg.userEmoji;
-  const b=document.querySelector('.meavatar');if(b)b.textContent=cfg.userEmoji;
+  saveMe();
 }
 
 /* ---------- 记忆面板（显示在角色设定弹层的「记忆」标签页里） ---------- */
@@ -2102,14 +2271,19 @@ function memModeCard(M){
   const sw=cfg.sumWrite||'append';
   const btn=(v,t)=>'<button class="'+(mode===v?'on':'')+'" onclick="setHistMode(\''+v+'\')">'+t+'</button>';
   const swb=(v,t)=>'<button class="'+(sw===v?'on':'')+'" onclick="setSumWrite(\''+v+'\')">'+t+'</button>';
+  const gc=getMemChar();
+  const autoLine=(cfg===null)?'':(cfg.autoSum
+    ? ('自动总结：<b>开</b>，每 '+autoSumEvery()+' 条总结一次。'+((gc&&gc.id===curId)?autoSumStatus(gc):'（正在看的不是当前聊天角色）'))
+    : '自动总结：<b>关</b>（去「设置 → 记忆与自动总结」里打开）');
   return collap('hist','聊天记录与总结',
     '<p class="dim" style="font-size:12px;margin:0 0 8px">原始聊天记录一直存在本机（现在共 <b>'+total+'</b> 条，总结<b>不会</b>删掉它们）。下面决定「发消息时给角色看什么」：</p>'+
     '<div class="seg">'+btn('auto','自动：近期+总结')+btn('full','完整记录')+btn('sum','只看总结')+'</div>'+
     '<p class="dim" style="font-size:12px;margin:8px 0 0">'+esc(HIST_HINT[mode]||'')+'</p>'+
     '<div class="setrow" style="margin-top:10px">'+
-    '<span class="lbl">完整记录的字数上限</span>'+
+    '<span class="lbl">完整记录的字数上限（0 = 不限）</span>'+
     '<input id="c_fullLimit" type="number" value="'+((cfg.fullLimit==null)?20000:cfg.fullLimit)+'">'+
     '<span class="unit">字</span><button class="ghost" onclick="saveFullLimit()">保存</button></div>'+
+    '<p class="dim" style="font-size:12px;margin:10px 0 0">'+autoLine+'</p>'+
     '<div class="row" style="margin-top:12px"><button class="pri col" onclick="summarizeNow()">总结最近 '+SUM_N+' 条，写进记忆</button></div>'+
     '<p class="dim" style="font-size:12px;margin:10px 0 0">总结写进「长期聊天记录总结」的方式：</p>'+
     '<div class="seg">'+swb('append','追加（保留旧总结）')+swb('replace','替换（只留最新）')+'</div>',
@@ -2221,7 +2395,7 @@ async function pickImage(input){
     pendImg=await shrinkImage(f,760,.72);
     const t=$('#thumb');if(t)t.src=pendImg;
     $('#picked').classList.add('on');
-    toast('图片已就绪，点 ↑ 发送');
+    toast('图片已就绪，点 ↘ 发送');
   }catch(e){toast('图片读不了：'+((e&&e.message)||e))}
 }
 /* 压缩图片：最长边限制到 max 像素，转 jpeg，避免把存储撑爆 */
@@ -2251,12 +2425,34 @@ function shrinkImage(file,max,q){
   });
 }
 
-/* ---------- 待办事项 ---------- */
+/* ---------- 待办事项（数据层） ---------- */
 function todosOf(id){return load(LS.todo(id),[])}
 function saveTodos(id,arr){save(LS.todo(id),arr);scheduleBackup()}
+
+/* ================= 工具页（待办 / 群聊 / 小工具） ================= */
+let funResult='';
+function renderTools(){
+  const tabs=[['todo','待办'],['group','群聊'],['fun','小工具']];
+  $('#main').innerHTML='<div class="tabs" style="margin-bottom:12px">'+
+    tabs.map(t=>'<button class="'+(toolTab===t[0]?'on':'')+'" onclick="setToolTab(\''+t[0]+'\')">'+t[1]+'</button>').join('')+
+    '</div><div id="toolPane"></div>';
+  renderToolPane();
+}
+function setToolTab(v){toolTab=v;renderTools()}
+function renderToolPane(){
+  const p=document.getElementById('toolPane');if(!p)return;
+  if(toolTab==='todo')p.innerHTML=todoHTML();
+  else if(toolTab==='group'){p.innerHTML=groupHTML();scrollGroupDown()}
+  else p.innerHTML=funHTML();
+}
+/* 兼容老调用：角色调用待办工具后刷新一下 */
 function renderTodo(){
-  const m=$('#main');
-  if(!chars.length){m.innerHTML='<p class="hint">先建个角色</p>';return}
+  if(view!=='tools')return;
+  if(toolTab!=='todo'){toolTab='todo';renderTools();return}
+  const p=document.getElementById('toolPane');if(p)p.innerHTML=todoHTML();
+}
+function todoHTML(){
+  if(!chars.length)return '<p class="hint">先建个角色</p>';
   const base=chars.filter(x=>!x.priv||x.id===curId);
   const useList=base.length?base:chars;
   if(!todoCharId||!useList.find(c=>c.id===todoCharId))todoCharId=(useList.find(c=>c.id===curId)||useList[0]).id;
@@ -2264,8 +2460,7 @@ function renderTodo(){
   const openCnt=all.filter(t=>!t.done).length;
   const list=all.filter(t=>todoFilter==='all'?true:(todoFilter==='open'?!t.done:t.done));
   const badge={事项:'事项',欠账:'欠账',备忘:'备忘'};
-  m.innerHTML=
-  '<div class="card"><div class="ttl">待办事项</div>'+
+  return '<div class="card"><div class="ttl">待办事项</div>'+
   '<label class="f">选择角色</label><select id="todoChar" onchange="pickTodoChar(this.value)">'+
   useList.map(x=>'<option value="'+x.id+'" '+(x.id===todoCharId?'selected':'')+'>'+esc((x.emoji||'')+' '+x.name)+'（'+todosOf(x.id).filter(t=>!t.done).length+' 未完成）</option>').join('')+
   '</select></div>'+
@@ -2285,22 +2480,350 @@ function renderTodo(){
   :'<p class="dim" style="font-size:13px">没有记录</p>')+'</div>'+
   '<div style="height:16px"></div>';
 }
-function pickTodoChar(id){todoCharId=id;renderTodo()}
-function setTodoFilter(f){todoFilter=f;renderTodo()}
+function pickTodoChar(id){todoCharId=id;renderToolPane()}
+function setTodoFilter(f){todoFilter=f;renderToolPane()}
 function addTodo(){
   const t=$('#todoText').value.trim();if(!t)return alert('写点内容');
   const ty=$('#todoType').value;
   const arr=todosOf(todoCharId);
   arr.push({id:uid(),text:t,type:ty,done:false,t:Date.now()});
-  saveTodos(todoCharId,arr);renderTodo();
+  saveTodos(todoCharId,arr);renderToolPane();
 }
 function toggleTodo(id){
   const arr=todosOf(todoCharId);
   const t=arr.find(x=>x.id===id);if(!t)return;
-  t.done=!t.done;saveTodos(todoCharId,arr);renderTodo();
+  t.done=!t.done;saveTodos(todoCharId,arr);renderToolPane();
 }
 function delTodo(id){
-  saveTodos(todoCharId,todosOf(todoCharId).filter(x=>x.id!==id));renderTodo();
+  saveTodos(todoCharId,todosOf(todoCharId).filter(x=>x.id!==id));renderToolPane();
+}
+
+/* ---------- 小工具（纯本地互动） ---------- */
+function funHTML(){
+  const r=funResult?'<div class="card" style="margin-top:10px"><div class="tl dim" style="font-size:12px">结果</div><div style="font-size:20px;font-weight:700;text-align:center;padding:10px 0;color:var(--acc);white-space:pre-wrap">'+esc(funResult)+'</div></div>':'';
+  return '<div class="card"><div class="ttl">小工具（互动）</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">不用联网的小玩法，纯本地随机。</p>'+
+  '<div class="row"><button class="col" onclick="funDice()">🎲 掷骰子</button>'+
+  '<button class="col" onclick="funCoin()">🪙 抛硬币</button></div>'+
+  '<div class="row" style="margin-top:8px"><input id="funMax" class="col" type="number" value="100" placeholder="最大数"><button onclick="funRand()">抽数字</button></div>'+
+  '<div class="row" style="margin-top:8px"><input id="funList" class="col" placeholder="逗号分隔，比如：吃火锅,吃面,点外卖"><button onclick="funPick()">抽一个</button></div>'+
+  r+'</div>';
+}
+function funSet(t){funResult=t;renderToolPane()}
+function funDice(){funSet('🎲 '+(1+Math.floor(Math.random()*6)))}
+function funCoin(){funSet(Math.random()<.5?'🪙 正面':'🪙 反面')}
+function funRand(){const el=$('#funMax');const n=Math.max(1,Math.round(Number(el?el.value:100)||100));funSet('🔢 '+(1+Math.floor(Math.random()*n)))}
+function funPick(){
+  const el=$('#funList');
+  const arr=String(el?el.value:'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean);
+  if(!arr.length)return toast('先填几个选项，用逗号隔开');
+  funSet('👉 '+arr[Math.floor(Math.random()*arr.length)]);
+}
+
+/* ================= 群聊 =================
+   数据结构：
+   LS.groups  = [{id,name,members:[{cid,reply:'user'|'both',auto:bool}],
+                  chain:0.6,maxAI:6,maxRound:3,autoMin:15,autoMax:60,created:t}]
+   LS.gmsg(id)= [{role:'user'|'char',cid,content,t}]
+   reply='user' 只在收到用户消息时回应；'both' 还可以接其他角色的话。 */
+const GRP_CHAIN_DEF=0.6, GRP_MAXAI_DEF=6, GRP_MAXROUND_DEF=3;
+function groupsAll(){return load(LS.groups,[])}
+function saveGroups(g){save(LS.groups,g);scheduleBackup()}
+function findGroup(id){return groupsAll().find(x=>x.id===id)||null}
+function gmsgsOf(id){return load(LS.gmsg(id),[])}
+function saveGmsgs(id,a){save(LS.gmsg(id),a);scheduleBackup()}
+function memberOf(g,cid){return (g&&g.members)?g.members.find(m=>m.cid===cid)||null:null}
+function charOf(cid){return chars.find(c=>c.id===cid)||null}
+
+function groupHTML(){
+  const gs=groupsAll();
+  const g=groupOpenId?findGroup(groupOpenId):null;
+  if(g)return groupChatHTML(g);
+  let h='<div class="card"><div class="ttl">群聊</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">把几个角色拉进一个群，让它们一起聊。每个角色的「怎么回应」「能不能自动冒泡」都能单独设置。</p>'+
+  '<button class="pri" style="width:100%" onclick="newGroupSheet()">＋ 新建群聊</button></div>';
+  if(!gs.length)return h+'<p class="hint">还没有群聊</p>';
+  h+='<div class="card"><div class="ttl">我的群</div>'+gs.map(x=>{
+    const ms=gmsgsOf(x.id);
+    return '<div class="arcitem"><div class="arcname"><b>'+esc(x.name)+'</b></div>'+
+    '<div class="arcmeta">'+x.members.length+' 个成员 · '+ms.length+' 条消息'+(x.created?(' · 建于 '+fmtStamp(x.created)):'')+'</div>'+
+    '<div class="row arcfoot">'+
+    '<button class="ghost" onclick="openGroup(\''+x.id+'\')">进入</button>'+
+    '<button class="ghost" onclick="editGroupSheet(\''+x.id+'\')">成员设置</button>'+
+    '<button class="ghost" style="color:var(--warn)" onclick="delGroup(\''+x.id+'\')">删除</button>'+
+    '</div></div>';
+  }).join('')+'</div>';
+  return h;
+}
+function openGroup(id){groupOpenId=id;toolTab='group';renderTools();}
+function backGroups(){groupOpenId=null;renderToolPane();}
+function groupChatHTML(g){
+  const ms=gmsgsOf(g.id);
+  const rows=ms.map(m=>{
+    if(m.role==='user'){
+      return '<div class="gbub me">'+avBox({emoji:cfg.userEmoji,avatar:cfg.userAvatar},34)+
+      '<div class="gmain"><div class="gname">'+esc(cfg.userName||'我')+' · '+fmtStamp(m.t)+'</div><div class="gtext">'+nl2br(m.content||'')+'</div></div></div>';
+    }
+    const c=charOf(m.cid);
+    return '<div class="gbub">'+(c?avBox(c,34):'<div class="gav">?</div>')+
+    '<div class="gmain"><div class="gname">'+esc(c?c.name:'（角色已删除）')+' · '+fmtStamp(m.t)+'</div><div class="gtext">'+nl2br(m.content||'')+'</div></div></div>';
+  }).join('')||'<div class="gbub sys"><div class="gtext">还没人说话，打个招呼吧</div></div>';
+  const mem=g.members.map(m=>{
+    const c=charOf(m.cid);if(!c)return '';
+    const tag=(m.reply==='both'?'可接话':'只答我')+(m.auto?' · 自动':'');
+    return '<span class="gm">'+avBox(c,26)+'<span><span class="nm">'+esc(c.name)+'</span><br><span class="tg">'+tag+'</span></span></span>';
+  }).join('');
+  const chain=(typeof g.chain==='number')?g.chain:GRP_CHAIN_DEF;
+  return '<div class="gwrap">'+
+  '<div class="gbar"><button class="ghost" onclick="backGroups()">‹ 返回</button>'+
+  '<div class="col" style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(g.name)+'</div>'+
+  '<button class="ghost" onclick="editGroupSheet(\''+g.id+'\')">成员设置</button></div>'+
+  '<div class="gmem">'+mem+'</div>'+
+  '<div class="gmsgs" id="gmsgs">'+rows+'</div>'+
+  '<div class="row"><textarea id="ginp" rows="1" placeholder="在群里说点什么…" style="min-height:44px"></textarea>'+
+  '<button class="pri" style="width:58px;flex:0 0 58px" onclick="groupSend()" '+(groupBusy?'disabled':'')+'>发送</button></div>'+
+  '<div class="row"><button class="col" onclick="groupKick()" '+(groupBusy?'disabled':'')+'>▶ 让大家自己聊两句</button></div>'+
+  '<p class="dim" style="font-size:11.5px;margin:0">防刷屏：一次触发最多 '+ (g.maxAI||GRP_MAXAI_DEF) +' 条角色消息、最多来回 '+ (g.maxRound||GRP_MAXROUND_DEF) +' 轮，角色接别人话的概率 '+Math.round(chain*100)+'%。都能在「成员设置」里调。</p>'+
+  '</div>';
+}
+function scrollGroupDown(){const b=document.getElementById('gmsgs');if(b)b.scrollTop=b.scrollHeight}
+async function groupSend(){
+  const g=findGroup(groupOpenId);if(!g)return;
+  if(groupBusy)return toast('群里还在说话，等一下');
+  const el=document.getElementById('ginp');
+  const t=el?el.value.trim():'';
+  if(!t)return;
+  el.value='';
+  const arr=gmsgsOf(g.id);
+  arr.push({role:'user',content:t,t:Date.now()});
+  saveGmsgs(g.id,arr);
+  renderToolPane();scrollGroupDown();
+  await groupRun(g,'user');
+}
+async function groupKick(){
+  const g=findGroup(groupOpenId);if(!g)return;
+  if(groupBusy)return toast('群里还在说话，等一下');
+  if(!gmsgsOf(g.id).length)return toast('先随便说一句，再让大家接');
+  await groupRun(g,'kick');
+}
+/* 群聊的「停不下来」保险：
+   1) 一次触发最多 maxAI 条角色消息
+   2) 最多来回 maxRound 轮
+   3) 只有 reply='both' 的角色才接别人的话，而且每次接话有 chain 概率
+   4) 不会马上自己接自己 */
+async function groupRun(g,trigger){
+  if(groupBusy)return;
+  groupBusy=true;
+  renderToolPane();
+  const chain=(typeof g.chain==='number')?g.chain:GRP_CHAIN_DEF;
+  const maxAI=Math.max(1,Math.min(20,Number(g.maxAI)||GRP_MAXAI_DEF));
+  const maxRound=Math.max(1,Math.min(6,Number(g.maxRound)||GRP_MAXROUND_DEF));
+  let total=0;
+  try{
+    for(let round=1;round<=maxRound;round++){
+      const roster=g.members.filter(m=>round===1?true:(m.reply==='both'));
+      for(let i=roster.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=roster[i];roster[i]=roster[j];roster[j]=t}
+      let spoke=false;
+      for(const m of roster){
+        if(total>=maxAI)break;
+        const c=charOf(m.cid);if(!c)continue;
+        const arr=gmsgsOf(g.id);
+        const last=arr[arr.length-1];
+        if(last&&last.role==='char'&&last.cid===m.cid)continue;
+        if(round>1&&Math.random()>chain)continue;
+        const out=await groupGenerate(g,c);
+        if(!out)continue;
+        const a2=gmsgsOf(g.id);
+        a2.push({role:'char',cid:c.id,content:out,t:Date.now()});
+        saveGmsgs(g.id,a2);
+        total++;spoke=true;
+        renderToolPane();scrollGroupDown();
+      }
+      if(!spoke)break;
+    }
+    if(total>=maxAI)toast('本轮发言到上限了，先歇一歇（防刷屏）');
+  }catch(e){
+    toast('群聊出错：'+((e&&e.message)||e));
+  }finally{
+    groupBusy=false;
+    renderToolPane();scrollGroupDown();
+    scheduleGroupAuto(false);
+  }
+}
+/* 让某个角色在群里说一句 */
+async function groupGenerate(g,c){
+  const arr=gmsgsOf(g.id).slice(-24);
+  const nm=id=>{const x=charOf(id);return x?x.name:'某人'};
+  const me=(cfg.userName||'她');
+  const others=g.members.filter(m=>m.cid!==c.id).map(m=>nm(m.cid)).filter(Boolean);
+  const sys=[];
+  sys.push(c.persona||('你是'+c.name+'。'));
+  sys.push('【群聊】你正在一个叫《'+g.name+'》的群里聊天。群里还有：'+(others.join('、')||'没有别人')+'。'+(cfg.userName?('用户（'+cfg.userName+'）也在群里。'):'用户也在群里。'));
+  sys.push('【群聊规则】像真人在群里发消息：1-2 句，短、口语、自然；可以顺着别人刚说的话接，也可以自己开个话头，或者点名问某个群友；不要替别人说话；不要写旁白、动作、括号；不要复述别人说过的话；不要重复自己刚说过的话。');
+  if(c.style)sys.push('【说话风格】'+c.style);
+  if(c.sysPrompt)sys.push(c.sysPrompt);
+  if(c.examples)sys.push('【对话示例】'+c.examples);
+  sys.push('【硬性要求】中文回复；只输出你要发的那条群消息本身，不要加任何名字前缀。');
+  const hist=arr.map(m=>({role:(m.role==='user'?'user':'assistant'),content:(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}));
+  const ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
+  ctx.push({role:'user',content:'（继续群聊，现在轮到你发言，用你的身份发一条）'});
+  const tp=thinkParams(c);
+  let out='';
+  try{
+    out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400)})||'').trim();
+  }catch(e){return ''}
+  const names=[c.name].concat(g.members.map(m=>nm(m.cid)));
+  for(const n of names){
+    if(!n)continue;
+    if(out.indexOf(n+'：')===0)out=out.slice((n+'：').length).trim();
+    if(out.indexOf(n+':')===0)out=out.slice((n+':').length).trim();
+  }
+  out=out.replace(/^["'“”]+|["'“”]+$/g,'').trim();
+  if(out.length>500)out=out.slice(0,500);
+  return out;
+}
+/* 群里的自动发消息 */
+function groupAutoEligible(g,m){return !!(cfg&&cfg.key&&m&&m.auto&&charOf(m.cid))}
+function groupAutoRange(g){const mi=Math.max(1,Number(g.autoMin)||15),ma=Math.max(mi+1,Number(g.autoMax)||60);return {mi:mi,ma:ma}}
+function scheduleGroupAuto(force){
+  if(!chars||!chars.length){if(groupTick){clearInterval(groupTick);groupTick=null}return}
+  groupsAll().forEach(g=>{
+    (g.members||[]).forEach(m=>{
+      const k=g.id+'|'+m.cid;
+      if(!groupAutoEligible(g,m)){delete gAutoMap[k];return}
+      const r=groupAutoRange(g);
+      const cur=gAutoMap[k];
+      if(!force&&cur&&cur.mi===r.mi&&cur.ma===r.ma)return;
+      gAutoMap[k]={at:Date.now()+(r.mi+Math.random()*(r.ma-r.mi))*60000,mi:r.mi,ma:r.ma};
+    });
+  });
+  const live=Object.keys(gAutoMap).length;
+  if(live&&!groupTick)groupTick=setInterval(checkGroupAuto,20000);
+  if(!live&&groupTick){clearInterval(groupTick);groupTick=null}
+}
+async function checkGroupAuto(){
+  if(groupBusy||busy||!cfg||!cfg.key)return;
+  const now=Date.now();
+  for(const g of groupsAll()){
+    for(const m of g.members||[]){
+      const k=g.id+'|'+m.cid;
+      const rec=gAutoMap[k];
+      if(!rec||rec.at>now)continue;
+      const r=groupAutoRange(g);
+      gAutoMap[k].at=Date.now()+(r.mi+Math.random()*(r.ma-r.mi))*60000;
+      await groupAutoSpeak(g,m);
+      return;                     /* 一次只发一条，绝不批量刷屏 */
+    }
+  }
+}
+async function groupAutoSpeak(g,m){
+  const c=charOf(m.cid);if(!c)return;
+  if(groupBusy)return;
+  groupBusy=true;
+  try{
+    const out=await groupGenerate(g,c);
+    if(!out)return;
+    const arr=gmsgsOf(g.id);
+    arr.push({role:'char',cid:c.id,content:out,t:Date.now()});
+    saveGmsgs(g.id,arr);
+    const watching=(groupOpenId===g.id&&view==='tools'&&toolTab==='group'&&!document.hidden);
+    if(watching){renderToolPane();scrollGroupDown();toast((c.emoji||'')+' '+c.name+'：'+out.slice(0,22));}
+    else{markUnread(c.id);toast((c.emoji||'')+' '+c.name+' 在《'+g.name+'》里发了一条');}
+  }catch(e){}finally{
+    groupBusy=false;
+    if(view==='tools'&&toolTab==='group'){renderToolPane();scrollGroupDown()}
+  }
+}
+/* 新建 / 设置群 */
+function newGroupSheet(){
+  if(!chars.length)return alert('先去「角色」里建几个角色');
+  showSheet('<div class="ttl">新建群聊</div>'+
+  '<label class="f">群名</label><input id="g_name" placeholder="比如：周末茶话会">'+
+  '<label class="f">选成员（勾上就拉进群）</label>'+
+  (chars.map(c=>'<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="gm_'+c.id+'" style="flex:0 0 auto;margin-top:3px"><span>'+esc((c.emoji||'')+' '+c.name)+(c.priv?' <span class="dim">（私密角色）</span>':'')+'</span></label>').join(''))+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">建好后可以逐个设置「只在收到你的消息时回应 / 也能接其他角色的话 / 能不能自动发消息」。</p>'+
+  '<div class="row" style="margin-top:12px"><button class="pri col" onclick="createGroup()">创建</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+}
+function createGroup(){
+  const nmEl=$('#g_name');
+  const name=(nmEl&&nmEl.value.trim())||'新群聊';
+  const sel=chars.filter(c=>{const el=document.getElementById('gm_'+c.id);return el&&el.checked});
+  if(!sel.length)return alert('至少勾一个角色');
+  const gs=groupsAll();
+  const g={id:uid(),name:name,members:sel.map(c=>({cid:c.id,reply:'user',auto:false})),
+    chain:GRP_CHAIN_DEF,maxAI:GRP_MAXAI_DEF,maxRound:GRP_MAXROUND_DEF,autoMin:15,autoMax:60,created:Date.now()};
+  gs.push(g);saveGroups(gs);
+  closeSheet();
+  groupOpenId=g.id;toolTab='group';
+  if(view!=='tools')go('tools');else renderTools();
+  scheduleGroupAuto(true);
+  toast('群聊已创建：'+name);
+}
+function editGroupSheet(id){
+  const g=findGroup(id);if(!g)return;
+  const rows=(g.members||[]).map((m,i)=>{
+    const c=charOf(m.cid);if(!c)return '';
+    return '<div class="card" style="margin:0 0 10px"><div class="row" style="align-items:center;gap:10px">'+avBox(c,40)+
+    '<div class="col"><b>'+esc(c.name)+'</b><div class="dim" style="font-size:11.5px">回应方式 + 自动发言</div></div></div>'+
+    '<label class="f">回应方式</label><select id="gr_'+i+'">'+
+    '<option value="user"'+(m.reply==='user'?' selected':'')+'>只在收到用户消息时回应（安静）</option>'+
+    '<option value="both"'+(m.reply==='both'?' selected':'')+'>也可以接其他角色的话（更热闹）</option>'+
+    '</select>'+
+    '<label class="li" style="border:0;padding:8px 0"><input type="checkbox" id="ga_'+i+'" '+(m.auto?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许自动发消息（没人说话时它自己冒个泡）</span></label>'+
+    '<div class="row"><button class="ghost col" onclick="kickMember(\''+g.id+'\','+i+')">移出群聊</button></div></div>';
+  }).join('');
+  const addable=chars.filter(c=>!memberOf(g,c.id));
+  showSheet('<div class="ttl">群设置 · '+esc(g.name)+'</div>'+
+  '<label class="f">群名</label><input id="ge_name" value="'+esc(g.name)+'">'+
+  '<label class="f">还没进群的角色（勾上一起拉进来）</label>'+
+  (addable.length?addable.map(c=>'<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="gadd_'+c.id+'" style="flex:0 0 auto;margin-top:3px"><span>'+esc((c.emoji||'')+' '+c.name)+'</span></label>').join(''):'<p class="dim" style="font-size:12px">（都进群了）</p>')+
+  '<div style="height:10px"></div>'+
+  (rows||'<p class="dim" style="font-size:12px">群里还没有角色</p>')+
+  '<div class="card" style="margin:0"><div class="ttl">防刷屏 / 自动发言节奏</div>'+
+  '<div class="setrow"><span class="lbl">角色接别人话的概率</span><input id="ge_chain" type="number" value="'+Math.round(((g.chain==null?GRP_CHAIN_DEF:g.chain))*100)+'"><span class="unit">%</span></div>'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">一次触发最多几条角色消息</span><input id="ge_maxai" type="number" value="'+(g.maxAI||GRP_MAXAI_DEF)+'"><span class="unit">条</span></div>'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">最多来回几轮</span><input id="ge_round" type="number" value="'+(g.maxRound||GRP_MAXROUND_DEF)+'"><span class="unit">轮</span></div>'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">自动发言间隔（分钟）</span><input id="ge_amin" type="number" value="'+(g.autoMin||15)+'"><input id="ge_amax" type="number" value="'+(g.autoMax||60)+'"></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">这两个数调小，就更不容易聊到停不下来。</p></div>'+
+  '<div class="row" style="margin-top:12px"><button class="pri col" onclick="saveGroupSettings(\''+g.id+'\')">保存</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+}
+function saveGroupSettings(id){
+  const gs=groupsAll();const g=gs.find(x=>x.id===id);if(!g)return;
+  const v=i=>{const el=document.getElementById(i);return el?el.value:''};
+  const ck=i=>{const el=document.getElementById(i);return !!(el&&el.checked)};
+  g.name=(v('ge_name').trim()||g.name);
+  (g.members||[]).forEach((m,i)=>{
+    const sel=document.getElementById('gr_'+i);
+    if(sel)m.reply=(sel.value==='both')?'both':'user';
+    m.auto=ck('ga_'+i);
+  });
+  chars.forEach(c=>{if(ck('gadd_'+c.id)&&!memberOf(g,c.id))g.members.push({cid:c.id,reply:'user',auto:false})});
+  g.chain=Math.min(1,Math.max(0,(Number(v('ge_chain'))||60)/100));
+  g.maxAI=Math.min(20,Math.max(1,Math.round(Number(v('ge_maxai'))||GRP_MAXAI_DEF)));
+  g.maxRound=Math.min(6,Math.max(1,Math.round(Number(v('ge_round'))||GRP_MAXROUND_DEF)));
+  g.autoMin=Math.max(1,Math.round(Number(v('ge_amin'))||15));
+  g.autoMax=Math.max(g.autoMin+1,Math.round(Number(v('ge_amax'))||60));
+  saveGroups(gs);
+  closeSheet();
+  scheduleGroupAuto(true);
+  if(view==='tools'){toolTab='group';renderTools()}
+  toast('群设置已保存');
+}
+function kickMember(id,i){
+  const gs=groupsAll();const g=gs.find(x=>x.id===id);if(!g)return;
+  g.members.splice(i,1);
+  saveGroups(gs);scheduleGroupAuto(true);
+  editGroupSheet(id);
+}
+function delGroup(id){
+  if(!confirm('删掉这个群？群里的聊天记录也会一起清掉（角色本人的聊天和记忆不受影响）'))return;
+  saveGroups(groupsAll().filter(g=>g.id!==id));
+  removeKey(LS.gmsg(id));
+  if(groupOpenId===id)groupOpenId=null;
+  if(view==='tools')renderTools();
+  toast('群已删除');
 }
 /* ---------- 设置 ---------- */
 function renderCfg(){
@@ -2331,23 +2854,26 @@ function renderCfg(){
   '<input id="c_wholeLimit" type="number" value="'+((cfg.wholeLimit==null)?20000:cfg.wholeLimit)+'">'+
   '<span class="unit">字</span></div>'+
   '<div class="setrow" style="margin-top:8px">'+
-  '<span class="lbl">完整记录字数上限</span>'+
+  '<span class="lbl">完整记录字数上限（0 = 不限）</span>'+
   '<input id="c_fullLimit" type="number" value="'+((cfg.fullLimit==null)?20000:cfg.fullLimit)+'">'+
   '<span class="unit">字</span></div>'+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="saveMemInj()">保存记忆注入设置</button>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">提示：原始聊天记录永远保留在本机，总结只往记忆里「加」，不会删掉原文。</p></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">提示：原始聊天记录永远保留在本机，总结只往记忆里「加」，不会删掉原文。上限填 0 就是不限制长度。</p></div>'+
   '<div class="card"><div class="ttl">记忆与自动总结</div>'+
   '<div class="row" style="align-items:center">'+
-  '<div class="col"><b>自动总结</b><div class="dim" style="font-size:12px">每聊够一定条数，自动把对话总结写进长期记忆</div></div>'+
+  '<div class="col"><b>自动总结</b><div class="dim" style="font-size:12px">每聊够约定条数，自动把这段对话总结后写进「长期聊天记录总结」。只往记忆里加，永远不会删聊天记录。</div></div>'+
   '<input type="checkbox" id="c_autoSum" '+(cfg.autoSum?'checked':'')+'></div>'+
   '<div class="row" style="margin-top:10px;align-items:center">'+
   '<span class="dim" style="font-size:12px;flex:1">每聊满</span>'+
   '<input id="c_autoSumEvery" type="number" style="width:64px;padding:6px;text-align:center" value="'+(cfg.autoSumEvery||30)+'">'+
   '<span class="dim" style="font-size:12px">条自动总结一次</span></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">自动总结只写进记忆，不会删聊天记录。想让角色「一直记得全部细节」，请把上面的记忆注入换成「完整记录」。</p>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">'+esc(autoSumStatus(curChar()))+'</p>'+
+  '<div class="row" style="margin-top:10px"><button class="col" onclick="autoSumNowHere()">立刻总结一次</button>'+
+  '<button class="ghost col" onclick="resetAutoSumMark()">重置进度</button></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">想让角色「一直记得全部细节」，请把上面的记忆注入换成「完整记录」（上限可以填 0 = 不限）。</p>'+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="saveAutoSum()">保存自动总结设置</button></div>'+
   '<div class="card"><div class="ttl">我的资料</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">名字、性别、补充设定都在底部「我的」页里，方便随时改。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">名字、性别、头像、补充设定都在底部「我的」页里，方便随时改。</p>'+
   '<button class="ghost" onclick="go(\'me\')">去「我的」页</button></div>'+
   '<div class="card"><div class="ttl">外观与交互</div>'+
   '<label class="f">主题</label><select id="c_theme">'+Object.keys(THEMES).map(k=>'<option value="'+k+'"'+(cfg.theme===k?' selected':'')+'>'+esc(THEMES[k].label)+'</option>').join('')+'</select>'+
@@ -2357,7 +2883,7 @@ function renderCfg(){
   '<div class="col"><b>让角色知道时间</b><div class="dim" style="font-size:12px">每条消息带「月/日 时:分」，并告诉它「现在」是几号几点</div></div>'+
   '<input type="checkbox" id="c_time" '+((cfg.timeOn!==false)?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
-  '<div class="col"><b>全局自动发消息</b><div class="dim" style="font-size:12px">关掉后所有角色都不主动</div></div>'+
+  '<div class="col"><b>全局自动发消息</b><div class="dim" style="font-size:12px">关掉后所有角色（含群聊）都不主动</div></div>'+
   '<input type="checkbox" id="c_auto" '+(cfg.autoOn?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>系统通知</b><div class="dim" style="font-size:12px">页面在后台时弹通知（需授权）</div></div>'+
@@ -2397,7 +2923,7 @@ function renderCfg(){
   $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
   $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
   $('#c_time').onchange=e=>{cfg.timeOn=e.target.checked;save(LS.cfg,cfg);toast(cfg.timeOn?'已开启：角色能看到时间':'已关闭时间注入')};
-  $('#c_auto').onchange=e=>{cfg.autoOn=e.target.checked;save(LS.cfg,cfg);scheduleAuto(true);toast(cfg.autoOn?'全局自动发消息：开':'全局自动发消息：关')};
+  $('#c_auto').onchange=e=>{cfg.autoOn=e.target.checked;save(LS.cfg,cfg);scheduleAuto(true);scheduleGroupAuto(true);toast(cfg.autoOn?'全局自动发消息：开':'全局自动发消息：关')};
   const bek=$('#c_bkEvery');
   if(bek)bek.onchange=e=>{
     cfg.bkEvery=+e.target.value||0;save(LS.cfg,cfg);
@@ -2429,14 +2955,39 @@ function readCfgInputs(){
   const se=parseInt(v('c_autoSumEvery'),10);cfg.autoSumEvery=(Number.isFinite(se)&&se>=4)?se:30;
   cfg.autoSum=!!document.getElementById('c_autoSum')&&document.getElementById('c_autoSum').checked;
 }
-function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto(false)}
+function saveCfg(){readCfgInputs();save(LS.cfg,cfg);alert('已保存');scheduleAuto(false);scheduleGroupAuto(false)}
 function saveAutoSum(){
   const el=document.getElementById('c_autoSumEvery');
   const n=el?parseInt(el.value,10):NaN;
   cfg.autoSumEvery=(Number.isFinite(n)&&n>=4)?n:30;
-  cfg.autoSum=!!document.getElementById('c_autoSum')&&document.getElementById('c_autoSum').checked;
+  const ck=document.getElementById('c_autoSum');
+  cfg.autoSum=!!(ck&&ck.checked);
   save(LS.cfg,cfg);
-  alert('已保存自动总结设置');
+  alert('已保存。自动总结：'+(cfg.autoSum?('开，每聊满 '+cfg.autoSumEvery+' 条总结一次'):'关')+'\n\n'+autoSumStatus(curChar()));
+  renderCfg();
+}
+/* 手动触发一次自动总结（按规则：总结最近 autoSumEvery 条写进记忆） */
+async function autoSumNowHere(){
+  readCfgInputs();save(LS.cfg,cfg);
+  const c=curChar();if(!c)return alert('先选个角色');
+  if(!cfg.key)return alert('先去上面填 API Key');
+  const every=autoSumEvery();
+  const done=Math.min(autoSumMark(c.id),msgs.length);
+  const list=(msgs.length-done>=4)?msgs.slice(Math.max(0,msgs.length-every)):msgs.slice(-SUM_N);
+  if(list.length<4)return alert('聊天记录太少，没什么可总结的');
+  const slice=list.map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  toast('总结中…');
+  const hit=await runSummary(slice,true);
+  if(hit){setAutoSumMark(c.id,msgs.length);toast('已写进记忆 '+hit+' 条（聊天记录没动）');}
+  else toast('总结失败，检查一下模型');
+  renderCfg();
+}
+function resetAutoSumMark(){
+  const c=curChar();if(!c)return;
+  if(!confirm('重置自动总结进度？\n下次发消息时会从最近 '+autoSumEvery()+' 条重新总结一次。'))return;
+  setAutoSumMark(c.id,0);
+  toast('已重置自动总结进度');
+  renderCfg();
 }
 function saveMemInj(){
   const a=document.getElementById('c_arcTop');
@@ -2447,9 +2998,10 @@ function saveMemInj(){
   const nf=f?Number(f.value):NaN;
   cfg.arcTop=Number.isFinite(na)?Math.max(0,Math.round(na)):5;
   cfg.wholeLimit=Number.isFinite(nw)?Math.max(0,Math.round(nw)):20000;
-  cfg.fullLimit=Number.isFinite(nf)?Math.max(1000,Math.round(nf)):20000;
+  cfg.fullLimit=Number.isFinite(nf)?Math.max(0,Math.round(nf)):20000;
   save(LS.cfg,cfg);
-  alert('已保存：自动摘录 '+cfg.arcTop+' 条，整份注入上限 '+cfg.wholeLimit+' 字，完整记录上限 '+cfg.fullLimit+' 字'+(cfg.wholeLimit?'':'（0 = 不限）'));
+  alert('已保存：自动摘录 '+cfg.arcTop+' 条，整份注入上限 '+(cfg.wholeLimit||'不限')+'，完整记录上限 '+(cfg.fullLimit||'不限')+'\n（0 = 不限制）');
+  renderCfg();
 }
 async function testAPI(){
   readCfgInputs();save(LS.cfg,cfg);
@@ -2565,9 +3117,11 @@ async function backupNow(){
   if(view==='cfg')renderCfg();
 }
 async function backupPayload(){
-  const d={v:5,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},todos:{},arcs:load(LS.arcs,[]),arcData:{}};
+  const d={v:6,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},todos:{},arcs:load(LS.arcs,[]),arcData:{},
+    groups:groupsAll(),gmsgs:{}};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id)});
   d.arcs.forEach(a=>{d.arcData[a.id]=getArc(a.id)});
+  d.groups.forEach(g=>{d.gmsgs[g.id]=gmsgsOf(g.id)});
   const str=JSON.stringify(d);
   if(cryptKey)return {str:await encVal(cryptKey,str),enc:true};
   return {str:str,enc:false};
@@ -2601,6 +3155,8 @@ function importAll(input){
       if(d.todos)Object.keys(d.todos).forEach(k=>{if(d.todos[k]&&d.todos[k].length)save(LS.todo(k),d.todos[k])});
       if(d.arcs)save(LS.arcs,d.arcs);
       if(d.arcData)for(const k of Object.keys(d.arcData)){try{const v=Array.isArray(d.arcData[k])?sanitizeArcMs(d.arcData[k]):d.arcData[k];await idbPut(k,v);arcMem[k]=v}catch(e){}}
+      if(d.groups)save(LS.groups,d.groups);
+      if(d.gmsgs)Object.keys(d.gmsgs).forEach(k=>{if(d.gmsgs[k])save(LS.gmsg(k),d.gmsgs[k])});
       alert('导入完成，刷新一下');
       location.reload();
     }catch(e){alert('文件读不了：'+e.message)}
@@ -2608,7 +3164,7 @@ function importAll(input){
   rd.readAsText(f);
 }
 function wipe(){
-  if(!confirm('清空全部数据？角色、聊天、记忆、档案、待办全没，不可恢复'))return;
+  if(!confirm('清空全部数据？角色、聊天、记忆、档案、待办、群聊全没，不可恢复'))return;
   localStorage.removeItem(LS.pw);
   localStorage.removeItem(LS.priv);
   allDataKeys().forEach(k=>localStorage.removeItem(k));
@@ -2697,6 +3253,7 @@ function fixCfg(){
   if(!cfg.histMode)cfg.histMode='auto';
   if(!cfg.sumWrite)cfg.sumWrite='append';
   if(cfg.userEmoji==null)cfg.userEmoji='🙂';
+  if(cfg.userAvatar==null)cfg.userAvatar='';
   if(cfg.userName==null)cfg.userName='';
   if(cfg.userGender==null)cfg.userGender='';
   if(cfg.userNote==null)cfg.userNote='';
@@ -2704,17 +3261,19 @@ function fixCfg(){
   if(!THEMES[cfg.theme])cfg.theme='dark';
   if(!cfg.fs)cfg.fs=15;
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
+  if(cfg.autoSum==null)cfg.autoSum=false;
   if(cfg.ctx==null)cfg.ctx=30;
 }
 async function initApp(){
   cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
-    histMode:'auto',fullLimit:20000,sumWrite:'append',userName:'',userGender:'',userEmoji:'🙂',userNote:''});
+    histMode:'auto',fullLimit:20000,sumWrite:'append',userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:''});
   fixCfg();
   chars=load(LS.chars,[]);
+  chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar=''});
   curId=load(LS.cur,null);
   msgs=[];mem=EMPTY_MEM();memCtx={id:null,obj:null};
   if(!chars.length){
-    chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',
+    chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',avatar:'',
       persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,priv:false,
@@ -2743,15 +3302,16 @@ async function initApp(){
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').classList.contains('on'))closeSheet()});
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)autoBackup();
-    else checkAuto();
+    else{checkAuto();checkGroupAuto()}
   });
-  window.addEventListener('focus',()=>checkAuto());
+  window.addEventListener('focus',()=>{checkAuto();checkGroupAuto()});
   window.addEventListener('pagehide',()=>autoBackup());
   initBackup();
   initArcs();
   updateDots();
   go('chat');
   scheduleAuto(false);
+  scheduleGroupAuto(false);
 }
 async function boot(){
   let meta=null;
