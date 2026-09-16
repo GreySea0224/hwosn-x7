@@ -4277,3 +4277,744 @@ boot();
 </script>
 </body>
 </html>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁4-A（2026-09）  只做三件事：
+   ① 群聊「上下文 Y tok」不再是空白
+   ② 删除群消息时，角色们对这条消息的记忆一起清掉
+   ③ 把「现在」钉死成真实时间：搜索 / 记忆档案里的旧日期（5月）不再被当成现在
+   粘法：整段粘到文件最末尾（最后一行 </html> 的下面）。
+   本段独立成 <script>，出问题也只影响这一段，原 app 不受影响。
+   ================================================================ */
+(function(){
+var W=window, P4=(W.P4=W.P4||{});
+P4.ver='4A';
+
+/* ---------- 0. 时间小工具 ---------- */
+function fmtT(t){
+  var d=new Date(t),p=function(n){return (n<10?'0':'')+n};
+  return p(d.getHours())+':'+p(d.getMinutes());
+}
+P4.today=function(){
+  var d=new Date(),w='日一二三四五六'[d.getDay()];
+  return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 星期'+w;
+};
+P4.now=function(){
+  var t=(typeof fmtTime==='function')?fmtTime(Date.now()):fmtT(Date.now());
+  return P4.today()+' '+t;
+};
+
+/* ---------- 1. 修 bug③：非流式请求也要把 usage 传出来 ---------- */
+async function p4raw(messages,opt){
+  opt=opt||{};
+  var url=String(cfg.base||'').replace(/\/+$/,'')+'/chat/completions';
+  var body={model:(opt.model||cfg.model),messages:messages,stream:!!opt.stream};
+  if(opt.temp!=null)body.temperature=opt.temp;
+  if(opt.maxtok)body[opt.tokName||'max_tokens']=opt.maxtok;
+  if(opt.stream)body.stream_options={include_usage:true};
+  var res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)});
+  if(!res.ok){var er='';try{er=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(er).replace(/\s+/g,' ').slice(0,200))}
+
+  if(!opt.stream){
+    var j=await res.json();
+    if(opt.onUsage&&j.usage)opt.onUsage(j.usage);
+    var msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
+    var rc=(msg.reasoning_content!=null)?String(msg.reasoning_content):((msg.reasoning!=null)?String(msg.reasoning):'');
+    if(rc&&opt.onReasoning)opt.onReasoning(rc);
+    return String(msg.content||'');
+  }
+
+  var text='';
+  var emit=function(line){
+    var d=line.slice(5).trim();
+    if(d==='[DONE]')return true;
+    try{
+      var o=JSON.parse(d);
+      if(o.usage&&opt.onUsage)opt.onUsage(o.usage);
+      var c=o.choices&&o.choices[0]&&o.choices[0].delta&&o.choices[0].delta.content;
+      if(c)text+=c;
+    }catch(e){}
+    return false;
+  };
+  if(!res.body){
+    var all=await res.text();
+    var as=all.split('\n');
+    for(var x=0;x<as.length;x++){
+      var lx=as[x].trim();
+      if(lx.indexOf('data:')!==0)continue;
+      if(emit(lx))break;
+    }
+    return text;
+  }
+  var rd=res.body.getReader(),dec=new TextDecoder(),buf='';
+  for(;;){
+    var r=await rd.read();if(r.done)break;
+    buf+=dec.decode(r.value,{stream:true});
+    var lines=buf.split('\n');buf=lines.pop();
+    for(var i=0;i<lines.length;i++){
+      var line=lines[i].trim();
+      if(!line||line.indexOf('data:')!==0)continue;
+      if(emit(line))return text;
+    }
+  }
+  return text;
+}
+
+/* 外面那层「自动重试」照旧，但改成用 p4raw（会回报 usage） */
+var P4_callAPI=callAPI;
+callAPI=async function(messages,opt){
+  opt=opt||{};
+  if(opt.stream||opt.tools)return P4_callAPI(messages,opt);   /* 流式 / 带工具的照旧 */
+  var model=opt.model||cfg.model;
+  var model2=(cfg.model&&cfg.model!==model)?cfg.model:null;
+  var base={temp:(opt.temp!=null?opt.temp:cfg.temp),maxtok:(opt.maxtok||cfg.maxtok)};
+  var tries=[
+    {model:model,temp:base.temp,maxtok:base.maxtok},
+    model2?{model:model2,temp:base.temp,maxtok:base.maxtok}:null,
+    {model:model,temp:null,maxtok:null},
+    {model:model2||model,temp:null,maxtok:null,tokName:'max_completion_tokens'},
+    {model:model,temp:null,maxtok:null,stream:true}
+  ].filter(Boolean);
+  var lastErr=null;
+  for(var i=0;i<tries.length;i++){
+    var o=Object.assign({},tries[i]);
+    if(opt.onUsage)o.onUsage=opt.onUsage;
+    try{
+      var r=await p4raw(messages,o);
+      if(String(r==null?'':r).trim())return r;
+      lastErr=new Error('模型返回空内容');
+    }catch(e){lastErr=e}
+  }
+  throw (lastErr||new Error('调用失败'));
+};
+
+/* ---------- 2. 修 bug①：删群消息 → 连角色的群聊记忆一起清 ---------- */
+function p4same(x,m,gid){
+  if(!x||x.gid!==gid)return false;
+  if(m&&m.id&&x.mid&&x.mid===m.id)return true;                 /* 新消息：靠 id 精确配对 */
+  var tx=String(x.tx||'').trim(), mc=String((m&&m.content)||'').trim();
+  if(!tx||!mc||tx!==mc)return false;                            /* 旧消息：同群 + 内容相同 */
+  if(!m.t||!x.t)return true;
+  return Math.abs(Number(x.t)-Number(m.t))<300000;              /* 且时间接近（5 分钟内） */
+}
+P4.purgeGmem=function(gid,m){
+  var ids={};
+  chars.forEach(function(c){ids[c.id]=1});
+  var g=findGroup(gid);
+  if(g)(g.members||[]).forEach(function(x){ids[x.cid]=1});
+  if(m&&m.role==='char'&&m.cid)ids[m.cid]=1;
+  var cnt=0;
+  Object.keys(ids).forEach(function(cid){
+    var cur=gmemOf(cid);
+    var left=cur.filter(function(x){return !p4same(x,m,gid)});
+    if(left.length!==cur.length){cnt+=(cur.length-left.length);save(LS.gmem(cid),left)}
+  });
+  if(cnt)scheduleBackup();
+  return cnt;
+};
+
+/* 以后每条群消息都带一个 id，记忆里也记下这个 id，删除时就能精准对应 */
+gmemAdd=function(cid,gid,gname,text,self,mid){
+  var arr=gmemOf(cid);
+  arr.push({t:Date.now(),gid:gid,gn:gname,tx:String(text||'').slice(0,300),me:!!self,mid:mid||''});
+  while(arr.length>120)arr.shift();
+  save(LS.gmem(cid),arr);scheduleBackup();
+};
+delGmsg=function(i){
+  var g=findGroup(groupOpenId);if(!g)return;
+  var arr=gmsgsOf(g.id),n=Number(i);
+  if(!(n>=0&&n<arr.length))return;
+  var m=arr[n];
+  if(!confirm('删除这条群消息？\n（会同时清掉所有角色对这条消息的记忆，它们以后就完全看不到它了）'))return;
+  arr.splice(n,1);
+  saveGmsgs(g.id,arr);
+  var c=P4.purgeGmem(g.id,m);
+  renderToolPane();scrollGroupDown();
+  toast(c?('已删除这条消息，并清掉了 '+c+' 条相关记忆'):'已删除这条群消息');
+};
+clearGmsgs=function(){
+  var g=findGroup(groupOpenId);if(!g)return;
+  if(!confirm('清空《'+g.name+'》的全部聊天记录？\n（角色们对这个群的记忆也会一起清掉，只影响这个群，不动私聊）'))return;
+  saveGmsgs(g.id,[]);
+  var ids={};
+  (g.members||[]).forEach(function(x){ids[x.cid]=1});
+  chars.forEach(function(c){ids[c.id]=1});
+  Object.keys(ids).forEach(function(cid){
+    var cur=gmemOf(cid),left=cur.filter(function(x){return x.gid!==g.id});
+    if(left.length!==cur.length)save(LS.gmem(cid),left);
+  });
+  scheduleBackup();
+  renderToolPane();
+  toast('已清空群消息 + 群聊记忆');
+};
+
+/* ---------- 3. 修 bug②：把「现在」钉死成真实时间 ---------- */
+var P4_archiveBlock=archiveBlock;
+archiveBlock=function(query,c){
+  var r=P4_archiveBlock(query,c);
+  if(!r)return r;
+  return '【现在的时间】现在是 '+P4.now()+'。下面是你和她过去真实发生过的记录，里面的日期（比如 5 月）都是过去的事，不是现在，绝对不要把当前时间当成那几天。\n'+r;
+};
+
+var P4_fmtSearchBlock=fmtSearchBlock;
+fmtSearchBlock=function(q,list){
+  var body=P4_fmtSearchBlock(q,list);
+  return '【现在的时间】现在是 '+P4.now()+'。检索到的资料请相对这个时间判断新旧，不要因为聊天记录或记忆档案里出现的旧日期，就把现在当成那个时间。\n'+body;
+};
+
+searchForChar=async function(c,conv,onStatus){
+  var st=onStatus||function(){};
+  if(!cfg.key||!conv||!conv.trim())return null;
+  st('🔎 正在想：要不要上网查一下…');
+  var q='';
+  try{
+    var r=await callAPI([
+      {role:'system',content:'你是联网检索助手。现在的真实时间是 '+P4.now()+'。看下面这段对话，判断是否需要联网查资料（新闻、天气、赛事、价格、时事、人物近况、不确定的事实等才需要）。需要就只输出一行：SEARCH: 关键词（中文，尽量精确；只有确实涉及时间时才写年月，而且必须用「现在」的年份月份，绝不能用对话或记忆里出现的旧日期）；不需要就只输出：NO'},
+      {role:'user',content:String(conv).slice(-1200)}
+    ],{stream:false,temp:0,maxtok:40,model:modelOf(c)});
+    var m=String(r||'').match(/SEARCH\s*[:：]\s*([^\n\r]+)/i);
+    if(m)q=m[1].trim().replace(/^["'“”]+|["'“”]+$/g,'').slice(0,80);
+  }catch(e){st('');return null}
+  if(!q){st('');return null}
+  st('🔎 正在联网搜索：<b>'+esc(q)+'</b> …');
+  var list=[];
+  try{list=await webSearch(q)}
+  catch(e){st('⚠️ 搜索失败：'+esc(String((e&&e.message)||e).slice(0,90)));return null}
+  if(!list.length){st('🌐 搜了「'+esc(q)+'」，没有找到有用结果');return null}
+  st('🌐 已联网搜索：<b>'+esc(q)+'</b> · 找到 '+list.length+' 条资料');
+  return {q:q,list:list,block:fmtSearchBlock(q,list)};
+};
+
+console.log('[深蓝海域] 补丁4-A 已加载');
+})();
+</script>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁4-B（2026-09）  群聊增强
+   新增：①关系简介 ②发言顺序优先级 ③角色能看到多少条群聊记录
+         ④角色能不能读「记忆」和「历史对话档案」 ⑤群里可用玩具的开关
+   粘法：粘到文件最末尾（补丁4-A 那段后面），顺序无所谓。
+   ================================================================ */
+(function(){
+var W=window,P4=(W.P4=W.P4||{});
+if(!P4.now)P4.now=function(){var d=new Date();return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 星期'+'日一二三四五六'[d.getDay()]};
+
+function prioOf(m){if(!m||m.prio==null||m.prio==='')return 50;var p=Number(m.prio);return isFinite(p)?p:50}
+function histOf(g,m){
+  var n=Number(m&&m.histN);if(isFinite(n)&&n>0)return Math.max(2,Math.min(200,Math.round(n)));
+  var d=Number(g&&g.histN);if(isFinite(d)&&d>0)return Math.max(2,Math.min(200,Math.round(d)));
+  return 24;
+}
+
+/* ---------- 1. 往「群设置」面板里塞新选项（不动原来的代码，只往后加） ---------- */
+var P4_groupSetSheet=groupSetSheet;
+groupSetSheet=function(id){
+  P4_groupSetSheet(id);
+  var sheet=document.getElementById('sheet');if(!sheet)return;
+  var g=findGroup(id);if(!g)return;
+  if(document.getElementById('ge_histn'))return;
+
+  (g.members||[]).forEach(function(m,i){
+    var box=document.getElementById('gs_'+i)||document.getElementById('ga_'+i);
+    if(!box)return;
+    var host=box.parentNode,ref=host.nextSibling,par=host.parentNode;
+    var wrap=document.createElement('div');
+    wrap.innerHTML=
+    '<label class="f">关系简介 / 定位（别的角色会看到，用来自我介绍）</label>'+
+    '<textarea id="gel_'+i+'" style="min-height:56px" placeholder="比如：灰海的毒舌损友，说话直接，喜欢抬杠">'+esc(m.rel||'')+'</textarea>'+
+    '<div class="setrow" style="margin-top:8px"><span class="lbl">发言优先级（数字越小越先开口）</span><input id="gep_'+i+'" type="number" value="'+prioOf(m)+'"></div>'+
+    '<div class="setrow" style="margin-top:8px"><span class="lbl">它在群里能看到的群聊记录条数（0 = 用群默认）</span><input id="geh_'+i+'" type="number" value="'+((Number(m.histN)>0)?Math.round(Number(m.histN)):0)+'"><span class="unit">条</span></div>'+
+    '<label class="li" style="border:0;padding:2px 0"><input type="checkbox" id="gem_'+i+'" '+(m.mem?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许它在群里读「记忆」和「历史对话档案」（不开就只用群里聊天 + 它自己的群记忆）</span></label>';
+    while(wrap.firstChild)par.insertBefore(wrap.firstChild,ref);
+  });
+
+  var ch=document.getElementById('ge_chain');
+  var card=document.createElement('div');
+  card.className='card';card.style.marginTop='12px';
+  card.innerHTML='<div class="ttl">群聊记录条数 / 发言顺序 / 群里玩具</div>'+
+  '<div class="setrow"><span class="lbl">角色默认能看到最近多少条群聊记录</span><input id="ge_histn" type="number" value="'+histOf(g,null)+'"><span class="unit">条</span></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">发言顺序＝每个人自己的「发言优先级」，数字越小越先开口（默认 50）。想让谁第一个说话，把它的优先级改成 1。</p>'+
+  '<label class="li" style="border:0;padding:8px 0"><input type="checkbox" id="ge_toys" '+(g.toys?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许角色在群里用互动玩具（掷骰子 / 抽签 / 报时 / 记心情 / 留便条 / 写日记 / 好感度）</span></label>'+
+  '<p class="dim" style="font-size:12px;margin:0">开了之后每条群消息会多花一点点 token；默认关。</p>';
+  var anchor=ch?(ch.closest('.card')):null;
+  if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(card,anchor.nextSibling);else sheet.appendChild(card);
+};
+
+/* ---------- 2. 保存：先读下新字段，再走原来的保存流程，最后写回去 ---------- */
+var P4_saveGroupSet=saveGroupSet;
+saveGroupSet=function(id){
+  var pick=function(i){var el=document.getElementById(i);return el?el.value:''};
+  var chk=function(i){var el=document.getElementById(i);return !!(el&&el.checked)};
+  var g0=findGroup(id);
+  var newMem=(g0&&g0.members||[]).map(function(m,i){
+    return {rel:(document.getElementById('gel_'+i)?pick('gel_'+i).trim():null),
+            prio:(document.getElementById('gep_'+i)?pick('gep_'+i):null),
+            hist:(document.getElementById('geh_'+i)?pick('geh_'+i):null),
+            mem:(document.getElementById('gem_'+i)?chk('gem_'+i):null)};
+  });
+  var histn=document.getElementById('ge_histn')?pick('ge_histn'):null;
+  var toys=document.getElementById('ge_toys')?chk('ge_toys'):null;
+
+  P4_saveGroupSet(id);                   /* 原来的保存逻辑 */
+
+  var gs=groupsAll(),g=gs.find(function(x){return x.id===id});if(!g)return;
+  (g.members||[]).forEach(function(m,i){
+    var n=newMem[i];if(!n)return;
+    if(n.rel!=null)m.rel=n.rel.slice(0,300);
+    if(n.prio!=null){var p=Math.round(Number(n.prio));m.prio=isFinite(p)?Math.max(-999,Math.min(999,p)):50}
+    if(n.hist!=null){var hn=Math.round(Number(n.hist));m.histN=(isFinite(hn)&&hn>0)?Math.max(2,Math.min(200,hn)):0}
+    if(n.mem!=null)m.mem=n.mem;
+  });
+  if(histn!=null){var d=Math.round(Number(histn));g.histN=(isFinite(d)&&d>0)?Math.max(2,Math.min(200,d)):24}
+  if(toys!=null)g.toys=toys;
+  saveGroups(gs);
+  if(view==='tools')renderTools();
+};
+
+/* ---------- 3. 群聊发言：条数 / 关系简介 / 记忆档案 / 时间 / 玩具 ---------- */
+groupGenerate=async function(g,c){
+  var mm=memberOf(g,c.id);
+  var lim=histOf(g,mm);
+  var arr=gmsgsOf(g.id).slice(-lim);
+  var nm=function(id){var x=charOf(id);return x?x.name:'某人'};
+  var me=(cfg.userName||'她');
+  var others=g.members.filter(function(m){return m.cid!==c.id}).map(function(m){return nm(m.cid)}).filter(Boolean);
+  var sys=[];
+  sys.push(c.persona||('你是'+c.name+'。'));
+  sys.push('【群聊】你正在一个叫《'+g.name+'》的群里聊天。群里还有：'+(others.join('、')||'没有别人')+'。'+(cfg.userName?('用户（'+cfg.userName+'）也在群里。'):'用户也在群里。'));
+  sys.push('【群聊规则】像真人在群里发消息：1-2 句，短、口语、自然；可以顺着别人刚说的话接，也可以自己开个话头，或者点名问某个群友；不要替别人说话；不要写旁白、动作、括号；不要复述别人说过的话；不要重复自己刚说过的话。');
+
+  /* ① 关系简介：让每个角色知道别人是谁、什么定位 */
+  var rel=[],myPrio=prioOf(mm);
+  (g.members||[]).forEach(function(m){
+    var x=charOf(m.cid);if(!x)return;
+    rel.push('· '+x.name+'：'+((m.rel||'').trim()||'（还没写定位，按普通群友相处）')+'　[发言优先级 '+prioOf(m)+']');
+  });
+  if(rel.length)sys.push('【群成员是谁 / 各自定位】\n'+rel.join('\n')+'\n（发言优先级：数字越小越先开口；你自己是 '+myPrio+'。说话要符合各自定位。）');
+
+  /* ② 同步私聊 */
+  if(mm&&mm.sync){
+    var pv=load(LS.msg(c.id),[]).slice(-Math.max(1,Math.min(60,Number(g.syncN)||20)));
+    if(pv.length)sys.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+pv.map(function(x){return (x.role==='user'?me:c.name)+'：'+(x.content||'[图片]')}).join('\n'));
+  }
+
+  /* ③ 能不能读「记忆 + 历史对话档案」 */
+  if(mm&&mm.mem){
+    try{
+      var M=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
+      var mb=memBlock(M);
+      if(mb)sys.push('【你的记忆】下面是你自己的记忆，你在群里也记得：\n'+mb);
+    }catch(e){}
+    try{
+      var lu0=arr.slice().reverse().find(function(x){return x.role==='user'&&x.content});
+      var ab=archiveBlock(lu0?lu0.content:'',c);
+      if(ab)sys.push(ab);
+    }catch(e){}
+  }
+
+  var gm=gmemBlock(c.id,g.id,10);
+  if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
+  if(c.style)sys.push('【说话风格】'+c.style);
+  if(c.sysPrompt)sys.push(c.sysPrompt);
+  if(c.examples)sys.push('【对话示例】'+c.examples);
+  if(cfg.timeOn!==false)sys.push('【现在的时间】现在是 '+P4.now()+'。群里聊天记录里提到的时间（比如 5 月）都是过去，不要当成现在。');
+
+  /* ④ 联网搜索（开关在角色设置里） */
+  var sMeta=null;
+  if(c.search&&c.search.on&&cfg.key){
+    try{
+      var conv=arr.slice(-6).map(function(m){return (m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}).join('\n');
+      var r=await searchForChar(c,conv,function(t){groupStatusLine(g.id,t)});
+      if(r){sys.push(r.block);sMeta={q:r.q,list:r.list}}
+      groupStatusLine(g.id,'');
+    }catch(e){groupStatusLine(g.id,'')}
+  }
+  sys.push('【硬性要求】中文回复；只输出你要发的那条群消息本身，不要加任何名字前缀。');
+
+  var hist=arr.map(function(m){return {role:(m.role==='user'?'user':'assistant'),content:(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}});
+  var tp=thinkParams(c);
+
+  /* ⑤ 群里开了玩具的话，先问它要不要用一次（不想用就不花这次的钱？不，它会回 NO_TOY，成本很低） */
+  if(g.toys&&W.P4TOYS&&W.P4TOYS.forChar&&cfg.key){
+    var toyList=W.P4TOYS.forChar(c);
+    if(toyList.length){
+      try{
+        var probe=[{role:'system',content:sys.join('\n\n')}].concat(hist);
+        probe.push({role:'user',content:'（先决定要不要用玩具：想掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度就调用一次工具；不想用就直接回复 NO_TOY）'});
+        var tr=await callAPI(probe,{stream:false,model:modelOf(c),tools:toyList,tool_choice:'auto',temp:tp.temp,maxtok:200});
+        if(tr&&tr.tool_calls&&tr.tool_calls.length){
+          var outs=[];
+          for(var ti=0;ti<tr.tool_calls.length;ti++){
+            var tc=tr.tool_calls[ti],args={};
+            try{args=JSON.parse(tc.function.arguments||'{}')}catch(e){}
+            var rr={ok:false,msg:''};
+            try{rr=W.P4TOYS.exec(tc.function.name,args,c.id)}catch(e){}
+            if(rr&&rr.msg)outs.push(rr.msg);
+          }
+          if(outs.length)sys.push('【你刚刚用了玩具，结果如下，可以在这次发言里自然地说出来】\n'+outs.join('\n'));
+        }
+      }catch(e){}
+    }
+  }
+
+  var ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
+  ctx.push({role:'user',content:'（继续群聊，现在轮到你发言，用你的身份发一条）'});
+  var out='',usage=null;
+  try{
+    out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400),onUsage:function(u){usage=u}})||'').trim();
+  }catch(e){return null}
+  var names=[c.name].concat(g.members.map(function(m){return nm(m.cid)}));
+  for(var i2=0;i2<names.length;i2++){
+    var n2=names[i2];if(!n2)continue;
+    if(out.indexOf(n2+'：')===0)out=out.slice((n2+'：').length).trim();
+    if(out.indexOf(n2+':')===0)out=out.slice((n2+':').length).trim();
+  }
+  out=out.replace(/^["'“”]+|["'“”]+$/g,'').trim();
+  if(out.length>500)out=out.slice(0,500);
+  if(!out)return null;
+  return {text:out,tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out),ptok:(usage&&usage.prompt_tokens)?usage.prompt_tokens:0,search:sMeta,id:uid()};
+};
+
+/* ---------- 4. 发言顺序：按「发言优先级」从小到大 ---------- */
+groupRun=async function(g,trigger){
+  if(groupBusy)return;
+  groupBusy=true;
+  renderToolPane();
+  var chain=(typeof g.chain==='number')?g.chain:GRP_CHAIN_DEF;
+  var maxAI=Math.max(1,Math.min(20,Number(g.maxAI)||GRP_MAXAI_DEF));
+  var maxRound=Math.max(1,Math.min(6,Number(g.maxRound)||GRP_MAXROUND_DEF));
+  var total=0;
+  try{
+    for(var round=1;round<=maxRound;round++){
+      var roster=(g.members||[]).filter(function(m){return round===1?true:(m.reply==='both')}).slice();
+      roster.sort(function(a,b){return prioOf(a)-prioOf(b)});
+      var spoke=false;
+      for(var ri=0;ri<roster.length;ri++){
+        var m=roster[ri];
+        if(total>=maxAI)break;
+        var c=charOf(m.cid);if(!c)continue;
+        var arr=gmsgsOf(g.id),last=arr[arr.length-1];
+        if(last&&last.role==='char'&&last.cid===m.cid)continue;
+        if(round>1&&Math.random()>chain)continue;
+        var out=await groupGenerate(g,c);
+        if(!out||!out.text)continue;
+        var mid=out.id||uid();
+        var a2=gmsgsOf(g.id);
+        a2.push({id:mid,role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,search:out.search});
+        saveGmsgs(g.id,a2);
+        gmemAdd(c.id,g.id,g.name,out.text,true,mid);
+        total++;spoke=true;
+        renderToolPane();scrollGroupDown();
+      }
+      if(!spoke)break;
+    }
+    if(total>=maxAI)toast('本轮发言到上限了，先歇一歇（防刷屏）');
+  }catch(e){
+    toast('群聊出错：'+((e&&e.message)||e));
+  }finally{
+    groupBusy=false;
+    renderToolPane();scrollGroupDown();
+    scheduleGroupAuto(false);
+  }
+};
+
+/* ---------- 5. 我发的群消息也带 id（这样删它时能精准清记忆） ---------- */
+groupSend=async function(){
+  var g=findGroup(groupOpenId);if(!g)return;
+  if(groupBusy)return toast('群里还在说话，等一下');
+  var el=document.getElementById('ginp');
+  var t=el?el.value.trim():'';
+  if(!t)return;
+  el.value='';
+  var arr=gmsgsOf(g.id);
+  arr.push({id:uid(),role:'user',content:t,t:Date.now(),tok:estTokens(t)});
+  saveGmsgs(g.id,arr);
+  renderToolPane();scrollGroupDown();
+  await groupRun(g,'user');
+};
+
+/* ---------- 6. 角色在私聊里用工具发的群消息，也带 id ---------- */
+execGroupTool=function(name,args,cid){
+  var nmOf=function(id){var x=charOf(id);return x?x.name:'某人'};
+  if(name==='list_my_groups'){
+    var gs=groupsOfChar(cid);
+    if(!gs.length)return {ok:true,msg:'你还没有加入任何群聊。'};
+    return {ok:true,msg:'你所在的群：\n'+gs.map(function(g){return '· 群名：'+g.name+'（id:'+g.id+'，'+g.members.length+'人，成员：'+g.members.map(function(m){return nmOf(m.cid)}).join('、')+'）'}).join('\n')};
+  }
+  var g=findGroupFlex(args&&args.group,cid);
+  if(!g)return {ok:false,msg:'没找到这个群。先调用 list_my_groups 看看你在哪些群里。'};
+  if(name==='read_group'){
+    var lim=Math.max(1,Math.min(60,Math.round(Number(args&&args.limit)||10)));
+    var arr=gmsgsOf(g.id).slice(-lim);
+    if(!arr.length)return {ok:true,msg:'《'+g.name+'》里还没有人说话。'};
+    return {ok:true,msg:'《'+g.name+'》最近的聊天：\n'+arr.map(function(m){return (m.role==='user'?(cfg.userName||'她'):nmOf(m.cid))+'：'+(m.content||'')}).join('\n')};
+  }
+  if(name==='send_group_message'){
+    var text=String((args&&args.text)||'').trim().slice(0,500);
+    if(!text)return {ok:false,msg:'内容为空，没发出去。'};
+    var arr2=gmsgsOf(g.id),mid=uid();
+    arr2.push({id:mid,role:'char',cid:cid,content:text,t:Date.now(),tok:estTokens(text)});
+    saveGmsgs(g.id,arr2);
+    gmemAdd(cid,g.id,g.name,text,true,mid);
+    if(view==='tools'&&toolTab==='group'){renderToolPane();if(groupOpenId===g.id)scrollGroupDown()}
+    return {ok:true,msg:'已在《'+g.name+'》里以你的身份发出：'+text};
+  }
+  return {ok:false,msg:'未知操作'};
+};
+
+console.log('[深蓝海域] 补丁4-B 已加载');
+})();
+</script>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁4-C（2026-09）  互动玩具 + 互动页
+   角色能自己调用：掷骰子 / 抛硬币 / 抽签 / 报时 / 记心情 / 留便条 / 写日记 / 调好感度
+   你能看的地方：应用 → 互动（开关也在这里；每个角色还能单独关）
+   粘法：粘到文件最末尾（补丁4-A、4-B 两段后面），顺序无所谓。
+   ================================================================ */
+(function(){
+var W=window,P4=(W.P4=W.P4||{});
+if(!P4.today)P4.today=function(){var d=new Date();return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 星期'+'日一二三四五六'[d.getDay()]};
+if(!P4.now)P4.now=function(){return P4.today()};
+
+function Knote(id){return 'wh_p4_note_'+id}
+function Kdiary(id){return 'wh_p4_diary_'+id}
+var FLAG={roll_dice:'dice',flip_coin:'coin',pick_one:'pick',get_now_time:'time',set_mood:'mood',leave_note:'note',write_diary:'diary',favor_change:'favor'};
+function tcfg(){if(!cfg.toys)cfg.toys={on:true,dice:true,coin:true,pick:true,time:true,mood:true,note:true,diary:true,favor:true};return cfg.toys}
+function toyOn(name){var t=tcfg();return t.on!==false&&t[FLAG[name]]!==false}
+function charOK(c){return !!c&&!(c.toyPerm&&c.toyPerm.on===false)}
+
+var TOYS=[
+ {type:'function',function:{name:'roll_dice',description:'掷骰子。想随机决定一件事、玩游戏、赌个什么的时候用。',parameters:{type:'object',properties:{faces:{type:'integer',description:'骰子面数，默认 6'},count:{type:'integer',description:'掷几个，默认 1，最多 6'}}}}},
+ {type:'function',function:{name:'flip_coin',description:'抛硬币赌正反面。',parameters:{type:'object',properties:{}}}},
+ {type:'function',function:{name:'pick_one',description:'从几个选项里随机抽一个（比如决定今晚吃什么）。',parameters:{type:'object',properties:{options:{type:'string',description:'选项，用逗号或换行分隔'},title:{type:'string',description:'这是在抽什么，比如「今晚吃什么」'}},required:['options']}}},
+ {type:'function',function:{name:'get_now_time',description:'查看现在的真实日期和时间。',parameters:{type:'object',properties:{}}}},
+ {type:'function',function:{name:'set_mood',description:'写下你现在的心情/状态，她能在「应用 → 互动」里看到。',parameters:{type:'object',properties:{mood:{type:'string',description:'一句话，比如「有点闷，但还行」'}},required:['mood']}}},
+ {type:'function',function:{name:'leave_note',description:'给她留一张小纸条（便条），她会看到。',parameters:{type:'object',properties:{text:{type:'string',description:'纸条内容，短一点'}},required:['text']}}},
+ {type:'function',function:{name:'write_diary',description:'写一段日记，记录此刻的想法（只有你和她能看到）。',parameters:{type:'object',properties:{text:{type:'string',description:'日记正文'}},required:['text']}}},
+ {type:'function',function:{name:'favor_change',description:'调整你对她的「好感度」数值（-10 ~ +10），用在她说/做了什么让你有感觉的时候。',parameters:{type:'object',properties:{delta:{type:'integer',description:'变化量，正数=更近，负数=更远'},reason:{type:'string',description:'为什么变化，一句话'}},required:['delta']}}}
+];
+
+function execToy(name,args,cid){
+  args=args||{};
+  var c=charOf(cid)||curChar();
+  if(!c)return {ok:false,msg:'找不到这个角色'};
+  if(!toyOn(name))return {ok:false,msg:'这个玩具被你关掉了'};
+  var blink=function(){if(view==='tools'&&toolTab==='toy'){try{renderToolPane()}catch(e){}}};
+  if(name==='roll_dice'){
+    var f=Math.round(Number(args.faces)||6);f=Math.max(2,Math.min(1000,f));
+    var n=Math.round(Number(args.count)||1);n=Math.max(1,Math.min(6,n));
+    var r=[],tot=0;
+    for(var i=0;i<n;i++){var v=1+Math.floor(Math.random()*f);r.push(v);tot+=v}
+    return {ok:true,msg:'🎲 掷骰子（'+(n>1?(n+' 个 '):'')+f+' 面）：'+r.join(' + ')+(n>1?(' = '+tot):'')+'　结果 '+tot};
+  }
+  if(name==='flip_coin'){return {ok:true,msg:'🪙 抛硬币：'+(Math.random()<.5?'正面':'反面')}}
+  if(name==='pick_one'){
+    var raw=String(args.options||'');
+    var arr=raw.split(/[,，\n;；]/).map(function(s){return s.trim()}).filter(Boolean);
+    if(!arr.length)return {ok:false,msg:'没有可选的东西'};
+    return {ok:true,msg:'👉 '+(args.title?('（'+args.title+'）'):'')+'抽到：'+arr[Math.floor(Math.random()*arr.length)]+'（共 '+arr.length+' 个选项）'};
+  }
+  if(name==='get_now_time')return {ok:true,msg:'🕒 现在是 '+P4.now()};
+  if(name==='set_mood'){
+    var mood=String(args.mood||'').trim().slice(0,120);
+    if(!mood)return {ok:false,msg:'心情是空的'};
+    c.mood={text:mood,at:Date.now()};
+    save(LS.chars,chars);scheduleBackup();blink();
+    return {ok:true,msg:'🫧 你的心情已记下：'+mood};
+  }
+  if(name==='leave_note'){
+    var tx=String(args.text||'').trim().slice(0,300);
+    if(!tx)return {ok:false,msg:'纸条是空的'};
+    var ns=load(Knote(cid),[]);ns.push({t:Date.now(),text:tx});
+    while(ns.length>50)ns.shift();
+    save(Knote(cid),ns);scheduleBackup();blink();
+    return {ok:true,msg:'📝 你在她桌上留了一张小纸条：'+tx};
+  }
+  if(name==='write_diary'){
+    var dx=String(args.text||'').trim().slice(0,1200);
+    if(!dx)return {ok:false,msg:'日记是空的'};
+    var ds=load(Kdiary(cid),[]);ds.push({t:Date.now(),text:dx});
+    while(ds.length>60)ds.shift();
+    save(Kdiary(cid),ds);scheduleBackup();blink();
+    return {ok:true,msg:'📖 日记已写进你的本子（'+dx.length+' 字，只有你和她能看到）'};
+  }
+  if(name==='favor_change'){
+    var d=Math.round(Number(args.delta)||0);
+    if(!d)return {ok:false,msg:'变化量是 0'};
+    d=Math.max(-10,Math.min(10,d));
+    var old=(c.favor&&Number(c.favor.n))||0;
+    var nw=Math.max(-999,Math.min(999,old+d));
+    c.favor={n:nw,at:Date.now(),why:String(args.reason||'').slice(0,80)};
+    save(LS.chars,chars);scheduleBackup();blink();
+    return {ok:true,msg:'💠 好感度：'+old+' → '+nw+'（'+(nw>old?'更近':(nw<old?'更远':'没变'))+'）'+(args.reason?('　原因：'+args.reason):'')};
+  }
+  return {ok:false,msg:'未知玩具'};
+}
+function toysFor(c){
+  if(!charOK(c))return [];
+  return TOYS.filter(function(t){return toyOn(t.function.name)});
+}
+W.P4TOYS={list:TOYS,forChar:toysFor,exec:execToy};
+
+/* ---------- 接上：角色在私聊里能用玩具 ---------- */
+var P4_toolsFor=toolsFor;
+toolsFor=function(c){
+  var t=P4_toolsFor(c)||[];
+  toysFor(c).forEach(function(x){t.push(x)});
+  return t;
+};
+var P4_execCharTool=execCharTool;
+execCharTool=function(name,args,cid){
+  if(Object.prototype.hasOwnProperty.call(FLAG,name)){
+    var r=execToy(name,args,cid);
+    try{if(W.P4LASTTOY&&r&&r.msg)W.P4LASTTOY.push(r.msg)}catch(e){}
+    return r;
+  }
+  return P4_execCharTool(name,args,cid);
+};
+
+/* ---------- 聊天里显示「它刚玩过的玩具」 ---------- */
+var P4_askAndAppend=askAndAppend;
+askAndAppend=async function(){
+  W.P4LASTTOY=[];
+  await P4_askAndAppend();
+  var arr=W.P4LASTTOY||[];
+  if(arr.length&&msgs.length){
+    var m=msgs[msgs.length-1];
+    if(m&&m.role==='assistant'){m.toys=arr.slice();persist()}
+  }
+};
+var P4_renderChat=renderChat;
+renderChat=function(){
+  P4_renderChat();
+  var box=document.getElementById('msgs');if(!box)return;
+  var bubs=box.querySelectorAll('.bub');
+  if(!bubs.length)return;
+  msgs.forEach(function(x,i){
+    if(!x.toys||!x.toys.length)return;
+    var b=bubs[i];if(!b)return;
+    var d=document.createElement('div');
+    d.className='srcline';
+    d.textContent=x.toys.join('　');
+    if(b.nextSibling)b.parentNode.insertBefore(d,b.nextSibling);else b.parentNode.appendChild(d);
+  });
+};
+
+/* ---------- 「应用 → 互动」页 ---------- */
+function toyHTML(){
+  var T=tcfg();
+  var list=chars.filter(function(c){return !c.priv||c.id===curId});
+  if(!list.length)list=chars;
+  var box=function(k,label,tip){
+    return '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="ty_'+k+'" '+(T[k]!==false?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>'+label+(tip?(' <span class="dim">'+tip+'</span>'):'')+'</span></label>';
+  };
+  var h='<div class="card"><div class="ttl">互动玩具（角色能自己调用）</div>'+
+  '<div class="row" style="align-items:center"><div class="col"><b>总开关</b><div class="dim" style="font-size:12px">关掉后所有角色都不能再用玩具</div></div><input type="checkbox" id="ty_on" '+(T.on!==false?'checked':'')+'></div>'+
+  box('dice','🎲 掷骰子')+box('coin','🪙 抛硬币')+box('pick','👉 抽签 / 帮你选一个')+
+  box('time','🕒 看现在的真实时间')+box('mood','🫧 写下心情状态','显示在下面')+
+  box('note','📝 给你留小纸条','挂在便条墙')+box('diary','📖 写日记','只在下面给你看')+
+  box('favor','💠 调整好感度','-10 ~ +10')+
+  '<button class="pri" style="width:100%;margin-top:10px" onclick="P4.toySave()">保存玩具开关</button>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">每个角色还能单独关（角色 → 编辑 → 互动玩具）；想让它们成群地在群里玩，去群设置里打开。</p></div>';
+
+  h+='<div class="card"><div class="ttl">心情 · 好感度</div>'+
+  list.map(function(c){
+    var f=(c.favor&&Number(c.favor.n))||0;
+    var m=(c.mood&&c.mood.text)?nl2br(c.mood.text):'<span class="dim">还没写过</span>';
+    var at=(c.mood&&c.mood.at)?(' <span class="dim">· '+esc(stampOf(c.mood.at))+'</span>'):'';
+    var why=(c.favor&&c.favor.why)?(' <span class="dim">（'+esc(c.favor.why)+'）</span>'):'';
+    return '<div class="arcitem"><div class="arcname"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>　<span class="dim">好感度 '+f+'</span>'+why+'</div>'+
+    '<div class="arcmeta">心情：'+m+at+'</div>'+
+    '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P4.toyClearMood(\''+c.id+'\')">清掉心情</button>'+
+    '<button class="ghost iconbtn" onclick="P4.toyZeroFavor(\''+c.id+'\')">好感度归零</button></div></div>';
+  }).join('')+'</div>';
+
+  var notes=[];
+  list.forEach(function(c){var arr=load(Knote(c.id),[]);arr.forEach(function(x,idx){notes.push({cid:c.id,name:c.name,t:x.t,text:x.text,idx:idx})})});
+  notes.sort(function(a,b){return (b.t||0)-(a.t||0)});
+  h+='<div class="card"><div class="ttl">便条墙（'+notes.length+'）</div>'+
+  (notes.length?notes.slice(0,40).map(function(n){
+    return '<div class="arcitem"><div class="arcname"><b>'+esc(n.name)+'</b> <span class="dim">'+esc(stampOf(n.t))+'</span></div>'+
+    '<div class="arcmeta" style="color:var(--txt)">'+nl2br(n.text)+'</div>'+
+    '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P4.toyDelNote(\''+n.cid+'\','+n.idx+')">撕掉</button></div></div>';
+  }).join(''):'<p class="dim" style="font-size:13px">还没有纸条</p>')+'</div>';
+
+  var days=[];
+  list.forEach(function(c){var arr=load(Kdiary(c.id),[]);arr.forEach(function(x,idx){days.push({cid:c.id,name:c.name,t:x.t,text:x.text,idx:idx})})});
+  days.sort(function(a,b){return (b.t||0)-(a.t||0)});
+  h+='<div class="card"><div class="ttl">日记（'+days.length+'）</div>'+
+  (days.length?days.slice(0,20).map(function(n){
+    return '<div class="arcitem"><div class="arcname"><b>'+esc(n.name)+'</b> <span class="dim">'+esc(stampOf(n.t))+'</span></div>'+
+    '<div class="arcmeta" style="color:var(--txt)">'+nl2br(n.text)+'</div>'+
+    '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P4.toyDelDiary(\''+n.cid+'\','+n.idx+')">删掉这页</button></div></div>';
+  }).join(''):'<p class="dim" style="font-size:13px">还没有日记</p>')+'</div>';
+  return h;
+}
+P4.toySave=function(){
+  var T=tcfg();
+  var ck=function(i,def){var el=document.getElementById(i);return el?!!el.checked:def};
+  T.on=ck('ty_on',T.on!==false);
+  ['dice','coin','pick','time','mood','note','diary','favor'].forEach(function(k){T[k]=ck('ty_'+k,T[k]!==false)});
+  save(LS.cfg,cfg);
+  toast('玩具开关已保存');
+  renderToolPane();
+};
+P4.toyDelNote=function(cid,idx){
+  var arr=load(Knote(cid),[]);if(!(idx>=0&&idx<arr.length))return;
+  arr.splice(idx,1);save(Knote(cid),arr);scheduleBackup();renderToolPane();
+};
+P4.toyDelDiary=function(cid,idx){
+  var arr=load(Kdiary(cid),[]);if(!(idx>=0&&idx<arr.length))return;
+  arr.splice(idx,1);save(Kdiary(cid),arr);scheduleBackup();renderToolPane();
+};
+P4.toyClearMood=function(cid){
+  var c=charOf(cid);if(!c)return;
+  delete c.mood;save(LS.chars,chars);scheduleBackup();renderToolPane();
+};
+P4.toyZeroFavor=function(cid){
+  var c=charOf(cid);if(!c)return;
+  c.favor={n:0,at:Date.now(),why:''};save(LS.chars,chars);scheduleBackup();renderToolPane();
+};
+
+var P4_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  var p=document.getElementById('toolPane');
+  if(toolTab==='toy'&&p){p.innerHTML=toyHTML();return}
+  P4_renderToolPane();
+};
+try{
+  if(!APPS.some(function(a){return a.k==='toy'})){
+    APPS.push({k:'toy',n:'互动',d:'心情·便条·日记',
+      ic:'<svg viewBox="0 0 24 24"><path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/></svg>'});
+  }
+}catch(e){}
+
+/* ---------- 角色设置里加「互动玩具」开关 ---------- */
+var P4_editChar=editChar;
+editChar=function(id,tema){
+  P4_editChar(id,tema);
+  var sheet=document.getElementById('sheet');
+  if(!sheet||!document.getElementById('e_persona'))return;
+  if(document.getElementById('e_toy'))return;
+  var c=chars.find(function(x){return x.id===id});if(!c)return;
+  var card=document.createElement('div');
+  card.className='card';card.style.marginTop='12px';
+  card.innerHTML='<div class="row" style="align-items:center">'+
+  '<div class="col"><b>互动玩具</b><div class="dim" style="font-size:12px">允许它自己掷骰子、抽签、看时间、记心情、给你留便条、写日记、调好感度（总开关在「应用 → 互动」里）</div></div>'+
+  '<input type="checkbox" id="e_toy" '+((c.toyPerm&&c.toyPerm.on===false)?'':'checked')+'></div>';
+  var rows=sheet.querySelectorAll('.row'),anchor=null;
+  for(var i=0;i<rows.length;i++){if((rows[i].innerHTML||'').indexOf('saveChar(')>=0){anchor=rows[i];break}}
+  if(anchor)anchor.parentNode.insertBefore(card,anchor);else sheet.appendChild(card);
+};
+var P4_applyCharInputs=applyCharInputs;
+applyCharInputs=function(id){
+  var c=P4_applyCharInputs(id);if(!c)return c;
+  var el=document.getElementById('e_toy');
+  if(el)c.toyPerm={on:!!el.checked};
+  return c;
+};
+
+console.log('[深蓝海域] 补丁4-C 已加载');
+})();
+</script>
