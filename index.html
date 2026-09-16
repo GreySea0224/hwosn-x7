@@ -4521,7 +4521,7 @@ groupSetSheet=function(id){
     var wrap=document.createElement('div');
     wrap.innerHTML=
     '<label class="f">关系简介 / 定位（别的角色会看到，用来自我介绍）</label>'+
-    '<textarea id="gel_'+i+'" style="min-height:56px" placeholder="比如：灰海的毒舌损友，说话直接，喜欢抬杠">'+esc(m.rel||'')+'</textarea>'+
+    '<textarea id="gel_'+i+'" style="min-height:56px" placeholder="比如：用户的毒舌损友，说话直接，喜欢抬杠">'+esc(m.rel||'')+'</textarea>'+
     '<div class="setrow" style="margin-top:8px"><span class="lbl">发言优先级（数字越小越先开口）</span><input id="gep_'+i+'" type="number" value="'+prioOf(m)+'"></div>'+
     '<div class="setrow" style="margin-top:8px"><span class="lbl">它在群里能看到的群聊记录条数（0 = 用群默认）</span><input id="geh_'+i+'" type="number" value="'+((Number(m.histN)>0)?Math.round(Number(m.histN)):0)+'"><span class="unit">条</span></div>'+
     '<label class="li" style="border:0;padding:2px 0"><input type="checkbox" id="gem_'+i+'" '+(m.mem?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许它在群里读「记忆」和「历史对话档案」（不开就只用群里聊天 + 它自己的群记忆）</span></label>';
@@ -5016,5 +5016,1749 @@ applyCharInputs=function(id){
 };
 
 console.log('[深蓝海域] 补丁4-C 已加载');
+})();
+</script>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁5-A（第 1/3 批）
+   · ① 角色用小工具 / 玩具时，聊天里立刻出现一行「它干了什么」（不用等消息发完）
+   · ② 好感度变动可以回档：数值 + 它写的原因一起撤回
+   · ③ 角色 / 群聊有新消息时，顶部弹一个悬浮通知（点一下直接跳过去）
+   · ④ 回复改成「一个字一个字涌现」的打字动画
+   粘法：整段粘到文件最末尾（补丁4-A / 4-B / 4-C 那三段的后面）。
+   ================================================================ */
+(function(){
+var W=window,P5=(W.P5=W.P5||{});
+if(P5.A)return;P5.A=1;
+
+/* ============ 样式 ============ */
+var CSS=[
+'#p5notif{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 6px);z-index:120;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 8px;pointer-events:none}',
+'.p5n{pointer-events:auto;width:100%;max-width:520px;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:16px;padding:10px 12px;box-shadow:0 10px 26px rgba(0,0,0,.3);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:p5nin .3s cubic-bezier(.2,.9,.3,1.06);cursor:pointer}',
+'.p5n.group{border-left-color:var(--acc2)}',
+'.p5nab{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:13px;overflow:hidden;background:var(--bg2);border:1px solid var(--line);font-size:20px;line-height:1}',
+'.p5nab img{width:100%;height:100%;object-fit:cover}',
+'.p5nmain{flex:1;min-width:0}',
+'.p5nt{font-size:13px;font-weight:700;display:flex;gap:6px;align-items:baseline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.p5nt i{font-style:normal;font-size:10.5px;font-weight:400;color:var(--acc);background:var(--accdim);border:1px solid var(--accdim);border-radius:6px;padding:0 5px}',
+'.p5nb{font-size:12px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.p5nx{flex:0 0 auto;background:transparent;border:0;color:var(--dim);font-size:15px;line-height:1;padding:4px 2px;box-shadow:none}',
+'.p5n.out{animation:p5nout .22s ease forwards}',
+'@keyframes p5nin{from{opacity:0;transform:translateY(-120%) scale(.97)}to{opacity:1;transform:none}}',
+'@keyframes p5nout{to{opacity:0;transform:translateY(-24px) scale(.97)}}',
+'.tw{animation:twin .3s ease both}',
+'@keyframes twin{0%{opacity:0;color:var(--acc2)}50%{opacity:1;color:var(--acc2)}100%{opacity:1}}',
+'.toychip{display:flex;align-items:center;gap:6px;width:fit-content;max-width:92%;margin:6px 0 0;padding:6px 12px;font-size:12px;line-height:1.45;color:var(--acc);background:var(--bg2);border:1px dashed var(--accdim);border-radius:999px;animation:funpop .42s cubic-bezier(.2,1.5,.4,1);word-break:break-word}',
+'.toychip b{color:var(--txt);font-weight:600}',
+'.toychip.tap{cursor:pointer;border-style:solid}',
+'.gtoy{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 0 46px}',
+'.gtoy.me{justify-content:flex-end;margin:0 46px 0 0}',
+'.gtoy .toychip{margin:0}',
+'.fvrow{padding:9px 0;border-bottom:1px dashed var(--line)}',
+'.fvrow:last-child{border-bottom:0}',
+'.fvh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}',
+'.fvnum{font-size:12px;font-weight:700;color:var(--acc)}',
+'.fve{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);flex-wrap:wrap;margin-top:6px}',
+'.fve .up{color:var(--acc2)}',
+'.fve .dn{color:var(--warn)}',
+'.fvbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}',
+'.fvbtns input{flex:1 1 110px;padding:6px 10px;font-size:12px}'
+].join('\n');
+var p5s=document.createElement('style');p5s.id='p5cssA';p5s.textContent=CSS;
+(document.head||document.documentElement).appendChild(p5s);
+
+/* ============ 共用小工具 ============ */
+function dq(s,r){return (r||document).querySelector(s)}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function safe(fn,d){try{return fn()}catch(e){return d}}
+function p5Char(cid){
+  var c=safe(function(){return charOf(cid)},null);
+  if(!c)c=safe(function(){return chars.filter(function(x){return x.id===cid})[0]},null);
+  return c||null;
+}
+function p5CharName(cid){var c=p5Char(cid);return c?c.name:'角色'}
+
+/* ================================================================
+   ①  即时同步：角色用小工具 / 玩具，聊天里立刻显示一行
+   ================================================================ */
+var TLABEL={
+  roll_dice:'掷骰子',flip_coin:'抛硬币',pick_one:'抽签',get_now_time:'看时间',
+  set_mood:'记心情',leave_note:'留便条',write_diary:'写日记',favor_change:'调好感度',
+  draw_image:'画画',add_todo:'记待办',list_todos:'翻待办',complete_todo:'勾待办',
+  uncomplete_todo:'改待办',delete_todo:'删待办',list_my_groups:'翻群列表',
+  read_group:'看群消息',send_group_message:'在群里发言'
+};
+var TOYNAME={};
+try{(W.P4TOYS&&W.P4TOYS.list||[]).forEach(function(t){TOYNAME[t.function.name]=1})}catch(e){}
+
+var ctx='chat';        /* 当前工具是「私聊里用的」还是「群里用的」 */
+var gTurn=false;       /* 是否正在跑一轮群聊 */
+var gToys=[];          /* 本轮群聊里玩过的玩具（稍后挂到对应群消息上） */
+
+function liveBubble(){
+  var box=document.getElementById('msgs');if(!box)return null;
+  return box.querySelector('.bub[data-live="1"]')||box.querySelector('.bub.typing');
+}
+function chatLine(html,cls){
+  var box=document.getElementById('msgs');if(!box)return null;
+  var el=document.createElement('div');
+  el.className=cls||'toychip';el.innerHTML=html;
+  var tp=liveBubble();
+  if(tp&&tp.parentNode===box)box.insertBefore(el,tp);else box.appendChild(el);
+  try{scrollDown()}catch(e){}
+  return el;
+}
+function groupLine(name,msg){
+  var box=document.getElementById('gmsgs');if(!box)return null;
+  var el=document.createElement('div');
+  el.className='gbub sys';
+  el.innerHTML='<div class="gtext">'+esc(name)+' '+esc(msg)+'</div>';
+  box.appendChild(el);
+  try{scrollGroupDown()}catch(e){}
+  return el;
+}
+function emitToy(name,args,cid,msg){
+  var nm=p5CharName(cid);
+  if(ctx==='group'){
+    gToys.push({cid:cid,msg:msg,t:Date.now(),used:0});
+    if(gTurn&&view==='tools'&&toolTab==='group')groupLine(nm,msg);
+  }else{
+    if(view==='chat')chatLine('<b>'+esc(nm)+'</b><span>'+esc(msg)+'</span>');
+  }
+}
+
+/* W.P4TOYS.exec 是「群里用玩具」的入口（补丁4-B 走的是它） */
+var P5_toysExec=(W.P4TOYS&&W.P4TOYS.exec)||null;
+if(P5_toysExec){
+  W.P4TOYS.exec=function(name,args,cid){
+    var prev=ctx;ctx='group';
+    var r;
+    try{r=P5_toysExec(name,args,cid)}finally{ctx=prev}
+    if(r&&r.msg)emitToy(name,args,cid,r.msg);
+    return r;
+  };
+}
+/* execCharTool 是「私聊里用工具」的入口 */
+var P5A_execCharTool=execCharTool;
+execCharTool=function(name,args,cid){
+  var c=p5Char(cid);
+  var before=c?favSnap(c):null;
+  var prev=ctx;ctx='chat';
+  var r;
+  try{r=P5A_execCharTool(name,args,cid)}finally{ctx=prev}
+  if(name==='favor_change'&&c&&before){
+    var after=favSnap(c);
+    if(after.n!==before.n||after.why!==before.why)pushFav(c,before,after,args&&args.reason);
+  }
+  if(TOYNAME[name]&&r&&r.msg)emitToy(name,args,cid,r.msg);
+  /* 它在私聊里替你在群里说了话：顺手告诉用户一声 */
+  if(name==='send_group_message'&&r&&r.ok){
+    var g2=null;try{g2=findGroupFlex(args&&args.group,cid)}catch(e){}
+    if(g2&&view==='chat')
+      chatLine('<b>'+esc(p5CharName(cid))+'</b><span>在《'+esc(g2.name)+'》里说了一句：'+esc(String((args&&args.text)||'').slice(0,60))+'</span>');
+    if(g2&&!(view==='tools'&&toolTab==='group'&&groupOpenId===g2.id))
+      P5.notify({kind:'group',gid:g2.id,name:p5CharName(cid),emoji:(c&&c.emoji)||'',
+        avatar:(c&&c.avatar)||'',text:String((args&&args.text)||''),where:g2.name});
+  }
+  return r;
+};
+
+/* 群聊消息渲染完以后，把玩具小条挂到对应那条消息下面 */
+function decorateGroupToys(){
+  if(!(view==='tools'&&toolTab==='group'&&groupOpenId))return;
+  var g=safe(function(){return findGroup(groupOpenId)},null);if(!g)return;
+  var ms=safe(function(){return gmsgsOf(g.id)},[]);
+  var box=document.getElementById('gmsgs');if(!box)return;
+  var rows=dqa('.gbub',box);
+  if(rows.length!==ms.length)return;          /* 数量对不上就先不装饰，避免错位 */
+  for(var i=0;i<ms.length;i++){
+    var m=ms[i];
+    if(!m||!m.toys||!m.toys.length)continue;
+    var el=rows[i];if(!el)continue;
+    var d=document.createElement('div');
+    d.className='gtoy'+(m.role==='user'?' me':'');
+    d.innerHTML=m.toys.map(function(t){return '<span class="toychip">'+esc(t)+'</span>'}).join('');
+    if(el.nextSibling)el.parentNode.insertBefore(d,el.nextSibling);else el.parentNode.appendChild(d);
+  }
+}
+
+/* ================================================================
+   ②  好感度：记录每一次变动，可以连备注一起撤销
+   ================================================================ */
+function KFav(cid){return 'wh_p5_fav_'+cid}
+function favSnap(c){
+  return {n:(c&&c.favor&&Number(c.favor.n))||0,
+          why:String((c&&c.favor&&c.favor.why)||''),
+          at:(c&&c.favor&&c.favor.at)||0};
+}
+function favLog(cid){return safe(function(){return load(KFav(cid),[])},[])}
+function pushFav(c,before,after,note){
+  var arr=favLog(c.id);
+  arr.push({t:Date.now(),from:before,to:after,note:String(note||'').slice(0,120)});
+  while(arr.length>80)arr.shift();
+  safe(function(){save(KFav(c.id),arr);scheduleBackup()});
+}
+P5.favUndo=function(cid,idx){
+  var c=p5Char(cid);if(!c)return;
+  var arr=favLog(cid);
+  idx=Number(idx);
+  if(!(idx>=0&&idx<arr.length))return;
+  var e=arr[idx];
+  var after=arr.length-1-idx;
+  if(!confirm('把「'+c.name+'」的好感度回档到这次变动之前？\n\n数值：'+(e.to.n)+' → '+(e.from.n)+
+    (e.from.why?('\n备注也一起退回：'+(e.from.why||'（空）')):'')+
+    (after?('\n\n（这次之后的 '+after+' 次变动也会一起撤掉）'):'')))return;
+  c.favor={n:e.from.n,why:e.from.why,at:e.from.at};
+  safe(function(){save(LS.chars,chars);scheduleBackup()});
+  safe(function(){save(KFav(cid),arr.slice(0,idx))});
+  say('已回档：好感度 '+e.from.n+(e.from.why?('（'+e.from.why+'）'):'（备注已清空/还原）'));
+  var p=document.getElementById('p5favcard');
+  if(p){p.innerHTML=favCardInner()}
+  if(view==='tools'&&toolTab==='toy')renderToolPane();
+};
+P5.favUndoLast=function(cid){
+  var a=favLog(cid);
+  if(!a.length)return say('这个角色还没有好感度变动记录');
+  P5.favUndo(cid,a.length-1);
+};
+P5.favAdjust=function(cid,delta){
+  var c=p5Char(cid);if(!c)return;
+  var el=document.getElementById('fvm_'+cid);
+  var why=el?String(el.value||'').trim():'';
+  var before=favSnap(c);
+  var nw=Math.max(-999,Math.min(999,before.n+Number(delta||0)));
+  c.favor={n:nw,why:why||before.why,at:Date.now()};
+  var after=favSnap(c);
+  pushFav(c,before,after,why||'手动调整');
+  if(el)el.value='';
+  safe(function(){save(LS.chars,chars);scheduleBackup()});
+  say((c.name||'角色')+' 好感度：'+before.n+' → '+nw);
+  var p=document.getElementById('p5favcard');
+  if(p){p.innerHTML=favCardInner()}
+};
+function favCardInner(){
+  var list=chars.slice();
+  if(!list.length)return '<p class="dim" style="font-size:13px">还没有角色</p>';
+  return list.map(function(c){
+    var arrAll=favLog(c.id);
+    var arr=arrAll.slice(-3).reverse();
+    var cur=(c.favor&&Number(c.favor.n))||0;
+    var why=(c.favor&&c.favor.why)?(' <span class="dim">（'+esc(c.favor.why)+'）</span>'):'';
+    var rows=arr.length?arr.map(function(e,bi){
+      var i=arrAll.length-1-bi;
+      var d=(e.to.n)-(e.from.n);
+      var dt=(d>0?'<b class="up">+'+d+'</b>':(d<0?'<b class="dn">'+d+'</b>':'<b>±0</b>'));
+      return '<div class="fve">'+dt+
+        '<span>'+e.from.n+' → '+e.to.n+'</span>'+
+        (e.note?('<span>· '+esc(e.note)+'</span>'):'')+
+        '<span>· '+esc(safe(function(){return stampOf(e.t)},''))+'</span>'+
+        '<button class="ghost iconbtn" onclick="P5.favUndo(\''+c.id+'\','+i+')">撤回</button></div>';
+    }).join(''):'<span class="dim" style="font-size:12px">还没有变动记录</span>';
+    return '<div class="fvrow"><div class="fvh"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>'+
+      '<span class="fvnum">当前 '+cur+'</span>'+why+'</div>'+rows+
+      '<div class="fvbtns"><input id="fvm_'+c.id+'" placeholder="备注（可留空）">'+
+      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',1)">+1</button>'+
+      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',5)">+5</button>'+
+      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',-1)">-1</button>'+
+      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',-5)">-5</button>'+
+      '</div></div>';
+  }).join('');
+}
+function favCardHTML(){
+  return '<div class="ttl">好感度 · 可回档</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">角色用「好感度」玩具改数值时，这里会记一笔（含它写的原因）。点「撤回」就把<b>数值和备注一起</b>退回那一次改动之前，方便你回档重来。</p>'+
+  favCardInner();
+}
+/* 兼容：手动「好感度归零」也记一笔 */
+try{
+  var P5_zeroFavor=P4.toyZeroFavor;
+  P4.toyZeroFavor=function(cid){
+    var c=p5Char(cid),b=c?favSnap(c):null;
+    P5_zeroFavor(cid);
+    if(c&&b){var a=favSnap(c);if(a.n!==b.n)pushFav(c,b,a,'手动归零')}
+  };
+}catch(e){}
+
+/* ================================================================
+   ③  悬浮通知（像微信 / TG 那样，顶部弹一张卡片）
+   ================================================================ */
+function notifHost(){
+  var h=document.getElementById('p5notif');
+  if(!h){h=document.createElement('div');h.id='p5notif';document.body.appendChild(h)}
+  return h;
+}
+P5.notify=function(o){
+  if(!o)return;
+  var host=notifHost();
+  var el=document.createElement('div');
+  el.className='p5n'+(o.kind==='group'?' group':'');
+  var inner=(o.avatar?('<img src="'+o.avatar+'" alt="">'):esc(o.emoji||'🐋'));
+  el.innerHTML='<div class="p5nab">'+inner+'</div>'+
+   '<div class="p5nmain"><div class="p5nt">'+esc(o.name||'')+
+   (o.where?('<i>'+esc(o.where)+'</i>'):'')+'</div>'+
+   '<div class="p5nb">'+esc(String(o.text||'').replace(/\s+/g,' ').slice(0,80))+'</div></div>'+
+   '<button class="p5nx">✕</button>';
+  var close=function(open){
+    if(el._dead)return;el._dead=1;
+    clearTimeout(el._t);
+    el.classList.add('out');
+    setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el)},230);
+    if(open)P5.jump(o);
+  };
+  el.onclick=function(e){
+    if(e.target&&e.target.className==='p5nx'){e.stopPropagation();close(false);return}
+    close(true);
+  };
+  host.appendChild(el);
+  while(host.children.length>3)host.removeChild(host.firstChild);
+  el._t=setTimeout(function(){close(false)},9000);
+};
+P5.jump=function(o){
+  try{
+    if(o.kind==='group'){openGroup(o.gid);return}
+    var c=p5Char(o.cid);if(!c)return;
+    if(c.priv){openPriv(c.id);return}
+    loadChar(c.id);go('chat');
+  }catch(e){}
+};
+P5.maybeNotify=function(o){
+  if(!o)return;
+  if(document.hidden)return;                                  /* 页面在后台：交给系统通知 */
+  if(o.kind==='group'&&view==='tools'&&toolTab==='group'&&groupOpenId===o.gid)return;
+  if(o.kind==='char'&&view==='chat'&&curId===o.cid)return;
+  P5.notify(o);
+};
+/* 角色主动发来的私聊消息 */
+var P5A_autoGenerate=autoGenerate;
+autoGenerate=async function(c){
+  var r=await P5A_autoGenerate(c);
+  try{
+    if(r&&c){
+      var arr=load(LS.msg(c.id),[]);
+      var m=arr[arr.length-1];
+      if(m&&m.role==='assistant'&&m.content)
+        P5.maybeNotify({kind:'char',cid:c.id,name:(c.emoji||'')+' '+c.name,
+          emoji:c.emoji,avatar:c.avatar,text:m.content});
+    }
+  }catch(e){}
+  return r;
+};
+/* 群聊：一轮结束后，把玩具挂到消息上 + 有人说话就弹通知 */
+function attachGToys(gid,before){
+  if(!gid)return;
+  var g=safe(function(){return findGroup(gid)},null);if(!g)return;
+  var arr=safe(function(){return gmsgsOf(gid)},[]);
+  var changed=false;
+  for(var i=before;i<arr.length;i++){
+    var m=arr[i];if(!m||m.role!=='char')continue;
+    for(var j=0;j<gToys.length;j++){
+      if(!gToys[j].used&&gToys[j].cid===m.cid){
+        gToys[j].used=1;
+        m.toys=(m.toys||[]).concat([gToys[j].msg]);
+        changed=true;break;
+      }
+    }
+    var c=p5Char(m.cid);
+    P5.maybeNotify({kind:'group',gid:gid,name:(c?((c.emoji||'')+' '+c.name):'角色'),
+      emoji:c?c.emoji:'',avatar:c?c.avatar:'',text:m.content,where:g.name});
+  }
+  if(changed)safe(function(){saveGmsgs(gid,arr)});
+  if(view==='tools'&&toolTab==='group')renderToolPane();
+}
+function wrapGroupTurn(fn){
+  return async function(){
+    var g=arguments[0];
+    gTurn=true;gToys=[];
+    var gid=g&&g.id;
+    var before=gid?safe(function(){return gmsgsOf(gid).length},0):0;
+    try{return await fn.apply(null,arguments)}
+    finally{
+      gTurn=false;
+      try{attachGToys(gid,before)}catch(e){}
+    }
+  };
+}
+groupRun=wrapGroupTurn(groupRun);
+groupAutoSpeak=wrapGroupTurn(groupAutoSpeak);
+
+/* ================================================================
+   ④  打字动画：文字一个一个涌现出来
+   ================================================================ */
+var tw=null;
+P5.live=false;
+function htmlToText(h){
+  return String(h)
+    .replace(/<br\s*\/?>/gi,'\n')
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+    .replace(/&quot;/g,'"').replace(/&amp;/g,'&');
+}
+function twTarget(){
+  var box=document.getElementById('msgs');if(!box)return null;
+  var kids=box.children;
+  for(var i=kids.length-1;i>=0;i--){
+    var el=kids[i];
+    if(el.classList&&el.classList.contains('bub')&&!el.classList.contains('me'))return el;
+  }
+  return null;
+}
+function twAppend(st){
+  var el=st.el;
+  for(var i=st.rendered;i<st.shown;i++){
+    var ch=st.src.charAt(i);
+    if(ch==='\n'){el.insertBefore(document.createElement('br'),st.mark);continue}
+    var sp=document.createElement('span');
+    sp.className='tw';sp.textContent=ch;
+    sp.style.animationDelay=Math.min((i-st.rendered)*18,120)+'ms';
+    el.insertBefore(sp,st.mark);
+    st.pend.push({el:sp,ch:ch,t:Date.now()});
+  }
+  st.rendered=st.shown;
+}
+function twPromote(st){
+  var now=Date.now();
+  while(st.pend.length&&now-st.pend[0].t>260){
+    var p=st.pend.shift(),el=p.el,par=el.parentNode;
+    if(!par)continue;
+    var prev=el.previousSibling;
+    if(prev&&prev.nodeType===3){prev.data+=p.ch;par.removeChild(el)}
+    else par.replaceChild(document.createTextNode(p.ch),el);
+  }
+}
+function twFrame(){
+  var st=tw;
+  if(!st||st.dead)return;
+  st.raf=0;
+  if(!st.el.isConnected){st.dead=true;tw=null;return}
+  twPromote(st);
+  var behind=st.src.length-st.shown;
+  if(behind>0){
+    var step=st.flush?(behind>150?16:8):(behind>160?8:behind>50?3:1);
+    st.shown=Math.min(st.src.length,st.shown+step);
+    twAppend(st);
+    try{scrollDown()}catch(e){}
+  }
+  if(st.shown<st.src.length){if(!st.raf)st.raf=requestAnimationFrame(twFrame)}
+  else if(st.flush){
+    st.dead=true;tw=null;
+    if(st.pending){st.pending=false;try{renderChat()}catch(e){}}
+  }
+}
+function twFeed(st,v){
+  if(!st)return;
+  if(st.dead||tw!==st){st.realSet(v);return}
+  var s=String(v);
+  if(/<(?!br\s*\/?>)/i.test(s)){      /* 出错提示之类：原样放进去，动画收工 */
+    st.dead=true;if(tw===st)tw=null;st.realSet(s);return;
+  }
+  st.src=htmlToText(s);
+  if(st.shown>st.src.length)st.shown=st.src.length;
+  if(!st.raf&&st.shown<st.src.length)st.raf=requestAnimationFrame(twFrame);
+}
+function twStart(el){
+  if(!el||!P5.live)return null;
+  if(tw&&tw.el===el&&!tw.dead)return tw;
+  if(tw&&!tw.dead){tw.dead=true;tw=null}
+  var d=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+  if(!d||!d.set)return null;
+  var st={el:el,src:'',shown:0,rendered:0,pend:[],mark:document.createElement('i'),
+          raf:0,flush:false,dead:false,pending:false,
+          realSet:function(v){try{d.set.call(el,v)}catch(e){}}};
+  st.mark.style.display='none';
+  try{
+    Object.defineProperty(el,'innerHTML',{configurable:true,
+      get:function(){return d.get.call(el)},
+      set:function(v){twFeed(st,v)}});
+  }catch(e){return null}
+  el.setAttribute('data-live','1');
+  while(el.firstChild)el.removeChild(el.firstChild);
+  el.appendChild(st.mark);
+  tw=st;
+  return st;
+}
+/* 流式请求：接管当前那个正在生成的泡泡 */
+var P5A_callAPI=callAPI;
+callAPI=async function(messages,opt){
+  opt=opt||{};
+  if(!opt.stream||typeof opt.onDelta!=='function')return P5A_callAPI(messages,opt);
+  var orig=opt.onDelta,inited=false,st=null;
+  var o2={};for(var k in opt)o2[k]=opt[k];
+  o2.onDelta=function(d){
+    try{orig(d)}catch(e){}
+    if(!inited){
+      inited=true;
+      var el=twTarget();
+      if(el){
+        var seeded=el.innerHTML;      /* 第一段是真落进 DOM 的，先取出来 */
+        st=twStart(el);
+        if(st)twFeed(st,seeded);
+      }
+    }
+  };
+  try{return await P5A_callAPI(messages,o2)}
+  finally{
+    try{
+      if(st&&!st.dead){
+        st.flush=true;
+        if(!st.raf)st.raf=requestAnimationFrame(twFrame);
+      }
+    }catch(e){}
+  }
+};
+/* 动画没放完之前，先别让 renderChat 把泡泡重建掉，否则会「啪」地全出现 */
+var P5A_renderChat=renderChat;
+renderChat=function(){
+  if(tw&&!tw.dead&&tw.el.isConnected&&view==='chat'){tw.pending=true;return}
+  P5A_renderChat();
+  try{
+    var box=document.getElementById('msgs');if(!box)return;
+    var bubs=dqa('.bub',box);
+    if(bubs.length!==msgs.length)return;
+    dqa('.srcline',box).forEach(function(el,idx){
+      if(el.onclick)return;                       /* 联网来源那条不动 */
+      if(el.textContent.indexOf('🌐')>=0)return;
+      el.className='toychip';
+      el.setAttribute('data-toy','1');
+      if(el.textContent.indexOf('好感度')>=0){
+        el.classList.add('tap');
+        el.onclick=function(){P5.favUndoLast(curId)};
+      }
+    });
+  }catch(e){}
+};
+var P5A_askAndAppend=askAndAppend;
+askAndAppend=async function(){
+  P5.live=true;
+  if(tw&&!tw.dead){tw.dead=true;tw=null}
+  try{return await P5A_askAndAppend()}
+  finally{P5.live=false}
+};
+
+/* ================================================================
+   把「好感度卡片」插到「应用 → 互动」页最上面
+   ================================================================ */
+var P5A_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  if(toolTab==='act'&&P5.actHTML){
+    var p0=document.getElementById('toolPane');
+    if(p0){p0.innerHTML=P5.actHTML();return}
+  }
+  P5A_renderToolPane();
+  try{
+    var pane=document.getElementById('toolPane');if(!pane)return;
+    if(toolTab==='toy'&&!document.getElementById('p5favcard')){
+      var c=document.createElement('div');
+      c.className='card';c.id='p5favcard';
+      c.innerHTML=favCardHTML();
+      pane.insertBefore(c,pane.firstChild);
+    }
+    if(toolTab==='group')decorateGroupToys();
+  }catch(e){}
+};
+
+console.log('[深蓝海域] 补丁5-A 已加载');
+})();
+</script>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁5-B（第 2/3 批）
+   · ⑤ 角色可以调用「画一张图」：你会在聊天里看到「正在画…」→ 图直接发出来
+        （设置里可以配画图接口；应用 → 互动 里多了「画册」）
+   · ⑥ 一键导出 / 导入单个角色：人设 + 记忆 + 聊天记录打包成文件
+        （玩分支路线：导出一份、导入回来就是新的分支）
+   粘法：整段粘在补丁5-A 的后面。
+   ================================================================ */
+(function(){
+var W=window,P5=(W.P5=W.P5||{});
+if(P5.B)return;P5.B=1;
+P5.arts=P5.arts||[];
+
+/* ============ 小工具 ============ */
+function dq(s,r){return (r||document).querySelector(s)}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function safeL(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+function p5Char(cid){
+  var c=safeL(function(){return charOf(cid)},null);
+  if(!c)c=safeL(function(){return chars.filter(function(x){return x.id===cid})[0]},null);
+  return c||null;
+}
+function p5CharName(cid){var c=p5Char(cid);return c?c.name:'角色'}
+function dl(name,text,type){
+  var blob=new Blob([text],{type:type||'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){try{URL.revokeObjectURL(a.href)}catch(e){};a.remove()},1500);
+}
+
+/* ============ 样式 ============ */
+var CSS=[
+'.toychip.wait{color:var(--dim);border-color:var(--line)}',
+'.p5artprev{display:block;max-width:78%;border-radius:14px;margin:6px 0 0;border:1px solid var(--line);box-shadow:var(--shadow);animation:funpop .45s cubic-bezier(.2,1.4,.4,1);cursor:pointer}',
+'.fvenote{font-size:11.5px;color:var(--dim);margin-top:2px}'
+].join('\n');
+var st=document.createElement('style');st.id='p5cssB';st.textContent=CSS;
+(document.head||document.documentElement).appendChild(st);
+
+/* ================================================================
+   ⑤  画图
+   ================================================================ */
+function imCfg(){
+  if(!cfg.img||typeof cfg.img!=='object')cfg.img={};
+  var d=cfg.img;
+  if(d.on==null)d.on=true;
+  if(!d.mode)d.mode='images';
+  if(d.base==null)d.base='';
+  if(d.key==null)d.key='';
+  if(!d.model)d.model='';
+  if(!d.size)d.size='1024x1024';
+  if(d.local==null)d.local=true;
+  return d;
+}
+function imgOn(){return imCfg().on!==false}
+function artKey(id){return 'wh_p5_art_'+id}
+function artsOf(id){return safeL(function(){return load(artKey(id),[])},[])}
+
+/* 把图片压小并转成本地数据（压不住就保留原链接） */
+function p5ShrinkSrc(src,max,q){
+  return new Promise(function(res){
+    var img=new Image();
+    if(/^https?:/i.test(src))img.crossOrigin='anonymous';
+    img.onload=function(){
+      try{
+        var w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+        if(!w||!h)return res(src);
+        var s=Math.min(1,(max||1024)/Math.max(w,h));
+        w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));
+        var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        var cx=cv.getContext('2d');
+        cx.fillStyle='#fff';cx.fillRect(0,0,w,h);
+        cx.drawImage(img,0,0,w,h);
+        var out=cv.toDataURL('image/jpeg',q||.82);
+        if(out.length>420000)out=cv.toDataURL('image/jpeg',.5);
+        res(out);
+      }catch(e){res(src)}
+    };
+    img.onerror=function(){res(src)};
+    img.src=src;
+  });
+}
+async function toLocal(url){
+  var im=imCfg();
+  if(im.local===false)return url;
+  if(/^data:/i.test(url))return await p5ShrinkSrc(url,1024,.82);
+  try{
+    var res=await fetch(url);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var blob=await res.blob();
+    var durl=await new Promise(function(rj,rk){
+      var rd=new FileReader();
+      rd.onload=function(){rj(String(rd.result))};
+      rd.onerror=function(){rk(new Error('读图失败'))};
+      rd.readAsDataURL(blob);
+    });
+    return await p5ShrinkSrc(durl,1024,.82);
+  }catch(e){return url}
+}
+async function callImage(prompt,c){
+  var im=imCfg();
+  var base=String(im.base||cfg.base||'').replace(/\/+$/,'');
+  var key=String(im.key||cfg.key||'');
+  if(!base)throw new Error('还没填画图接口地址');
+  if(!key)throw new Error('还没填画图的 API Key');
+  if(String(im.mode||'images')==='chat'){
+    var r=await callAPI([
+      {role:'system',content:'你是画图助手。严格按用户的画面描述生成一张图片，只输出一行 markdown 图片：![](图片地址)，不要任何其它文字。'},
+      {role:'user',content:prompt}
+    ],{stream:false,model:im.model||cfg.model,temp:.8,maxtok:800});
+    var s=String(r||'');
+    var m=s.match(/!\[[^\]]*\]\((https?:[^)\s]+)\)/)||s.match(/\((https?:[^)\s]+)\)/)||s.match(/(https?:\/\/[^\s)"'<>]+)/);
+    if(!m)throw new Error('这个模型没返回图片地址：'+s.slice(0,80));
+    return await toLocal(m[1]);
+  }
+  var body={model:im.model||'gpt-image-1',prompt:String(prompt),n:1};
+  if(im.size&&im.size!=='auto')body.size=im.size;
+  var res=await fetch(base+'/images/generations',{method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify(body)});
+  if(!res.ok){
+    var t='';try{t=await res.text()}catch(e){}
+    throw new Error('HTTP '+res.status+' '+String(t).replace(/\s+/g,' ').slice(0,180));
+  }
+  var j=await res.json();
+  var d=(j&&j.data&&j.data[0])||{};
+  if(d.b64_json)return await p5ShrinkSrc('data:image/png;base64,'+d.b64_json,1024,.82);
+  if(d.url)return await toLocal(d.url);
+  if(j.image||j.url)return await toLocal(j.image||j.url);
+  throw new Error('接口没返回图片');
+}
+
+/* 画图工具：角色自己调用 */
+var DRAW_TOOL={type:'function',function:{name:'draw_image',
+  description:'画一张图并发给她看。当你想让她「看到」某个画面，或她让你画点什么的时候用。画图要几秒到几十秒，画好会自动发给她，不需要你自己描述图片内容。',
+  parameters:{type:'object',properties:{
+    prompt:{type:'string',description:'画面描述：谁、在做什么、在哪里、什么氛围光线、什么画风，越具体越好（写中文就行）'},
+    caption:{type:'string',description:'随图说的一句话（可选）'}
+  },required:['prompt']}}};
+
+/* 聊天里插一行（和补丁5-A 的小条同一个位置） */
+function chatLineB(html,cls){
+  var box=document.getElementById('msgs');if(!box)return null;
+  var el=document.createElement('div');
+  el.className=cls||'toychip';el.innerHTML=html;
+  var tp=box.querySelector('.bub[data-live="1"]')||box.querySelector('.bub.typing');
+  if(tp&&tp.parentNode===box)box.insertBefore(el,tp);else box.appendChild(el);
+  try{scrollDown()}catch(e){}
+  return el;
+}
+/* 真正画图（异步，所以 toolLoop 里会 await 它） */
+P5.drawStep=async function(args,cid){
+  var c=p5Char(cid)||safeL(function(){return curChar()},null);
+  var nm=c?c.name:'角色';
+  var prompt=String((args&&args.prompt)||'').trim();
+  var cap=String((args&&args.caption)||'').trim().slice(0,200);
+  var chip=null;
+  if(view==='chat')
+    chip=chatLineB('<b>'+esc(nm)+'</b><span>🎨 正在画「'+esc(prompt.slice(0,36)||'…')+'」…</span>','toychip wait');
+  if(!prompt){
+    if(chip)chip.innerHTML='<b>'+esc(nm)+'</b><span>🎨 想画点什么，但没写清楚</span>';
+    return {ok:false,msg:'没有画面描述，画不了。请再调用一次并写清 prompt。'};
+  }
+  try{
+    var url=await callImage(prompt,c);
+    var item={t:Date.now(),prompt:prompt,caption:cap,img:url};
+    P5.arts.push(item);
+    if(c)addArt(c.id,item);
+    if(chip){
+      chip.className='toychip';
+      chip.innerHTML='<b>'+esc(nm)+'</b><span>🖼 画好啦'+(cap?('：'+esc(cap)):'')+'</span>';
+      var par=chip.parentNode;
+      if(par){
+        var im=document.createElement('img');
+        im.className='p5artprev';im.src=url;im.alt='角色画的图';
+        im.onclick=function(){viewImg(url)};
+        if(chip.nextSibling)par.insertBefore(im,chip.nextSibling);else par.appendChild(im);
+      }
+    }
+    try{scrollDown()}catch(e){}
+    return {ok:true,msg:'🖼 图已经画好并发给她了'+(cap?('，随图附言：'+cap):'')+'。不要再自己复述图片内容，接着自然聊天就行。'};
+  }catch(e){
+    var em=String((e&&e.message)||e).slice(0,120);
+    if(chip){
+      chip.className='toychip';
+      chip.innerHTML='<b>'+esc(nm)+'</b><span>🎨 画图失败：'+esc(em.slice(0,60))+'</span>';
+    }
+    return {ok:false,msg:'画图失败：'+em+'（可以告诉她画不出来，或者直接继续聊天）'};
+  }
+};
+function addArt(id,item){
+  var arr=artsOf(id);
+  arr.push(item);
+  while(arr.length>12)arr.shift();
+  try{save(artKey(id),arr);scheduleBackup()}catch(e){}
+}
+
+/* 把画图工具挂进「角色可调用的工具」里 */
+var P5B_toolsFor=toolsFor;
+toolsFor=function(c){
+  var t=P5B_toolsFor(c)||[];
+  if(imgOn()&&c&&!(c.imgPerm&&c.imgPerm.on===false))t.push(DRAW_TOOL);
+  return t;
+};
+var P5B_execCharTool=execCharTool;
+execCharTool=function(name,args,cid){
+  if(name==='draw_image')return P5.drawStep(args,cid);
+  return P5B_execCharTool(name,args,cid);
+};
+
+/* 【修好一个隐藏 bug】原来的 toolLoop 不等工具执行完，
+   所以「异步工具」（画图这种）的结果传不回给模型。这里换成会 await 的版本。 */
+toolLoop=async function(c,ctx,opt){
+  opt=opt||{};
+  var tools=opt.tools||toolsFor(c);
+  var msgs2=ctx.slice();
+  if(!tools.length)return {finalText:'',reasoning:'',usage:null,messages:msgs2,didTool:false};
+  var reasoning='',usage=null,rounds=0,didTool=false;
+  while(rounds<6){
+    rounds++;
+    var resp=await callAPI(msgs2,{stream:false,model:modelOf(c),tools:tools,tool_choice:'auto',
+      signal:opt.signal,temp:opt.temp,maxtok:opt.maxtok,
+      onReasoning:function(r){reasoning+=r},onUsage:function(u){usage=u}});
+    if(!resp)return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+    if(!resp.tool_calls||!resp.tool_calls.length)
+      return {finalText:resp.content||'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+    didTool=true;
+    msgs2.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
+    for(var i=0;i<resp.tool_calls.length;i++){
+      var tc=resp.tool_calls[i];
+      var args={};
+      try{args=JSON.parse(tc.function.arguments||'{}')}catch(e){args={}}
+      var r;
+      try{r=await Promise.resolve(execCharTool(tc.function.name,args,c.id))}
+      catch(e){r={ok:false,msg:'工具执行出错：'+((e&&e.message)||e)}}
+      if(r==null)r={ok:false,msg:'没有返回'};
+      msgs2.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
+    }
+    if(view==='tools'&&toolTab==='todo')safeL(function(){renderTodo()});
+  }
+  return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:true};
+};
+
+/* 画好的图挂到它那条回复上（不用 msgimg 走 API，避免每次发消息都把大图塞给模型） */
+var P5B_askAndAppend=askAndAppend;
+askAndAppend=async function(){
+  P5.arts=[];
+  var before=msgs.length;
+  try{return await P5B_askAndAppend()}
+  finally{
+    try{
+      if(P5.arts.length&&msgs.length>before){
+        var m=msgs[msgs.length-1];
+        if(m&&m.role==='assistant'&&!m.art){
+          var a=P5.arts[P5.arts.length-1];
+          m.art={img:a.img,prompt:a.prompt,caption:a.caption};
+          try{persist()}catch(e){}
+          try{renderChat()}catch(e){}
+        }
+      }
+    }catch(e){}
+    P5.arts=[];
+  }
+};
+/* 让模型知道「那条消息我附了一张自己画的图」 */
+var P5B_buildCtx=buildCtx;
+buildCtx=function(c,extra){
+  var res=P5B_buildCtx(c,extra);
+  try{
+    var hist=historySlice();
+    for(var i=0;i<hist.length&&(i+1)<res.length;i++){
+      var m=hist[i];
+      if(m&&m.art&&m.role==='assistant'&&typeof res[i+1].content==='string')
+        res[i+1].content+='\n（这条你附了一张自己画的图）';
+    }
+  }catch(e){}
+  return res;
+};
+/* 渲染：把图放进它那条气泡里 */
+var P5B_renderChat=renderChat;
+renderChat=function(){
+  P5B_renderChat();
+  try{
+    var box=document.getElementById('msgs');if(!box)return;
+    var bubs=dqa('.bub',box);
+    if(bubs.length!==msgs.length)return;
+    msgs.forEach(function(x,i){
+      if(!x.art||!x.art.img)return;
+      var b=bubs[i];if(!b)return;
+      if(b.querySelector('.p5artimg'))return;
+      var im=document.createElement('img');
+      im.className='msgimg p5artimg';im.src=x.art.img;im.alt='角色画的图';
+      im.onclick=function(){viewImg(x.art.img)};
+      b.insertBefore(im,b.firstChild);
+      if(x.art.caption){
+        var cp=document.createElement('div');
+        cp.style.cssText='font-size:11.5px;color:var(--dim);margin:0 0 5px';
+        cp.textContent='🖼 '+x.art.caption;
+        b.insertBefore(cp,im.nextSibling);
+      }
+    });
+  }catch(e){}
+};
+
+/* ---------- 设置页：画图接口 ---------- */
+function imgCardHTML(){
+  var im=imCfg();
+  var opt=function(v,t){return '<option value="'+v+'"'+(im.mode===v?' selected':'')+'>'+t+'</option>'};
+  return '<div class="ttl">画图（角色自己画画）</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">打开后，角色会自己调用「画一张图」，聊天里先显示「🎨 正在画…」，画好直接把图发出来。<br>默认走和聊天同一个接口的 <b>/images/generations</b>（OpenAI 的 gpt-image-1 / dall-e-3 这类选它）；如果你的服务是「聊天接口返回图片链接」，就选「聊天模式」。</p>'+
+  '<div class="row" style="align-items:center"><div class="col"><b>总开关</b></div><input type="checkbox" id="im_on" '+(im.on!==false?'checked':'')+'></div>'+
+  '<label class="f">调用方式</label><select id="im_mode">'+
+  opt('images','标准画图接口（/images/generations）')+opt('chat','聊天模式（从回复里取图片链接）')+'</select>'+
+  '<label class="f">接口地址（留空＝和聊天接口一样）</label><input id="im_base" value="'+esc(im.base||'')+'" placeholder="'+esc(cfg.base||'https://api.openai.com/v1')+'">'+
+  '<label class="f">API Key（留空＝和聊天 Key 一样）</label><input id="im_key" type="password" value="'+esc(im.key||'')+'" placeholder="留空就用聊天那个 Key">'+
+  '<label class="f">模型名</label><input id="im_model" value="'+esc(im.model||'')+'" placeholder="gpt-image-1 / dall-e-3 / flux …">'+
+  '<div class="setrow" style="margin-top:8px"><span class="lbl">尺寸</span><input id="im_size" value="'+esc(im.size||'1024x1024')+'"><span class="unit">如 1024x1024</span></div>'+
+  '<div class="row" style="align-items:center;margin-top:10px">'+
+  '<div class="col"><b style="font-size:13px">把图存成本地数据</b><div class="dim" style="font-size:11.5px">开＝图存在应用里，原链接以后失效也能看（比较占空间）；关＝只存链接</div></div>'+
+  '<input type="checkbox" id="im_local" '+(im.local!==false?'checked':'')+'></div>'+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="P5.saveImgCfg()">保存画图设置</button>'+
+  '<button class="col" onclick="P5.testImg()">试画一张</button></div>'+
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">还要去「角色 → 编辑」把这个角色的「画图」打开它才会用。</p>';
+}
+P5.saveImgCfg=function(){
+  var im=imCfg();
+  var v=function(i){var el=document.getElementById(i);return el?el.value.trim():''};
+  var ck=function(i,d){var el=document.getElementById(i);return el?!!el.checked:d};
+  im.on=ck('im_on',true);
+  im.mode=v('im_mode')||'images';
+  im.base=v('im_base');
+  im.key=v('im_key');
+  im.model=v('im_model');
+  im.size=v('im_size')||'1024x1024';
+  im.local=ck('im_local',true);
+  save(LS.cfg,cfg);
+  say('画图设置已保存');
+};
+P5.testImg=async function(){
+  P5.saveImgCfg();
+  say('正在试画，稍等…');
+  try{
+    var u=await callImage('深海里的一只鲸鱼，蓝色调，安静，插画风',safeL(function(){return curChar()},null));
+    viewImg(u);
+  }catch(e){
+    alert('画图失败：'+((e&&e.message)||e));
+  }
+};
+var P5B_renderCfg=renderCfg;
+renderCfg=function(){
+  P5B_renderCfg();
+  try{
+    var m=document.getElementById('main');if(!m)return;
+    if(document.getElementById('imgCard'))return;
+    var card=document.createElement('div');
+    card.className='card';card.id='imgCard';card.innerHTML=imgCardHTML();
+    var web=document.getElementById('webCard');
+    var anchor=web||m.querySelector('.card');
+    if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(card,anchor.nextSibling);
+    else m.appendChild(card);
+  }catch(e){}
+};
+
+/* ---------- 「应用 → 互动」里的画册 ---------- */
+function artCardHTML(){
+  var items=[];
+  chars.forEach(function(c){
+    artsOf(c.id).forEach(function(a,i){
+      items.push({cid:c.id,name:c.name,emoji:c.emoji,i:i,a:a});
+    });
+  });
+  items.sort(function(x,y){return (y.a.t||0)-(x.a.t||0)});
+  if(!items.length)return '';
+  return '<div class="ttl">画册（'+items.length+'）</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">角色自己画的图都收在这里。每个角色只保留最近 12 张。</p>'+
+  items.slice(0,24).map(function(it){
+    return '<div class="arcitem"><div class="arcname"><b>'+esc((it.emoji||'')+' '+it.name)+'</b> '+
+    '<span class="dim">'+esc(safeL(function(){return stampOf(it.a.t)},''))+'</span></div>'+
+    '<img src="'+it.a.img+'" alt="画" style="max-width:100%;border-radius:12px;margin:6px 0;cursor:pointer;display:block" onclick="P5.viewArt(\''+it.cid+'\','+it.i+')">'+
+    '<div class="arcmeta">'+esc(String(it.a.prompt||'').slice(0,140))+(it.a.caption?('<br>附言：'+esc(it.a.caption)):'')+'</div>'+
+    '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P5.artDl(\''+it.cid+'\','+it.i+')">下载</button>'+
+    '<button class="ghost iconbtn" style="color:var(--warn)" onclick="P5.artDel(\''+it.cid+'\','+it.i+')">删掉</button></div></div>';
+  }).join('');
+}
+P5.viewArt=function(cid,i){var a=artsOf(cid)[i];if(a)viewImg(a.img)};
+P5.artDel=function(cid,i){
+  var arr=artsOf(cid);
+  if(!(i>=0&&i<arr.length))return;
+  if(!confirm('删掉这张图？'))return;
+  arr.splice(i,1);
+  try{save(artKey(cid),arr);scheduleBackup()}catch(e){}
+  renderToolPane();
+};
+P5.artDl=function(cid,i){
+  var a=artsOf(cid)[i];if(!a)return;
+  var ext=/^data:image\/png/i.test(a.img)?'png':'jpg';
+  var el=document.createElement('a');
+  el.href=a.img;
+  el.download='画-'+(p5CharName(cid))+'-'+new Date(a.t||Date.now()).toISOString().slice(0,10)+'.'+ext;
+  document.body.appendChild(el);el.click();setTimeout(function(){el.remove()},1200);
+};
+
+/* ================================================================
+   ⑥  单个角色：导出 / 导入
+   ================================================================ */
+P5.shareChar=async function(id){
+  var c=chars.filter(function(x){return x.id===id})[0];
+  if(!c)return;
+  var ck=function(i,d){var el=document.getElementById(i);return el?!!el.checked:d};
+  var withMsgs=ck('ex_msgs',true),withRaw=ck('ex_raw',false),enc=ck('ex_enc',false);
+  var d={app:'blue-sea-char',v:1,at:Date.now(),
+    char:JSON.parse(JSON.stringify(c)),
+    mem:safeL(function(){return load(LS.mem(id),null)},null),
+    msgs:withMsgs?safeL(function(){return load(LS.msg(id),[])},[]):[],
+    todos:safeL(function(){return todosOf(id)},[]),
+    gmem:safeL(function(){return gmemOf(id)},[]),
+    raw:''};
+  if(withRaw){try{d.raw=await rawGet(id)}catch(e){}}
+  var str;
+  if(enc&&cryptKey){
+    try{str=await encVal(cryptKey,JSON.stringify(d))}
+    catch(e){return alert('加密失败：'+((e&&e.message)||e))}
+  }else str=JSON.stringify(d);
+  var nm=String(c.name||'角色').replace(/[\\/:*?"<>|]/g,'_');
+  dl('角色-'+nm+'-'+new Date().toISOString().slice(0,10)+'.json',str,'application/json');
+  say('已导出：'+nm+'（'+(d.msgs.length)+' 条聊天记录'+(d.raw?'、含原文日志':'')+'）');
+};
+P5.pickCharFile=function(){
+  var el=document.getElementById('p5cfile');
+  if(el){el.value='';el.click()}
+};
+P5.impCharFile=async function(input){
+  var f=input&&input.files&&input.files[0];
+  if(input)input.value='';
+  if(!f)return;
+  var text='';
+  try{
+    text=await new Promise(function(res,rej){
+      var rd=new FileReader();
+      rd.onload=function(){res(String(rd.result))};
+      rd.onerror=function(){rej(new Error('读文件失败'))};
+      rd.readAsText(f);
+    });
+  }catch(e){return alert(e.message)}
+  var d=null;
+  if(text.indexOf('enc:')===0){
+    if(!cryptKey)return alert('这个角色文件是加密的。请先解锁应用（输入密码）再导入。');
+    try{d=JSON.parse(await decVal(cryptKey,text))}
+    catch(e){return alert('解密失败：密码不对，或文件损坏')}
+  }else{
+    try{d=JSON.parse(text)}
+    catch(e){return alert('这不是有效的角色文件（要用这里导出的 .json）')}
+  }
+  if(!d||!d.char)return alert('文件里没有角色数据');
+  var c=d.char;
+  var nm=c.name||'角色';
+  var msgLine=(d.msgs&&d.msgs.length)?('聊天记录：'+d.msgs.length+' 条'):'（不含聊天记录）';
+  if(!confirm('把「'+nm+'」导入进来？\n\n'+msgLine+'\n\n会作为一个新角色加入，不动你现在任何数据。'+
+    (d.msgs&&d.msgs.length&&d.msgs.length>200?'\n（记录比较长，可能有点慢）':'')))return;
+  var nid=uid();
+  c.id=nid;c.priv=false;
+  if(c.auto)c.auto.on=false;
+  if(typeof c.avatar!=='string')c.avatar='';
+  if(!c.todoPerm)c.todoPerm={on:false};
+  if(!c.groupPerm)c.groupPerm={on:false};
+  if(!c.search)c.search={on:false};
+  if(!c.toyPerm)c.toyPerm={on:true};
+  if(!c.imgPerm)c.imgPerm={on:true};
+  chars.push(c);
+  try{save(LS.chars,chars)}catch(e){return alert('写入失败，本地存储可能满了')}
+  try{if(d.mem)save(LS.mem(nid),d.mem)}catch(e){}
+  try{if(d.msgs&&d.msgs.length)save(LS.msg(nid),d.msgs)}catch(e){}
+  try{if(d.todos&&d.todos.length)save(LS.todo(nid),d.todos)}catch(e){}
+  try{if(d.gmem&&d.gmem.length)save(LS.gmem(nid),d.gmem)}catch(e){}
+  try{if(d.raw)await idbPut(nid,d.raw,'rawlog')}catch(e){}
+  scheduleBackup();
+  try{closeSheet()}catch(e){}
+  go('roles');
+  say('导入完成：'+nm);
+};
+
+/* ---------- 角色设置里加「画图」开关 + 分享导出 ---------- */
+var P5B_editChar=editChar;
+editChar=function(id,tema){
+  P5B_editChar(id,tema);
+  var sheet=document.getElementById('sheet');
+  if(!sheet||!document.getElementById('e_persona'))return;
+  if(document.getElementById('e_imgperm'))return;
+  var c=chars.filter(function(x){return x.id===id})[0];if(!c)return;
+  var card=document.createElement('div');
+  card.className='card';card.style.marginTop='12px';
+  card.innerHTML=
+  '<div class="row" style="align-items:center">'+
+  '<div class="col"><b>画图</b><div class="dim" style="font-size:12px">允许它自己画图发给你（总开关 / 接口在「设置 → 画图」里配）</div></div>'+
+  '<input type="checkbox" id="e_imgperm" '+((c.imgPerm&&c.imgPerm.on===false)?'':'checked')+'></div>'+
+  '<div class="ttl" style="margin-top:16px">分享 / 导出这个角色</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">把它单独打包成一个文件：人设 + 记忆 + 聊天记录。想玩分支路线，就把它导入回来（会作为新角色，不影响原来的）；也能发给别人玩。</p>'+
+  '<label class="li" style="border:0;padding:4px 0"><input type="checkbox" id="ex_msgs" checked style="flex:0 0 auto;margin-top:3px"><span>包含聊天记录</span></label>'+
+  '<label class="li" style="border:0;padding:4px 0"><input type="checkbox" id="ex_raw" style="flex:0 0 auto;margin-top:3px"><span>包含原文日志（文件会大一些）</span></label>'+
+  (cryptKey?'<label class="li" style="border:0;padding:4px 0"><input type="checkbox" id="ex_enc" style="flex:0 0 auto;margin-top:3px"><span>加密（导入前要先解锁这个应用）</span></label>':'')+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="P5.shareChar(\''+id+'\')">导出这个角色</button>'+
+  '<button class="col" onclick="P5.pickCharFile()">导入角色文件</button></div>'+
+  '<input type="file" id="p5cfile" accept=".json,application/json" style="display:none" onchange="P5.impCharFile(this)">';
+  var rows=sheet.querySelectorAll('.row'),anchor=null;
+  for(var i=0;i<rows.length;i++){
+    if((rows[i].innerHTML||'').indexOf('saveChar(')>=0){anchor=rows[i];break}
+  }
+  if(anchor)anchor.parentNode.insertBefore(card,anchor);else sheet.appendChild(card);
+};
+var P5B_applyCharInputs=applyCharInputs;
+applyCharInputs=function(id){
+  var c=P5B_applyCharInputs(id);if(!c)return c;
+  var el=document.getElementById('e_imgperm');
+  if(el)c.imgPerm={on:!!el.checked};
+  return c;
+};
+
+/* ---------- 互动页：把画册接进去（接在补丁5-A 那张好感度卡后面） ---------- */
+var P5B_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  if(toolTab==='act'&&P5.actHTML){
+    var p0=document.getElementById('toolPane');
+    if(p0){p0.innerHTML=P5.actHTML();return}
+  }
+  P5B_renderToolPane();
+  try{
+    var pane=document.getElementById('toolPane');if(!pane)return;
+    if(toolTab==='toy'&&!document.getElementById('p5artcard')){
+      var h=artCardHTML();
+      if(h){
+        var c=document.createElement('div');
+        c.className='card';c.id='p5artcard';c.innerHTML=h;
+        pane.appendChild(c);
+      }
+    }
+  }catch(e){}
+};
+
+console.log('[深蓝海域] 补丁5-B 已加载');
+})();
+</script>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁5-C（第 3/3 批）
+   ⑦ 「演绎」：把角色放进别的世界观 / 玩法里扮演
+      · 自己写设定 + 玩法规则（带 5 个模板一键填）
+      · 选参与角色，可给每个角色写「它在这个设定里的身份」
+      · 选初始记忆：和原世界线相同 / 更换记忆设定
+      · 默认带一个中立的「旁白」主持人（铺设定、讲规则、念旁白、
+        给选项、掷骰判定、按你的选择继续编剧情），也可以删掉
+      · 独立一条线，不污染角色原来的聊天和记忆；可导出整局文本
+   粘法：整段粘在补丁5-B 的后面。
+   ================================================================ */
+(function(){
+var W=window,P5=(W.P5=W.P5||{});
+if(P5.C)return;P5.C=1;
+
+var KAct='wh_acts';
+function KActMsg(id){return 'wh_actmsg_'+id}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function safeL(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+function p5Char(cid){
+  var c=safeL(function(){return charOf(cid)},null);
+  if(!c)c=safeL(function(){return chars.filter(function(x){return x.id===cid})[0]},null);
+  return c||null;
+}
+function p5CharName(cid){var c=p5Char(cid);return c?c.name:'角色'}
+
+var actOpenId=null,actBusy=false;
+function actsAll(){return safeL(function(){return load(KAct,[])},[])}
+function saveActs(a){try{save(KAct,a);scheduleBackup()}catch(e){}}
+function findAct(id){return actsAll().filter(function(a){return a.id===id})[0]||null}
+function actMsgs(id){return safeL(function(){return load(KActMsg(id),[])},[])}
+function saveActMsgs(id,a){
+  try{save(KActMsg(id),a);scheduleBackup()}
+  catch(e){say('写入失败，本地存储可能满了')}
+}
+function touchAct(act){
+  act.lastAt=Date.now();
+  act.count=actMsgs(act.id).length;
+  var arr=actsAll();
+  for(var i=0;i<arr.length;i++){if(arr[i].id===act.id){arr[i]=act;break}}
+  saveActs(arr);
+}
+
+/* ============ 样式 ============ */
+var CSS=[
+'.acthead{display:flex;align-items:center;gap:8px;margin-bottom:8px}',
+'.amsgs{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:12px 10px;height:48vh;min-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}',
+'.aempty{color:var(--dim);font-size:12.5px;text-align:center;margin:auto 0;line-height:1.9}',
+'.abub{display:flex;gap:8px;align-items:flex-start;animation:pop .16s ease}',
+'.abub.me{flex-direction:row-reverse}',
+'.aav{flex:0 0 auto;width:34px;height:34px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:17px;overflow:hidden}',
+'.aav img{width:100%;height:100%;object-fit:cover}',
+'.aav.narr{border-color:var(--acc2);color:var(--acc2);background:var(--accdim)}',
+'.acol{flex:1;min-width:0;display:flex;flex-direction:column}',
+'.abub.me .acol{align-items:flex-end}',
+'.awname{font-size:11px;color:var(--dim);margin:0 2px 3px}',
+'.atext{background:var(--panel);border:1px solid var(--line);border-radius:6px 15px 15px 15px;padding:9px 13px;font-size:14px;line-height:1.62;white-space:pre-wrap;word-break:break-word;box-shadow:var(--shadow);max-width:100%}',
+'.abub.me .atext{background:var(--bubme);border-color:transparent;border-radius:15px 6px 15px 15px}',
+'.abub.narr .atext{background:var(--bg2);border-style:dashed;border-left:3px solid var(--acc2);color:var(--dim);font-size:13px}',
+'.actsys{align-self:center;font-size:12px;color:var(--acc);background:var(--accdim);border-radius:999px;padding:5px 14px;max-width:92%;text-align:center}',
+'.aopts{display:flex;flex-direction:column;gap:6px;margin-top:8px;width:100%}',
+'.aopt{text-align:left;background:var(--accdim);border:1px solid var(--acc);color:var(--txt);border-radius:12px;padding:8px 12px;font-size:13px;line-height:1.5;box-shadow:none}',
+'.aopt b{color:var(--acc2);margin-right:4px}',
+'.adel{background:none;border:0;color:var(--dim);font-size:10.5px;padding:2px 4px;margin-top:3px;box-shadow:none;opacity:.5;width:fit-content}',
+'.actbar{display:flex;gap:8px;align-items:flex-end;margin-top:10px}',
+'.actbar textarea{flex:1;min-height:44px;max-height:120px;border-radius:14px;resize:none;background:var(--bg2);overflow-y:auto;scrollbar-width:none}',
+'.actbar .pri{flex:0 0 62px;height:44px;border-radius:14px}',
+'.actthinking{margin-top:8px;font-size:12px;color:var(--dim);animation:tp 1.4s infinite}'
+].join('\n');
+var st=document.createElement('style');st.id='p5cssC';st.textContent=CSS;
+(document.head||document.documentElement).appendChild(st);
+
+/* ============ 把「演绎」放进应用列表 ============ */
+try{
+  if(!APPS.some(function(a){return a.k==='act'})){
+    APPS.push({k:'act',n:'演绎',d:'换个世界线扮演',
+      ic:'<svg viewBox="0 0 24 24"><path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/></svg>'});
+  }
+}catch(e){}
+
+/* ============ 模板 ============ */
+var TPL={
+  cyber:{n:'赛博朋克 · 新港夜雨',
+    s:'2099 年，新港市。常年下酸雨，霓虹灯把积水照成紫色。巨型公司「潮汐」掌控着这座城，义体改造是穷人的赌注。你在一栋旧楼里经营一家地下义体诊所，还欠着「潮汐」一笔钱。',
+    r:'高风险行动（潜入、开锁、糊弄警察、硬碰硬）都要掷 1d6：≥5 成功，3~4 勉强成功但留下麻烦，≤2 出事。钱、义体状态、欠债都要一直记着。'},
+  trpg:{n:'跑团 · 迷雾庄园',
+    s:'1923 年的英国乡间，你们受邀来到「灰鸦庄园」做客。庄园主三天前失踪，夜里没人敢出门。壁炉里的火总是自己烧起来。',
+    r:'用 1d6 判定：≥5 成功，3~4 部分成功，≤2 失败且局面恶化。调查要具体（去哪、问谁、看什么）。角色受伤或失去理智累积「损伤」，累计 3 次退场。'},
+  court:{n:'宫廷 · 冷宫的第七夜',
+    s:'架空王朝「昭」，你刚被贬入冷宫。宫里分三派：太后、皇后、新得宠的淑妃。下人们在赌你还能不能翻身。',
+    r:'每次行动都要考虑「有没有人看见」。胜负看三样：人证、物证、圣意。旁白可以随时扮演宫女、太监、太医等 NPC。'},
+  escape:{n:'逃生 · 深海实验室',
+    s:'你在一个建在海底 8000 米的实验站醒来，不记得自己怎么进来的。氧气还剩 6 小时，走廊深处偶尔传来金属摩擦的声音。',
+    r:'氧气每回合减 1 小时，共 6 回合。冒险行动掷 1d6：≥5 顺利，3~4 有代价（受伤 / 丢物资），≤2 触发事故。'},
+  school:{n:'校园 · 高三的最后一个春天',
+    s:'你们在同一所高中的高三（7）班，离高考还有 120 天。教室后墙的倒计时牌每天早上都被重新写一遍。',
+    r:'日常向，不强制判定；冲突、表白、比赛等关键时刻可以掷 1d6 看运气。每天只有早读、午休、晚自习三个时段。'}
+};
+
+/* ============ 列表 ============ */
+function actListHTML(acts){
+  var h='<div class="card"><div class="ttl">演绎（换个世界线扮演）</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">把角色放进别的世界观 / 玩法 / 模拟器里演：自己写设定、选参与的角色、选它在设定里的初始记忆。默认带一个中立的<b>旁白</b>（铺设定、讲规则、念旁白、给选项、按你的选择往下编），不需要就删掉。<br>演绎是独立的一条线，不会改动角色原来的聊天和记忆。</p>'+
+  '<button class="pri" style="width:100%" onclick="P5.actNewSheet()">＋ 新建一场演绎</button></div>';
+  if(!acts.length)return h+'<p class="hint">还没有演绎<br>点上面新建一场</p>';
+  return h+acts.slice().sort(function(a,b){return (b.lastAt||b.t||0)-(a.lastAt||a.t||0)}).map(function(a){
+    var n=safeL(function(){return actMsgs(a.id).length},0);
+    var mem=(a.members||[]).map(function(mm){var c=p5Char(mm.cid);return c?((c.emoji||'')+c.name):''}).filter(Boolean).join('、');
+    return '<div class="card" style="cursor:pointer" onclick="P5.actOpen(\''+a.id+'\')">'+
+    '<div class="ttl" style="margin-bottom:4px">'+esc(a.name)+'</div>'+
+    '<div class="dim" style="font-size:12px">'+esc(String(a.setting||'（还没写设定）').replace(/\s+/g,' ').slice(0,70))+'</div>'+
+    '<div class="arcmeta">参与：'+esc(mem||'（还没选角色）')+' · '+n+' 条记录 · '+esc(safeL(function(){return stampOf(a.lastAt||a.t)},''))+'</div>'+
+    '<div class="row arcfoot">'+
+    '<button class="ghost iconbtn" onclick="event.stopPropagation();P5.actOpen(\''+a.id+'\')">进入</button>'+
+    '<button class="ghost iconbtn" onclick="event.stopPropagation();P5.actSetSheet(\''+a.id+'\')">⚙ 设置</button>'+
+    '<button class="ghost iconbtn" onclick="event.stopPropagation();P5.actTxt(\''+a.id+'\')">导出文本</button>'+
+    '<button class="ghost iconbtn" style="color:var(--warn)" onclick="event.stopPropagation();P5.actDel(\''+a.id+'\')">删除</button>'+
+    '</div></div>';
+  }).join('');
+}
+
+/* ============ 演绎页 ============ */
+function actRowHTML(act,m,i){
+  if(m.role==='sys')return '<div class="actsys">'+esc(m.content||'')+'</div>';
+  var who,av,cls;
+  if(m.role==='user'){
+    who=cfg.userName||'她';cls='me';
+    av='<div class="aav">'+esc(cfg.userEmoji||'🙂')+'</div>';
+  }else if(m.role==='narr'){
+    who=(act.narrOn!==false?(act.narrName||'旁白'):'旁白');cls='narr';
+    av='<div class="aav narr">🎭</div>';
+  }else{
+    var c=p5Char(m.cid);who=c?c.name+'':'角色';cls='char';
+    av='<div class="aav">'+safeL(function(){return avaInner(c||{})},'🐋')+'</div>';
+  }
+  var opts=(m.opts&&m.opts.length)?('<div class="aopts">'+m.opts.map(function(o){
+    return '<button class="aopt" onclick="P5.actPick(\''+act.id+'\','+i+',\''+o.k+'\')"><b>'+esc(o.k)+'</b> '+esc(o.t)+'</button>';
+  }).join('')+'</div>'):'';
+  return '<div class="abub '+cls+'">'+av+'<div class="acol">'+
+    '<div class="awname">'+esc(who)+'</div>'+
+    '<div class="atext">'+nl2br(m.content||'')+'</div>'+opts+
+    '<button class="adel" onclick="P5.actDelMsg(\''+act.id+'\','+i+')">✕ 删除这条</button>'+
+    '</div></div>';
+}
+function actPlayHTML(act){
+  var ms=actMsgs(act.id);
+  var rows=ms.map(function(m,i){return actRowHTML(act,m,i)}).join('');
+  if(!rows)rows='<div class="aempty">还没有开始<br>在下面说一句你想怎么开场，或者点「▶ 推进」让旁白开场</div>';
+  var drv='<select id="actDrive" onchange="P5.actDriveSet(\''+act.id+'\',this.value)" style="flex:1 1 110px;width:auto">'+
+    '<option value="narr"'+((!act.drive||act.drive==='narr')?' selected':'')+'>旁白推进</option>'+
+    (act.members||[]).map(function(mm){
+      var c=p5Char(mm.cid);
+      return c?'<option value="'+c.id+'"'+(act.drive===c.id?' selected':'')+'>'+esc('让 '+(c.name||'')+' 行动')+'</option>':'';
+    }).join('')+'</select>';
+  return '<div class="card">'+
+  '<div class="acthead"><button class="ghost iconbtn" onclick="P5.actBack()">‹ 列表</button>'+
+  '<div class="col" style="min-width:0"><b>'+esc(act.name)+'</b>'+
+  '<div class="dim" style="font-size:11px">'+esc((act.members||[]).map(function(mm){var c=p5Char(mm.cid);return c?c.name:''}).filter(Boolean).join('、')||'（还没选角色）')+
+  (act.narrOn!==false?(' · '+(act.narrName||'旁白')):' · 无旁白')+
+  ((act.memMode==='new')?' · 换了记忆':' · 原记忆')+'</div></div>'+
+  '<button class="ghost iconbtn" onclick="P5.actSetSheet(\''+act.id+'\')">⚙</button></div>'+
+  '<div class="amsgs" id="amsgs">'+rows+'</div>'+
+  (actBusy?('<div class="actthinking">🎭 正在写…</div>'):'')+
+  '<div class="actbar"><textarea id="actinp" rows="1" placeholder="你想怎么做？（也可以点上面的选项）"></textarea>'+
+  '<button class="pri" onclick="P5.actSend()" '+(actBusy?'disabled':'')+'>发送</button></div>'+
+  '<div class="row" style="margin-top:8px">'+drv+
+  '<button class="iconbtn" style="flex:0 0 auto" onclick="P5.actKick()" '+(actBusy?'disabled':'')+'>▶ 推进</button>'+
+  (act.diceOn!==false?('<button class="iconbtn" style="flex:0 0 auto" onclick="P5.actDiceSheet(\''+act.id+'\')" '+(actBusy?'disabled':'')+'>🎲 掷骰</button>'):'')+
+  '</div>'+
+  '<p class="dim" style="font-size:11.5px;margin:8px 0 0">演绎不会改动角色原来的聊天和记忆。想让某个角色单独行动，把左边换成它的名字再点「▶ 推进」；「🎲 掷骰」的结果会作为场上事件交给旁白继续写。</p>'+
+  '</div>';
+}
+P5.actHTML=function(){
+  var acts=actsAll();
+  if(!actOpenId)return actListHTML(acts);
+  var act=findAct(actOpenId);
+  if(!act){actOpenId=null;return actListHTML(acts)}
+  return actPlayHTML(act);
+};
+P5.actOpen=function(id){actOpenId=id;renderToolPane()};
+P5.actBack=function(){actOpenId=null;renderToolPane()};
+P5.actDriveSet=function(id,v){
+  var act=findAct(id);if(!act)return;
+  act.drive=v;var arr=actsAll();
+  for(var i=0;i<arr.length;i++){if(arr[i].id===id){arr[i].drive=v;break}}
+  saveActs(arr);
+};
+P5.actDelMsg=function(id,i){
+  var ms=actMsgs(id);
+  if(!(i>=0&&i<ms.length))return;
+  if(!confirm('删掉这条？'))return;
+  ms.splice(i,1);
+  saveActMsgs(id,ms);
+  var act=findAct(id);if(act)touchAct(act);
+  renderToolPane();
+};
+
+/* ============ 系统提示词 ============ */
+function actSys(act){
+  var meName=cfg.userName||'她';
+  var L=[];
+  L.push('你正在主持一场「演绎」：把原本的角色放进另一套世界观 / 玩法设定里，大家一起演下去。你不是在写小说，你是在当主持人（GM）和旁白。');
+  L.push('【演绎名称】'+String(act.name||''));
+  if(act.setting)L.push('【世界观 / 设定】\n'+String(act.setting));
+  if(act.rules)L.push('【玩法规则】\n'+String(act.rules));
+  L.push('【参与者】'+meName+'（用户本人）'+((act.members||[]).length?('、'+(act.members||[]).map(function(mm){var c=p5Char(mm.cid);return c?((c.emoji||'')+c.name):''}).filter(Boolean).join('、')):''));
+  (act.members||[]).forEach(function(mm){
+    var c=p5Char(mm.cid);if(!c)return;
+    var one=['【角色：'+c.name+'】'];
+    one.push('人设：'+(c.persona||'（没写人设）'));
+    if(mm.idn)one.push('它在这个设定里的身份 / 定位：'+mm.idn);
+    if((act.memMode||'same')==='same'){
+      var M=safeL(function(){return Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{})},null);
+      var mb=M?safeL(function(){return memBlock(M)},''):'';
+      one.push('初始记忆（来自原世界线，它记得这些）：\n'+(mb||'（原来那边也没留下什么记忆）'));
+    }else{
+      one.push('初始记忆（在这个设定里，它只有下面这些记忆；不要提原来世界线的人和事）：\n'+(act.memText||'（一片空白，什么都不记得）'));
+    }
+    if(c.style)one.push('说话风格：'+c.style);
+    if(c.examples)one.push('语气示例：\n'+c.examples);
+    L.push(one.join('\n'));
+  });
+  if(act.narrOn!==false){
+    L.push('【你的身份：'+(act.narrName||'旁白')+'】你是中立的工具人主持人，负责：铺设定、介绍规则、维护玩法运转、念旁白（画面、环境、NPC 反应、事件后果）、给'+meName+'和角色提供可选的行动、根据选择继续编剧情走向。你不站队、不偏心、不替任何人做决定，也绝不替'+meName+'说话或决定行动。');
+    L.push('你可以随时扮演场上的 NPC（路人、敌人、老板、系统提示音等），用「NPC名字：」的格式说话。');
+  }else{
+    L.push('【这场演绎没有旁白】直接由角色们自己行动、对话。必要的 NPC 可以由你临时代演，但不要写长篇旁白。');
+  }
+  var speakers=['- '+(act.narrOn!==false?(act.narrName||'旁白'):'（本场没有旁白）')]
+    .concat((act.members||[]).map(function(mm){var c=p5Char(mm.cid);return c?('- '+c.name):''}))
+    .filter(Boolean).join('\n');
+  L.push('【输出格式·必须遵守】每次回复 2~5 段，每段必须以「说话人：」开头（用中文全角冒号）。说话人只能从下面这些里选：\n'+speakers+
+    '\n绝不要写「'+meName+'：」开头的段落，也不要替'+meName+'做决定、写'+meName+'说的话。');
+  if(act.diceOn!==false)
+    L.push('【掷骰判定】遇到成败不确定的事，可以在旁白里写「🎲 需要掷骰：<难度或原因>」，系统会给出骰子结果，你再按结果继续写；不要自己凭空编点数。');
+  L.push('【风格】沉浸、具体、有画面感；每个角色说符合自己人设的话，不要都变成同一个人；不要提「AI / 模型 / 系统提示词」这类东西；不要输出任何格式说明或解释。');
+  return L.join('\n\n');
+}
+
+/* ============ 解析模型输出 ============ */
+function parseActOut(text,act){
+  var names={};
+  names[act.narrOn!==false?(act.narrName||'旁白'):'旁白']={role:'narr'};
+  names['旁白']={role:'narr'};
+  names['Narrator']={role:'narr'};
+  (act.members||[]).forEach(function(mm){
+    var c=p5Char(mm.cid);if(!c)return;
+    names[c.name]={role:'char',cid:mm.cid};
+  });
+  var out=[],cur=null;
+  String(text).split('\n').forEach(function(raw){
+    var line=raw.replace(/\s+$/,'');
+    var m=line.match(/^\s*[【\[（(]?\s*([^：:\n]{1,14}?)\s*[】\]）)]?\s*[：:]\s*(.*)$/);
+    var who=m?m[1].trim():'';
+    var hit=(who&&names[who])?names[who]:null;
+    if(hit){
+      cur={role:hit.role,cid:hit.cid,content:(m[2]||'')};
+      out.push(cur);
+      return;
+    }
+    if(!cur){cur={role:'narr',content:''};out.push(cur)}
+    cur.content+=(cur.content?'\n':'')+line;
+  });
+  return out.map(function(b){
+    b.content=String(b.content||'').trim();
+    return b;
+  }).filter(function(b){return b.content});
+}
+function splitOpts(txt){
+  var opts=[],keep=[];
+  String(txt||'').split('\n').forEach(function(l){
+    var s=l.trim();
+    var m=s.match(/^[（(【\[]?\s*([A-Da-d])\s*[)）.、．:：]\s*(.+)$/);
+    if(m&&m[2].trim().length>1){opts.push({k:m[1].toUpperCase(),t:m[2].trim()});return}
+    keep.push(l);
+  });
+  var last=keep.length-1;
+  if(last>=0&&/^(选项|可选|可选行动|行动选项)\s*[：:]?$/.test(String(keep[last]).trim()))keep.pop();
+  return {text:keep.join('\n').trim(),opts:opts};
+}
+
+/* ============ 生成一轮 ============ */
+async function actTurn(act,drive){
+  if(actBusy)return;
+  if(!cfg.key)return alert('先去设置里填 API Key');
+  if(!(act.members||[]).length&&act.narrOn===false)return alert('这场演绎还没有角色也没有旁白');
+  actBusy=true;
+  renderToolPane();
+  var ok=false;
+  try{
+    var meName=cfg.userName||'她';
+    var ms=actMsgs(act.id);
+    var hist=ms.slice(-40).map(function(m){
+      if(m.role==='sys')return '【场上事件】'+m.content;
+      var who=(m.role==='user')?meName:(m.role==='narr'?((act.narrOn!==false&&act.narrName)?act.narrName:'旁白'):p5CharName(m.cid));
+      return who+'：'+String(m.content||'');
+    }).join('\n');
+    var who2=(drive&&drive!=='narr')?p5CharName(drive):'';
+    var hint='【现在继续演绎】'+(who2
+      ?('这一轮主要写「'+who2+'」的行动和对白，旁白用一两句交代画面与结果。')
+      :('以旁白为主推进：交代新出现的画面、NPC 的反应、局面的变化，然后把剧情往前推。'))+
+      '结尾给出 1~3 个可行选项（每行一个，格式：A. ……）。不要替'+meName+'做决定，也不要写'+meName+'说的话。';
+    var ctx=[{role:'system',content:actSys(act)},
+      {role:'user',content:'【演绎记录】\n'+(hist||'（刚刚开始，还没有任何记录）')+'\n\n'+hint}];
+    var out=await callAPI(ctx,{stream:false,model:cfg.model,
+      temp:Math.max(.7,Number(cfg.temp)||.85),maxtok:1400});
+    var text=String(out||'').trim();
+    if(!text){say('模型没返回内容，检查一下模型或网络');}
+    else{
+      var blocks=parseActOut(text,act);
+      if(!blocks.length)blocks=[{role:'narr',content:text}];
+      var allOpts=[];
+      blocks.forEach(function(b){
+        var r=splitOpts(b.content);
+        b.content=r.text;
+        if(r.opts.length)allOpts=allOpts.concat(r.opts);
+      });
+      allOpts=allOpts.slice(0,6);
+      if(allOpts.length){
+        var host=null;
+        for(var i=blocks.length-1;i>=0;i--){if(blocks[i].role==='narr'){host=blocks[i];break}}
+        if(!host)host=blocks[blocks.length-1];
+        host.opts=allOpts;
+      }
+      blocks=blocks.filter(function(b){return String(b.content||'').trim()||b.opts});
+      var ms2=actMsgs(act.id);
+      blocks.forEach(function(b){
+        ms2.push({role:b.role,cid:b.cid,content:String(b.content||'').trim(),t:Date.now(),opts:b.opts||null});
+      });
+      saveActMsgs(act.id,ms2);
+      ok=true;
+    }
+  }catch(e){
+    say('演绎出错：'+String((e&&e.message)||e).slice(0,90));
+  }finally{
+    actBusy=false;
+    if(ok)touchAct(act);
+    renderToolPane();
+  }
+}
+P5.actKick=function(){
+  var act=findAct(actOpenId);if(!act)return;
+  if(actBusy)return say('还在写，等一下');
+  var el=document.getElementById('actDrive');
+  actTurn(act,(el&&el.value)||act.drive||'narr');
+};
+P5.actSend=async function(){
+  var act=findAct(actOpenId);if(!act)return;
+  var el=document.getElementById('actinp');
+  var t=el?String(el.value||'').trim():'';
+  if(!t)return;
+  if(actBusy)return say('还在写，等一下');
+  el.value='';el.style.height='auto';
+  var ms=actMsgs(act.id);
+  ms.push({role:'user',content:t,t:Date.now()});
+  saveActMsgs(act.id,ms);
+  touchAct(act);
+  var d=document.getElementById('actDrive');
+  await actTurn(act,(d&&d.value)||act.drive||'narr');
+};
+P5.actPick=async function(id,i,k){
+  var act=findAct(id);if(!act)return;
+  if(actBusy)return say('还在写，等一下');
+  var ms=actMsgs(id);
+  var m=ms[i];if(!m||!m.opts)return;
+  var o=null;
+  m.opts.forEach(function(x){if(x.k===k)o=x});
+  if(!o)return;
+  ms.push({role:'user',content:o.t,t:Date.now()});
+  saveActMsgs(id,ms);
+  touchAct(act);
+  var d=document.getElementById('actDrive');
+  await actTurn(act,(d&&d.value)||act.drive||'narr');
+};
+P5.actDiceSheet=function(id){
+  var act=findAct(id);if(!act)return;
+  showSheet('<div class="ttl">🎲 掷骰判定</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">结果会作为「场上事件」记进演绎，'+
+  esc(act.narrOn!==false?(act.narrName||'旁白'):'角色')+'会接着往下写。</p>'+
+  [['6','1d6（最常用）'],['10','1d10'],['20','1d20'],['100','1d100']].map(function(o){
+    return '<button class="pri" style="width:100%;margin-bottom:8px" onclick="P5.actDice(\''+id+'\','+o[0]+')">'+o[1]+'</button>';
+  }).join('')+
+  '<div class="row"><button class="ghost col" onclick="closeSheet()">取消</button></div>');
+};
+P5.actDice=async function(id,faces){
+  var act=findAct(id);if(!act)return;
+  if(actBusy)return say('还在写，等一下');
+  faces=Math.max(2,Math.min(1000,Number(faces)||6));
+  var v=1+Math.floor(Math.random()*faces);
+  var ms=actMsgs(id);
+  ms.push({role:'sys',content:'🎲 掷骰（1d'+faces+'）：'+v,t:Date.now()});
+  saveActMsgs(id,ms);
+  closeSheet();
+  say('掷出 '+v+'（1d'+faces+'）');
+  var d=document.getElementById('actDrive');
+  await actTurn(act,(d&&d.value)||act.drive||'narr');
+};
+
+/* ============ 新建 / 设置 ============ */
+P5.actMemModeUI=function(){
+  var v=document.getElementById('actMemMode');
+  var t=document.getElementById('actMemText');
+  if(t)t.style.display=(v&&v.value==='new')?'':'none';
+};
+P5.actTpl=function(k){
+  var t=TPL[k];if(!t)return;
+  var n=document.getElementById('actName'),s=document.getElementById('actSetting'),r=document.getElementById('actRules');
+  if(s&&s.value.trim()&&!confirm('设定里已经有内容了，用模板覆盖掉？'))return;
+  if(n&&!n.value.trim())n.value=t.n;
+  if(s)s.value=t.s;
+  if(r)r.value=t.r;
+  say('模板已填入，可以随便改');
+};
+P5.actNewSheet=function(){
+  var rows=(chars||[]).map(function(c){
+    return '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" class="actmb" value="'+c.id+'" style="flex:0 0 auto;margin-top:3px">'+
+    '<span style="flex:1 1 auto"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>'+
+    '<input class="actidn" data-cid="'+c.id+'" placeholder="它在这个设定里的身份 / 定位（可留空）" style="margin-top:5px;font-size:12px;padding:6px 10px"></span></label>';
+  }).join('');
+  showSheet('<div class="ttl">新建演绎</div>'+
+  '<label class="f">演绎名称</label><input id="actName" placeholder="比如：赛博朋克 2099 / 宫廷夜宴 / 逃生模拟器">'+
+  '<label class="f">世界观 / 设定（时代、地点、身份、关系，随便写）</label>'+
+  '<textarea id="actSetting" style="min-height:120px" placeholder="例：2099 年的新港市，空气里全是雨。你是一家义体诊所的老板……"></textarea>'+
+  '<div class="row" style="margin-top:6px"><button class="ghost col" onclick="P5.actTpl(\'cyber\')">赛博</button>'+
+  '<button class="ghost col" onclick="P5.actTpl(\'trpg\')">跑团</button>'+
+  '<button class="ghost col" onclick="P5.actTpl(\'court\')">宫廷</button></div>'+
+  '<div class="row" style="margin-top:6px"><button class="ghost col" onclick="P5.actTpl(\'escape\')">逃生</button>'+
+  '<button class="ghost col" onclick="P5.actTpl(\'school\')">校园</button></div>'+
+  '<label class="f">玩法规则（判定 / 掷骰 / 回合 / 胜负条件，可留空）</label>'+
+  '<textarea id="actRules" style="min-height:80px" placeholder="例：任何高风险行动掷 1d6：≥5 成功，3~4 勉强，≤2 出事。"></textarea>'+
+  '<label class="f">角色的初始记忆</label>'+
+  '<select id="actMemMode" onchange="P5.actMemModeUI()">'+
+  '<option value="same">和原世界线相同（带上它原本的记忆）</option>'+
+  '<option value="new">更换记忆设定（用下面这段替换）</option></select>'+
+  '<textarea id="actMemText" style="min-height:90px;display:none;margin-top:8px" placeholder="例：你在这条世界线里不认识她，你们今天是第一次见面。你只记得自己是个赏金猎人，欠着一笔债。"></textarea>'+
+  '<label class="f">参与角色</label>'+
+  '<div style="max-height:32vh;overflow:auto">'+(rows||'<p class="dim" style="font-size:13px">还没有角色</p>')+'</div>'+
+  '<label class="li" style="border:0;padding:8px 0"><input type="checkbox" id="actNarr" checked style="flex:0 0 auto;margin-top:3px"><span>添加<b>旁白</b>（中立的工具人：铺设定、讲规则、念旁白、给选项、推进剧情）</span></label>'+
+  '<div class="row"><div style="width:110px"><label class="f">旁白叫</label><input id="actNarrName" value="旁白"></div>'+
+  '<label class="li" style="border:0;flex:1"><input type="checkbox" id="actDice" checked style="flex:0 0 auto;margin-top:3px"><span>允许掷骰判定</span></label></div>'+
+  '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P5.actCreate()">开始演绎</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+};
+P5.actCreate=function(){
+  var v=function(i){var el=document.getElementById(i);return el?String(el.value||'').trim():''};
+  var ck=function(i,d){var el=document.getElementById(i);return el?!!el.checked:d};
+  var members=[];
+  dqa('.actmb').forEach(function(el){
+    if(!el.checked)return;
+    var cid=el.value;
+    var idn=document.querySelector('.actidn[data-cid="'+cid+'"]');
+    members.push({cid:cid,idn:idn?String(idn.value||'').trim():''});
+  });
+  var narr=ck('actNarr',true);
+  if(!members.length&&!narr)return alert('至少勾一个角色，或者留着旁白');
+  var act={id:uid(),name:v('actName')||'未命名演绎',
+    setting:v('actSetting'),rules:v('actRules'),
+    memMode:(document.getElementById('actMemMode')||{}).value||'same',
+    memText:v('actMemText'),
+    members:members,narrOn:narr,narrName:v('actNarrName')||'旁白',
+    diceOn:ck('actDice',true),drive:'narr',t:Date.now(),lastAt:Date.now(),count:0};
+  var arr=actsAll();arr.push(act);saveActs(arr);
+  saveActMsgs(act.id,[]);
+  actOpenId=act.id;
+  closeSheet();
+  renderToolPane();
+  say('演绎开始了：'+act.name);
+  setTimeout(function(){P5.actKick()},500);   /* 让旁白先开场 */
+};
+P5.actSetSheet=function(id){
+  var act=findAct(id);if(!act)return;
+  var rows=(chars||[]).map(function(c){
+    var on=(act.members||[]).some(function(mm){return mm.cid===c.id});
+    var mm=(act.members||[]).filter(function(x){return x.cid===c.id})[0]||{};
+    return '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" class="actmb2" value="'+c.id+'" '+(on?'checked':'')+' style="flex:0 0 auto;margin-top:3px">'+
+    '<span style="flex:1 1 auto"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>'+
+    '<input class="actidn2" data-cid="'+c.id+'" value="'+esc(mm.idn||'')+'" placeholder="它在这个设定里的身份 / 定位（可留空）" style="margin-top:5px;font-size:12px;padding:6px 10px"></span></label>';
+  }).join('');
+  showSheet('<div class="ttl">演绎设置 · '+esc(act.name)+'</div>'+
+  '<label class="f">名称</label><input id="as_name" value="'+esc(act.name)+'">'+
+  '<label class="f">世界观 / 设定</label><textarea id="as_set" style="min-height:120px">'+esc(act.setting||'')+'</textarea>'+
+  '<label class="f">玩法规则</label><textarea id="as_rules" style="min-height:80px">'+esc(act.rules||'')+'</textarea>'+
+  '<label class="f">角色的初始记忆</label><select id="as_memmode">'+
+  '<option value="same"'+(((act.memMode||'same')==='same')?' selected':'')+'>和原世界线相同</option>'+
+  '<option value="new"'+(act.memMode==='new'?' selected':'')+'>更换记忆设定（用下面这段）</option></select>'+
+  '<textarea id="as_memtext" style="min-height:90px;margin-top:8px">'+esc(act.memText||'')+'</textarea>'+
+  '<label class="f">参与角色（取消勾选＝让它退出这场演绎）</label>'+
+  '<div style="max-height:30vh;overflow:auto">'+rows+'</div>'+
+  '<div class="row" style="align-items:center;margin-top:10px">'+
+  '<div class="col"><b style="font-size:13px">'+(act.narrOn!==false?('保留旁白（'+(act.narrName||'旁白')+'）'):'不要旁白')+'</b>'+
+  '<div class="dim" style="font-size:11.5px">'+(act.narrOn!==false?'旁白是中立的工具人：铺设定、讲规则、念旁白、给选项':'删掉旁白后，就只由角色自己演，你可以随时加回来')+'</div></div>'+
+  '<input type="checkbox" id="as_narr" '+(act.narrOn!==false?'checked':'')+'></div>'+
+  '<div class="row"><div style="width:110px"><label class="f">旁白叫</label><input id="as_narrname" value="'+esc(act.narrName||'旁白')+'"></div>'+
+  '<label class="li" style="border:0;flex:1"><input type="checkbox" id="as_dice" '+(act.diceOn!==false?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许掷骰判定</span></label></div>'+
+  '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P5.actSaveSet(\''+id+'\')">保存设置</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>'+
+  '<div class="row" style="margin-top:10px"><button class="col" onclick="P5.actTxt(\''+id+'\')">导出整局文本</button>'+
+  '<button class="warn col" onclick="P5.actClear(\''+id+'\')">清空记录</button></div>'+
+  '<div class="row" style="margin-top:8px"><button class="warn col" onclick="P5.actDel(\''+id+'\')">删除这场演绎</button></div>');
+};
+P5.actSaveSet=function(id){
+  var act=findAct(id);if(!act)return;
+  var v=function(i){var el=document.getElementById(i);return el?String(el.value||'').trim():''};
+  var ck=function(i,d){var el=document.getElementById(i);return el?!!el.checked:d};
+  var members=[];
+  dqa('.actmb2').forEach(function(el){
+    if(!el.checked)return;
+    var cid=el.value;
+    var idn=document.querySelector('.actidn2[data-cid="'+cid+'"]');
+    members.push({cid:cid,idn:idn?String(idn.value||'').trim():''});
+  });
+  act.name=v('as_name')||act.name;
+  act.setting=v('as_set');
+  act.rules=v('as_rules');
+  act.memMode=(document.getElementById('as_memmode')||{}).value||'same';
+  act.memText=v('as_memtext');
+  act.members=members;
+  act.narrOn=ck('as_narr',true);
+  act.narrName=v('as_narrname')||'旁白';
+  act.diceOn=ck('as_dice',true);
+  if(act.drive&&act.drive!=='narr'&&!members.some(function(m){return m.cid===act.drive}))act.drive='narr';
+  var arr=actsAll();
+  for(var i=0;i<arr.length;i++){if(arr[i].id===id){arr[i]=act;break}}
+  saveActs(arr);
+  closeSheet();
+  renderToolPane();
+  say(act.narrOn!==false?'已保存':'已保存（这场没有旁白）');
+};
+P5.actClear=function(id){
+  var act=findAct(id);if(!act)return;
+  if(!confirm('清空《'+act.name+'》的全部记录？（设定和角色保留，只清对话）'))return;
+  saveActMsgs(id,[]);
+  touchAct(act);
+  closeSheet();
+  renderToolPane();
+  say('已清空记录');
+};
+P5.actDel=function(id){
+  var act=findAct(id);if(!act)return;
+  if(!confirm('删掉《'+act.name+'》？整局的记录都会消失。'))return;
+  saveActs(actsAll().filter(function(a){return a.id!==id}));
+  try{save(KActMsg(id),[])}catch(e){}
+  if(actOpenId===id)actOpenId=null;
+  closeSheet();
+  renderToolPane();
+  say('已删除');
+};
+P5.actTxt=function(id){
+  var act=findAct(id);if(!act)return;
+  var ms=actMsgs(id);
+  var meName=cfg.userName||'她';
+  var head='《'+act.name+'》\n'+(act.setting?('【设定】\n'+act.setting+'\n'):'')+
+    (act.rules?('【规则】\n'+act.rules+'\n'):'')+
+    '【参与】'+meName+'、'+((act.members||[]).map(function(mm){return p5CharName(mm.cid)}).join('、')||'（无）')+
+    (act.narrOn!==false?('、'+(act.narrName||'旁白')):'')+'\n'+
+    '导出时间：'+new Date().toLocaleString('zh-CN')+'\n';
+  var body=ms.map(function(m){
+    if(m.role==='sys')return '【'+m.content+'】';
+    var who=(m.role==='user')?meName:(m.role==='narr'?((act.narrOn!==false&&act.narrName)?act.narrName:'旁白'):p5CharName(m.cid));
+    return who+'：'+String(m.content||'');
+  }).join('\n\n');
+  var text=head+'\n'+body;
+  try{
+    var blob=new Blob(['\ufeff'+text],{type:'text/plain;charset=utf-8'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='演绎-'+String(act.name).replace(/[\\/:*?"<>|]/g,'_')+'-'+new Date().toISOString().slice(0,10)+'.txt';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){try{URL.revokeObjectURL(a.href)}catch(e){};a.remove()},1500);
+    say('已导出整局文本');
+  }catch(e){alert('导出失败：'+((e&&e.message)||e))}
+};
+
+/* ============ 页签接管 + 输入体验 ============ */
+var P5C_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  if(toolTab==='act'&&P5.actHTML){
+    var p=document.getElementById('toolPane');
+    if(p){
+      p.innerHTML=P5.actHTML();
+      var box=document.getElementById('amsgs');
+      if(box)box.scrollTop=box.scrollHeight;
+      return;
+    }
+  }
+  P5C_renderToolPane();
+};
+document.addEventListener('input',function(e){
+  var el=e.target;
+  if(el&&el.id==='actinp'){
+    el.style.height='auto';
+    el.style.height=Math.min(120,el.scrollHeight)+'px';
+  }
+});
+document.addEventListener('keydown',function(e){
+  var el=e.target;
+  if(el&&el.id==='actinp'&&e.key==='Enter'&&!e.shiftKey){
+    e.preventDefault();
+    if(!actBusy)P5.actSend();
+  }
+});
+
+/* ============ 备份里带上演绎 ============ */
+var P5C_backupPayload=backupPayload;
+backupPayload=async function(){
+  var d=await P5C_backupPayload();
+  try{
+    d.acts=actsAll();
+    d.actMsgs={};
+    (d.acts||[]).forEach(function(a){d.actMsgs[a.id]=actMsgs(a.id)});
+  }catch(e){}
+  return d;
+};
+/* 导入备份时也把演绎一起恢复（原来的 importAll 不带新数据，这里补一份） */
+importAll=function(input){
+  var f=input.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=async function(){
+    try{
+      var s=String(rd.result),d;
+      if(s.indexOf('enc:')===0){
+        if(!cryptKey)return alert('这个备份是加密的。请先设置/输入密码解锁后再导入。');
+        try{s=await decVal(cryptKey,s)}catch(e){return alert('解密失败：密码不对或文件损坏')}
+      }
+      d=JSON.parse(s);
+      if(!confirm('导入会覆盖现在所有数据，确定？'))return;
+      if(d.cfg)save(LS.cfg,d.cfg);
+      if(d.chars)save(LS.chars,d.chars);
+      if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
+      if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
+      if(d.todos)Object.keys(d.todos).forEach(k=>{if(d.todos[k]&&d.todos[k].length)save(LS.todo(k),d.todos[k])});
+      if(d.gmems)Object.keys(d.gmems).forEach(k=>{if(d.gmems[k]&&d.gmems[k].length)save(LS.gmem(k),d.gmems[k])});
+      if(d.arcs)save(LS.arcs,d.arcs);
+      if(d.arcData)for(const k of Object.keys(d.arcData)){
+        try{
+          const v=Array.isArray(d.arcData[k])?sanitizeArcMs(d.arcData[k]):d.arcData[k];
+          await idbPut(k,v);arcMem[k]=v;
+        }catch(e){}
+      }
+      if(d.groups)save(LS.groups,d.groups);
+      if(d.gmsgs)Object.keys(d.gmsgs).forEach(k=>{if(d.gmsgs[k])save(LS.gmsg(k),d.gmsgs[k])});
+      try{
+        if(d.acts)save(KAct,d.acts);
+        if(d.actMsgs)Object.keys(d.actMsgs).forEach(function(k){
+          if(d.actMsgs[k])save(KActMsg(k),d.actMsgs[k]);
+        });
+      }catch(e){}
+      alert('导入完成，刷新一下');
+      location.reload();
+    }catch(e){alert('文件读不了：'+e.message)}
+  };
+  rd.readAsText(f);
+};
+
+console.log('[深蓝海域] 补丁5-C 已加载');
 })();
 </script>
