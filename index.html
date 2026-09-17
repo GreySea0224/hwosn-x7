@@ -2315,11 +2315,11 @@ function renderMe(){
   (cfg.userAvatar?'<button class="ghost" style="color:var(--warn)" onclick="clearUserAvatar()">去掉图片</button>':'')+
   '</div>'+
   '<label class="f">emoji 头像（没有上传图片时用它）</label><input id="me_emoji" value="'+esc(cfg.userEmoji||'🙂')+'">'+
-  '<label class="f">我的名字（角色会这样称呼你）</label><input id="me_name" value="'+esc(cfg.userName||'')+'" placeholder="比如：阿岚">'+
+  '<label class="f">我的名字（角色会这样称呼你）</label><input id="me_name" value="'+esc(cfg.userName||'')+'" placeholder="比如：小陈">'+
   '<label class="f">性别</label><select id="me_gender">'+
   ['','女','男','其他'].map(g=>'<option value="'+g+'"'+((cfg.userGender||'')===g?' selected':'')+'>'+(g||'不设置')+'</option>').join('')+
   '</select>'+
-  '<label class="f">补充设定（可选）</label><textarea id="me_note" placeholder="比如：26 岁，在设计公司上班，怕黑，喜欢甜食，家里养了只猫…">'+esc(cfg.userNote||'')+'</textarea>'+
+  '<label class="f">补充设定（可选）</label><textarea id="me_note" placeholder="比如：26 岁，在设计公司上班，喜欢打游戏…">'+esc(cfg.userNote||'')+'</textarea>'+
   '<div class="row" style="margin-top:12px"><button class="pri col" onclick="saveMe()">保存</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">留空就是不设定，不影响原来的聊天方式。</p></div>'+
   '<div style="height:16px"></div>';
@@ -6760,5 +6760,1185 @@ importAll=function(input){
 };
 
 console.log('[深蓝海域] 补丁5-C 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁6-A（第 1/3 段）  2026-09
+   · 修 bug①：角色调用工具（掷骰子 / 抽签 / 待办…）后，聊天里立刻显示结果，
+             不用再刷新页面才看得到
+   · 修 bug②：演绎页显示「生成 X tok · 上下文 Y tok」（和聊天里一样），
+             并且刷新后仍然在
+   · 新增：8 种字体可选（设置 → 外观与交互 → 字体），整App立刻生效
+   · 新增：旁白设定（默认人设 / 风格）的底层支持（填写界面在第 3 段）
+   · 聊天页清爽化：去掉顶部的「快答 / 正常 / 深想」一排按钮（搬到设置里），
+             去掉消息下面那排「重新生成 / 编辑 / 删除 / 追加原文」大按钮
+             （改成「长按消息」操作，在第 2 段）
+   粘法：整段粘到文件最末尾（最后一行 </html> 的后面），存盘刷新。
+   ===================================================================== */
+(function(){
+var W=window,P6=(W.P6=W.P6||{});
+if(P6.A)return;P6.A=1;
+
+function dq(s,r){return (r||document).querySelector(s)}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function safeV(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+
+/* ============ 样式 ============ */
+var CSS=[
+'body{font-family:var(--appfont)!important}',
+'input,textarea,select{font-family:inherit}',
+'.atok{font-size:10.5px;color:var(--dim);opacity:.8;margin-top:4px;padding:0 2px}',
+'.abub.me .atok{text-align:right}',
+'#main{padding:10px 10px 6px}',
+'.card{border-radius:18px}',
+'.bub{border-radius:20px;line-height:1.7}',
+'#composer textarea{border-radius:18px}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p6cssA';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* ================================================================
+   1. 字体
+   ================================================================ */
+var FONTS={
+  sys :{n:'手机默认',        v:'-apple-system,"PingFang SC","HarmonyOS Sans SC",system-ui,"Microsoft YaHei",sans-serif'},
+  hei :{n:'黑体（清爽）',    v:'"PingFang SC","HarmonyOS Sans SC","Source Han Sans SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif'},
+  song:{n:'宋体（文艺）',    v:'"Songti SC","STSong","Noto Serif CJK SC","SimSun",Georgia,serif'},
+  kai :{n:'楷体（温柔）',    v:'"Kaiti SC","STKaiti","KaiTi","Noto Serif CJK SC",serif'},
+  yuan:{n:'圆体（可爱）',    v:'"Yuanti SC","Hiragino Maru Gothic ProN","PingFang SC",system-ui,sans-serif'},
+  pen :{n:'行楷 / 手写',     v:'"Xingkai SC","Hanzipen SC","STXingkai","Kaiti SC",cursive'},
+  mono:{n:'等宽（程序员）',  v:'"JetBrains Mono","SF Mono",Menlo,Consolas,"Noto Sans Mono CJK SC",monospace'},
+  serifEn:{n:'衬线西文混排', v:'Georgia,"Songti SC","Noto Serif CJK SC",serif'}
+};
+P6.fonts=FONTS;
+P6.fontKey=function(){var k=(cfg&&cfg.font)||'sys';return FONTS[k]?k:'sys'};
+P6.applyFont=function(){
+  var f=FONTS[P6.fontKey()]||FONTS.sys;
+  try{document.documentElement.style.setProperty('--appfont',f.v)}catch(e){}
+};
+P6.setFont=function(k){
+  if(!FONTS[k])k='sys';
+  cfg.font=k;save(LS.cfg,cfg);P6.applyFont();
+  say('字体：'+FONTS[k].n);
+};
+P6.applyFont();
+
+/* ================================================================
+   2. 修 bug①：角色用完工具后再重建一次聊天列表（结果就不会被冲掉）
+   ================================================================ */
+var P6_askAndAppend=askAndAppend;
+askAndAppend=async function(){
+  var before=(msgs||[]).length;
+  var r=await P6_askAndAppend();
+  try{
+    /* 只有「真的生成了新消息」才重建；出错时保留错误提示，不冲掉 */
+    if(view==='chat'&&(msgs||[]).length>before)renderChat();
+  }catch(e){}
+  return r;
+};
+
+/* ================================================================
+   3. 聊天页清爽化：去掉顶部「快答/正常/深想」，去掉消息下面那排大按钮
+   ================================================================ */
+var P6_renderChat=renderChat;
+renderChat=function(){
+  P6_renderChat();
+  try{
+    var m=document.getElementById('main');
+    if(m)dqa('.thinkbar',m).forEach(function(el){el.remove()});
+    var box=document.getElementById('msgs');
+    if(box)dqa('.ops',box).forEach(function(el){el.remove()});
+  }catch(e){}
+};
+
+/* ================================================================
+   4. 修 bug② + 旁白设定：演绎的 token 统计 / 旁白人设注入
+   ---------------------------------------------------------------
+   原理：演绎每一轮都会带着「你正在主持一场「演绎」」这句系统提示，
+   我们在这个调用上挂钩子，把 usage（真实 token）拿下来，
+   等它把记录存盘时写进消息里，刷新也不会丢。
+   ================================================================ */
+function actsArr(){return safeV(function(){return load('wh_acts',[])},[])||[]}
+function actById(id){
+  var a=actsArr();
+  for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i]}
+  return null;
+}
+function isActCall(msgs){
+  try{
+    return !!(msgs&&msgs[0]&&msgs[0].role==='system'&&
+      String(msgs[0].content||'').indexOf('你正在主持一场「演绎」')>=0);
+  }catch(e){return false}
+}
+/* 最近一次被改动的演绎 = 当前正在玩的那一场 */
+function guessActId(){
+  var a=actsArr(),best=null;
+  for(var i=0;i<a.length;i++){
+    var t=(a[i].lastAt||a[i].t||0);
+    if(!best||t>best.t)best={id:a[i].id,t:t};
+  }
+  return best?best.id:null;
+}
+P6.narrText=function(actId){
+  var a=actId?actById(actId):null;
+  var s=(a&&a.narrNote)?a.narrNote:'';
+  if(!s)s=(cfg&&cfg.narrNote)||'';
+  return String(s||'').trim();
+};
+P6.actLast=null;      /* {text,tok,ptok} 最近一次演绎的生成结果 */
+var P6_callAPI=callAPI;
+callAPI=async function(msgs,opt){
+  var act=false;
+  try{act=isActCall(msgs)}catch(e){}
+  if(act){
+    /* 把用户自定的「旁白设定 / 风格要求」追加进系统提示 */
+    try{
+      var note=P6.narrText(guessActId());
+      if(note&&msgs[0]&&typeof msgs[0].content==='string'){
+        msgs[0].content+='\n\n【旁白的设定 / 风格要求（用户指定，优先遵守，但不要违反上面的输出格式）】\n'+note;
+      }
+    }catch(e){}
+  }
+  var o={};for(var k in (opt||{}))o[k]=opt[k];
+  var u=null;
+  if(act){
+    var pu=o.onUsage;
+    o.onUsage=function(x){u=x;if(pu){try{pu(x)}catch(e){}}};
+  }
+  var r=await P6_callAPI(msgs,o);
+  if(act){
+    var txt=String(r==null?'':r);
+    P6.actLast={text:txt,
+      tok:(u&&u.completion_tokens)?u.completion_tokens:estTokens(txt),
+      ptok:(u&&u.prompt_tokens)?u.prompt_tokens:0};
+  }
+  return r;
+};
+/* 把 token 写进演绎记录（角色/旁白的每一段都带上） */
+var P6_save=save;
+save=function(k,v){
+  try{
+    if(typeof k==='string'&&k.indexOf('wh_actmsg_')===0&&v&&v.length&&P6.actLast){
+      var L=P6.actLast;
+      for(var i=0;i<v.length;i++){
+        var m=v[i];
+        if(!m||m.tok)continue;
+        if(m.role==='user'){m.tok=estTokens(m.content||'');continue}
+        if(m.role==='sys')continue;
+        var c=String(m.content||'').trim();
+        if(c&&L.text.indexOf(c)>=0){m.tok=L.tok;m.ptok=L.ptok}
+      }
+    }
+  }catch(e){}
+  return P6_save(k,v);
+};
+
+/* ================================================================
+   5. 设置页：把「字体」和「思考强度」加进「外观与交互」卡片
+   ================================================================ */
+var P6_renderCfg=renderCfg;
+renderCfg=function(){
+  P6_renderCfg();
+  try{p6CfgInject()}catch(e){}
+};
+function p6CfgInject(){
+  /* 字体 */
+  var theme=document.getElementById('c_theme');
+  if(theme&&!document.getElementById('c_font')){
+    var w=document.createElement('div');
+    var opts=Object.keys(FONTS).map(function(k){
+      return '<option value="'+k+'"'+(P6.fontKey()===k?' selected':'')+'>'+esc(FONTS[k].n)+'</option>';
+    }).join('');
+    w.innerHTML='<label class="f">字体</label><select id="c_font">'+opts+'</select>'+
+      '<p class="dim" style="font-size:12px;margin:6px 0 0">换了立刻生效，整App的文字都用它。（宋体/楷体/行楷在安卓上可能落到系统近似字体）</p>';
+    theme.parentNode.insertBefore(w,theme.nextSibling);
+    var sel=document.getElementById('c_font');
+    if(sel)sel.onchange=function(){P6.setFont(this.value)};
+  }
+  /* 思考强度（当前角色） */
+  var fsx=document.getElementById('c_fs');
+  if(fsx&&!document.getElementById('c_think')){
+    var c=safeV(function(){return curChar()},null);
+    var cur=(c&&c.think!=null)?c.think:1;
+    var w2=document.createElement('div');
+    w2.innerHTML='<label class="f">思考强度'+(c?('（当前角色：'+esc(c.name)+'）'):'')+'</label>'+
+      '<select id="c_think">'+THINK_LEVELS.map(function(l){
+        return '<option value="'+l.v+'"'+(cur===l.v?' selected':'')+'>'+esc(l.label)+'</option>';
+      }).join('')+'</select>'+
+      '<p class="dim" style="font-size:12px;margin:6px 0 0">快答＝回得更短更快；深想＝想周全一点。</p>';
+    fsx.parentNode.insertBefore(w2,fsx.nextSibling);
+    var sel2=document.getElementById('c_think');
+    if(sel2)sel2.onchange=function(){
+      var v=parseInt(this.value,10);
+      if([0,1,2].indexOf(v)<0)v=1;
+      var cc=safeV(function(){return curChar()},null);
+      if(!cc)return say('先去「角色」里选一个角色');
+      cc.think=v;save(LS.chars,chars);scheduleBackup();
+      say('思考强度：'+THINK_LEVELS[v].label);
+    };
+  }
+}
+
+console.log('[深蓝海域] 补丁6-A 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁6-B（第 2/3 段）  2026-09
+   ① 演绎页整体重做：
+        · 每条消息下面显示「生成 X tok · 上下文 Y tok」
+        · 底部显示「本局共 N 条 · 生成约 X tok」
+        · 聊天区放大（min-height 62vh，不再是半屏）
+        · 底部那段啰嗦的说明收进「ⓘ 玩法提示」，想看再点开
+   ② 旁白设定：
+        · 设置页多一张「演绎 · 旁白（默认设定）」卡：改默认旁白的名字和
+          人设/风格要求（真正会发给模型）
+        · 每场演绎的 ⚙ 设置里还能单独改这一场的旁白设定
+   ③ 消息操作改成「长按消息」：
+        复制 / 引用 / 编辑 / 重新生成 / 追加原文 / 加入记忆 / 朗读 /
+        删除 / 多选删除   （电脑上：右键消息）
+   ④ 多选消息，批量删除
+   粘法：整段粘到文件最末尾（补丁6-A 的后面），存盘刷新。
+   ===================================================================== */
+(function(){
+var W=window,P6=(W.P6=W.P6||{});
+if(P6.B)return;P6.B=1;
+
+function dq(s,r){return (r||document).querySelector(s)}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function safeV(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+function actsArr(){return safeV(function(){return load('wh_acts',[])},[])||[]}
+function actById(id){var a=actsArr();for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i]}return null}
+function charById(id){return safeV(function(){return chars.filter(function(c){return c.id===id})[0]},null)}
+
+/* ============ 样式 ============ */
+var CSS=[
+'.amsgs{height:auto!important;min-height:62vh!important;max-height:none!important}',
+'.card.p6act{padding:12px 10px 10px}',
+'.card.p6act .acthead{margin-bottom:6px}',
+'.p6actmore{margin:8px 0 0;font-size:11.5px;color:var(--dim)}',
+'.p6actmore summary{cursor:pointer;color:var(--dim);font-size:11.5px;list-style:none}',
+'.p6actmore summary::-webkit-details-marker{display:none}',
+'.p6actmore p{margin:6px 0 0;line-height:1.75}',
+'.p6toksum{font-size:11px;color:var(--dim);margin:8px 0 0;text-align:right}',
+'.atok{font-size:10.5px;color:var(--dim);opacity:.85;margin-top:4px;padding:0 2px}',
+'.abub.me .atok{text-align:right}',
+'#msgs.p6sel .bub{cursor:pointer;transition:box-shadow .15s ease}',
+'#msgs.p6sel .bub.p6on{box-shadow:0 0 0 2px var(--acc),0 0 0 7px rgba(63,169,216,.16)}',
+'.p6prev{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;color:var(--dim);max-height:26vh;overflow:auto;white-space:pre-wrap;margin-bottom:10px}',
+'.p6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
+'.p6grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 4px;font-size:12.5px;line-height:1.2;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;border-radius:14px}',
+'.p6grid button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}',
+'.p6grid button.warn{color:var(--warn)}',
+'#p6bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 62px);display:none;align-items:center;gap:6px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line);z-index:88;box-shadow:0 -8px 22px rgba(0,0,0,.24)}',
+'#p6bar.on{display:flex}',
+'#p6bar .n{flex:1;font-size:13px;color:var(--dim)}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p6cssB';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* ================================================================
+   ①  演绎页重做：token 显示 + 聊天区放大
+   ================================================================ */
+P6.actBusyNow=false;
+['actKick','actSend','actPick','actDice'].forEach(function(fn){
+  var ori=P5&&P5[fn];if(typeof ori!=='function')return;
+  P5[fn]=async function(){
+    P6.actBusyNow=true;
+    try{renderToolPane()}catch(e){}
+    try{return await ori.apply(null,arguments)}
+    finally{
+      P6.actBusyNow=false;
+      try{renderToolPane()}catch(e){}
+    }
+  };
+});
+
+function p6ActRow(act,m,i){
+  if(m.role==='sys'){
+    var t0=esc(m.content||'');
+    return '<div class="actsys">'+t0+(m.tok?('<span class="atok" style="display:inline;margin-left:6px">生成 '+m.tok+' tok</span>'):'')+'</div>';
+  }
+  var who,av,cls;
+  if(m.role==='user'){
+    who=cfg.userName||'她';cls='me';
+    av='<div class="aav">'+esc(cfg.userEmoji||'🙂')+'</div>';
+  }else if(m.role==='narr'){
+    who=(act.narrOn!==false?(act.narrName||'旁白'):'旁白');cls='narr';
+    av='<div class="aav narr">🎭</div>';
+  }else{
+    var c=charById(m.cid);
+    who=c?c.name:'角色';cls='char';
+    av='<div class="aav">'+safeV(function(){return avaInner(c||{})},'🐋')+'</div>';
+  }
+  var tk='';
+  var tt=m.tok||estTokens(m.content||'');
+  if(tt){
+    tk='<div class="atok">'+(m.role==='user'?'约 ':'生成 ')+(m.tok?'':'≈')+tt+' tok'+
+       (m.ptok?(' · 上下文 '+m.ptok+' tok'):'')+'</div>';
+  }
+  var opts=(m.opts&&m.opts.length)?('<div class="aopts">'+m.opts.map(function(o){
+    return '<button class="aopt" onclick="P5.actPick(\''+act.id+'\','+i+',\''+esc(o.k)+'\')"><b>'+esc(o.k)+'</b> '+esc(o.t)+'</button>';
+  }).join('')+'</div>'):'';
+  return '<div class="abub '+cls+'">'+av+'<div class="acol">'+
+    '<div class="awname">'+esc(who)+'</div>'+
+    '<div class="atext">'+nl2br(m.content||'')+'</div>'+tk+opts+
+    '<button class="adel" onclick="P5.actDelMsg(\''+act.id+'\','+i+')">✕ 删除这条</button>'+
+    '</div></div>';
+}
+function p6ActPlay(act){
+  var ms=safeV(function(){return load('wh_actmsg_'+act.id,[])},[])||[];
+  var rows=ms.map(function(m,i){return p6ActRow(act,m,i)}).join('');
+  if(!rows)rows='<div class="aempty">还没有开始<br>在下面说一句你想怎么开场，或者点「▶ 推进」让旁白开场</div>';
+  var gen=0,ptok=0;
+  ms.forEach(function(m){
+    if(m.role!=='user'&&m.tok)gen+=m.tok;
+    if(m.ptok)ptok=m.ptok;
+  });
+  var busy=!!P6.actBusyNow;
+  var names=(act.members||[]).map(function(mm){var c=charById(mm.cid);return c?c.name:''}).filter(Boolean).join('、')||'（还没选角色）';
+  var drv='<select id="actDrive" onchange="P5.actDriveSet(\''+act.id+'\',this.value)" style="flex:1 1 100px;width:auto">'+
+    '<option value="narr"'+((!act.drive||act.drive==='narr')?' selected':'')+'>旁白推进</option>'+
+    (act.members||[]).map(function(mm){
+      var c=charById(mm.cid);
+      return c?'<option value="'+c.id+'"'+(act.drive===c.id?' selected':'')+'>让 '+esc(c.name)+' 行动</option>':'';
+    }).join('')+'</select>';
+  return '<div class="card p6act">'+
+   '<div class="acthead"><button class="ghost iconbtn" onclick="P5.actBack()">‹ 列表</button>'+
+   '<div class="col" style="min-width:0"><b>'+esc(act.name||'演绎')+'</b>'+
+   '<div class="dim" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+   esc(names)+' · '+esc(act.narrOn!==false?(act.narrName||'旁白'):'无旁白')+' · '+((act.memMode==='new')?'换了记忆':'原记忆')+'</div></div>'+
+   '<button class="ghost iconbtn" onclick="P5.actSetSheet(\''+act.id+'\')">⚙</button></div>'+
+   '<div class="amsgs" id="amsgs">'+rows+'</div>'+
+   (busy?'<div class="actthinking">🎭 正在写…</div>':'')+
+   (gen?('<div class="p6toksum">本局共 '+ms.length+' 条 · 生成约 '+gen+' tok'+(ptok?(' · 最近上下文 '+ptok+' tok'):'')+'</div>'):'')+
+   '<div class="actbar" style="margin-top:8px"><textarea id="actinp" rows="1" placeholder="你想怎么做？（也可以点上面的选项）"></textarea>'+
+   '<button class="pri" onclick="P5.actSend()" '+(busy?'disabled':'')+'>发送</button></div>'+
+   '<div class="row" style="margin-top:8px">'+drv+
+   '<button class="iconbtn" style="flex:0 0 auto" onclick="P5.actKick()" '+(busy?'disabled':'')+'>▶ 推进</button>'+
+   (act.diceOn!==false?('<button class="iconbtn" style="flex:0 0 auto" onclick="P5.actDiceSheet(\''+act.id+'\')" '+(busy?'disabled':'')+'>🎲 掷骰</button>'):'')+
+   '</div>'+
+   '<details class="p6actmore"><summary>ⓘ 玩法提示</summary><p>演绎不会改动角色原来的聊天和记忆。想让某个角色单独行动，把左边换成它的名字再点「▶ 推进」；「🎲 掷骰」的结果会作为场上事件交给旁白继续写。</p></details>'+
+   '</div>';
+}
+/* 只接管「演绎进行页」，列表页还是用原来的 */
+var P6_actHTML=P5.actHTML;
+P5.actHTML=function(){
+  var h='';
+  try{h=P6_actHTML()}catch(e){h=''}
+  if(!h||h.indexOf('id="amsgs"')<0)return h;
+  var mm=h.match(/P5\.actSetSheet\('([^']+)'\)/);
+  if(!mm)return h;
+  var act=actById(mm[1]);
+  if(!act)return h;
+  try{return p6ActPlay(act)}catch(e){return h}
+};
+
+/* ================================================================
+   ②  旁白设定（默认 + 每场单独）
+   ================================================================ */
+function p6NarrCardHTML(){
+  return '<div class="ttl">演绎 · 旁白（默认设定）</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">演绎里那个中立的「旁白」长什么样，你说了算。这里填的是默认值，新建演绎时自动带上；某一场想不一样，就在那场的 ⚙ 设置里单独改。</p>'+
+  '<label class="f">旁白默认名字</label><input id="p6_narrname" value="'+esc((cfg&&cfg.narrName)||'旁白')+'">'+
+  '<label class="f">旁白的设定 / 风格要求（留空＝用内置的中立风格）</label>'+
+  '<textarea id="p6_narrnote" style="min-height:130px" placeholder="例：&#10;· 语气像深夜电台主持人，简短、冷静、有画面感&#10;· 用「你」称呼玩家，不要用「他」&#10;· 每轮给 3 个具体的行动选项&#10;· 多写环境、光影、声音，少写心理活动">'+esc((cfg&&cfg.narrNote)||'')+'</textarea>'+
+  '<button class="pri" style="width:100%;margin-top:10px" onclick="P6.saveNarr()">保存旁白设定</button>';
+}
+P6.saveNarr=function(){
+  var n=document.getElementById('p6_narrname'),t=document.getElementById('p6_narrnote');
+  cfg.narrName=(n&&String(n.value||'').trim())||'旁白';
+  cfg.narrNote=t?String(t.value||'').trim():'';
+  save(LS.cfg,cfg);
+  say('旁白设定已保存（下一次生成就生效）');
+};
+var P6_renderCfgB=renderCfg;
+renderCfg=function(){
+  P6_renderCfgB();
+  try{
+    var m=document.getElementById('main');if(!m)return;
+    if(document.getElementById('p6narrcard'))return;
+    var d=document.createElement('div');
+    d.className='card';d.id='p6narrcard';d.innerHTML=p6NarrCardHTML();
+    m.appendChild(d);
+  }catch(e){}
+};
+/* 单场演绎的 ⚙ 设置里，加一块「这一场的旁白设定」 */
+var P6_actSetSheet=P5.actSetSheet;
+P5.actSetSheet=function(id){
+  P6_actSetSheet(id);
+  try{
+    var sheet=document.getElementById('sheet');if(!sheet)return;
+    if(document.getElementById('as_narrnote'))return;
+    var act=actById(id);if(!act)return;
+    var box=document.createElement('div');
+    box.className='card';box.style.marginTop='12px';
+    box.innerHTML='<div class="ttl">旁白（'+(act.narrOn!==false?(act.narrName||'旁白'):'本场没有旁白')+'）</div>'+
+      '<p class="dim" style="font-size:12px;margin:0 0 8px">只对这一场生效：风格、称呼、要不要多给选项、能不能扮演 NPC 等。留空＝用「设置 → 演绎 · 旁白」里的默认设定。</p>'+
+      '<textarea id="as_narrnote" style="min-height:120px" placeholder="留空就用默认设定">'+esc(act.narrNote||'')+'</textarea>';
+    var btns=dqa('button',sheet),anchor=null;
+    for(var i=0;i<btns.length;i++){
+      if(String(btns[i].getAttribute('onclick')||'').indexOf('actSaveSet(')>=0){anchor=btns[i];break}
+    }
+    var host=anchor?anchor.closest('.row'):null;
+    if(host&&host.parentNode)host.parentNode.insertBefore(box,host);
+    else sheet.appendChild(box);
+  }catch(e){}
+};
+var P6_actSaveSet=P5.actSaveSet;
+P5.actSaveSet=function(id){
+  var el=document.getElementById('as_narrnote');
+  var note=el?String(el.value||'').trim():null;   /* 先取值，保存后弹层就没了 */
+  P6_actSaveSet(id);
+  if(note!=null){
+    try{
+      var arr=actsArr();
+      for(var i=0;i<arr.length;i++){if(arr[i].id===id){arr[i].narrNote=note;break}}
+      save('wh_acts',arr);
+    }catch(e){}
+  }
+};
+/* 新建演绎时，旁白名字自动用你设的默认名 */
+var P6_actNewSheet=P5.actNewSheet;
+P5.actNewSheet=function(){
+  P6_actNewSheet();
+  try{
+    var el=document.getElementById('actNarrName');
+    if(el&&cfg.narrName)el.value=cfg.narrName;
+  }catch(e){}
+};
+
+/* ================================================================
+   ③  消息操作：长按（电脑右键）弹出面板
+   ================================================================ */
+var curI=-1;
+var I={
+  copy:'<svg viewBox="0 0 24 24"><rect x="8.6" y="8.6" width="11" height="11" rx="3"/><path d="M15.6 5.6v-.2a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 2 2h.2"/></svg>',
+  quote:'<svg viewBox="0 0 24 24"><path d="M9.4 6.6C6.9 7.8 5.4 10 5.4 12.6c0 2.3 1.3 3.9 3.2 3.9 1.7 0 2.9-1.2 2.9-2.8 0-1.5-1-2.6-2.5-2.6-.3 0-.6 0-.8.1.3-1.2 1.2-2.2 2.4-2.9Z"/><path d="M17.6 6.6c-2.5 1.2-4 3.4-4 6 0 2.3 1.3 3.9 3.2 3.9 1.7 0 2.9-1.2 2.9-2.8 0-1.5-1-2.6-2.5-2.6-.3 0-.6 0-.8.1.3-1.2 1.2-2.2 2.4-2.9Z"/></svg>',
+  edit:'<svg viewBox="0 0 24 24"><path d="M15.2 4.9 19.1 8.8"/><path d="M4.6 19.4l1-4.2L16.3 4.5a1.6 1.6 0 0 1 2.3 0l.9.9a1.6 1.6 0 0 1 0 2.3L8.8 18.4l-4.2 1Z"/></svg>',
+  del:'<svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M9.6 7V5.5c0-.6.4-1 1-1h2.8c.6 0 1 .4 1 1V7"/><path d="M7.1 7l.9 11.2c.1.9.8 1.6 1.7 1.6h4.6c.9 0 1.6-.7 1.7-1.6L17 7"/></svg>',
+  regen:'<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.4 5.8"/><path d="M20 4.6V11h-6.4"/></svg>',
+  raw:'<svg viewBox="0 0 24 24"><path d="M13.6 3.6H7.5c-.8 0-1.4.6-1.4 1.4v14c0 .8.6 1.4 1.4 1.4h9c.8 0 1.4-.6 1.4-1.4V8Z"/><path d="M13.6 3.6V8H18"/></svg>',
+  mem:'<svg viewBox="0 0 24 24"><path d="M12 4.2c-2.4-1.6-5-1.5-7-1.1v13.2c2-.4 4.6-.5 7 1.1 2.4-1.6 5-1.5 7-1.1V3.1c-2-.4-4.6-.5-7 1.1Z"/><path d="M12 4.2v13.2"/></svg>',
+  speak:'<svg viewBox="0 0 24 24"><path d="M4.4 9.6h2.9L11.4 6v12l-4.1-3.6H4.4Z"/><path d="M15.4 9.2a4 4 0 0 1 0 5.6"/><path d="M17.8 6.6a7.5 7.5 0 0 1 0 10.8"/></svg>',
+  multi:'<svg viewBox="0 0 24 24"><path d="M6 6.6h12M6 12h12M6 17.4h12"/><path d="M6 6.6v10.8"/></svg>'
+};
+function mb(fn,ic,txt,warn){
+  return '<button class="'+(warn?'warn':'')+'" onclick="P6.'+fn+'()">'+ic+'<span>'+esc(txt)+'</span></button>';
+}
+function msgTextOf(i){
+  var m=msgs[i];if(!m)return '';
+  return String(m.content||'')+(m.img?'［图片］':'');
+}
+function bubbles(){var b=document.getElementById('msgs');return b?dqa('.bub',b):[]}
+function bIdx(el){return bubbles().indexOf(el)}
+
+function openMsgSheet(i){
+  var m=msgs[i];if(!m)return;
+  curI=i;
+  var isAI=(m.role==='assistant');
+  var last=(i===msgs.length-1);
+  showSheet('<div class="ttl">这条消息</div>'+
+    '<div class="p6prev">'+esc(msgTextOf(i).slice(0,600))+'</div>'+
+    '<div class="p6grid">'+
+      mb('copy',I.copy,'复制')+
+      mb('quote',I.quote,'引用')+
+      mb('edit',I.edit,'编辑')+
+      (isAI&&last?mb('regen',I.regen,'重新生成'):'')+
+      (isAI?mb('raw',I.raw,'追加原文'):'')+
+      mb('toMem',I.mem,'加入记忆')+
+      mb('speak',I.speak,'朗读')+
+      mb('del',I.del,'删除',true)+
+      mb('multi',I.multi,'多选删除',true)+
+    '</div>'+
+    '<p class="dim" style="font-size:12px;margin:10px 0 0">以后想对某条消息做操作，<b>长按它</b>就行（电脑上是右键）。</p>'+
+    '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  blockNextClick();
+}
+function blockNextClick(){
+  var h=function(e){e.stopPropagation();e.preventDefault();document.removeEventListener('click',h,true)};
+  document.addEventListener('click',h,true);
+  setTimeout(function(){try{document.removeEventListener('click',h,true)}catch(e){}},800);
+}
+P6.copy=function(){
+  var t=msgTextOf(curI);
+  var fin=function(ok){closeSheet();say(ok?'已复制':'复制失败，长按文字自己选一下')};
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){fin(1)}).catch(function(){fin(0)});
+    }else{
+      var ta=document.createElement('textarea');
+      ta.value=t;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      document.execCommand('copy');ta.remove();fin(1);
+    }
+  }catch(e){fin(0)}
+};
+P6.quote=function(){
+  var t=msgTextOf(curI);
+  var inp=document.getElementById('inp');
+  closeSheet();
+  if(!inp)return say('现在不在聊天页，先回聊天页再试');
+  inp.value='> '+t.split('\n').join('\n> ')+'\n'+(inp.value||'');
+  try{inp.focus();inp.dispatchEvent(new Event('input',{bubbles:true}))}catch(e){}
+  say('已引用到输入框');
+};
+P6.edit=function(){
+  var m=msgs[curI];if(!m)return;
+  showSheet('<div class="ttl">编辑这条</div>'+
+    (m.img?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条带图，编辑只改文字。</p>':'')+
+    '<textarea id="p6ed" style="min-height:180px">'+esc(m.content||'')+'</textarea>'+
+    '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P6.saveEdit()">保存</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+};
+P6.saveEdit=function(){
+  var m=msgs[curI];if(!m)return;
+  var el=document.getElementById('p6ed');
+  var v=el?String(el.value||'').trim():'';
+  if(!v&&!m.img)return say('不能空着');
+  m.content=v;m.tok=estTokens(v);
+  persist();closeSheet();renderChat();say('已保存');
+};
+P6.del=function(){
+  if(!msgs[curI])return;
+  if(!confirm('删除这条消息？删了就找不回来了'))return;
+  msgs.splice(curI,1);persist();closeSheet();renderChat();say('已删除');
+};
+P6.regen=function(){
+  if(curI!==msgs.length-1||!msgs[curI]||msgs[curI].role!=='assistant')return say('只能重做最后一条回复');
+  closeSheet();regen();
+};
+P6.raw=function(){closeSheet();appendRaw()};
+P6.speak=function(){
+  var t=msgTextOf(curI);
+  closeSheet();
+  try{
+    if(!window.speechSynthesis)return say('这个浏览器不支持朗读');
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(t.slice(0,600));
+    u.lang='zh-CN';speechSynthesis.speak(u);
+  }catch(e){say('朗读失败')}
+};
+P6.toMem=function(){
+  var m=msgs[curI];if(!m)return;
+  var c=safeV(function(){return curChar()},null);
+  if(!c)return say('先去「角色」里选一个角色');
+  var txt=String(m.content||'').trim();
+  if(!txt)return say('这条没有文字');
+  try{
+    if(memCtx&&memCtx.id!==curId)setMemCtx(curId);
+    mem.summaries=mem.summaries||[];
+    mem.summaries.push({t:Date.now(),text:txt.slice(0,1000)});
+    saveMem();
+  }catch(e){try{save(LS.mem(curId),mem)}catch(e2){}}
+  closeSheet();
+  say('已写进「'+c.name+'」的长期聊天记录总结（在记忆里能看到）');
+};
+P6.multi=function(){closeSheet();selStart()};
+
+/* ================================================================
+   ④  多选 + 批量删除
+   ================================================================ */
+var sel={on:false,set:{}};
+P6.sel=sel;
+function barUpdate(){
+  var b=document.getElementById('p6bar');
+  if(!b||!b.classList.contains('on'))return;
+  b.innerHTML='<span class="n">已选 '+Object.keys(sel.set).length+' 条</span>'+
+   '<button class="ghost" onclick="P6.selAll()">全选</button>'+
+   '<button class="ghost" onclick="P6.selNone()">清空</button>'+
+   '<button class="ghost" style="color:var(--warn)" onclick="P6.selDel()">删除</button>'+
+   '<button class="ghost" onclick="P6.selStop()">取消</button>';
+}
+function bar(on){
+  var b=document.getElementById('p6bar');
+  if(!b){b=document.createElement('div');b.id='p6bar';document.body.appendChild(b)}
+  if(!on){b.classList.remove('on');b.innerHTML='';return}
+  b.classList.add('on');barUpdate();
+}
+function selStart(){
+  sel.on=true;sel.set={};
+  renderChat();bar(true);
+  say('点消息可以选中／取消，选好了点下面的「删除」');
+}
+var selStop=function(){
+  sel.on=false;sel.set={};
+  renderChat();bar(false);
+};
+P6.selStop=selStop;
+P6.selAll=function(){bubbles().forEach(function(_,i){sel.set[i]=1});renderChat();barUpdate()};
+P6.selNone=function(){sel.set={};renderChat();barUpdate()};
+P6.selDel=function(){
+  var idx=Object.keys(sel.set).map(Number).filter(function(i){return msgs[i]}).sort(function(a,b){return b-a});
+  if(!idx.length)return say('先点几条消息选中');
+  if(!confirm('删除选中的 '+idx.length+' 条消息？删了就找不回来了'))return;
+  idx.forEach(function(i){msgs.splice(i,1)});
+  persist();var n=idx.length;selStop();renderChat();say('已删除 '+n+' 条');
+};
+
+/* ================================================================
+   ⑤  长按绑定 + 选中高亮
+   ================================================================ */
+var lpTimer=null,lpStart=null,lpMoved=false;
+function attachPress(){
+  var box=document.getElementById('msgs');
+  if(!box||box._p6b)return;
+  box._p6b=1;
+  box.addEventListener('pointerdown',function(e){
+    if(busy||sel.on)return;
+    var el=e.target&&e.target.closest?e.target.closest('.bub'):null;
+    if(!el)return;
+    lpMoved=false;lpStart={x:e.clientX,y:e.clientY};
+    clearTimeout(lpTimer);
+    lpTimer=setTimeout(function(){
+      if(lpMoved||sel.on)return;
+      var i=bIdx(el);
+      if(i>=0)try{openMsgSheet(i)}catch(err){}
+    },460);
+  },{passive:true});
+  box.addEventListener('pointermove',function(e){
+    if(!lpStart)return;
+    if(Math.abs(e.clientX-lpStart.x)>12||Math.abs(e.clientY-lpStart.y)>12){
+      lpMoved=true;clearTimeout(lpTimer);
+    }
+  },{passive:true});
+  ['pointerup','pointercancel'].forEach(function(k){
+    box.addEventListener(k,function(){clearTimeout(lpTimer);lpStart=null},{passive:true});
+  });
+  box.addEventListener('contextmenu',function(e){
+    var el=e.target&&e.target.closest?e.target.closest('.bub'):null;
+    if(!el)return;
+    e.preventDefault();
+    var i=bIdx(el);
+    if(i>=0)openMsgSheet(i);
+  });
+  box.addEventListener('click',function(e){
+    if(!sel.on)return;
+    var el=e.target&&e.target.closest?e.target.closest('.bub'):null;
+    if(!el)return;
+    e.preventDefault();e.stopPropagation();
+    var i=bIdx(el);
+    if(i<0)return;
+    if(sel.set[i])delete sel.set[i];else sel.set[i]=1;
+    renderChat();barUpdate();
+  },true);
+}
+var P6_renderChatB=renderChat;
+renderChat=function(){
+  P6_renderChatB();
+  try{
+    var box=document.getElementById('msgs');
+    if(box){
+      attachPress();
+      box.classList.toggle('p6sel',!!sel.on);
+      if(sel.on)dqa('.bub',box).forEach(function(el,i){if(sel.set[i])el.classList.add('p6on')});
+    }
+    if(!sel.on)bar(false);
+  }catch(e){}
+};
+/* 换页时自动退出多选，免得那个条一直挂着 */
+try{
+  dqa('nav button').forEach(function(b){
+    b.addEventListener('click',function(){if(sel.on)selStop()});
+  });
+}catch(e){}
+
+console.log('[深蓝海域] 补丁6-B 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁6-C（第 3/3 段）  2026-09
+   ① 滑动体验：
+        · 多选消息时不再跳回聊天最下方（记住并还原滚动位置）
+        · 演绎页改成一屏装下：返回 / 输入框 / 推进按钮永远看得见，
+          只有中间的消息区内部滚动；点进演绎自动定位到最新
+   ② 角色列表改版：
+        · 去掉那五个方块（记忆/编辑/复制/↑/↓）
+        · ✎ 编辑变成图标（在卡片第二行左边），点进去里面有「记忆与总结」
+          和「复制这个角色」
+        · 长按角色卡片 → 排序模式，用 ▲ ▼ 调整顺序
+   ③ 设置页整理：
+        · 按「外观 / 连接 / 记忆 / 能力 / 隐私 / 数据 / 其他」分组
+        · 每张卡片点标题就能展开／收起（默认只展开「外观与交互」），
+          顶部有「全部展开 / 全部收起」
+        · 又长又啰嗦的说明文字统一收进「ⓘ 说明」，想看再点
+   粘法：整段粘到文件最末尾（补丁6-B 的后面），存盘刷新。
+   ===================================================================== */
+(function(){
+var W=window,P6=(W.P6=W.P6||{});
+if(P6.C)return;P6.C=1;
+
+function dq(s,r){return (r||document).querySelector(s)}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function safeV(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+
+/* ============ 样式 ============ */
+var CSS=[
+/* 演绎页：一屏装下 */
+'main.p6actfit{display:flex;flex-direction:column;overflow:hidden;padding:8px 8px 4px}',
+'main.p6actfit > .tabs{flex:0 0 auto;margin-bottom:8px}',
+'main.p6actfit #toolPane{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
+'main.p6actfit .card.p6act{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-bottom:0;padding:10px 10px 8px}',
+'main.p6actfit .card.p6act .amsgs{flex:1 1 auto;min-height:0!important;height:auto!important;max-height:none!important}',
+'main.p6actfit .card.p6act .acthead,main.p6actfit .card.p6act .actbar,main.p6actfit .card.p6act .row,main.p6actfit .card.p6act .p6toksum,main.p6actfit .card.p6act .actthinking,main.p6actfit .card.p6act .p6actmore{flex:0 0 auto}',
+/* 设置页：分组 + 收起 */
+'.p6glab{font-size:11px;letter-spacing:2px;color:var(--dim);margin:4px 2px 8px;display:flex;align-items:center;gap:8px}',
+'.p6glab:after{content:"";flex:1;height:1px;background:var(--line)}',
+'.p6cbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 10px}',
+'.p6chev{color:var(--dim);font-size:12px;flex:0 0 auto}',
+'.p6more{margin:0 0 8px}',
+'.p6morebtn{background:transparent;border:1px dashed var(--line);color:var(--dim);font-size:11.5px;padding:3px 10px;border-radius:999px;box-shadow:none}',
+'.p6morebody{margin-top:6px;font-size:12.5px;color:var(--dim);line-height:1.7;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 10px}',
+'.p6morebody p{margin:0}',
+/* 角色列表 */
+'.p6sortbar{background:var(--accdim);border-color:var(--acc)}',
+'.p6arrows{display:flex;gap:6px}',
+'.p6rolehint{font-size:12px;color:var(--dim);margin:14px 0 0;line-height:1.7}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p6cssC';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* ================================================================
+   ① 滑动体验
+   ================================================================ */
+function p6BlockClick(){
+  var h=function(e){e.stopPropagation();e.preventDefault();document.removeEventListener('click',h,true)};
+  document.addEventListener('click',h,true);
+  setTimeout(function(){try{document.removeEventListener('click',h,true)}catch(e){}},800);
+}
+/* 演绎页：满屏，只有中间消息区内部滚动 */
+var P6_renderToolPaneC=renderToolPane;
+renderToolPane=function(){
+  P6_renderToolPaneC();
+  try{
+    var m=document.getElementById('main');
+    var play=!!(document.getElementById('toolPane')&&document.getElementById('amsgs'));
+    if(m){
+      m.classList.toggle('p6actfit',play);
+      if(play)m.scrollTop=0;
+    }
+    if(play){
+      var box=document.getElementById('amsgs');
+      if(box)box.scrollTop=box.scrollHeight;
+    }
+  }catch(e){}
+};
+/* 离开「应用」页时，把满屏布局撤掉（不然聊天页会滚不动） */
+var P6_go=go;
+go=function(v){
+  P6_go(v);
+  try{
+    var m=document.getElementById('main');
+    if(m&&v!=='tools')m.classList.remove('p6actfit');
+  }catch(e){}
+};
+/* 多选时不跳回最下方：记住并还原滚动位置 */
+var P6_renderChatC=renderChat;
+renderChat=function(){
+  var keep=null,selOn=false;
+  try{
+    selOn=!!(P6.sel&&P6.sel.on);
+    if(selOn){var m0=document.getElementById('main');if(m0)keep=m0.scrollTop}
+  }catch(e){}
+  P6_renderChatC();
+  try{
+    var m=document.getElementById('main');
+    if(keep!=null&&m)m.scrollTop=keep;
+    var box=document.getElementById('msgs');
+    if(box&&selOn){
+      box.classList.add('p6sel');
+      dqa('.bub',box).forEach(function(el,i){if(P6.sel.set[i])el.classList.add('p6on')});
+    }
+  }catch(e){}
+};
+
+/* ================================================================
+   ② 角色列表改版
+   ================================================================ */
+P6.sortOn=false;
+function p6RoleCard(c){
+  var a=c.auto||{};
+  var info=(a.on?('自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟'+(a.quietOn===false?' · 不设免打扰':'')):'自动发消息：关')+
+    ' · 思考：'+THINK_LEVELS[(c.think==null?1:c.think)].label+
+    ((c.groupPerm&&c.groupPerm.on)?' · 可用群聊':'');
+  var pencil='<button class="iconbtn" title="改设定（记忆、复制都在里面）" onclick="event.stopPropagation();editChar(\''+c.id+'\')">'+ICON.edit+'</button>';
+  return '<div class="card '+(c.id===curId?'sel':'')+'" data-cid="'+c.id+'"'+(P6.sortOn?'':' onclick="pick(\''+c.id+'\')"')+'>'+
+   '<div class="row" style="align-items:center;gap:10px">'+avBox(c,44)+
+   '<div class="col" style="min-width:0"><b>'+esc(c.name)+(hasUnread(c.id)?'<i class="udot"></i>':'')+'</b>'+
+   '<div class="dim" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+   esc(String(c.persona||'没有设定').replace(/\s+/g,' ').slice(0,46))+'</div></div>'+
+   (P6.sortOn?('<div class="p6arrows">'+
+      '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',-1)">▲</button>'+
+      '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',1)">▼</button></div>'):'')+
+   '</div>'+
+   '<div class="row" style="align-items:center;gap:8px;margin-top:8px">'+
+   (P6.sortOn?'':pencil)+
+   '<div class="dim col" style="font-size:11px;min-width:0">'+esc(info)+'</div>'+
+   '</div></div>';
+}
+renderRoles=function(){
+  var box=document.getElementById('main');if(!box)return;
+  var pub=chars.filter(function(c){return !c.priv});
+  var priv=chars.filter(function(c){return c.priv});
+  var h='<div class="row" style="margin-bottom:10px"><button class="pri col" onclick="newChar()">＋ 新建角色</button></div>';
+  if(P6.sortOn){
+    h+='<div class="card p6sortbar"><div class="row" style="align-items:center;gap:8px">'+
+       '<div class="col" style="font-size:12px">排序模式：用 ▲ ▼ 调整顺序</div>'+
+       '<button class="ghost" onclick="P6.sortEnd()">完成</button></div></div>';
+  }
+  h+=pub.length?pub.map(p6RoleCard).join(''):'<p class="hint">还没有角色</p>';
+  if(priv.length)h+=privBox(priv);
+  h+='<p class="p6rolehint">小提示：<b>长按角色卡片</b>可以调顺序；点 ✎ 改设定，记忆系统也在里面。</p>';
+  box.innerHTML=h;
+  p6RolePress();
+};
+function p6RolePress(){
+  var box=document.getElementById('main');if(!box||P6.sortOn)return;
+  dqa('.card[data-cid]',box).forEach(function(el){
+    if(el._p6r)return;el._p6r=1;
+    var t=null,st=null,mv=false;
+    el.addEventListener('pointerdown',function(e){
+      if(e.target&&e.target.closest&&e.target.closest('button'))return;
+      mv=false;st={x:e.clientX,y:e.clientY};
+      clearTimeout(t);
+      t=setTimeout(function(){if(!mv)p6SortStart()},520);
+    },{passive:true});
+    el.addEventListener('pointermove',function(e){
+      if(!st)return;
+      if(Math.abs(e.clientX-st.x)>12||Math.abs(e.clientY-st.y)>12){mv=true;clearTimeout(t)}
+    },{passive:true});
+    ['pointerup','pointercancel'].forEach(function(k){
+      el.addEventListener(k,function(){clearTimeout(t);st=null},{passive:true});
+    });
+  });
+}
+function p6SortStart(){
+  if(P6.sortOn)return;
+  P6.sortOn=true;p6BlockClick();
+  renderRoles();
+  say('排序模式：用 ▲ ▼ 调整顺序');
+}
+P6.sortEnd=function(){P6.sortOn=false;renderRoles();say('顺序已保存')};
+/* 把「记忆 / 复制」搬进详情页（角色设定弹层） */
+var P6_editCharC=editChar;
+editChar=function(id,tema){
+  P6_editCharC(id,tema);
+  try{
+    var sheet=document.getElementById('sheet');if(!sheet)return;
+    if(!document.getElementById('e_persona'))return;      /* 只在「角色设定」页加 */
+    if(document.getElementById('p6charedit'))return;
+    var c=chars.filter(function(x){return x.id===id})[0];if(!c)return;
+    /* 原来保存行里那个「复制这个角色」按钮去掉，统一收到下面这一行 */
+    dqa('button',sheet).forEach(function(b){
+      if(String(b.getAttribute('onclick')||'').indexOf('copyChar(')>=0&&!b.closest('#p6charedit')){b.remove()}
+    });
+    var d=document.createElement('div');
+    d.id='p6charedit';d.className='row';d.style.marginTop='12px';d.style.gap='8px';
+    d.innerHTML='<button class="col" onclick="P6.openMem(\''+id+'\')">🧠 记忆与总结</button>'+
+                '<button class="col" onclick="copyChar(\''+id+'\')">⧉ 复制这个角色</button>';
+    var rows=dqa('.row',sheet),anchor=null;
+    for(var i=0;i<rows.length;i++){
+      if(String(rows[i].innerHTML||'').indexOf('saveChar(')>=0){anchor=rows[i];break}
+    }
+    if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(d,anchor);
+    else sheet.appendChild(d);
+  }catch(e){}
+};
+P6.openMem=function(id){
+  try{closeSheet()}catch(e){}
+  setTimeout(function(){try{editChar(id,'mem')}catch(e){}},20);
+};
+
+/* ================================================================
+   ③ 设置页：分组 + 收起 + 长说明收起
+   ================================================================ */
+P6.foldOpen={'外观与交互':true};      /* 默认只展开「外观与交互」 */
+var GROUPS=[
+  ['外观',['外观与交互']],
+  ['连接',['接口']],
+  ['记忆',['记忆注入','记忆与自动总结']],
+  ['能力',['联网搜索','画图','演绎']],
+  ['隐私',['隐私角色','隐私与安全']],
+  ['数据',['数据与备份']],
+  ['其他',['我的资料']]
+];
+function ttlOf(card){
+  var k=card.children;
+  for(var i=0;i<k.length;i++){
+    if(k[i].classList&&k[i].classList.contains('ttl'))return k[i];
+  }
+  return null;
+}
+function ttlTextOf(card){var t=ttlOf(card);return t?String(t.textContent||'').trim():''}
+function groupOf(card){
+  var t=ttlTextOf(card);if(!t)return null;
+  for(var i=0;i<GROUPS.length;i++){
+    var keys=GROUPS[i][1];
+    for(var j=0;j<keys.length;j++){if(t.indexOf(keys[j])>=0)return GROUPS[i][0]}
+  }
+  return '其他';
+}
+function foldCard(card){
+  var ttl=ttlOf(card);if(!ttl)return;
+  var key=String(ttl.textContent||'').trim();
+  if(!key)return;
+  var open=!!P6.foldOpen[key];
+  var after=false;
+  Array.prototype.forEach.call(card.children,function(el){
+    if(el===ttl){after=true;return}
+    if(after)el.style.display=open?'':'none';
+  });
+  if(ttl.querySelector('.p6chev'))return;
+  var ch=document.createElement('span');
+  ch.className='p6chev';ch.textContent=open?'▾':'▸';
+  ttl.insertBefore(ch,ttl.firstChild);
+  ttl.style.cursor='pointer';
+  ttl.style.display='flex';ttl.style.alignItems='center';ttl.style.gap='6px';
+  ttl.addEventListener('click',function(){
+    var now=!P6.foldOpen[key];
+    P6.foldOpen[key]=now;
+    var a2=false;
+    Array.prototype.forEach.call(card.children,function(el){
+      if(el===ttl){a2=true;return}
+      if(a2)el.style.display=now?'':'none';
+    });
+    ch.textContent=now?'▾':'▸';
+  });
+}
+function buildCfg(){
+  var m=document.getElementById('main');if(!m)return;
+  var cards=Array.prototype.filter.call(m.children,function(el){
+    return el.classList&&el.classList.contains('card');
+  });
+  if(!cards.length)return;
+  /* 排序：按分组顺序重排 */
+  var order=[];
+  GROUPS.forEach(function(g){
+    g[1].forEach(function(key){
+      cards.forEach(function(c){
+        if(order.indexOf(c)<0&&ttlTextOf(c).indexOf(key)>=0)order.push(c);
+      });
+    });
+  });
+  cards.forEach(function(c){if(order.indexOf(c)<0&&ttlTextOf(c))order.push(c)});
+  order.forEach(function(c){m.appendChild(c)});
+  /* 分组小标题 */
+  dqa('.p6glab',m).forEach(function(el){el.remove()});
+  var last=null;
+  order.forEach(function(c){
+    var g=groupOf(c);if(!g)return;
+    if(g!==last){
+      var lab=document.createElement('div');
+      lab.className='p6glab';lab.textContent=g;
+      m.insertBefore(lab,c);
+      last=g;
+    }
+  });
+  /* 顶部工具条 */
+  if(!document.getElementById('p6cbar')){
+    var bar=document.createElement('div');
+    bar.id='p6cbar';bar.className='p6cbar';
+    bar.innerHTML='<span class="dim" style="font-size:12px;flex:1">点标题展开／收起</span>'+
+      '<button class="ghost" onclick="P6.openAll()">全部展开</button>'+
+      '<button class="ghost" onclick="P6.closeAll()">全部收起</button>';
+    m.insertBefore(bar,m.firstChild);
+  }
+  order.forEach(function(c){foldCard(c)});
+  slimText(m);
+}
+P6.openAll=function(){
+  dqa('#main > .card').forEach(function(c){
+    var t=ttlTextOf(c);if(t)P6.foldOpen[t]=true;
+  });
+  renderCfg();
+};
+P6.closeAll=function(){
+  dqa('#main > .card').forEach(function(c){
+    var t=ttlTextOf(c);if(t)P6.foldOpen[t]=false;
+  });
+  renderCfg();
+};
+/* 长说明 → 「ⓘ 说明」 */
+function slimText(scope){
+  if(!scope)return;
+  dqa('p.dim',scope).forEach(function(p){
+    if(p.parentNode&&String(p.parentNode.className||'').indexOf('p6morebody')>=0)return;
+    if(p.querySelector('button,a,input,select'))return;
+    var t=String(p.textContent||'').trim();
+    if(t.length<70)return;
+    var host=document.createElement('div');
+    host.className='p6more';
+    var btn=document.createElement('button');
+    btn.type='button';btn.className='p6morebtn';btn.textContent='ⓘ 说明';
+    btn.setAttribute('onclick','P6.tog(this)');
+    var body=document.createElement('div');
+    body.className='p6morebody';body.style.display='none';
+    p.parentNode.insertBefore(host,p);
+    host.appendChild(btn);host.appendChild(body);
+    body.appendChild(p);
+  });
+}
+P6.tog=function(b){
+  var body=b&&b.parentNode?b.parentNode.querySelector('.p6morebody'):null;
+  if(!body)return;
+  var on=(body.style.display==='none');
+  body.style.display=on?'':'none';
+  b.textContent=on?'ⓘ 收起说明':'ⓘ 说明';
+};
+/* 挂到各页渲染之后 */
+var P6_renderCfgC=renderCfg;
+renderCfg=function(){
+  P6_renderCfgC();
+  try{buildCfg()}catch(e){}
+};
+var P6_renderToolsC=renderTools;
+renderTools=function(){
+  P6_renderToolsC();
+  try{slimText(document.getElementById('main'))}catch(e){}
+};
+var P6_renderMeC=renderMe;
+renderMe=function(){
+  P6_renderMeC();
+  try{slimText(document.getElementById('main'))}catch(e){}
+};
+/* 弹层里也一样（用行内 onclick，来回返回也不会失效） */
+var P6_showSheetC=showSheet;
+showSheet=function(html,nopush){
+  P6_showSheetC(html,nopush);
+  try{slimText(document.getElementById('sheet'))}catch(e){}
+};
+var P6_closeSheetC=closeSheet;
+closeSheet=function(){
+  P6_closeSheetC();
+  try{slimText(document.getElementById('sheet'))}catch(e){}
+};
+
+console.log('[深蓝海域] 补丁6-C 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁6-D（修补段）  2026-09
+   ① 修：设置页顶部「全部展开 / 全部收起」点了没反应
+          → 现在按钮和卡片用同一个标识（记在卡片上），点了立刻生效，
+            而且直接改界面、不重新渲染，不会再闪一下
+   ② 修：卡片收起时还露出「ⓘ 说明」小按钮和空框；展开后点「ⓘ 说明」又是空的
+          → 折叠时连说明那一整块一起收起来；展开后点开就能正常看到文字
+   粘法：整段粘到文件最末尾（补丁6-C 的后面），存盘 + 刷新页面。
+   ===================================================================== */
+(function(){
+var W=window,P6=(W.P6=W.P6||{});
+if(P6.D)return;P6.D=1;
+
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function cardsOf(){
+  var m=document.getElementById('main');if(!m)return [];
+  return Array.prototype.filter.call(m.children,function(el){
+    return el.classList&&el.classList.contains('card');
+  });
+}
+function ttlOf(card){
+  var k=card.children;
+  for(var i=0;i<k.length;i++){if(k[i].classList&&k[i].classList.contains('ttl'))return k[i]}
+  return null;
+}
+/* 卡片标题的唯一标识：把 ▸ ▾ 这种符号去掉，存在标签上，两边共用 */
+function keyOf(ttl){
+  if(!ttl)return '';
+  if(ttl.dataset&&ttl.dataset.p6k)return ttl.dataset.p6k;
+  var s=String(ttl.textContent||'').replace(/[▸▾]/g,'').trim();
+  try{ttl.dataset.p6k=s}catch(e){}
+  return s;
+}
+/* 按展开状态显示/隐藏标题之后的所有内容 */
+function applyFold(card,open){
+  var ttl=ttlOf(card);if(!ttl)return;
+  var after=false;
+  Array.prototype.forEach.call(card.children,function(el){
+    if(el===ttl){after=true;return}
+    if(after)el.style.display=open?'':'none';
+  });
+  var ch=ttl.querySelector('.p6chev');
+  if(ch)ch.textContent=open?'▾':'▸';
+}
+/* 把「ⓘ 说明」里被误藏的正文放出来 */
+function unmask(card){
+  dqa('.p6morebody',card).forEach(function(bd){
+    Array.prototype.forEach.call(bd.querySelectorAll('*'),function(x){
+      if(x.style&&x.style.display==='none')x.style.display='';
+    });
+  });
+}
+/* 兜底：换搜索服务商时那张卡会自己重画，顺手把长说明也收起来 */
+function slim(scope){
+  if(!scope)return;
+  dqa('p.dim',scope).forEach(function(p){
+    if(p.parentNode&&String(p.parentNode.className||'').indexOf('p6morebody')>=0)return;
+    if(p.querySelector('button,a,input,select'))return;
+    if(String(p.textContent||'').trim().length<70)return;
+    var host=document.createElement('div');host.className='p6more';
+    var btn=document.createElement('button');
+    btn.type='button';btn.className='p6morebtn';btn.textContent='ⓘ 说明';
+    btn.setAttribute('onclick','P6.tog(this)');
+    var body=document.createElement('div');
+    body.className='p6morebody';body.style.display='none';
+    p.parentNode.insertBefore(host,p);
+    host.appendChild(btn);host.appendChild(body);
+    body.appendChild(p);
+  });
+}
+function fixCfg(){
+  cardsOf().forEach(function(card){
+    var ttl=ttlOf(card);if(!ttl)return;
+    unmask(card);
+    applyFold(card,!!P6.foldOpen[keyOf(ttl)]);
+  });
+}
+/* 直接改界面，不重新渲染 → 点了立刻见效 */
+P6.openAll=function(){
+  cardsOf().forEach(function(card){
+    var ttl=ttlOf(card);if(!ttl)return;
+    P6.foldOpen[keyOf(ttl)]=true;
+    applyFold(card,true);
+  });
+  say('已全部展开');
+};
+P6.closeAll=function(){
+  cardsOf().forEach(function(card){
+    var ttl=ttlOf(card);if(!ttl)return;
+    P6.foldOpen[keyOf(ttl)]=false;
+    applyFold(card,false);
+  });
+  say('已全部收起');
+};
+/* 每次渲染设置页：先让 6-C 那套跑完，再修一遍 */
+var P6_renderCfgD=renderCfg;
+renderCfg=function(){
+  P6_renderCfgD();
+  try{fixCfg()}catch(e){}
+};
+/* 联网搜索那张卡会自己重画，顺手补一下 */
+try{
+  var P6_refreshWeb=refreshWebCard;
+  refreshWebCard=function(){
+    P6_refreshWeb();
+    try{
+      var card=document.getElementById('webCard');
+      if(card){slim(card);fixCfg()}
+    }catch(e){}
+  };
+}catch(e){}
+
+console.log('[深蓝海域] 补丁6-D 已加载');
 })();
 </script>
