@@ -1418,10 +1418,13 @@ function renderChat(){
       };
       th.appendChild(hd);th.appendChild(bd);box.appendChild(th);
     }
-    if(x.tok){
+    const tk=x.tok||((x.content)?estTokens(x.content):0);
+    if(tk){
       const t=document.createElement('div');
       t.className='tok'+(x.role==='user'?' me':'');
-      t.textContent=(x.role==='assistant'?('生成 '+x.tok+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):'')):'约 '+x.tok+' tok');
+      t.textContent=(x.role==='assistant'
+        ?('生成 '+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):''))
+        :('约 '+(x.tok?'':'≈')+tk+' tok'));
       box.appendChild(t);
     }
     if(i===msgs.length-1&&!busy){
@@ -1962,11 +1965,13 @@ async function autoGenerate(c){
   mem=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
   const extra='【系统】现在你先开口。主动给ta发一条消息，1-2 句，符合你的性格和你们平时的相处方式，不解释为什么发。'+(c.auto&&c.auto.hint?('（'+c.auto.hint+'）'):'');
   const tp=thinkParams(c);
-  let out='',reasoning='';
+  let out='',reasoning='',usage=null;
   await callAPI(buildCtx(c,extra),{stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
-    onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r}});
+    onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r},onUsage:u=>{usage=u}});
   if(!out)return false;
-  const m={role:'assistant',content:out,t:Date.now(),tok:estTokens(out)};
+  const m={role:'assistant',content:out,t:Date.now(),
+    tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out)};
+  if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
   if(reasoning)m.reasoning=reasoning;      /* ← 自动消息也保存思考链 */
   msgs.push(m);persist();
   notify(c.name,(c.emoji||'')+out.slice(0,80));
