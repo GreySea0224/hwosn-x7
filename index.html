@@ -226,6 +226,45 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .funres{font-size:22px;font-weight:700;text-align:center;padding:12px 0;color:var(--acc);white-space:pre-wrap;animation:funpop .5s cubic-bezier(.2,1.5,.4,1)}
 @keyframes funpop{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.13)}100%{transform:scale(1);opacity:1}}
 .funok{text-align:center;font-size:12px;color:var(--acc);opacity:.9;margin-bottom:4px;animation:pop .3s ease}
+/* ========== 深蓝海域 · 视觉速改 ========== */
+
+/* 1) 卡片标题不再满屏蓝，改用左侧小色条 */
+.ttl{color:var(--txt);border-left:3px solid var(--acc);padding-left:9px;letter-spacing:.2px}
+
+/* 2) 气泡和背景拉开层次，不再糊成一团 */
+.bub.ai{box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 3px 12px rgba(0,0,0,.28)}
+.bub.me{background:var(--accdim);background-image:none}
+
+/* 3) 小字不再看不清（如果你常用浅色主题，把 #93aec0 换成 #5f7a8a） */
+.bub .time{opacity:1;font-size:12px;color:#93aec0}
+.tok,.arcmeta,.gtok,.apptile .ad,.srcline,.searchline,.setrow .lbl{font-size:12px;color:#93aec0}
+
+/* 4) 圆角统一 */
+.card,.sheet,.gmsgs{border-radius:18px}
+.bub{border-radius:16px}
+.bub.me{border-bottom-right-radius:6px}
+.bub.ai{border-bottom-left-radius:6px}
+
+/* 5) 主按钮去掉渐变，只留「发送」一个用渐变，更显贵 */
+button.pri{background:var(--acc);background-image:none;color:#02131c;box-shadow:none}
+#composer #send{background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 4px 14px rgba(63,169,216,.3)}
+
+/* 6) 底部导航只留两种信号，去掉放大和光晕，不再乱抖 */
+nav button.on{background:none}
+nav button.on svg{transform:none;filter:none}
+nav button.on::after{width:18px;height:2px;border-radius:2px;box-shadow:none}
+
+/* 7) 列表分隔线：虚线改实线，不再像草稿 */
+.li,.arcitem{border-bottom-style:solid;border-bottom-color:rgba(255,255,255,.07)}
+
+/* 8) 按钮更好点 + 数字宽度不跳动 */
+.iconbtn,.gdel,.thinkhead,.sheetclose{min-height:34px}
+.tok,.bub .time,.gtok{font-variant-numeric:tabular-nums}
+.gbub.me .gtext{background:var(--accdim);background-image:none}
+
+/* 9) 手机开了「减弱动态效果」时，不再乱动 */
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
 </style>
 </head>
 <body>
@@ -349,7 +388,9 @@ async function decryptAll(){
 }
 
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl=u=>{u=String(u==null?'':u).trim();return /^https?:\/\//i.test(u)?esc(u):'#'};
+
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
 const SUM_N=60,MAX_SCAN=4000;
 /* ---------- 历史档案「总结版」参数 ---------- */
@@ -431,7 +472,8 @@ function toast(m){
 const emojiOf=o=>((o&&o.emoji)||'🐋');
 function avaInner(o){
   const a=o&&o.avatar;
-  if(a)return '<img src="'+a+'" alt="">';
+  if(a)return '<img src="'+esc(a)+'" alt="">';
+
   return esc(emojiOf(o));
 }
 function avBox(o,size,extra){
@@ -1358,7 +1400,7 @@ function renderChat(){
   msgs.forEach((x,i)=>{
     const d=document.createElement('div');
     d.className='bub '+(x.role==='user'?'me':'ai');
-    d.innerHTML=(x.img?('<img class="msgimg" src="'+x.img+'" alt="图片" onclick="viewImg(this.src)">'):'')+
+    d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):'')+
       nl2br(x.content||'')+'<span class="time">'+fmtStamp(x.t)+'</span>';
     box.appendChild(d);
     if(x.role==='assistant'&&x.reasoning){
@@ -1395,7 +1437,7 @@ function renderChat(){
   scrollDown();
 }
 function viewImg(src){
-  showSheet('<div class="ttl">图片</div><img src="'+src+'" style="width:100%;border-radius:14px;border:1px solid var(--line)">'+
+  showSheet('<div class="ttl">图片</div><img src="'+esc(src)+'" style="width:100%;border-radius:14px;border:1px solid var(--line)">'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
 }
 function setThink(v){
@@ -2283,7 +2325,8 @@ async function setPrivPw(){
   const el=document.getElementById('priv_pw');
   const pw=el?el.value:'';
   if(!pw)return alert('先输入隐私密码');
-  if(pw.length<4)return alert('密码至少 4 位');
+  if(pw.length<6)return alert('密码至少 6 位');
+
   try{
     const salt=crypto.getRandomValues(new Uint8Array(16));
     const key=await deriveKey(pw,salt);
@@ -3115,13 +3158,13 @@ function renderCfg(){
   '<p class="dim" style="font-size:12px;margin:0 0 8px">'+
    (hasLockPw()?'✅ 你已设置「应用锁密码」，可以直接用它进入隐私角色。':'⚠️ 你还没设置应用锁密码，建议在这里单独设一个隐私密码。')+
    (hasPrivPwRaw()?'（另外还设置了独立的隐私密码）':'')+'</p>'+
-  '<label class="f">隐私密码</label><input id="priv_pw" type="password" placeholder="至少 4 位" autocomplete="off">'+
+  '<label class="f">隐私密码</label><input id="priv_pw" type="password" placeholder="至少 6 位" autocomplete="off">'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="setPrivPw()">保存隐私密码</button>'+
   (hasPrivPwRaw()?'<button class="warn col" onclick="clearPrivPw()">清除</button>':'')+'</div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">在角色设定里勾上「隐私角色」后：它只以头像出现在角色列表最下方，点它要输这个密码（或应用锁密码）才能进入聊天。隐私档案和「隐私群聊」也用同一个密码。</p></div>'+
   '<div class="card"><div class="ttl">隐私与安全</div>'+
   (cryptKey?'<p class="dim" style="font-size:12px;margin:0 0 6px">✅ 已加密锁定。数据以 AES 加密存在本地。</p>':'<p class="dim" style="font-size:12px;margin:0 0 6px">⚠️ 未加密。任何拿到你手机的人都能翻到聊天记录。</p>')+
-  '<label class="f">'+(cryptKey?'新密码':'设置密码')+'</label><input id="s_pw" type="password" placeholder="至少 4 位">'+
+  '<label class="f">'+(cryptKey?'新密码':'设置密码')+'</label><input id="s_pw" type="password" placeholder="至少 6 位">'+
   '<div class="row" style="margin-top:10px">'+
   (cryptKey?'<button class="col" onclick="setPassword()">修改密码</button><button class="warn col" onclick="removePassword()">移除密码</button>':'<button class="pri col" onclick="setPassword()">设置密码并加密</button>')+
   '</div>'+
@@ -3239,7 +3282,8 @@ async function setPassword(){
   if(!window.crypto||!crypto.subtle)return alert('当前打开方式不支持加密。请用 Chrome/Edge 直接打开这个文件，或放到 https 网站里。');
   const pw=$('#s_pw').value;
   if(!pw)return alert('先输入密码');
-  if(pw.length<4)return alert('密码至少 4 位');
+  if(pw.length<6)return alert('密码至少 6 位');
+
   try{
     const salt=crypto.getRandomValues(new Uint8Array(16));
     const key=await deriveKey(pw,salt);
@@ -3339,8 +3383,9 @@ async function backupNow(){
   toast(ok?'已备份到文件':'备份失败'+(bkErr?('：'+bkErr):''));
   if(view==='cfg')renderCfg();
 }
+function cfgSafe(){const c=JSON.parse(JSON.stringify(cfg||{}));delete c.key;if(c.web)delete c.web.key;if(c.img)delete c.img.key;return c}
 async function backupPayload(){
-  const d={v:7,at:Date.now(),cfg:cfg,chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
+  const d={v:7,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{}};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id);d.gmems[c.id]=gmemOf(c.id)});
   d.arcs.forEach(a=>{d.arcData[a.id]=getArc(a.id)});
@@ -3371,7 +3416,8 @@ function importAll(input){
       }
       d=JSON.parse(s);
       if(!confirm('导入会覆盖现在所有数据，确定？'))return;
-      if(d.cfg)save(LS.cfg,d.cfg);
+      if(d.cfg){var nc=Object.assign({},d.cfg);var nb=String(nc.base||''),ob=String((cfg&&cfg.base)||'');if(nb&&nb!==ob&&!confirm('注意：这份备份想把「API 接口地址」改成：\n'+nb+'\n\n如果不是你自己设的地址，点「取消」，只导入聊天记录、保留你现在的地址。'))delete nc.base;if(cfg&&cfg.key)nc.key=cfg.key;save(LS.cfg,nc);}
+
       if(d.chars)save(LS.chars,d.chars);
       if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
       if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
@@ -4128,7 +4174,7 @@ function showSearchRes(s){
   '<p class="dim" style="font-size:12px;margin:0 0 8px">搜索词：'+esc(s.q)+' · 共 '+s.list.length+' 条</p>'+
   s.list.map((x,i)=>'<div class="arcitem"><div class="arcname"><b>'+(i+1)+'. '+esc(x.title)+'</b></div>'+
   '<div class="arcmeta">'+esc(String(x.snippet||'').slice(0,300))+'</div>'+
-  '<div class="row arcfoot"><a class="ghost iconbtn" style="text-decoration:none" href="'+esc(x.url)+'" target="_blank" rel="noopener">打开来源</a></div></div>').join('')+
+  '<div class="row arcfoot"><a class="ghost iconbtn" style="text-decoration:none" href="'+safeUrl(x.url)+'" target="_blank" rel="noopener">打开来源</a></div></div>').join('')+
   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
 }
 let pendingSearch='',pendingSM=null;
@@ -5293,7 +5339,7 @@ P5.notify=function(o){
   var host=notifHost();
   var el=document.createElement('div');
   el.className='p5n'+(o.kind==='group'?' group':'');
-  var inner=(o.avatar?('<img src="'+o.avatar+'" alt="">'):esc(o.emoji||'🐋'));
+  var inner=(o.avatar?('<img src="'+esc(o.avatar)+'" alt="">'):esc(o.emoji||'🐋'));
   el.innerHTML='<div class="p5nab">'+inner+'</div>'+
    '<div class="p5nmain"><div class="p5nt">'+esc(o.name||'')+
    (o.where?('<i>'+esc(o.where)+'</i>'):'')+'</div>'+
@@ -5940,7 +5986,7 @@ function artCardHTML(){
   items.slice(0,24).map(function(it){
     return '<div class="arcitem"><div class="arcname"><b>'+esc((it.emoji||'')+' '+it.name)+'</b> '+
     '<span class="dim">'+esc(safeL(function(){return stampOf(it.a.t)},''))+'</span></div>'+
-    '<img src="'+it.a.img+'" alt="画" style="max-width:100%;border-radius:12px;margin:6px 0;cursor:pointer;display:block" onclick="P5.viewArt(\''+it.cid+'\','+it.i+')">'+
+    '<img src="'+esc(it.a.img)+'" alt="画" style="max-width:100%;border-radius:12px;margin:6px 0;cursor:pointer;display:block" onclick="P5.viewArt(\''+it.cid+'\','+it.i+')">'+
     '<div class="arcmeta">'+esc(String(it.a.prompt||'').slice(0,140))+(it.a.caption?('<br>附言：'+esc(it.a.caption)):'')+'</div>'+
     '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P5.artDl(\''+it.cid+'\','+it.i+')">下载</button>'+
     '<button class="ghost iconbtn" style="color:var(--warn)" onclick="P5.artDel(\''+it.cid+'\','+it.i+')">删掉</button></div></div>';
