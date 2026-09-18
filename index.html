@@ -298,21 +298,133 @@ header .who .st{font-size:10.5px;color:var(--dim);max-width:100%;overflow:hidden
 /* 空状态：给一张卡片，而不是一片空白 */
 .hint{background:var(--panel);border:1px dashed var(--line);border-radius:18px;padding:30px 18px;margin:8px 0 6px;font-size:13.5px}
 
+/* ---- 加号按钮 / 附件小卡片 ---- */
+#composer #plus{background:var(--bg2);border:1px solid var(--line);color:var(--acc)}
+#composer #plus svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.filechip{display:inline-flex;align-items:center;gap:6px;max-width:100%;margin:4px 0 2px;padding:6px 10px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);font-size:12px;color:var(--txt);word-break:break-all;cursor:pointer}
+.filechip svg{width:15px;height:15px;flex:0 0 auto;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.filechip i{font-style:normal;color:var(--dim);flex:0 0 auto}
+#picked .filechip{max-width:58vw;margin:0}
+
+/* ---- 私聊头像（用伪元素做，不动原来的消息结构） ---- */
+#msgs .bub{position:relative;margin-left:38px;max-width:calc(84% - 38px)}
+#msgs .bub.me{margin-left:auto;margin-right:38px}
+#msgs .bub.withav::before{content:'';position:absolute;bottom:2px;width:28px;height:28px;border-radius:10px;border:1px solid var(--line);background:var(--bg2) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;color:var(--txt)}
+#msgs .bub.ai.withav::before{left:-38px}
+#msgs .bub.me.withav::before{right:-38px}
+#msgs .bub.withav.avaem::before{content:attr(data-ava)}
+#msgs .bub.withav:not(.avaem)::before{background-image:var(--avurl)}
+#msgs .think,#msgs .ops,#msgs .tok.meta,#msgs .thinklive{margin-left:38px}
+#msgs .ops.me,#msgs .tok.meta.me{margin-right:38px}
+
+/* ---- 打字光标 ---- */
+.gen::after{content:'▍';margin-left:1px;color:var(--acc);animation:caret 1s steps(1,end) infinite}
+@keyframes caret{0%,45%{opacity:1}45.01%,100%{opacity:0}}
+
+/* ---- 生成中的「思考中」胶囊 ---- */
+.thinklive{display:flex;align-items:center;gap:6px;width:fit-content;margin:11px 0 0;padding:5px 13px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:12px;animation:pop .18s ease}
+.thinklive{color:var(--acc);border-color:var(--accdim);background:var(--accdim)}
+.thinklive.on{color:var(--acc);border-color:var(--accdim);background:var(--accdim)}
+.thinklive svg{width:13px;height:13px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.thinklive span{animation:pulse 1.5s ease-in-out infinite}
+
+/* ---- 角色页：网格 ---- */
+.sheet .row button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.sheet button svg{width:16px;height:16px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.p6grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.p6grid .card{margin:0;padding:15px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;position:relative;overflow:hidden}
+.p6grid .card b{font-size:13.5px;display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p6grid .card .p6persona{font-size:11.5px;color:var(--dim);line-height:1.45;min-height:33px;max-height:33px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.p6grid .card .p6meta{font-size:10.5px;color:var(--dim);opacity:.92;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p6grid .card .p6edit{position:absolute;top:5px;right:5px}
+.p6grid .p6arrows{display:flex;gap:6px}
+
+/* ============================================================
+   2026-09-18 视觉改版：浅灰底 + 白气泡 + 单一主色（8 套主题通用）
+   ============================================================ */
+/* 页头：标题 + 一行说明 + ⋯ */
+header{align-items:flex-start;gap:8px;padding:calc(env(safe-area-inset-top) + 12px) 14px 10px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:none}
+header .hcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+header h1{font-size:19px;font-weight:700;color:var(--txt);letter-spacing:.2px;margin:0;line-height:1.25}
+header .who{font-size:11.5px;color:var(--meta);text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header .hact{width:32px;height:32px;flex:0 0 auto;border-radius:50%;background:transparent;border:0;color:var(--meta);font-size:20px;line-height:1;padding:0;box-shadow:none}
+header .hact:active{background:var(--bg2)}
+
+/* 气泡：白底 + 1px 描边 + 极淡阴影 */
+#msgs .bub{border-radius:18px}
+.bub.ai{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accline);border-bottom-left-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.bub.me{background:var(--accdim);border:1px solid var(--line);border-bottom-right-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+#msgs .bub.ai{max-width:calc(92% - 38px)}
+#msgs .bub.me{max-width:calc(86% - 38px)}
+
+/* 元信息：时间紧贴气泡；token 默认隐藏，开发者模式才显示 */
+#msgs .tok.meta{margin:6px 0 0 38px;color:var(--meta);font-size:11.5px;display:block}
+#msgs .tok.meta.me{margin:6px 38px 0 auto;text-align:right}
+.tok,.gtok,.arcmeta,.srcline,.searchline{color:var(--meta)}
+.tok{font-variant-numeric:tabular-nums}
+.tk{display:none}
+body.dev .tk{display:inline}
+body:not(.dev) .gtok,body:not(.dev) .atok,body:not(.dev) .p6toksum{display:none!important}
+
+/* 加粗 / 行内代码用主色，而不是纯黑 */
+b.hl,strong.hl{color:var(--acc);font-weight:600}
+code.hl{color:var(--acc);background:var(--accdim);border-radius:6px;padding:1px 5px;font-size:.94em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* 输入区：一个胶囊，＋ 收在里面，右边是 ↑ */
+#composer{padding:8px 12px calc(env(safe-area-inset-bottom) + 10px);background:var(--bg);border-top:1px solid var(--line);display:flex}
+#composer #cbox{flex:1;display:flex;align-items:flex-end;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:5px 6px 5px 5px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+#composer #cbox button{width:34px;height:34px;border-radius:50%;flex:0 0 auto;padding:0}
+#composer #plus{background:transparent;border:0;color:var(--meta)}
+#composer #plus:active{background:var(--bg2)}
+#composer #plus svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+#composer textarea,#composer #inp{flex:1;min-height:34px;max-height:120px;background:transparent;border:0;box-shadow:none;padding:8px 4px;font-size:var(--fs)}
+#composer textarea:focus{border:0;box-shadow:none}
+#composer #send{background:var(--acc);color:#fff;box-shadow:none}
+#composer #send svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#composer #send:disabled{background:var(--line);color:var(--meta);opacity:1}
+#composer #stop{background:var(--warn);color:#fff}
+#composer #stop svg{width:16px;height:16px}
+
+/* 底部导航：4 个 Tab，指示条在图标下方 */
+nav{background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -2px 12px rgba(16,24,40,.04);gap:0;padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
+nav::before{display:none}
+nav button{color:var(--meta);font-size:11px;gap:1px;padding:6px 2px 5px;border-radius:12px}
+nav button.on{color:var(--acc);background:none}
+nav button.on svg{transform:none;filter:none}
+nav button.on svg{fill:var(--acc);fill-opacity:.18}
+nav button.on::after{display:none}
+nav button .ico{display:flex;align-items:center;justify-content:center}
+nav button .ind{display:block;width:0;height:3px;border-radius:3px;background:var(--acc);transition:width .2s ease;margin:2px 0 1px}
+nav button.on .ind{width:16px}
+
+/* 头像色块 */
+#msgs .bub.ai.withav.avaem::before{background:var(--acc);color:#fff}
+#msgs .bub.me.withav.avaem::before{background:var(--bg2);color:var(--meta)}
+.gbub .avbox{background:var(--accdim)}
+.gbub:not(.me) .avbox{background:var(--acc);color:#fff}
+.p6grid .card .avbox{background:var(--accdim)}
+
+/* 思考胶囊：浅底、无边框、小字，和效果图一致 */
+.thinkhead{background:var(--accdim);border:0;color:var(--acc);font-size:11.5px;padding:5px 12px;gap:5px;box-shadow:none}
+.thinkhead.on{background:var(--accdim);color:var(--acc);box-shadow:none}
+.thinkbody{border:0;border-left:2px solid var(--accline);background:var(--panel);color:var(--dim);font-size:12px}
+#picked{background:var(--bg)}
+
 </style>
 </head>
 <body>
-<header><span class="topav" id="topav" style="display:none"></span><h1 id="title">深蓝海域</h1><span class="who" id="who"></span></header>
+<header><div class="hcol"><h1 id="title">聊天</h1><span class="who" id="who"></span></div><button class="hact" id="hact" type="button" aria-label="更多">⋯</button></header>
 <main id="main"></main>
-<div id="picked"><img id="thumb" alt=""><button id="pickedX" onclick="clearPicked()">✕</button></div>
-<div id="composer"><button id="pic" title="发图片给ta看" aria-label="发送图片"><svg viewBox="0 0 24 24"><rect x="3.4" y="4.8" width="17.2" height="14.4" rx="3.4"/><circle cx="8.7" cy="9.8" r="1.7"/><path d="m4.2 17.6 4.8-4.5 3.4 3 3.3-2.9 4.5 4.2"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="send" aria-label="发送"><svg viewBox="0 0 24 24"><path d="M3.7 20.4 21 12 3.7 3.6l.1 6.7L14.6 12 3.8 13.7Z"/></svg></button><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button></div>
+<div id="picked"><img id="thumb" alt=""><span id="fchip" class="filechip" style="display:none"></span><button id="pickedX" onclick="clearPicked()">✕</button></div>
+<div id="composer"><div id="cbox"><button id="plus" title="发送图片或文件" aria-label="发送图片或文件"><svg viewBox="0 0 24 24"><path d="M12 5.2v13.6M5.2 12h13.6"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button><button id="send" aria-label="发送" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5.4"/><path d="M5.8 11.6 12 5.4l6.2 6.2"/></svg></button></div></div>
 <input id="imgIn" type="file" accept="image/*" style="display:none" onchange="pickImage(this)">
+<input id="fileIn" type="file" style="display:none" onchange="pickFile(this)">
 <input id="avaIn" type="file" accept="image/*" style="display:none" onchange="avaChange(this)">
 <nav>
-  <button data-v="chat" class="on"><svg viewBox="0 0 24 24"><path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/></svg><span>聊天</span><i class="dot" id="navDot"></i></button>
-  <button data-v="roles"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/></svg><span>角色</span></button>
-  <button data-v="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.7"/><path d="M4.9 19.8c0-3.5 3.2-5.7 7.1-5.7s7.1 2.2 7.1 5.7"/></svg><span>我的</span></button>
-  <button data-v="tools"><svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="3.6" y="13.2" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="13.2" width="7.2" height="7.2" rx="2.2"/></svg><span>应用</span></button>
-  <button data-v="cfg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/></svg><span>设置</span></button>
+  <button data-v="chat" class="on"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/></svg></span><i class="ind"></i><span>聊天</span><i class="dot" id="navDot"></i></button>
+  <button data-v="roles"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/></svg></span><i class="ind"></i><span>角色</span></button>
+  <button data-v="tools"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="3.6" y="13.2" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="13.2" width="7.2" height="7.2" rx="2.2"/></svg></span><i class="ind"></i><span>应用</span></button>
+  <button data-v="cfg"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/></svg></span><i class="ind"></i><span>设置</span></button>
 </nav>
 <div class="modal" id="modal"><button class="sheetclose" onclick="closeSheet()" aria-label="关闭">✕</button><div class="sheet" id="sheet"></div></div>
 <div id="lock">
@@ -335,14 +447,14 @@ const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',p
 
 /* ---------- 主题 ---------- */
 const THEMES={
-  dark:{label:'深海（深蓝·暗）',v:{'--bg':'#050e16','--bg2':'#081a29','--panel':'#0d1c28','--line':'#1a3342','--txt':'#d9e9f2','--dim':'#7d99aa','--acc':'#3fa9d8','--acc2':'#5cc4f0','--accdim':'#1b4a63','--warn':'#e06a60','--grad':'linear-gradient(160deg,#0e2c3f 0%,#081a29 60%)','--shadow':'0 2px 10px rgba(0,0,0,.18)','--bubme':'linear-gradient(135deg,#1b4a63,#17445c)'}},
-  light:{label:'浅色（白）',v:{'--bg':'#eaf1f6','--bg2':'#e2ecf3','--panel':'#ffffff','--line':'#d7e2ea','--txt':'#12313f','--dim':'#6b8797','--acc':'#1f7fa8','--acc2':'#2f9fd0','--accdim':'#d7eaf4','--warn':'#c0504a','--grad':'linear-gradient(160deg,#eaf6fc 0%,#f7fafc 60%)','--shadow':'0 2px 10px rgba(30,60,80,.08)','--bubme':'linear-gradient(135deg,#d3e8f5,#bcdbf0)'}},
-  cyan:{label:'浅青（推荐）',v:{'--bg':'#eef7f8','--bg2':'#e1f0f2','--panel':'#ffffff','--line':'#cde5e9','--txt':'#0e3a41','--dim':'#5d8a91','--acc':'#149aa9','--acc2':'#2fbcc9','--accdim':'#d4eef2','--warn':'#c0504a','--grad':'linear-gradient(160deg,#e4f7f9 0%,#f8fdfd 60%)','--shadow':'0 2px 10px rgba(20,80,90,.08)','--bubme':'linear-gradient(135deg,#cdeef2,#b3e1e9)'}},
-  sea:{label:'青碧（暗）',v:{'--bg':'#04191c','--bg2':'#062a2e','--panel':'#0a3036','--line':'#134a51','--txt':'#d6eef0','--dim':'#79a6aa','--acc':'#2fb6ae','--acc2':'#4fd6cd','--accdim':'#0f4a49','--warn':'#e0776c','--grad':'linear-gradient(160deg,#0a3136 0%,#04191c 60%)','--shadow':'0 2px 10px rgba(0,0,0,.22)','--bubme':'linear-gradient(135deg,#0f4a49,#0a3a3c)'}},
-  sakura:{label:'樱雪（淡粉）',v:{'--bg':'#fdf3f6','--bg2':'#fbe9f0','--panel':'#ffffff','--line':'#f2dbe5','--txt':'#43283a','--dim':'#9c7b8d','--acc':'#d4649a','--acc2':'#e88bb6','--accdim':'#fbe1ee','--warn':'#c0504a','--grad':'linear-gradient(160deg,#fdecf3 0%,#fff9fb 60%)','--shadow':'0 2px 10px rgba(120,60,90,.08)','--bubme':'linear-gradient(135deg,#fbe1ee,#f2c9de)'}},
-  matcha:{label:'抹茶（淡绿）',v:{'--bg':'#f1f7ec','--bg2':'#e8f2e1','--panel':'#ffffff','--line':'#d9e8cf','--txt':'#2b3a26','--dim':'#7c9377','--acc':'#4f9444','--acc2':'#6fbc60','--accdim':'#e1f0d8','--warn':'#c0504a','--grad':'linear-gradient(160deg,#ecf7e6 0%,#fbfdf9 60%)','--shadow':'0 2px 10px rgba(60,90,50,.08)','--bubme':'linear-gradient(135deg,#e1f0d8,#c8e3bb)'}},
-  ink:{label:'墨夜（暗紫黑）',v:{'--bg':'#0b0b0e','--bg2':'#121218','--panel':'#15151b','--line':'#27272f','--txt':'#e7e7ec','--dim':'#8b8b96','--acc':'#9d8cff','--acc2':'#b9adff','--accdim':'#2b2452','--warn':'#e07070','--grad':'linear-gradient(160deg,#18181f 0%,#0b0b0e 60%)','--shadow':'0 2px 10px rgba(0,0,0,.4)','--bubme':'linear-gradient(135deg,#2b2452,#1c1739)'}},
-  dusk:{label:'暮紫（暗紫）',v:{'--bg':'#0d0a17','--bg2':'#150f26','--panel':'#181227','--line':'#2a2246','--txt':'#e7e1f6','--dim':'#9186b3','--acc':'#a97cf0','--acc2':'#c69cf7','--accdim':'#33245c','--warn':'#e07070','--grad':'linear-gradient(160deg,#1e1638 0%,#0d0a17 60%)','--shadow':'0 2px 10px rgba(0,0,0,.3)','--bubme':'linear-gradient(135deg,#33245c,#231647)'}}
+  dark:{label:'深海（深蓝·暗）',v:{'--bg':'#0a1219','--bg2':'#101922','--panel':'#141e26','--line':'#1f2c36','--txt':'#e3eef6','--dim':'#8aa0b0','--meta':'#93a7b6','--acc':'#4d9bf0','--acc2':'#6fb4ff','--accdim':'#16354f','--accline':'#2f6ea8','--warn':'#e07068','--grad':'linear-gradient(160deg,#111d27 0%,#0a1219 62%)','--shadow':'0 1px 2px rgba(0,0,0,.22)','--bubme':'linear-gradient(135deg,#1b3a52,#16324a)'}},
+  light:{label:'浅色（白）',v:{'--bg':'#e7ebf1','--bg2':'#edf0f5','--panel':'#ffffff','--line':'#e1e6ef','--txt':'#0f1724','--dim':'#6b7280','--meta':'#5f6774','--acc':'#2f6fed','--acc2':'#5b8cf5','--accdim':'#e3ebfd','--accline':'#b9cdf7','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f5f9 0%,#e7ebf1 60%)','--shadow':'0 1px 2px rgba(16,24,40,.05)','--bubme':'linear-gradient(135deg,#e8ecf4,#dfe5ef)'}},
+  cyan:{label:'浅青（推荐）',v:{'--bg':'#e8edee','--bg2':'#eef2f3','--panel':'#ffffff','--line':'#dfe6e7','--txt':'#142b2e','--dim':'#5f7c80','--meta':'#4c6a6e','--acc':'#128e9c','--acc2':'#3ab0be','--accdim':'#dcf0f2','--accline':'#9fcbd2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f7f8 0%,#e8edee 60%)','--shadow':'0 1px 2px rgba(16,60,70,.05)','--bubme':'linear-gradient(135deg,#e6f1f2,#dbe9ec)'}},
+  sea:{label:'青碧（暗）',v:{'--bg':'#0a1315','--bg2':'#101a1c','--panel':'#162023','--line':'#223033','--txt':'#d8eef0','--dim':'#7fa3a6','--meta':'#93b3b6','--acc':'#2fb3a8','--acc2':'#59e0d6','--accdim':'#10443f','--accline':'#1f6b66','--warn':'#e0776c','--grad':'linear-gradient(160deg,#131f22 0%,#0a1315 60%)','--shadow':'0 1px 2px rgba(0,0,0,.24)','--bubme':'linear-gradient(135deg,#10443f,#0b3a38)'}},
+  sakura:{label:'樱雪（淡粉）',v:{'--bg':'#f2ecee','--bg2':'#f7f1f3','--panel':'#ffffff','--line':'#e8dfe2','--txt':'#33222b','--dim':'#8a6f7a','--meta':'#755c67','--acc':'#d2598f','--acc2':'#ec93bd','--accdim':'#fbe0ec','--accline':'#eec2d6','--warn':'#d9534f','--grad':'linear-gradient(160deg,#faf4f6 0%,#f2ecee 60%)','--shadow':'0 1px 2px rgba(120,60,90,.06)','--bubme':'linear-gradient(135deg,#f6e6ee,#f0dae5)'}},
+  matcha:{label:'抹茶（淡绿）',v:{'--bg':'#edf0ea','--bg2':'#f2f5ef','--panel':'#ffffff','--line':'#e2e8db','--txt':'#252c22','--dim':'#71806c','--meta':'#5e6b58','--acc':'#46903a','--acc2':'#6cbd5d','--accdim':'#e2f0d9','--accline':'#c2ddb2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f6f9f2 0%,#edf0ea 60%)','--shadow':'0 1px 2px rgba(60,90,50,.06)','--bubme':'linear-gradient(135deg,#e9f3e2,#dfeed5)'}},
+  ink:{label:'墨夜（暗紫黑）',v:{'--bg':'#0b0b0e','--bg2':'#131319','--panel':'#191920','--line':'#2b2b35','--txt':'#e9e9ee','--dim':'#8f8f9a','--meta':'#9b9ba7','--acc':'#9b8cff','--acc2':'#c3b8ff','--accdim':'#2a2450','--accline':'#4a3f86','--warn':'#e07070','--grad':'linear-gradient(160deg,#1a1a22 0%,#0b0b0e 60%)','--shadow':'0 1px 2px rgba(0,0,0,.4)','--bubme':'linear-gradient(135deg,#2a2450,#1e1940)'}},
+  dusk:{label:'暮紫（暗紫）',v:{'--bg':'#0f0d15','--bg2':'#161320','--panel':'#1b1826','--line':'#2a2536','--txt':'#eae4f8','--dim':'#9488b6','--meta':'#a196c0','--acc':'#a97cf0','--acc2':'#cda6f9','--accdim':'#33245c','--accline':'#5b4694','--warn':'#e07070','--grad':'linear-gradient(160deg,#1d1830 0%,#0f0d15 60%)','--shadow':'0 1px 2px rgba(0,0,0,.3)','--bubme':'linear-gradient(135deg,#33245c,#251848)'}}
 };
 function applyTheme(){
   const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
@@ -359,6 +471,8 @@ function applyTheme(){
   })();
   r.setProperty('--scbg',lit?'rgba(255,255,255,.94)':'rgba(10,22,32,.82)');
   r.setProperty('--scfg',lit?(t.v['--txt']||'#12313f'):'#eaf3f8');
+  /* 开发者模式：打开才在界面上显示 token 统计 */
+  try{document.body.classList.toggle('dev',!!(cfg&&cfg.dev))}catch(e){}
 }
 
 /* ---------- 存储基础（带加密支持） ---------- */
@@ -425,6 +539,16 @@ const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt
 const safeUrl=u=>{u=String(u==null?'':u).trim();return /^https?:\/\//i.test(u)?esc(u):'#'};
 
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
+/* 消息的「一句话摘要」：给总结/日志/通知用，把图片和附件也标出来 */
+const msgBrief=m=>{
+  const s=String((m&&m.content)||'').trim();
+  const ex=(m&&m.img?'［图片］':'')+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
+  return (s+(s&&ex?' ':'')+ex)||'（空）';
+};
+/* 轻量 markdown：**加粗** 和 `代码` 用主色显示；其它内容照旧转义，安全 */
+const mdLite=s=>nl2br(s)
+  .replace(/\*\*([^*\n]{1,120})\*\*/g,'<b class="hl">$1</b>')
+  .replace(/`([^`\n]{1,200})`/g,'<code class="hl">$1</code>');
 const SUM_N=60,MAX_SCAN=4000;
 /* ---------- 历史档案「总结版」参数 ---------- */
 const ARC_CHUNK=40;          // 每段精读条数（越小越不容易丢记忆，但调用次数越多）
@@ -460,6 +584,7 @@ const secOpen={};
 let memCtx={id:null,obj:null};        /* 正在编辑的是哪个角色的记忆 */
 const sheetStack=[];                  /* 弹层逐层返回 */
 let pendImg=null;                     /* 待发送的图片 dataURL */
+let pendFile=null;                    /* 待发送的附件 {name,size,type,kind,text?} */
 let avaTarget=null;                   /* {kind:'me'} 或 {kind:'char',id:...} */
 const HIST_HINT={
   auto:'自动：给角色最近 '+(30)+' 条左右的原文，再加上下面的记忆总结。省 token，也记得住大致经过（推荐）。',
@@ -720,25 +845,30 @@ function updateDots(){
 /* ---------- 视图 ---------- */
 function go(v){
   view=v;
-  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='me'?'cfg':v)));
   $('#composer').style.display=(v==='chat')?'flex':'none';
   draw();
 }
-/* 顶栏第二行的小字：自动发消息状态 + 当前模型 */
+/* 顶栏第二行的小字：角色 · 模型 · 自动发消息状态 */
 function topStatus(c){
   const a=(c&&c.auto)||{};
-  const auto=a.on?('自动发消息 开 · 每 '+a.min+'~'+a.max+' 分钟'):'自动发消息 关';
-  const m=modelOf(c)||'';
-  return m?(auto+' · '+m):auto;
+  const auto=a.on?('自动发消息 开'):'自动发消息 已关';
+  return [c&&c.name,auto].filter(Boolean).join(' · ');
+}
+/* 非聊天页显示的一行说明 */
+function viewHint(v){
+  return {roles:'点卡片进聊天 · 长按卡片排序',me:'名字、头像、备注（角色会看到这些）',tools:'演绎 / 群聊 / 互动都在这里',cfg:'接口 · 记忆 · 外观 · 备份'}[v]||'';
 }
 function draw(){
-  $('#title').textContent={chat:'聊天',roles:'角色列表',me:'我的主页',tools:'应用',cfg:'设置'}[view]||'深蓝海域';
+  $('#title').textContent={chat:'聊天',roles:'角色',me:'我的资料',tools:'应用',cfg:'设置'}[view]||'深蓝海域';
   const c=curChar();
   const inChat=!!(view==='chat'&&c);
-  const av=$('#topav');
-  if(av){av.style.display=inChat?'flex':'none';av.innerHTML=inChat?avaInner(c):''}
   const whoEl=$('#who');
-  if(whoEl)whoEl.innerHTML=inChat?('<span class="nm">'+esc(c.name)+'</span><span class="st">'+esc(topStatus(c))+'</span>'):'';
+  if(whoEl)whoEl.textContent=inChat?topStatus(c):viewHint(view);
+  const hact=$('#hact');
+  if(hact)hact.style.display=inChat?'':'none';
+  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(view==='me'?'cfg':view)));
+  updSendBtn();
   if(view==='chat')renderChat();
   else if(view==='roles')renderRoles();
   else if(view==='me')renderMe();
@@ -1422,6 +1552,7 @@ function estTokens(s){
 
 /* ---------- 界面图标（矢量，替换原来的 emoji） ---------- */
 const ICON={
+  pic:'<svg viewBox="0 0 24 24"><rect x="3.4" y="4.8" width="17.2" height="14.4" rx="3.4"/><circle cx="8.7" cy="9.8" r="1.7"/><path d="m4.2 17.6 4.8-4.5 3.4 3 3.3-2.9 4.5 4.2"/></svg>',
   regen:'<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.4 5.8"/><path d="M20 4.6V11h-6.4"/></svg>',
   edit:'<svg viewBox="0 0 24 24"><path d="M15.2 4.9 19.1 8.8"/><path d="M4.6 19.4l1-4.2L16.3 4.5a1.6 1.6 0 0 1 2.3 0l.9.9a1.6 1.6 0 0 1 0 2.3L8.8 18.4l-4.2 1Z"/></svg>',
   del:'<svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M9.6 7V5.5c0-.6.4-1 1-1h2.8c.6 0 1 .4 1 1V7"/><path d="M7.1 7l.9 11.2c.1.9.8 1.6 1.7 1.6h4.6c.9 0 1.6-.7 1.7-1.6L17 7"/></svg>',
@@ -1434,6 +1565,16 @@ const ICON={
 };
 
 /* ---------- 聊天 ---------- */
+/* 给气泡挂头像：用伪元素显示，不动原来的消息结构（打字动画依赖结构不变） */
+function setBubbleAvatar(el,isMe){
+  if(!el)return;
+  const av=isMe?{emoji:cfg.userEmoji,avatar:cfg.userAvatar}:(curChar()||{});
+  el.classList.add('withav');
+  el.dataset.ava=av.emoji||'🙂';
+  const src=av.avatar;
+  if(typeof src==='string'&&/^(data:|https?:|blob:)/.test(src))el.style.setProperty('--avurl','url("'+src.replace(/"/g,'%22')+'")');
+  else el.classList.add('avaem');
+}
 function renderChat(){
   const c=curChar(),m=$('#main');
   if(!c){m.innerHTML='<div class="hint">还没有角色<br><br><button class="pri" onclick="newChar()">＋ 新建角色</button></div>';return}
@@ -1444,10 +1585,13 @@ function renderChat(){
   const box=$('#msgs');
   if(!msgs.length)box.innerHTML='<div class="hint">还没有聊天记录<br><span style="font-size:12px">说点什么，或者等ta先开口</span></div>';
   msgs.forEach((x,i)=>{
+    const isMe=(x.role==='user');
     const d=document.createElement('div');
-    d.className='bub '+(x.role==='user'?'me':'ai');
+    d.className='bub '+(isMe?'me':'ai');
     d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):'')+
-      nl2br(x.content||'');
+      filesHTML(x.files,i)+
+      mdLite(x.content||'');
+    setBubbleAvatar(d,isMe);
     if(x.role==='assistant'&&x.reasoning){
       const th=document.createElement('div');
       th.className='think';
@@ -1466,10 +1610,10 @@ function renderChat(){
     box.appendChild(d);                     /* 思考块排在气泡上方 */
     const tk=x.tok||((x.content)?estTokens(x.content):0);
     const meta=document.createElement('div');
-    meta.className='tok meta'+(x.role==='user'?' me':'');
-    meta.textContent=fmtStamp(x.t)+(tk?(' · '+(x.role==='assistant'
-      ?('生成 '+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):''))
-      :('约 '+(x.tok?'':'≈')+tk+' tok'))):'');
+    meta.className='tok meta'+(isMe?' me':'');
+    const tkTxt=tk?((isMe?'约 ':'生成 ')+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):'')):'';
+    meta.innerHTML='<span class="ts">'+esc(fmtStamp(x.t))+'</span>'+
+      (tkTxt?('<span class="tk"> · '+esc(tkTxt)+'</span>'):'');
     box.appendChild(meta);
     if(i===msgs.length-1&&!busy){
       const o=document.createElement('div');
@@ -1533,6 +1677,8 @@ function buildCtx(c,extra){
   const ab=archiveBlock(lu?lu.content:'',c);if(ab)sys.push(ab);
   /* 【新增】开了「群聊权限」的角色，会带上它在群里的记忆 */
   const gb=groupMemBlock(c);if(gb)sys.push(gb);
+  /* 【新增】勾了「能看见演绎记忆」的角色，会带上它在演绎里的经历 */
+  const amb=actMemBlock(c);if(amb)sys.push(amb);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
   if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
@@ -1547,11 +1693,14 @@ function buildCtx(c,extra){
   const useT=(cfg.timeOn!==false);
   const hist=historySlice().map(x=>{
     const pre=(useT&&x.role==='user')?('（'+stampOf(x.t)+'）'):'';
-    if(x.img){
+    const fb=fileBlocks(x.files);
+    if(x.img||fb){
       const parts=[];
-      if(x.content)parts.push({type:'text',text:pre+x.content});
-      else if(pre)parts.push({type:'text',text:pre+'（我给你发了张图片）'});
-      parts.push({type:'image_url',image_url:{url:x.img}});
+      let head=pre+(x.content||'');
+      if(!head&&x.img)head=pre+'（我给你发了张图片）';
+      if(fb)head+=(head?'\n':'')+fb;
+      if(head)parts.push({type:'text',text:head});
+      if(x.img)parts.push({type:'image_url',image_url:{url:x.img}});
       return {role:x.role,content:parts};
     }
     return {role:x.role,content:pre+(x.content||'')};
@@ -1695,11 +1844,12 @@ function revealText(el,text,opts){
   const start=Math.max(0,Math.min(full.length,opts.start||0));
   const st={dead:false,ok:true,shown:start,rendered:start,src:full};
   el._rv=st;
+  el.classList.add('gen');                          /* 打字时显示光标 */
   el.textContent=full.slice(0,start);
-  if(st.shown>=full.length){if(opts.onTick)opts.onTick(st.shown);if(opts.onDone)opts.onDone();return}
+  if(st.shown>=full.length){el.classList.remove('gen');if(opts.onTick)opts.onTick(st.shown);if(opts.onDone)opts.onDone();return}
   const tail=document.createElement('i');tail.style.display='none';el.appendChild(tail);
   let lastT=0,acc=0;
-  const finish=()=>{if(!st.ok)return;st.ok=false;st.dead=true;if(opts.onDone)opts.onDone()};
+  const finish=()=>{if(!st.ok)return;st.ok=false;st.dead=true;if(el._rv===st)el.classList.remove('gen');if(opts.onDone)opts.onDone()};
   const step=()=>{
     if(st.dead||!el.isConnected){finish();return}
     const now=Date.now();
@@ -1750,10 +1900,16 @@ async function askAndAppend(){
   const c=curChar(),box=$('#msgs');
   if(!box)return;
   const sendBtn=$('#send'),stopBtn=$('#stop');
-  if(sendBtn)sendBtn.disabled=true;
+  if(sendBtn){sendBtn.disabled=true;sendBtn.style.display='none'}
   if(stopBtn)stopBtn.style.display='';
+  const liveThink=document.createElement('div');
+  liveThink.className='thinklive';liveThink.style.display='none';
+  liveThink.innerHTML=ICON.think+'<span>思考中…</span>';
+  box.appendChild(liveThink);
   const a=document.createElement('div');a.className='bub ai typing';
+  setBubbleAvatar(a,false);
   a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);scrollDown();
+  const thinkOn=()=>{if(liveThink.style.display==='none')liveThink.style.display='flex'};
   busy=true;let ok=false;let usage=null;let reasoning='';let out='';
   const tp=thinkParams(c);
   curAbort=new AbortController();
@@ -1761,16 +1917,17 @@ async function askAndAppend(){
   try{
     const tools=toolsFor(c);
     if(tools.length){
+      thinkOn();                       /* 有工具时它要先去想/去调工具，先亮起「思考中」 */
       const r=await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools});
       reasoning=r.reasoning;usage=r.usage;out=r.finalText;
       if(!out){
         const ctx2=r.messages.concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
-        await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>reasoning+=rr,onUsage:u=>usage=u});
+        await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
       }else{
         a.classList.remove('typing');sayOut(a,out);scrollDown();
       }
     }else{
-      await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
+      await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>{reasoning+=r;thinkOn()},onUsage:u=>usage=u});
     }
     if(!out)throw new Error('模型没返回内容');
     const m={role:'assistant',content:out,t:Date.now()};
@@ -1797,19 +1954,23 @@ async function askAndAppend(){
   }
   busy=false;
   curAbort=null;
-  if(sendBtn)sendBtn.disabled=false;
+  if(sendBtn)sendBtn.style.display='';
   if(stopBtn)stopBtn.style.display='none';
+  updSendBtn();
+  if(liveThink.parentNode)liveThink.remove();
   if(ok){renderChat();maybeAutoSummary(true);}
 }
 async function send(){
   const c=curChar(),inp=$('#inp');
   const text=inp.value.trim();
-  if((!text&&!pendImg)||!c)return;
+  if((!text&&!pendImg&&!pendFile)||!c)return;
   if(busy){toast('ta还在输入，稍等一下');return}
   inp.value='';inp.style.height='auto';
+  updSendBtn();
   const m={role:'user',content:text,t:Date.now()};
   if(text)m.tok=estTokens(text);
   if(pendImg){m.img=pendImg;clearPicked()}
+  if(pendFile){m.files=[Object.assign({},pendFile)];clearPicked()}
   msgs.push(m);persist();
   if(view!=='chat')go('chat');else renderChat();
   await askAndAppend();
@@ -1854,7 +2015,7 @@ async function appendRaw(){
   const start=li.length?li[li.length-1]:msgs.length-1;
   const seg=msgs.slice(start);
   const head='===== '+new Date().toLocaleString('zh-CN')+' =====';
-  const body=seg.map(m=>(m.role==='user'?'我':((c.emoji||'')+' '+c.name))+'：'+(m.content||'')+(m.img?'［图片］':'')).join('\n');
+  const body=seg.map(m=>(m.role==='user'?'我':((c.emoji||'')+' '+c.name))+'：'+msgBrief(m)).join('\n');
   const line=head+'\n'+body+'\n\n';
   const prev=await rawGet(c.id);
   const ok=await rawPut(c.id,(prev||'')+line);
@@ -1981,7 +2142,7 @@ async function runSummary(slice,silent,targetId){
 async function autoSummary(){
   const c=curChar();if(!c)return;
   if(msgs.length<4)return alert('聊天记录太少，没什么可总结的');
-  const slice=msgs.slice(-SUM_N).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  const slice=msgs.slice(-SUM_N).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
   await runSummary(slice,false);
 }
 /* 记忆面板里的「总结最近 N 条」按钮：可能是在编辑别的角色的记忆 */
@@ -1991,7 +2152,7 @@ async function summarizeNow(){
   if(!cfg.key)return alert('先去设置里填 API Key');
   const list=(id===curId?msgs:load(LS.msg(id),[]));
   if(list.length<4)return alert('这个角色的聊天记录太少，没什么可总结的');
-  const slice=list.slice(-SUM_N).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  const slice=list.slice(-SUM_N).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
   toast('总结中…');
   const hit=await runSummary(slice,true,id);
   toast(hit?('已写进记忆 '+hit+' 条'):'总结失败，检查一下模型');
@@ -2021,7 +2182,7 @@ async function maybeAutoSummary(showToast){
   const done=Math.min(autoSumMark(c.id),msgs.length);
   if(msgs.length-done<every)return;
   const from=Math.max(0,msgs.length-every);
-  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
   setAutoSumMark(c.id,msgs.length);       /* 先记进度，防止重复总结 */
   saveMem();
   if(showToast)toast('正在自动总结第 '+(from+1)+'~'+msgs.length+' 条…');
@@ -2098,7 +2259,7 @@ async function autoSumForLoaded(c){
   const done=Math.min(autoSumMark(c.id),msgs.length);
   if(msgs.length-done<every)return;
   const from=Math.max(0,msgs.length-every);
-  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
   setAutoSumMark(c.id,msgs.length);
   const hit=await runSummary(slice,true,c.id);
   if(!hit)setAutoSumMark(c.id,done);
@@ -2222,7 +2383,7 @@ function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     sysPrompt:'',examples:'',think:1,priv:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -2288,6 +2449,13 @@ function editChar(id,tema){
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>群聊权限</b><div class="dim" style="font-size:12px">允许它在和你聊天时自己查看所在的群、自己在群里发言（它会记得自己在群里说过的话）</div></div>'+
   '<input type="checkbox" id="e_group" '+((c.groupPerm&&c.groupPerm.on)?'checked':'')+'></div></div>'+
+  /* 【新增】演绎记忆：让它在私聊里也记得「演绎」里经历的事 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>能看见演绎记忆</b><div class="dim" style="font-size:12px">你在「演绎」里和它经历过的事，它在私聊里也记得（演绎是另一条世界线，默认互相看不见）</div></div>'+
+  '<input type="checkbox" id="e_actmem" '+((c.actMem&&c.actMem.on)?'checked':'')+'></div>'+
+  '<div class="setrow" style="margin-top:10px"><span class="lbl">每场演绎带最近几条</span>'+
+  '<input id="e_actn" type="number" value="'+((c.actMem&&c.actMem.n)||12)+'">'+
+  '<span class="unit">条（最多 4 场）</span></div></div>'+
   '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
   '<button class="col" onclick="copyChar(\''+id+'\')">复制这个角色</button></div>'+
   '<div class="row" style="margin-top:8px"><button class="warn col" onclick="delChar(\''+id+'\')">删除角色</button>'+
@@ -2318,6 +2486,8 @@ function applyCharInputs(id){
   if(c.auto.max<=c.auto.min)c.auto.max=c.auto.min+1;
   c.todoPerm={on:ck('e_todo')};
   c.groupPerm={on:ck('e_group')};
+  const actN=parseInt(v('e_actn'),10);
+  c.actMem={on:ck('e_actmem'),n:(Number.isFinite(actN)&&actN>0)?Math.min(60,actN):12};
   c.priv=ck('e_priv');
   if(typeof c.avatar!=='string')c.avatar='';
   return c;
@@ -2462,6 +2632,7 @@ const USER_EMOJI=['🙂','😀','😎','🌙','⭐','🐳','🦋','🌸','🍀',
 function renderMe(){
   const me={emoji:cfg.userEmoji||'🙂',avatar:cfg.userAvatar||''};
   $('#main').innerHTML=
+  '<div class="row" style="margin-bottom:10px"><button class="ghost col" onclick="go(\'cfg\')">‹ 返回设置</button></div>'+
   '<div class="card"><div class="ttl">我的资料</div>'+
   '<div class="row" style="align-items:center;gap:12px">'+
   avBox(me,64)+
@@ -2623,11 +2794,80 @@ function archiveCard(){
     :'<p class="dim" style="font-size:13px;margin:10px 0 0">还没有档案</p>');
 }
 
-/* ---------- 发图片给角色看 ---------- */
+/* ---------- 发图片 / 发附件给角色 ---------- */
+const fmtSize=n=>{n=Number(n)||0;if(n<1024)return n+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/1048576).toFixed(1)+' MB'};
+const FILE_TXT_MAX=6000;                 /* 文字类附件最多读给角色多少字 */
+function isTextFile(f){
+  const n=String((f&&f.name)||'').toLowerCase();
+  const t=String((f&&f.type)||'').toLowerCase();
+  if(t.indexOf('text/')===0)return true;
+  if(/json|xml|javascript|ecmascript|csv|yaml|x-sh|sql|markdown/.test(t))return true;
+  return /\.(txt|md|markdown|json|csv|tsv|log|ya?ml|xml|html?|css|js|mjs|ts|tsx|jsx|py|java|kt|c|h|cpp|hpp|cs|go|rs|rb|php|sh|bash|zsh|sql|ini|conf|env|srt|vtt)$/.test(n);
+}
+const FILE_ICON='<svg viewBox="0 0 24 24"><path d="M13.6 3.6H7.5c-.8 0-1.4.6-1.4 1.4v14c0 .8.6 1.4 1.4 1.4h9c.8 0 1.4-.6 1.4-1.4V8Z"/><path d="M13.6 3.6V8H18"/></svg>';
+function filesHTML(list,mi){
+  if(!list||!list.length)return '';
+  return list.map((f,j)=>'<div class="filechip" onclick="viewFileAt('+mi+','+j+')">'+FILE_ICON+
+    '<span>'+esc(f.name)+'</span><i>'+fmtSize(f.size)+'</i></div>').join('');
+}
+/* 附件写进给模型看的上下文：文字类给内容，其它只给「发了什么文件」 */
+function fileBlocks(list){
+  if(!list||!list.length)return '';
+  return list.map(f=>{
+    const size=fmtSize(f.size);
+    if(f.kind==='text'&&f.text)return '【附件：'+f.name+'（'+size+'，文字文件'+(f.trunc?('，只截取了前 '+FILE_TXT_MAX+' 字'):'')+'）】\n'+f.text;
+    return '【附件：'+f.name+'（'+size+'）】这种格式我这边看不到内容，只知道她发来了这个文件。';
+  }).join('\n\n');
+}
+function viewFileAt(mi,fi){
+  const m=msgs[mi];if(!m||!m.files||!m.files[fi])return;
+  viewFile(m.files[fi]);
+}
+function viewFile(f){
+  showSheet('<div class="ttl">附件 · '+esc(f.name)+'</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">'+fmtSize(f.size)+' · '+esc(f.type||'未知类型')+
+    ((f.kind==='text')?' · 内容已经读给角色看过'+(f.trunc?('（只取了前 '+FILE_TXT_MAX+' 字）'):''):' · 这种格式角色只知道你发了个文件')+'</p>'+
+    (f.text?'<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;white-space:pre-wrap;max-height:52vh;overflow:auto">'+esc(f.text)+'</div>'
+      :'<p class="dim" style="font-size:13px;margin:0">（内容没有存进应用里，只留了文件名和大小）</p>')+
+    '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+}
 function clearPicked(){
-  pendImg=null;
+  pendImg=null;pendFile=null;
   const p=$('#picked');if(p)p.classList.remove('on');
-  const t=$('#thumb');if(t)t.removeAttribute('src');
+  const t=$('#thumb');if(t){t.removeAttribute('src');t.style.display=''}
+  const c=$('#fchip');if(c){c.style.display='none';c.innerHTML=''}
+  updSendBtn();
+}
+/* 空输入 + 没有附件时，发送键置灰禁用 */
+function updSendBtn(){
+  const b=$('#send');if(!b)return;
+  const i=$('#inp');
+  const has=!!((i&&i.value.trim())||pendImg||pendFile);
+  b.disabled=!!busy||!has;
+}
+/* 左下角「＋」：先问发图片还是发文件 */
+function pickSheet(){
+  if(!curChar())return toast('先选个角色再发');
+  showSheet('<div class="ttl">发点什么给ta</div>'+
+    '<div class="row" style="gap:10px">'+
+    '<button class="pri col" onclick="choosePic()">'+ICON.pic+'　图片</button>'+
+    '<button class="col" onclick="chooseFile()">'+FILE_ICON+'　文件</button></div>'+
+    '<p class="dim" style="font-size:12px;margin:10px 0 0">图片会压缩后直接给ta看。文件：文字类（txt / md / csv / json / 代码…）会把内容读给ta看，最多 '+FILE_TXT_MAX+' 字；其它格式（PDF、Word、压缩包…）只告诉ta「你发了一个文件」，看不到内容。</p>');
+}
+function choosePic(){
+  closeSheet();
+  const i=$('#imgIn');if(i){i.value='';i.click()}
+}
+function chooseFile(){
+  closeSheet();
+  const i=$('#fileIn');if(i){i.value='';i.click()}
+}
+function showFchip(f){
+  const c=$('#fchip');if(!c)return;
+  const t=$('#thumb');if(t)t.style.display='none';
+  c.innerHTML=FILE_ICON+'<span>'+esc(f.name)+'</span><i>'+fmtSize(f.size)+'</i>';
+  c.style.display='inline-flex';
+  const p=$('#picked');if(p)p.classList.add('on');
 }
 async function pickImage(input){
   const f=input.files&&input.files[0];input.value='';
@@ -2635,11 +2875,32 @@ async function pickImage(input){
   if(!curChar())return toast('先选个角色再发图');
   toast('处理图片…');
   try{
+    pendFile=null;clearPicked();
     pendImg=await shrinkImage(f,760,.72);
-    const t=$('#thumb');if(t)t.src=pendImg;
+    const t=$('#thumb');if(t){t.style.display='';t.src=pendImg}
     $('#picked').classList.add('on');
-    toast('图片已就绪，点 ↘ 发送');
+    updSendBtn();
+    toast('图片已就绪，点发送');
   }catch(e){toast('图片读不了：'+((e&&e.message)||e))}
+}
+async function pickFile(input){
+  const f=input.files&&input.files[0];input.value='';
+  if(!f)return;
+  if(!curChar())return toast('先选个角色再发');
+  /* 选到的是图片，就按图片走 */
+  if(String(f.type||'').indexOf('image/')===0){pickImage({files:[f],value:''});return}
+  const rec={name:f.name||'文件',size:f.size||0,type:f.type||'',kind:'other'};
+  if(isTextFile(f)){
+    try{
+      const t=await f.text();
+      rec.kind='text';rec.text=String(t||'').slice(0,FILE_TXT_MAX);rec.trunc=String(t||'').length>FILE_TXT_MAX;
+    }catch(e){rec.kind='other'}
+  }
+  clearPicked();
+  pendFile=rec;
+  showFchip(rec);
+  updSendBtn();
+  toast(rec.kind==='text'?'文件已就绪（内容会读给ta看）':'文件已就绪（这种格式只看得到名字）');
 }
 /* 压缩图片：最长边限制到 max 像素，转 jpeg，避免把存储撑爆 */
 function shrinkImage(file,max,q){
@@ -2817,6 +3078,37 @@ function groupMemBlock(c){
   if(!arr.length)return '';
   return '【你在群聊里的事】你加过群聊，下面是你自己在群里说过的话，你记得这些（聊天时聊到相关话题可以自然提起，不要生硬罗列）：\n'+
   arr.slice(-10).map(x=>'- 在《'+(x.gn||'群')+'》里你说：'+x.tx).join('\n');
+}
+/* ================= 演绎记忆（【新增】角色可选择性看见） =================
+   演绎是独立的一条世界线：默认只有「演绎」能看见私聊记忆，反过来不行。
+   角色在「角色 → 编辑」里勾上「能看见演绎记忆」，私聊时才会带上它在演绎里的经历。 */
+const ACTMEM_MAX=2600;                 /* 整体注入字数上限 */
+function actMemBlock(c){
+  if(!c||!c.actMem||!c.actMem.on)return '';
+  let acts=[];
+  try{acts=load('wh_acts',[])||[]}catch(e){return ''}
+  const mine=acts.filter(a=>a&&Array.isArray(a.members)&&a.members.some(m=>m&&m.cid===c.id));
+  if(!mine.length)return '';
+  mine.sort((a,b)=>(b.lastAt||b.t||0)-(a.lastAt||a.t||0));
+  const per=Math.max(2,Math.min(60,Number(c.actMem.n)||12));
+  const out=[];let used=0;
+  for(const a of mine){
+    if(out.length>=4)break;                       /* 最多带 4 场 */
+    let ms=[];try{ms=load('wh_actmsg_'+a.id,[])||[]}catch(e){}
+    const lines=ms.slice(-per).map(m=>{
+      const who=(m.role==='user')?(cfg.userName||'她'):(m.role==='narr'?'旁白':((charOf(m.cid)||{}).name||'角色'));
+      const t=String(m.content||'').trim().replace(/\n+/g,' ');
+      return t?(who+'：'+t.slice(0,240)):'';
+    }).filter(Boolean);
+    if(!lines.length)continue;
+    const block='【'+String(a.name||'演绎')+'】\n'+lines.join('\n');
+    if(used+block.length>ACTMEM_MAX)break;
+    used+=block.length;out.push(block);
+  }
+  if(!out.length)return '';
+  return '【你在「演绎」里的经历】下面是你在另一条世界线（「演绎」：另一种设定和剧情）里亲历过的最近片段。'+
+    '演绎和现在的日常是分开的两条线：如果你们没在日常里提过，就不要假设对方知道这些事，也不要主动把演绎里的设定当成现在的现实；'+
+    '但她提到相关的人和事时，你记得，可以自然接话。\n\n'+out.join('\n\n');
 }
 /* ================= 群聊工具（【新增】角色可调用） =================
    角色开了「群聊权限」后，在私聊里也能自己看群、自己在群里发言。 */
@@ -3253,8 +3545,8 @@ function renderCfg(){
   '<p class="dim" style="font-size:12px;margin:8px 0 0">想让角色「一直记得全部细节」，请把上面的记忆注入换成「完整记录」（上限可以填 0 = 不限）。</p>'+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="saveAutoSum()">保存自动总结设置</button></div>'+
   '<div class="card"><div class="ttl">我的资料</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">名字、性别、头像、补充设定都在底部「我的」页里，方便随时改。</p>'+
-  '<button class="ghost" onclick="go(\'me\')">去「我的」页</button></div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">名字、性别、头像、补充设定。角色聊天时会看到这些信息。</p>'+
+  '<button class="ghost" onclick="go(\'me\')">打开我的资料</button></div>'+
   '<div class="card"><div class="ttl">外观与交互</div>'+
   '<label class="f">主题</label><select id="c_theme">'+Object.keys(THEMES).map(k=>'<option value="'+k+'"'+(cfg.theme===k?' selected':'')+'>'+esc(THEMES[k].label)+'</option>').join('')+'</select>'+
   '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
@@ -3262,6 +3554,9 @@ function renderCfg(){
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>让角色知道时间</b><div class="dim" style="font-size:12px">每条消息带「月/日 时:分」，并告诉它「现在」是几号几点</div></div>'+
   '<input type="checkbox" id="c_time" '+((cfg.timeOn!==false)?'checked':'')+'></div>'+
+  '<div class="row" style="align-items:center;margin-top:12px">'+
+  '<div class="col"><b>开发者模式</b><div class="dim" style="font-size:12px">打开后，消息下面才显示 token 统计（默认隐藏）</div></div>'+
+  '<input type="checkbox" id="c_dev" '+(cfg.dev?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>全局自动发消息</b><div class="dim" style="font-size:12px">关掉后所有角色（含群聊）都不主动</div></div>'+
   '<input type="checkbox" id="c_auto" '+(cfg.autoOn?'checked':'')+'></div>'+
@@ -3303,6 +3598,13 @@ function renderCfg(){
   $('#c_theme').onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
   $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
   $('#c_time').onchange=e=>{cfg.timeOn=e.target.checked;save(LS.cfg,cfg);toast(cfg.timeOn?'已开启：角色能看到时间':'已关闭时间注入')};
+  const dv=$('#c_dev');
+  if(dv)dv.onchange=e=>{
+    cfg.dev=e.target.checked;save(LS.cfg,cfg);
+    document.body.classList.toggle('dev',cfg.dev);
+    if(view==='chat')renderChat();
+    toast(cfg.dev?'开发者模式：开，消息下面会显示 token':'开发者模式：关，token 已隐藏');
+  };
   $('#c_auto').onchange=e=>{cfg.autoOn=e.target.checked;save(LS.cfg,cfg);scheduleAuto(true);scheduleGroupAuto(true);toast(cfg.autoOn?'全局自动发消息：开':'全局自动发消息：关')};
   const bek=$('#c_bkEvery');
   if(bek)bek.onchange=e=>{
@@ -3355,7 +3657,7 @@ async function autoSumNowHere(){
   const done=Math.min(autoSumMark(c.id),msgs.length);
   const list=(msgs.length-done>=4)?msgs.slice(Math.max(0,msgs.length-every)):msgs.slice(-SUM_N);
   if(list.length<4)return alert('聊天记录太少，没什么可总结的');
-  const slice=list.map(x=>(x.role==='user'?'她':c.name)+'：'+(x.content||'[图片]')).join('\n');
+  const slice=list.map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
   toast('总结中…');
   const hit=await runSummary(slice,true);
   if(hit){setAutoSumMark(c.id,msgs.length);toast('已写进记忆 '+hit+' 条（聊天记录没动）');}
@@ -3642,6 +3944,7 @@ function fixCfg(){
   if(cfg.userGender==null)cfg.userGender='';
   if(cfg.userNote==null)cfg.userNote='';
   if(cfg.timeOn==null)cfg.timeOn=true;
+  if(cfg.dev==null)cfg.dev=false;
   if(!THEMES[cfg.theme])cfg.theme='dark';
   if(!cfg.fs)cfg.fs=15;
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
@@ -3678,10 +3981,13 @@ async function initApp(){
   });
   $('#send').onclick=send;
   $('#stop').onclick=()=>{if(curAbort)curAbort.abort();else toast('当前没有在生成')};
-  /* 发图片 */
-  const pic=$('#pic');
-  if(pic)pic.onclick=()=>{const i=$('#imgIn');if(i){i.value='';i.click()}};
+  /* 左下角「＋」：选发图片还是发文件 */
+  const plus=$('#plus');
+  if(plus)plus.onclick=pickSheet;
   $('#inp').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=e.target.scrollHeight+'px'});
+  $('#inp').addEventListener('input',updSendBtn);
+  const hact=$('#hact');
+  if(hact)hact.onclick=()=>{if(curId)editChar(curId)};
   $('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
   /* 弹层按 Esc 也能关（配合右上角 ✕） */
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').classList.contains('on'))closeSheet()});
@@ -3989,13 +4295,13 @@ groupChatHTML=function(g){
     if(m.role==='user'){
       return '<div class="gbub me">'+avBox({emoji:cfg.userEmoji,avatar:cfg.userAvatar},38)+
       '<div class="gmain"><div class="gname">'+esc(cfg.userName||'我')+' · '+fmtStamp(m.t)+del+'</div>'+
-      '<div class="gtext">'+nl2br(m.content||'')+'</div>'+
+      '<div class="gtext">'+mdLite(m.content||'')+'</div>'+
       '<div class="gtok">'+gtokText(m)+'</div></div></div>';
     }
     const c=charOf(m.cid);
     return '<div class="gbub">'+(c?avBox(c,38):'<div class="gav">?</div>')+
     '<div class="gmain"><div class="gname">'+esc(c?c.name:'（角色已删除）')+' · '+fmtStamp(m.t)+del+'</div>'+
-    '<div class="gtext">'+nl2br(m.content||'')+'</div>'+
+    '<div class="gtext">'+mdLite(m.content||'')+'</div>'+
     '<div class="gtok">'+gtokText(m)+'</div></div></div>';
   }).join('')||'<div class="gbub sys"><div class="gtext">还没人说话，打个招呼吧</div></div>';
   return '<div class="gwrap">'+
@@ -4100,7 +4406,7 @@ groupGenerate=async function(g,c){
   if(mm&&mm.sync){
     const pv=load(LS.msg(c.id),[]).slice(-Math.max(1,Math.min(60,Number(g.syncN)||20)));
     if(pv.length){
-      const t=pv.map(x=>(x.role==='user'?me:c.name)+'：'+(x.content||'[图片]')).join('\n');
+      const t=pv.map(x=>(x.role==='user'?me:c.name)+'：'+msgBrief(x)).join('\n');
       sys.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+t);
     }
   }
@@ -4755,7 +5061,7 @@ groupGenerate=async function(g,c){
   /* ② 同步私聊 */
   if(mm&&mm.sync){
     var pv=load(LS.msg(c.id),[]).slice(-Math.max(1,Math.min(60,Number(g.syncN)||20)));
-    if(pv.length)sys.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+pv.map(function(x){return (x.role==='user'?me:c.name)+'：'+(x.content||'[图片]')}).join('\n'));
+    if(pv.length)sys.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+pv.map(function(x){return (x.role==='user'?me:c.name)+'：'+msgBrief(x)}).join('\n'));
   }
 
   /* ③ 能不能读「记忆 + 历史对话档案」 */
@@ -5614,6 +5920,7 @@ function twFrame(){
   if(st.shown<st.src.length){if(!st.raf)st.raf=requestAnimationFrame(twFrame)}
   else if(st.flush){
     st.dead=true;tw=null;
+    try{st.el.classList.remove('gen')}catch(e){}
     if(st.pending){st.pending=false;try{renderChat()}catch(e){}}
   }
 }
@@ -5622,7 +5929,7 @@ function twFeed(st,v){
   if(st.dead||tw!==st){st.realSet(v);return}
   var s=String(v);
   if(/<(?!br\s*\/?>)/i.test(s)){      /* 出错提示之类：原样放进去，动画收工 */
-    st.dead=true;if(tw===st)tw=null;st.realSet(s);return;
+    st.dead=true;if(tw===st)tw=null;try{st.el.classList.remove('gen')}catch(e){};st.realSet(s);return;
   }
   st.src=htmlToText(s);
   if(st.shown>st.src.length)st.shown=st.src.length;
@@ -5643,6 +5950,7 @@ function twStart(el){
       get:function(){return d.get.call(el)},
       set:function(v){twFeed(st,v)}});
   }catch(e){return null}
+  el.classList.add('gen');                          /* 打字光标 */
   el.setAttribute('data-live','1');
   while(el.firstChild)el.removeChild(el.firstChild);
   el.appendChild(st.mark);
@@ -7270,7 +7578,7 @@ function p6ActRow(act,m,i){
   }).join('')+'</div>'):'';
   return '<div class="abub '+cls+'">'+av+'<div class="acol">'+
     '<div class="awname">'+esc(who)+'</div>'+
-    '<div class="atext">'+nl2br(m.content||'')+'</div>'+tk+opts+
+    '<div class="atext">'+mdLite(m.content||'')+'</div>'+tk+opts+
     '<button class="adel" onclick="P5.actDelMsg(\''+act.id+'\','+i+')">✕ 删除这条</button>'+
     '</div></div>';
 }
@@ -7416,7 +7724,7 @@ function mb(fn,ic,txt,warn){
 }
 function msgTextOf(i){
   var m=msgs[i];if(!m)return '';
-  return String(m.content||'')+(m.img?'［图片］':'');
+  return msgBrief(m);
 }
 function bubbles(){var b=document.getElementById('msgs');return b?dqa('.bub',b):[]}
 function bIdx(el){return bubbles().indexOf(el)}
@@ -7749,23 +8057,21 @@ renderChat=function(){
 P6.sortOn=false;
 function p6RoleCard(c){
   var a=c.auto||{};
-  var info=(a.on?('自动发消息：开 · 每 '+a.min+'~'+a.max+' 分钟'+(a.quietOn===false?' · 不设免打扰':'')):'自动发消息：关')+
-    ' · 思考：'+THINK_LEVELS[(c.think==null?1:c.think)].label+
-    ((c.groupPerm&&c.groupPerm.on)?' · 可用群聊':'');
-  var pencil='<button class="iconbtn" title="改设定（记忆、复制都在里面）" onclick="event.stopPropagation();editChar(\''+c.id+'\')">'+ICON.edit+'</button>';
+  var info=(a.on?'自动发消息 开':'自动发消息 关')+
+    ((c.groupPerm&&c.groupPerm.on)?' · 群聊':'')+
+    ((c.actMem&&c.actMem.on)?' · 演绎记忆':'');
+  var persona=String(c.persona||'没有设定').replace(/\s+/g,' ');
+  var pencil='<button class="iconbtn p6edit" title="改设定（记忆、复制都在里面）" onclick="event.stopPropagation();editChar(\''+c.id+'\')">'+ICON.edit+'</button>';
   return '<div class="card '+(c.id===curId?'sel':'')+'" data-cid="'+c.id+'"'+(P6.sortOn?'':' onclick="pick(\''+c.id+'\')"')+'>'+
-   '<div class="row" style="align-items:center;gap:10px">'+avBox(c,44)+
-   '<div class="col" style="min-width:0"><b>'+esc(c.name)+(hasUnread(c.id)?'<i class="udot"></i>':'')+'</b>'+
-   '<div class="dim" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
-   esc(String(c.persona||'没有设定').replace(/\s+/g,' ').slice(0,46))+'</div></div>'+
+   (P6.sortOn?'':pencil)+
+   avBox(c,54,'p6av')+
+   '<div style="min-width:0;max-width:100%"><b>'+esc(c.name)+(hasUnread(c.id)?'<i class="udot"></i>':'')+'</b></div>'+
+   '<div class="p6persona">'+esc(persona)+'</div>'+
+   '<div class="p6meta">'+esc(info)+'</div>'+
    (P6.sortOn?('<div class="p6arrows">'+
       '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',-1)">▲</button>'+
       '<button class="iconbtn" onclick="event.stopPropagation();moveChar(\''+c.id+'\',1)">▼</button></div>'):'')+
-   '</div>'+
-   '<div class="row" style="align-items:center;gap:8px;margin-top:8px">'+
-   (P6.sortOn?'':pencil)+
-   '<div class="dim col" style="font-size:11px;min-width:0">'+esc(info)+'</div>'+
-   '</div></div>';
+   '</div>';
 }
 renderRoles=function(){
   var box=document.getElementById('main');if(!box)return;
@@ -7777,9 +8083,9 @@ renderRoles=function(){
        '<div class="col" style="font-size:12px">排序模式：用 ▲ ▼ 调整顺序</div>'+
        '<button class="ghost" onclick="P6.sortEnd()">完成</button></div></div>';
   }
-  h+=pub.length?pub.map(p6RoleCard).join(''):'<p class="hint">还没有角色</p>';
+  h+=pub.length?('<div class="p6grid">'+pub.map(p6RoleCard).join('')+'</div>'):'<p class="hint">还没有角色</p>';
   if(priv.length)h+=privBox(priv);
-  h+='<p class="p6rolehint">小提示：<b>长按角色卡片</b>可以调顺序；点 ✎ 改设定，记忆系统也在里面。</p>';
+  h+='<p class="p6rolehint">小提示：点卡片进聊天，右上角 ✎ 改设定（记忆也在里面）；<b>长按卡片</b>可以调顺序。</p>';
   box.innerHTML=h;
   p6RolePress();
 };
