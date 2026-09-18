@@ -265,10 +265,43 @@ nav button.on::after{width:18px;height:2px;border-radius:2px;box-shadow:none}
 /* 9) 手机开了「减弱动态效果」时，不再乱动 */
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
+/* ============================================================
+   A 档美化：更干净、更像聊天软件的界面（只动样式）
+   ============================================================ */
+/* 顶栏：角色头像 + 名字 + 一行小状态 */
+header{gap:9px;box-shadow:0 1px 14px rgba(0,0,0,.16)}
+header .topav{width:32px;height:32px;flex:0 0 auto;border-radius:11px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--line);font-size:17px}
+header .topav img{width:100%;height:100%;object-fit:cover;display:block}
+header .who{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:0}
+header .who .nm{font-size:13px;font-weight:600;color:var(--txt);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header .who .st{font-size:10.5px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 消息气泡：拉开间距、加左侧小色条、阴影变轻 */
+.bub{margin:11px 0 0;border-radius:18px}
+.bub.ai{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-bottom-left-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.16)}
+.bub.me{background:var(--bubme);border:1px solid transparent;border-bottom-right-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.14)}
+.bub .time{display:none}                 /* 时间挪到气泡下面那一行 */
+.think{margin:11px 0 0}
+
+/* 气泡下面那行小字：时间 · token 消耗 */
+.tok.meta{display:block;margin:4px 0 2px;letter-spacing:.2px}
+.tok.meta.me{text-align:right}
+
+/* 输入区：圆形发送键、留白舒服一点 */
+#composer{padding:9px 12px calc(env(safe-area-inset-bottom) + 10px);gap:9px}
+#composer button{width:40px;height:40px;border-radius:50%;flex:0 0 auto;padding:0}
+#composer #pic{background:transparent;border:1px solid var(--line)}
+#composer #send{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;box-shadow:0 4px 14px rgba(63,169,216,.32)}
+#composer #stop{background:linear-gradient(135deg,#c0504a,#e06a60);color:#fff}
+#composer textarea{background:var(--bg2);border-radius:20px;min-height:40px;padding:9px 14px}
+
+/* 空状态：给一张卡片，而不是一片空白 */
+.hint{background:var(--panel);border:1px dashed var(--line);border-radius:18px;padding:30px 18px;margin:8px 0 6px;font-size:13.5px}
+
 </style>
 </head>
 <body>
-<header><h1 id="title">深蓝海域</h1><span class="who" id="who"></span></header>
+<header><span class="topav" id="topav" style="display:none"></span><h1 id="title">深蓝海域</h1><span class="who" id="who"></span></header>
 <main id="main"></main>
 <div id="picked"><img id="thumb" alt=""><button id="pickedX" onclick="clearPicked()">✕</button></div>
 <div id="composer"><button id="pic" title="发图片给ta看" aria-label="发送图片"><svg viewBox="0 0 24 24"><rect x="3.4" y="4.8" width="17.2" height="14.4" rx="3.4"/><circle cx="8.7" cy="9.8" r="1.7"/><path d="m4.2 17.6 4.8-4.5 3.4 3 3.3-2.9 4.5 4.2"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="send" aria-label="发送"><svg viewBox="0 0 24 24"><path d="M3.7 20.4 21 12 3.7 3.6l.1 6.7L14.6 12 3.8 13.7Z"/></svg></button><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button></div>
@@ -417,6 +450,7 @@ const gAutoMap={};                  /* 群聊自动发消息的下次时间 */
 let backupHandle=null,bkTimer=null,bkTick=null,lastBackup=0,bkNeed=false,bkArmed=false,bkErr='';
 let curAbort=null;
 let autoMap={},autoTick=null,autoKeep=null;
+let pendingAutoText='';             /* 角色刚主动发来的那条，画面上的要逐字显示 */
 let arcBusy=false;                    /* 总结版生成中，防重复点击 */
 const arcNotesCache={};               /* id → {len,notes}：分段笔记缓存，失败重试不用重跑精读 */
 const hushOpen={};                    /* id → true：本次打开已通过隐私档案密码 */
@@ -690,10 +724,21 @@ function go(v){
   $('#composer').style.display=(v==='chat')?'flex':'none';
   draw();
 }
+/* 顶栏第二行的小字：自动发消息状态 + 当前模型 */
+function topStatus(c){
+  const a=(c&&c.auto)||{};
+  const auto=a.on?('自动发消息 开 · 每 '+a.min+'~'+a.max+' 分钟'):'自动发消息 关';
+  const m=modelOf(c)||'';
+  return m?(auto+' · '+m):auto;
+}
 function draw(){
   $('#title').textContent={chat:'聊天',roles:'角色列表',me:'我的主页',tools:'应用',cfg:'设置'}[view]||'深蓝海域';
   const c=curChar();
-  $('#who').textContent=(view==='chat'&&c)?((c.emoji||'')+' '+c.name):'';
+  const inChat=!!(view==='chat'&&c);
+  const av=$('#topav');
+  if(av){av.style.display=inChat?'flex':'none';av.innerHTML=inChat?avaInner(c):''}
+  const whoEl=$('#who');
+  if(whoEl)whoEl.innerHTML=inChat?('<span class="nm">'+esc(c.name)+'</span><span class="st">'+esc(topStatus(c))+'</span>'):'';
   if(view==='chat')renderChat();
   else if(view==='roles')renderRoles();
   else if(view==='me')renderMe();
@@ -1397,12 +1442,12 @@ function renderChat(){
   m.innerHTML='<div class="thinkbar">'+THINK_LEVELS.map(l=>'<button class="'+(thinkNow===l.v?'active':'')+'" onclick="setThink('+l.v+')">'+l.label+'</button>').join('')+'</div><div id="msgs"></div>';
   if(!msgs.length&&c.greeting){msgs.push({role:'assistant',content:c.greeting,t:Date.now()});persist()}
   const box=$('#msgs');
+  if(!msgs.length)box.innerHTML='<div class="hint">还没有聊天记录<br><span style="font-size:12px">说点什么，或者等ta先开口</span></div>';
   msgs.forEach((x,i)=>{
     const d=document.createElement('div');
     d.className='bub '+(x.role==='user'?'me':'ai');
     d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):'')+
-      nl2br(x.content||'')+'<span class="time">'+fmtStamp(x.t)+'</span>';
-    box.appendChild(d);
+      nl2br(x.content||'');
     if(x.role==='assistant'&&x.reasoning){
       const th=document.createElement('div');
       th.className='think';
@@ -1418,15 +1463,14 @@ function renderChat(){
       };
       th.appendChild(hd);th.appendChild(bd);box.appendChild(th);
     }
+    box.appendChild(d);                     /* 思考块排在气泡上方 */
     const tk=x.tok||((x.content)?estTokens(x.content):0);
-    if(tk){
-      const t=document.createElement('div');
-      t.className='tok'+(x.role==='user'?' me':'');
-      t.textContent=(x.role==='assistant'
-        ?('生成 '+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):''))
-        :('约 '+(x.tok?'':'≈')+tk+' tok'));
-      box.appendChild(t);
-    }
+    const meta=document.createElement('div');
+    meta.className='tok meta'+(x.role==='user'?' me':'');
+    meta.textContent=fmtStamp(x.t)+(tk?(' · '+(x.role==='assistant'
+      ?('生成 '+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):''))
+      :('约 '+(x.tok?'':'≈')+tk+' tok'))):'');
+    box.appendChild(meta);
     if(i===msgs.length-1&&!busy){
       const o=document.createElement('div');
       o.className='ops'+(x.role==='user'?' me':'');
@@ -1641,6 +1685,67 @@ async function toolLoop(c,ctx,opt){
   }
   return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:true};
 }
+/* ---------- 通用打字机：群聊 / 角色主动发来的消息，也一个字一个字冒出来 ---------- */
+/* opts: {start: 从第几个字开始（中途重画时接着打）, onTick: 进度回调, onDone: 结束回调} */
+function revealText(el,text,opts){
+  if(!el)return;
+  opts=opts||{};
+  if(el._rv)el._rv.dead=true;                      /* 同一个元素只留一个动画 */
+  const full=String(text==null?'':text);
+  const start=Math.max(0,Math.min(full.length,opts.start||0));
+  const st={dead:false,ok:true,shown:start,rendered:start,src:full};
+  el._rv=st;
+  el.textContent=full.slice(0,start);
+  if(st.shown>=full.length){if(opts.onTick)opts.onTick(st.shown);if(opts.onDone)opts.onDone();return}
+  const tail=document.createElement('i');tail.style.display='none';el.appendChild(tail);
+  let lastT=0,acc=0;
+  const finish=()=>{if(!st.ok)return;st.ok=false;st.dead=true;if(opts.onDone)opts.onDone()};
+  const step=()=>{
+    if(st.dead||!el.isConnected){finish();return}
+    const now=Date.now();
+    if(!lastT)lastT=now;
+    const dt=Math.min(120,now-lastT);lastT=now;
+    const behind=st.src.length-st.shown;
+    let speed=55;                                   /* 字/秒：平时看得清是「一个个冒出来」 */
+    if(behind>1200)speed=420;else if(behind>400)speed=220;else if(behind>150)speed=110;
+    acc+=dt*speed/1000;
+    let n=Math.floor(acc);
+    if(n<1&&dt>=50)n=1;
+    if(n>0){
+      acc-=n;
+      st.shown=Math.min(st.src.length,st.shown+n);
+      for(let k=st.rendered;k<st.shown;k++){
+        const ch=st.src.charAt(k);
+        if(ch==='\n'){el.insertBefore(document.createElement('br'),tail);continue}
+        const sp=document.createElement('span');sp.className='tw';sp.textContent=ch;
+        el.insertBefore(sp,tail);
+      }
+      st.rendered=st.shown;
+      if(opts.onTick)opts.onTick(st.shown);
+      try{if(el.closest('.gmsgs'))scrollGroupDown()}catch(e){}
+    }
+    if(st.shown>=st.src.length){finish();return}
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+/* 私聊里最新那条（角色主动发来的），逐字显示 */
+function typeLastChatMsg(text){
+  try{
+    const box=$('#msgs');if(!box)return;
+    const bubs=box.querySelectorAll('.bub');
+    const el=bubs.length?bubs[bubs.length-1]:null;
+    if(!el||el.classList.contains('me')||el.querySelector('img'))return;
+    if(text&&String(text).trim()!==(el.textContent||'').trim())return;   /* 对不上就别动 */
+    revealText(el,(text!=null&&text!=='')?String(text):(el.textContent||''));
+  }catch(e){}
+}
+/* 把已经拿到的一整段文字，交给打字机逐字显示（拿不到就原样显示） */
+function sayOut(el,text){
+  const t=window.P5&&window.P5.say;
+  if(el&&typeof t==='function'){try{if(t(el,text))return}catch(e){}}
+  if(el)el.innerHTML=nl2br(text);
+}
 async function askAndAppend(){
   const c=curChar(),box=$('#msgs');
   if(!box)return;
@@ -1662,7 +1767,7 @@ async function askAndAppend(){
         const ctx2=r.messages.concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
         await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>reasoning+=rr,onUsage:u=>usage=u});
       }else{
-        a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown();
+        a.classList.remove('typing');sayOut(a,out);scrollDown();
       }
     }else{
       await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>reasoning+=r,onUsage:u=>usage=u});
@@ -1679,7 +1784,8 @@ async function askAndAppend(){
     if(aborted&&out){
       const m={role:'assistant',content:out,t:Date.now()};
       if(reasoning)m.reasoning=reasoning;
-      m.tok=estTokens(out);
+      m.tok=(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out);
+      if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
       msgs.push(m);persist();ok=true;
       toast('已停止，保留了已生成的部分');
     }else if(aborted){
@@ -1974,6 +2080,7 @@ async function autoGenerate(c){
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
   if(reasoning)m.reasoning=reasoning;      /* ← 自动消息也保存思考链 */
   msgs.push(m);persist();
+  pendingAutoText=out;                     /* 如果你正好看着这个聊天，这条会逐字显示 */
   notify(c.name,(c.emoji||'')+out.slice(0,80));
   /* 你没在看着它的时候，标个红点 */
   if(!(wasOpen&&view==='chat'&&!document.hidden)){
@@ -2013,6 +2120,8 @@ async function runAutoNow(c){
       if(curId)memCtx={id:curId,obj:mem};
       if(view==='chat')renderChat();
       else draw();
+      if(pendingAutoText&&view==='chat'&&curId===c.id)typeLastChatMsg(pendingAutoText);
+      pendingAutoText='';
     }
     scheduleAuto(false);
   }
@@ -5484,10 +5593,23 @@ function twFrame(){
   twPromote(st);
   var behind=st.src.length-st.shown;
   if(behind>0){
-    var step=st.flush?(behind>150?16:8):(behind>160?8:behind>50?3:1);
-    st.shown=Math.min(st.src.length,st.shown+step);
-    twAppend(st);
-    try{scrollDown()}catch(e){}
+    /* 按「时间」算速度，而不是按帧算：手机快慢都差不多。
+       平时约 55 字/秒（看得清是一个个冒出来的），积压太多才加速追上。 */
+    var now=Date.now();
+    if(!st.lastT)st.lastT=now;
+    var dt=Math.min(120,now-st.lastT);st.lastT=now;
+    var speed=st.flush?75:55;
+    if(behind>1200)speed=Math.max(speed,420);
+    else if(behind>400)speed=Math.max(speed,220);
+    else if(behind>150)speed=Math.max(speed,110);
+    st.acc=(st.acc||0)+dt*speed/1000;
+    var step=Math.floor(st.acc);
+    if(step>0){
+      st.acc-=step;
+      st.shown=Math.min(st.src.length,st.shown+step);
+      twAppend(st);
+      try{scrollDown()}catch(e){}
+    }
   }
   if(st.shown<st.src.length){if(!st.raf)st.raf=requestAnimationFrame(twFrame)}
   else if(st.flush){
@@ -5527,6 +5649,16 @@ function twStart(el){
   tw=st;
   return st;
 }
+/* 给「非流式」一次拿到的整段文字，也套上同一个打字动画 */
+P5.say=function(el,text){
+  if(!el)return null;
+  var st=twStart(el);
+  if(!st)return null;                  /* 拿不到打字机：返回 null，让调用方原样显示 */
+  twFeed(st,text);
+  st.flush=true;                       /* 文字已经完整，放完就收工 */
+  if(!st.raf)st.raf=requestAnimationFrame(twFrame);
+  return st;
+};
 /* 流式请求：接管当前那个正在生成的泡泡 */
 var P5A_callAPI=callAPI;
 callAPI=async function(messages,opt){
@@ -7991,5 +8123,72 @@ try{
 }catch(e){}
 
 console.log('[深蓝海域] 补丁6-D 已加载');
+})();
+</script>
+<script>
+/* ================================================================
+   深蓝海域 · 补丁7-A（2026-09）  群聊里的角色发言也「一个字一个字」冒出来
+   ---------------------------------------------------------------
+   不改原来的群聊代码，只加两个钩子：
+     ① saveGmsgs：发现「群里多了一条角色发言」就记下来；
+     ② renderToolPane：群聊界面画完后，把最新那条用打字机显示。
+   如果中途画面又重画了（下一条来了），就从刚显示到的地方接着往下打。
+   还有：A 档美化后，气泡下面的「时间 · token」合成了一行小字。
+   ================================================================ */
+(function(){
+var W=window,G7=(W.G7=W.G7||{});
+if(G7.A)return;G7.A=1;
+G7.pend=null;      /* 等着打字的群消息 */
+G7.typing=null;    /* 正在打的那条：{gid,text,shown} */
+
+function gBox(){return document.getElementById('gmsgs')}
+function groupVisible(gid){
+  try{return view==='tools'&&toolTab==='group'&&groupOpenId===gid}catch(e){return false}
+}
+/* 群聊里最新那条，逐字显示（from＝已经显示到第几个字，重画后接着打） */
+G7.typeLast=function(text,from){
+  try{
+    var box=gBox();if(!box)return;
+    var bubs=box.querySelectorAll('.gbub');
+    var el=bubs.length?bubs[bubs.length-1].querySelector('.gtext'):null;
+    if(!el)return;
+    if(String(text).trim()!==(el.textContent||'').trim())return;   /* 对不上就别动 */
+    var st={gid:groupOpenId,text:String(text),shown:from||0};
+    G7.typing=st;
+    revealText(el,String(text),{start:from||0,
+      onTick:function(n){st.shown=n},
+      onDone:function(){if(G7.typing===st)G7.typing=null}});
+  }catch(e){}
+};
+/* ① 记下新冒出来的角色发言 */
+var G7_saveGmsgs=saveGmsgs;
+saveGmsgs=function(gid,arr){
+  try{
+    var before=0;
+    try{before=(gmsgsOf(gid)||[]).length}catch(e){}
+    if(arr&&arr.length>before){
+      var last=arr[arr.length-1];
+      if(last&&last.role==='char'&&last.content)G7.pend={gid:gid,text:String(last.content),at:Date.now()};
+    }
+  }catch(e){}
+  return G7_saveGmsgs.apply(null,arguments);
+};
+/* ② 群聊界面画完后，把最新那条一个字一个字冒出来 */
+var G7_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  var r=G7_renderToolPane.apply(null,arguments);
+  try{
+    if(G7.pend&&groupVisible(G7.pend.gid)){
+      var t=G7.pend;G7.pend=null;G7.typing=null;
+      /* 只打「刚刚冒出来」的那条，很久以前的补画不要重播 */
+      if(Date.now()-(t.at||0)<20000)G7.typeLast(t.text,0);
+    }else if(G7.typing&&groupVisible(G7.typing.gid)){
+      var ty=G7.typing;G7.typing=null;
+      G7.typeLast(ty.text,ty.shown);
+    }
+  }catch(e){}
+  return r;
+};
+console.log('[深蓝海域] 补丁7-A 已加载');
 })();
 </script>
