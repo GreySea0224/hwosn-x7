@@ -8498,3 +8498,318 @@ renderToolPane=function(){
 console.log('[深蓝海域] 补丁7-A 已加载');
 })();
 </script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁8-A（2026-09-18）  聊天界面美化
+   ---------------------------------------------------------------
+   ① 修 bug：刷新页面后，最上面会残留一排「快答 / 正常 / 深想」
+      原因：页面第一次画聊天用的是老代码，那一排被画了出来；后面几段
+            补丁虽然负责把它删掉，但画完就没有再重画一次，所以它一直挂在
+            最上面，直到你发消息才消失。这里补一次重画 + 样式兜底隐藏。
+   ② 头像和消息顶端对齐（角色、用户两边都改）
+   ③ 「思考过程」折叠条收进气泡内部的最上方
+   ④ 每条消息的时间：缩小、变浅，挪进气泡内部右下角（像 Telegram）
+   ⑤ 浅色主题下，用户气泡的描边 + 阴影加重一点，更好认
+   ⑥ 顶栏去掉「聊天」两个字，改放加大的角色名，
+      下面一行小字：自动发消息 开/关 · 联网搜索 开/关
+   改动只追加在文件末尾，前面任何一段老代码都没动。
+   ===================================================================== */
+(function(){
+var W=window,P8=(W.P8=W.P8||{});
+if(P8.A)return;P8.A=1;
+
+function dq(s,r){return (r||document).querySelector(s)}
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function safeV(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+
+/* ============ 样式 ============ */
+var CSS=[
+/* ① 顶部那排「快答 / 正常 / 深想」再也不显示（兜底） */
+'.thinkbar{display:none!important}',
+/* ② 头像顶端对齐气泡顶端 */
+'#msgs .bub.withav::before{top:2px;bottom:auto}',
+/* ③ 搬进气泡里的「思考过程」 */
+'#msgs .bub>.think{max-width:100%;margin:0 0 8px;padding:0 0 7px;border-bottom:1px dashed var(--line)}',
+'#msgs .bub>.think .thinkhead{background:transparent;border:0;color:var(--meta);font-size:11.5px;padding:2px 0;border-radius:0;box-shadow:none}',
+'#msgs .bub>.think .thinkhead.on{background:transparent;color:var(--acc)}',
+'#msgs .bub>.think .thinkbody{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--accline);border-radius:12px;padding:9px 11px;margin-top:6px;font-size:12px}',
+/* ④ 时间：小、浅、在气泡右下角 */
+'#msgs .bub .p6time{float:right;margin:7px 0 0 8px;font-size:10px;line-height:1.4;font-weight:400;color:var(--meta);opacity:.55;font-variant-numeric:tabular-nums;user-select:none}',
+/* ⑤ 浅色主题：用户气泡描边 + 阴影加重 */
+'html.p6light #msgs .bub.me{border:1px solid rgba(15,23,36,.12);box-shadow:0 3px 10px rgba(16,24,40,.18),0 1px 2px rgba(16,24,40,.12)}',
+/* ⑥ 顶栏：加大的角色名 */
+'header.p8chat h1{font-size:22px;line-height:1.2;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+'header.p8chat .who{color:var(--meta)}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p8cssA';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* ============ ① 顶部残留的「快答 / 正常 / 深想」 ============ */
+function killThinkbar(){
+  var m=document.getElementById('main');
+  if(m)dqa('.thinkbar',m).forEach(function(el){el.remove()});
+}
+
+/* ============ ②③④ 整理气泡 ============ */
+function tidyBubbles(){
+  var box=document.getElementById('msgs');
+  if(!box)return;
+  var bubs=dqa('.bub',box).filter(function(b){return !b.classList.contains('typing')});
+  if(bubs.length!==msgs.length)return;        /* 对不上（正在生成中）就先不动 */
+  /* ③ 思考过程：把气泡上面那条搬进气泡最上方 */
+  bubs.forEach(function(b){
+    if(b.querySelector('.think'))return;      /* 已经搬过了 */
+    var pv=b.previousElementSibling;
+    if(pv&&pv.classList&&pv.classList.contains('think'))b.insertBefore(pv,b.firstChild);
+  });
+  /* ④ 时间：从气泡下面那行搬进气泡右下角 */
+  var metas=dqa('.tok.meta',box);
+  if(metas.length!==msgs.length)return;
+  metas.forEach(function(meta,i){
+    var b=bubs[i];if(!b)return;
+    var ts=meta.querySelector('.ts');
+    if(ts&&!b.querySelector('.p6time')){
+      var t=document.createElement('span');
+      t.className='p6time';t.textContent=String(ts.textContent||'').trim();
+      b.appendChild(t);
+    }
+    if(ts&&ts.parentNode)ts.parentNode.removeChild(ts);
+    /* 剩下的 token 小字空的就不留空行 */
+    var tk=meta.querySelector('.tk');
+    if(!tk||!String(tk.textContent||'').trim()){if(meta.parentNode)meta.parentNode.removeChild(meta)}
+  });
+}
+
+/* ============ ⑤ 判断当前是不是浅色主题 ============ */
+function isLight(){
+  try{
+    var v=String(getComputedStyle(document.documentElement).getPropertyValue('--bg')||'').trim().replace('#','');
+    if(v.length===3)v=v.split('').map(function(c){return c+c}).join('');
+    if(v.length<6||!/^[0-9a-f]{6}$/i.test(v.slice(0,6)))return false;
+    var n=parseInt(v.slice(0,6),16),R=(n>>16)&255,G=(n>>8)&255,B=n&255;
+    return (0.299*R+0.587*G+0.114*B)>140;
+  }catch(e){return false}
+}
+var P8_applyTheme=applyTheme;
+applyTheme=function(){
+  P8_applyTheme.apply(this,arguments);
+  try{document.documentElement.classList.toggle('p6light',isLight())}catch(e){}
+};
+
+/* ============ ⑥ 顶栏：角色名 + 两个小状态 ============ */
+function headName(){
+  var h=dq('header');
+  var c=safeV(function(){return curChar()},null);
+  var on=!!(view==='chat'&&c);
+  if(h)h.classList.toggle('p8chat',on);
+  if(!on)return;
+  var t=document.getElementById('title'),w=document.getElementById('who');
+  var nm=String(c.name||'角色');
+  if(t)t.textContent=nm;
+  if(w){
+    var a=c.auto||{};
+    w.textContent='自动发消息 '+(a.on?'开':'关')+' · 联网搜索 '+((c.search&&c.search.on)?'开':'关');
+  }
+}
+
+/* ============ 挂到原来的函数上（每次重画都会整理一遍） ============ */
+var P8_renderChat=renderChat;
+renderChat=function(){
+  P8_renderChat.apply(this,arguments);
+  try{killThinkbar();tidyBubbles()}catch(e){}
+};
+var P8_draw=draw;
+draw=function(){
+  P8_draw.apply(this,arguments);
+  try{headName()}catch(e){}
+};
+
+/* ============ 打开页面时立刻生效一次 ============ */
+try{
+  if(cfg)applyTheme();
+  killThinkbar();
+  var ready=safeV(function(){return !!(cfg&&chars&&chars.length&&curChar()&&document.getElementById('msgs'))},false);
+  if(ready)draw();          /* 重画一次：新样式 + 搬进气泡的思考/时间立刻生效 */
+}catch(e){}
+
+console.log('[深蓝海域] 补丁8-A 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁8-B（2026-09-18）  按反馈微调
+   ---------------------------------------------------------------
+   ① 思考过程：灯泡图标跟着主题色走；删掉思考条和正文中间那条虚线
+   ② 时间：消息正好排到气泡最右边时，时间会被挤出气泡
+          原因：时间用的是「靠右浮动」，气泡没有把它包住
+          修法：让气泡自己兜住里面的浮动内容；放不下就自动新开一行（仍靠右）
+   ③ 顶栏角色名：去掉前面的表情，给文字加一层主题色的柔和阴影
+   ④ 右下角发送箭头：没打字（按钮变灰）时，也掺一点点主题色
+   ===================================================================== */
+(function(){
+var W=window,P8=(W.P8=W.P8||{});
+if(P8.B)return;P8.B=1;
+
+/* ============ 把主题色拆成带透明度的 rgba ============ */
+function toRGBA(hex,a){
+  var h=String(hex||'').trim().replace('#','');
+  if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');
+  if(h.length!==6||!/^[0-9a-f]{6}$/i.test(h))return '';
+  var n=parseInt(h,16),R=(n>>16)&255,G=(n>>8)&255,B=n&255;
+  return 'rgba('+R+','+G+','+B+','+a+')';
+}
+function paintThemeBits(){
+  try{
+    var acc=getComputedStyle(document.documentElement).getPropertyValue('--acc');
+    var sh=toRGBA(acc,.32);
+    if(sh)document.documentElement.style.setProperty('--p8accSh',sh);
+    var sd=toRGBA(acc,.5);
+    if(sd)document.documentElement.style.setProperty('--p8sendTint',sd);
+  }catch(e){}
+}
+
+/* ============ 样式 ============ */
+var CSS=[
+/* ① 思考条：不要虚线了，灯泡跟主题色 */
+'#msgs .bub>.think{margin:0 0 6px;padding:0;border-bottom:0}',
+'#msgs .bub>.think .thinkhead svg{color:var(--acc);opacity:.92}',
+/* ② 气泡兜住里面浮动的时间（放不下自动换行，不会被挤出气泡） */
+'#msgs .bub{display:flow-root}',
+/* ③ 顶栏角色名：主题色的柔和文字阴影 */
+'header.p8chat h1{text-shadow:0 1px 2px var(--p8accSh,transparent),0 2px 10px var(--p8accSh,transparent)}',
+/* ④ 发送键「没打字」时也带一点点主题色 */
+'#composer #send:disabled{background:var(--line);color:var(--p8sendTint,var(--meta));opacity:1}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p8cssB';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* 万一浏览器太老、不认 flow-root：就退一步，时间固定另起一行、靠右 */
+try{
+  if(!(W.CSS&&W.CSS.supports&&W.CSS.supports('display','flow-root'))){
+    var _st2=document.createElement('style');
+    _st2.textContent='#msgs .bub .p6time{float:none;display:block;text-align:right;clear:both;margin-left:0}';
+    (document.head||document.documentElement).appendChild(_st2);
+  }
+}catch(e){}
+
+/* ============ 换主题时重算那两个颜色 ============ */
+var P8B_applyTheme=applyTheme;
+applyTheme=function(){
+  P8B_applyTheme.apply(this,arguments);
+  try{paintThemeBits()}catch(e){}
+};
+
+/* ============ 打开页面时立刻生效一次 ============ */
+try{
+  if(cfg)applyTheme();
+  var ready=(function(){try{return !!(cfg&&chars&&chars.length&&curChar())}catch(e){return false}})();
+  if(ready)draw();
+}catch(e){}
+
+console.log('[深蓝海域] 补丁8-B 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁8-C（2026-09-18）  发送箭头 + 顶栏改版
+   ---------------------------------------------------------------
+   ① 发送箭头：没打字时箭头是「半透明主题色」，三根线在交汇点叠在一起
+      颜色就深了一块，看着发花。改成事先调好的「不透明颜色」，
+      这样整根箭头一个颜色，不会再有深浅不一。
+   ② 顶栏（显示角色名那一块）改版：
+      · 名字干净利落，去掉那圈发虚的光晕，只留一丝极浅的主题色底影
+      · 状态小字紧贴名字正下方、左对齐（原来被推到最右边，看着散）
+      · 「开 / 关」两个字用主题色点出来，一眼能看出状态
+      · 右边的 ⋯ 垂直居中
+   ===================================================================== */
+(function(){
+var W=window,P8=(W.P8=W.P8||{});
+if(P8.C)return;P8.C=1;
+
+function safeV(fn,d){try{var v=fn();return v==null?d:v}catch(e){return d}}
+
+/* ============ 颜色小工具 ============ */
+function hx(v){
+  var h=String(v||'').trim().replace('#','');
+  if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');
+  if(h.length!==6||!/^[0-9a-f]{6}$/i.test(h))return null;
+  var n=parseInt(h,16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function rgba(a,t){return a?('rgba('+a[0]+','+a[1]+','+a[2]+','+t+')'):''}
+function mixTo(a,b,t){          /* 把 a 往 b 里调，t＝a 占多少 */
+  if(!a)return '';
+  if(!b)b=a;
+  var r=Math.round(a[0]+(b[0]-a[0])*(1-t)),
+      g=Math.round(a[1]+(b[1]-a[1])*(1-t)),
+      bl=Math.round(a[2]+(b[2]-a[2])*(1-t));
+  return 'rgb('+r+','+g+','+bl+')';
+}
+function paintThemeBits(){
+  try{
+    var cs=getComputedStyle(document.documentElement);
+    var acc=hx(cs.getPropertyValue('--acc'));
+    if(!acc)return;
+    var sh=rgba(acc,.16);                       /* 名字底下极浅的一层 */
+    if(sh)document.documentElement.style.setProperty('--p8accSh',sh);
+    var line=hx(cs.getPropertyValue('--line'))||hx(cs.getPropertyValue('--bg'));
+    /* 箭头：主题色 52% 掺按钮底色 → 不透明，所以交汇处不会叠深 */
+    document.documentElement.style.setProperty('--p8sendTint',mixTo(acc,line,.52));
+  }catch(e){}
+}
+
+/* ============ 样式 ============ */
+var CSS=[
+/* ① 发送箭头：一个颜色，不发花 */
+'#composer #send:disabled{background:var(--line);color:var(--p8sendTint,var(--meta));opacity:1}',
+/* ② 顶栏：名字 + 紧贴下方的小状态，右边 ⋯ 居中 */
+'header.p8chat{align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 12px) 16px 10px}',
+'header.p8chat .hcol{gap:3px;justify-content:center}',
+'header.p8chat h1{font-size:20px;font-weight:700;line-height:1.22;letter-spacing:.3px;color:var(--txt);text-shadow:0 1px 1px var(--p8accSh,transparent)}',
+'header.p8chat .who{display:block;text-align:left;font-size:11.5px;line-height:1.35;color:var(--dim);letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'header.p8chat .who i{font-style:normal}',
+'header.p8chat .who i.on{color:var(--acc);font-weight:600}',
+'header.p8chat .who .sep{margin:0 5px;opacity:.55}',
+'header.p8chat .hact{align-self:center}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p8cssC';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* ============ 顶栏文字：紧贴名字下方的一行小状态 ============ */
+function headRefresh(){
+  var c=safeV(function(){return curChar()},null);
+  if(view!=='chat'||!c)return;
+  var t=document.getElementById('title'),w=document.getElementById('who');
+  if(t)t.textContent=String(c.name||'角色');
+  if(w){
+    var a=c.auto||{},s=c.search||{};
+    w.innerHTML='自动发消息 '+(a.on?'<i class="on">开</i>':'<i>关</i>')+
+      '<span class="sep">·</span>联网搜索 '+(s.on?'<i class="on">开</i>':'<i>关</i>');
+  }
+}
+
+/* ============ 换上新的主题色变量，并挂上重画 ============ */
+var P8C_applyTheme=applyTheme;
+applyTheme=function(){
+  P8C_applyTheme.apply(this,arguments);
+  try{paintThemeBits()}catch(e){}
+};
+var P8C_draw=draw;
+draw=function(){
+  P8C_draw.apply(this,arguments);
+  try{headRefresh()}catch(e){}
+};
+
+/* ============ 打开页面时立刻生效一次 ============ */
+try{
+  if(cfg)applyTheme();
+  var ready=(function(){try{return !!(cfg&&chars&&chars.length&&curChar())}catch(e){return false}})();
+  if(ready)draw();
+}catch(e){}
+
+console.log('[深蓝海域] 补丁8-C 已加载');
+})();
+</script>
