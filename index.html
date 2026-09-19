@@ -5704,7 +5704,8 @@ P5.favAdjust=function(cid,delta){
   if(p){p.innerHTML=favCardInner()}
 };
 function favCardInner(){
-  var list=chars.slice();
+  /* 【新增】隐私角色默认不出现在这里；进入过它的聊天（curId 是它）才显示 */
+  var list=chars.filter(function(c){return !c.priv||c.id===curId});
   if(!list.length)return '<p class="dim" style="font-size:13px">还没有角色</p>';
   return list.map(function(c){
     var arrAll=favLog(c.id);
@@ -8898,5 +8899,326 @@ renderToolPane=function(){
 };
 
 console.log('[深蓝海域] 补丁9-A 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁10-A（2026-09-19）
+   ① 思考过程：改回旧版（思考条和思考正文都待在气泡里面，和 1.jpg 一样）
+   ② 多选删除：选中改成克制的细描边 + 柔和光晕 + 小巧的勾（不再用粗蓝圈）
+   ③ 角色排序：去掉 ▲▼ 箭头，改成「长按进入排序模式 → 直接拖动方块改顺序」
+   ④ 修：字体设置刷新 / 重开后没生效（启动时没有再套用保存的字体）
+   ⑤ 角色用完工具（掷骰子、好感度…）那条提示改成安静的小卡片（低对比、无描边）
+   ⑥ 新增「隐私画册」和「隐私演绎」：和隐私角色 / 隐私群聊一样，要密码才能看
+   ⑦ 隐私角色默认不出现在「应用 → 互动」的好感度里（进了它的聊天才显示）
+   改动：这段只追加在文件最末尾；⑦ 是改补丁5-A 里的一行（取角色列表那行）。
+   ===================================================================== */
+(function(){
+var W=window;
+if(W.P10&&W.P10.A)return;
+W.P10=W.P10||{};W.P10.A=1;
+
+function dqa(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
+function say(m){try{toast(m)}catch(e){}}
+function actsAllP(){try{return load('wh_acts',[])||[]}catch(e){return []}}
+function actByIdP(id){var a=actsAllP();for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i]}return null}
+
+/* ============ 样式：② 选中效果 / ⑤ 工具提示条 / ③ 排序拖动 ============ */
+var CSS=[
+/* ② 多选选中：细描边 + 柔和光晕 + 小巧的勾，克制一点才显得干净 */
+'#msgs.p6sel .bub{transition:box-shadow .18s ease,border-color .18s ease}',
+'#msgs.p6sel .bub.p6on{border-color:var(--acc)!important;box-shadow:0 0 0 3px var(--accdim)!important}',
+'#msgs.p6sel .bub.p6on::after{content:"✓";position:absolute;top:-7px;right:-7px;width:19px;height:19px;box-sizing:content-box;border-radius:50%;background:var(--acc);border:2px solid var(--bg);color:#fff;font-size:11px;font-weight:600;line-height:19px;text-align:center;box-shadow:0 1px 4px rgba(16,24,40,.18);z-index:3}',
+/* ② 底部多选工具条：浮起来的圆角小条，不再是贴边的一条线 */
+'#p6bar{left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom) + 62px);border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:0 10px 30px rgba(16,24,40,.18);padding:8px 12px;gap:6px}',
+'#p6bar .n{font-size:12.5px;color:var(--dim)}',
+/* ⑤ 工具提示：安静、低对比的小卡片（去掉描边和彩色竖条，只留一层淡淡底色） */
+'#msgs .toychip,.gtoy .toychip{display:inline-flex;align-items:center;gap:6px;width:fit-content;max-width:84%;margin:7px 0 0;padding:5px 11px;font-size:11px;line-height:1.65;letter-spacing:.2px;color:var(--meta);background:var(--bg2);border:0;border-radius:10px;box-shadow:none;animation:pop .16s ease;word-break:break-word}',
+'#msgs .toychip{margin-left:38px;max-width:calc(92% - 38px)}',
+'#msgs .toychip.me{margin-left:auto;margin-right:38px}',
+'#msgs .toychip b{color:var(--txt);font-weight:600;flex:0 0 auto}',
+'#msgs .toychip b::after{content:"";display:inline-block;width:1px;height:10px;background:var(--line);margin-left:7px;vertical-align:-1px}',
+'.gtoy .toychip{margin:0}',
+'.toychip.wait{color:var(--dim)}',
+/* ③ 排序模式：方块可以直接拖 */
+'.p6sortbar ~ .p6grid .card{touch-action:none;cursor:grab}',
+'.p6grid .card.p10drag{opacity:.95;transform:scale(1.04);box-shadow:0 10px 26px rgba(0,0,0,.36);border-color:var(--acc)!important;z-index:9}'
+].join('\n');
+var _st=document.createElement('style');_st.id='p10cssA';_st.textContent=CSS;
+(document.head||document.documentElement).appendChild(_st);
+
+/* ================================================================
+   ①  思考过程：按反馈改回旧版样子
+   说明：上一版把展开的正文挪到了气泡外面，看着不如原来的顺眼，
+        这里把那套搬运动作整个去掉 —— 思考条和正文就留在气泡里（同 1.jpg），
+        完全沿用补丁8-A / 8-B 的写法，不再做任何改动。
+   ================================================================ */
+
+/* ================================================================
+   ③  角色排序：拖动方块改顺序（▲▼ 已去掉）
+   ================================================================ */
+function roleGrid(){
+  var box=document.getElementById('main');
+  return box?box.querySelector('.p6grid'):null;
+}
+function saveRoleOrder(){
+  var grid=roleGrid();if(!grid)return;
+  var ids=dqa('.card[data-cid]',grid).map(function(el){return el.getAttribute('data-cid')});
+  var ordered=[];
+  ids.forEach(function(id){
+    var c=chars.filter(function(x){return x.id===id})[0];
+    if(c&&ordered.indexOf(c)<0)ordered.push(c);
+  });
+  chars.filter(function(c){return !c.priv}).forEach(function(c){if(ordered.indexOf(c)<0)ordered.push(c)});
+  var next=ordered.concat(chars.filter(function(c){return c.priv}));
+  if(next.length!==chars.length)return;
+  chars.length=0;
+  next.forEach(function(c){chars.push(c)});
+  save(LS.chars,chars);scheduleBackup();
+  say('顺序已保存');
+}
+function attachRoleDrag(){
+  if(!(W.P6&&P6.sortOn))return;
+  var grid=roleGrid();if(!grid)return;
+  dqa('.card[data-cid]',grid).forEach(function(el){
+    if(el._p10d)return;el._p10d=1;
+    el.addEventListener('pointerdown',function(e){
+      if(e.target&&e.target.closest&&e.target.closest('button'))return;
+      el._p10drag=true;
+      el.classList.add('p10drag');
+      try{el.setPointerCapture(e.pointerId)}catch(err){}
+      e.preventDefault();
+    });
+    el.addEventListener('pointermove',function(e){
+      if(!el._p10drag)return;
+      e.preventDefault();
+      var under=document.elementFromPoint(e.clientX,e.clientY);
+      var target=(under&&under.closest)?under.closest('.card[data-cid]'):null;
+      if(!target||target===el||target.parentNode!==grid)return;
+      var kids=dqa('.card[data-cid]',grid);
+      var ci=kids.indexOf(el),ti=kids.indexOf(target);
+      if(ci<0||ti<0)return;
+      if(ci<ti)grid.insertBefore(el,target.nextSibling);
+      else grid.insertBefore(el,target);
+    });
+    var end=function(){
+      if(!el._p10drag)return;
+      el._p10drag=false;
+      el.classList.remove('p10drag');
+      saveRoleOrder();
+    };
+    el.addEventListener('pointerup',end);
+    el.addEventListener('pointercancel',end);
+    el.addEventListener('lostpointercapture',end);
+  });
+}
+var P10_renderRoles=renderRoles;
+renderRoles=function(){
+  P10_renderRoles.apply(this,arguments);
+  try{
+    var box=document.getElementById('main');
+    if(box){
+      dqa('.p6arrows',box).forEach(function(el){el.remove()});
+      var sl=dqa('.p6sortbar .col',box)[0];
+      if(sl)sl.textContent='排序模式：按住方块上下拖动，就能改顺序';
+      var hint=dqa('.p6rolehint',box)[0];
+      if(hint)hint.innerHTML='小提示：点卡片进聊天，右上角 ✎ 改设定（记忆也在里面）；<b>长按卡片</b>进入排序模式，然后直接拖动方块来排顺序。';
+    }
+    attachRoleDrag();
+  }catch(e){}
+};
+
+/* ================================================================
+   ④  字体：启动 / 换主题时重新套用保存的设置
+   ================================================================ */
+var P10_applyTheme=applyTheme;
+applyTheme=function(){
+  var r=P10_applyTheme.apply(this,arguments);
+  try{if(W.P6&&P6.applyFont)P6.applyFont()}catch(e){}
+  return r;
+};
+
+/* ================================================================
+   ⑥-A  隐私画册
+   ================================================================ */
+var artOpen={open:false};
+function artPrivOn(){return !!(cfg&&cfg.artPriv)}
+function artLocked(){return artPrivOn()&&!artOpen.open}
+
+function setArtPriv(on){
+  cfg.artPriv=!!on;
+  try{save(LS.cfg,cfg);scheduleBackup()}catch(e){}
+  artOpen.open=!!on;
+  say(on?'已开启「隐私画册」：进画册要输密码':'已取消「隐私画册」');
+  try{renderCfg()}catch(e){}
+  try{renderToolPane()}catch(e){}
+}
+W.P10.setArtPriv=setArtPriv;
+W.P10.artUnlock=function(){
+  if(!hasAnyPrivPw())return alert('画册设了隐私，但你还没设置任何密码。\n先去「设置 → 隐私角色」设一个密码，再回来解锁。');
+  showSheet('<div class="ttl">🔒 需要密码</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">这是隐私画册，输入密码才能看。</p>'+
+  '<input id="p10_artpw" type="password" placeholder="密码" autocomplete="off">'+
+  '<p id="p10_arterr" class="dim" style="font-size:12px;color:var(--warn);min-height:18px;margin:6px 0 0"></p>'+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="P10.tryArtPw()">解锁</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(function(){
+    var el=document.getElementById('p10_artpw');
+    if(el){el.focus();el.addEventListener('keydown',function(e){if(e.key==='Enter')W.P10.tryArtPw()})}
+  },80);
+};
+W.P10.tryArtPw=async function(){
+  var el=document.getElementById('p10_artpw'),err=document.getElementById('p10_arterr');
+  var pw=el?el.value:'';
+  if(!pw){if(err)err.textContent='请输入密码';return}
+  var ok=false;try{ok=await verifyPriv(pw)}catch(e){ok=false}
+  if(!ok){if(err)err.textContent='密码不对';return}
+  artOpen.open=true;
+  closeSheet();
+  renderToolPane();
+  say('已解锁画册');
+};
+function paintArtCard(){
+  if(toolTab!=='toy')return;
+  var card=document.getElementById('p5artcard');
+  if(!card)return;
+  if(artLocked()){
+    card.innerHTML='<div class="ttl">🔒 画册（隐私）</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">画册设了隐私，输入密码才能看。</p>'+
+    '<div class="row"><button class="pri col" onclick="P10.artUnlock()">解锁查看</button>'+
+    '<button class="ghost col" onclick="P10.setArtPriv(false)">取消隐私</button></div>';
+    return;
+  }
+  if(card.querySelector('.p10artfoot'))return;
+  var f=document.createElement('div');
+  f.className='row p10artfoot';f.style.marginTop='10px';
+  f.innerHTML=artPrivOn()
+    ?'<button class="ghost col" onclick="P10.setArtPriv(false)">🔓 取消隐私画册</button>'
+    :'<button class="ghost col" onclick="P10.setArtPriv(true)">🔒 设为隐私画册（要密码才能看）</button>';
+  card.appendChild(f);
+}
+/* 设置页「隐私角色」卡片里也放一个开关（还没画过图时也能提前设） */
+function injectArtPrivRow(){
+  var m=document.getElementById('main');if(!m)return;
+  if(document.getElementById('p10_artpriv'))return;
+  var cards=Array.prototype.filter.call(m.children,function(el){return el.classList&&el.classList.contains('card')});
+  var card=null;
+  for(var i=0;i<cards.length;i++){
+    var t=cards[i].querySelector('.ttl');
+    if(t&&String(t.textContent||'').indexOf('隐私角色')>=0){card=cards[i];break}
+  }
+  if(!card)return;
+  var d=document.createElement('div');
+  d.className='row';d.id='p10_artpriv';d.style.marginTop='12px';d.style.alignItems='center';
+  d.innerHTML='<div class="col"><b>隐私画册</b><div class="dim" style="font-size:12px">「应用 → 互动 → 画册」里的图要输密码才能看（和隐私角色用同一个密码）</div></div>'+
+    '<input type="checkbox" id="p10_artpriv_ck" '+(artPrivOn()?'checked':'')+'>';
+  card.appendChild(d);
+  var ck=document.getElementById('p10_artpriv_ck');
+  if(ck)ck.onchange=function(){setArtPriv(!!this.checked)};
+  try{
+    /* 跟着「隐私角色」那张卡片一起收放（默认是收起的） */
+    var openState=!!(W.P6&&P6.foldOpen&&P6.foldOpen['隐私角色']);
+    d.style.display=openState?'':'none';
+  }catch(e){}
+}
+var P10_renderCfg=renderCfg;
+renderCfg=function(){
+  P10_renderCfg.apply(this,arguments);
+  try{injectArtPrivRow()}catch(e){}
+};
+var P10_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  var r=P10_renderToolPane.apply(this,arguments);
+  try{paintArtCard()}catch(e){}
+  return r;
+};
+
+/* ================================================================
+   ⑥-B  隐私演绎（列表带锁，进入要密码）
+   ================================================================ */
+var actOpen={};
+W.P10.tryActPw=async function(id){
+  var el=document.getElementById('p10_actpw'),err=document.getElementById('p10_acterr');
+  var pw=el?el.value:'';
+  if(!pw){if(err)err.textContent='请输入密码';return}
+  var ok=false;try{ok=await verifyPriv(pw)}catch(e){ok=false}
+  if(!ok){if(err)err.textContent='密码不对';return}
+  actOpen[id]=true;
+  closeSheet();
+  P5.actOpen(id);
+  say('已解锁这场演绎');
+};
+var P10_actOpen=P5.actOpen;
+P5.actOpen=function(id){
+  var a=actByIdP(id);
+  if(!a||!a.priv||actOpen[id])return P10_actOpen.apply(this,arguments);
+  if(!hasAnyPrivPw())return alert('这场演绎设了「隐私演绎」，但你还没设置任何密码。\n先去「设置 → 隐私角色」设一个密码，再进入。');
+  showSheet('<div class="ttl">🔒 需要密码</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">这是一场隐私演绎，输入密码才能打开。</p>'+
+  '<input id="p10_actpw" type="password" placeholder="密码" autocomplete="off">'+
+  '<p id="p10_acterr" class="dim" style="font-size:12px;color:var(--warn);min-height:18px;margin:6px 0 0"></p>'+
+  '<div class="row" style="margin-top:10px"><button class="pri col" onclick="P10.tryActPw(\''+id+'\')">进入</button>'+
+  '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(function(){
+    var el=document.getElementById('p10_actpw');
+    if(el){el.focus();el.addEventListener('keydown',function(e){if(e.key==='Enter')W.P10.tryActPw(id)})}
+  },80);
+};
+/* 列表里给隐私演绎加个 🔒 */
+var P10_actHTML=P5.actHTML;
+P5.actHTML=function(){
+  var h=P10_actHTML.apply(this,arguments);
+  try{
+    if(typeof h==='string'&&h){
+      actsAllP().forEach(function(a){
+        if(!a||!a.priv)return;
+        var tag='<div class="ttl" style="margin-bottom:4px">'+esc(a.name||'')+'</div>';
+        if(h.indexOf(tag)>=0)h=h.split(tag).join('<div class="ttl" style="margin-bottom:4px">🔒 '+esc(a.name||'')+'</div>');
+      });
+    }
+  }catch(e){}
+  return h;
+};
+/* 演绎的 ⚙ 设置里加「隐私演绎」开关 */
+var P10_actSetSheet=P5.actSetSheet;
+P5.actSetSheet=function(id){
+  P10_actSetSheet.apply(this,arguments);
+  try{
+    var sheet=document.getElementById('sheet');if(!sheet)return;
+    if(document.getElementById('p10_actpriv'))return;
+    var a=actByIdP(id);if(!a)return;
+    var box=document.createElement('div');
+    box.className='card';box.style.marginTop='12px';
+    box.innerHTML='<div class="ttl">隐私演绎</div>'+
+    '<div class="row" style="align-items:center">'+
+    '<div class="col"><b>进入要输密码</b><div class="dim" style="font-size:12px">和「隐私群聊」一样：列表里带 🔒，进这一场之前要输一次密码。</div></div>'+
+    '<input type="checkbox" id="p10_actpriv" '+(a.priv?'checked':'')+'></div>'+
+    (hasAnyPrivPw()?'':'<p class="dim" style="font-size:12px;margin:8px 0 0;color:var(--warn)">⚠️ 你还没设置任何密码，先去「设置 → 隐私角色」设一个。</p>');
+    var btns=dqa('button',sheet),anchor=null;
+    for(var i=0;i<btns.length;i++){
+      if(String(btns[i].getAttribute('onclick')||'').indexOf('actSaveSet(')>=0){anchor=btns[i];break}
+    }
+    var host=anchor?anchor.closest('.row'):null;
+    if(host&&host.parentNode)host.parentNode.insertBefore(box,host);
+    else sheet.appendChild(box);
+  }catch(e){}
+};
+var P10_actSaveSet=P5.actSaveSet;
+P5.actSaveSet=function(id){
+  var el=document.getElementById('p10_actpriv');
+  var v=el?!!el.checked:null;
+  P10_actSaveSet.apply(this,arguments);
+  try{
+    if(v!=null){
+      var arr=actsAllP();
+      for(var i=0;i<arr.length;i++){if(arr[i].id===id){arr[i].priv=v;break}}
+      save('wh_acts',arr);
+      if(!v)actOpen[id]=true;
+    }
+  }catch(e){}
+};
+
+console.log('[深蓝海域] 补丁10-A 已加载');
 })();
 </script>
