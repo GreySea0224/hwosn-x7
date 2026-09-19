@@ -6794,6 +6794,37 @@ P5.actDelMsg=function(id,i){
 };
 
 /* ============ 系统提示词 ============ */
+/* 【新增】演绎里的「记忆文件」：让这一场的角色 / 旁白也能读到你在私聊导入的旧聊天档案。
+   默认谁都不带（和以前完全一样）；只有在这场演绎的 ⚙ 设置里勾上的角色 / 旁白才会带上。
+   具体能带哪些档案，仍然听「记忆」页里每份档案自己的「哪些角色能看见这份档案」。 */
+function actMemFileBlock(act,query){
+  var meName=cfg.userName||'她';
+  var out=[];
+  (act.members||[]).forEach(function(mm){
+    if(!mm||!mm.mem)return;
+    var c=p5Char(mm.cid);if(!c)return;
+    var t=safeL(function(){return archiveBlock(String(query||''),c)},'');
+    if(!t)return;
+    out.push('【'+c.name+'名下的记忆文件】\n'+t);
+  });
+  if(act.narrOn!==false&&act.narrMem){
+    var seen={},nb=[];
+    (act.members||[]).forEach(function(mm){
+      var c=p5Char(mm.cid);if(!c)return;
+      var t=safeL(function(){return archiveBlock(String(query||''),c)},'');
+      if(!t||seen[t])return;
+      seen[t]=1;
+      nb.push('【'+c.name+'名下的档案】\n'+t);
+    });
+    if(nb.length)out.push('【旁白可以看的全部记忆文件】\n'+nb.join('\n\n'));
+  }
+  if(!out.length)return '';
+  return '【你和'+meName+'私聊时导入的记忆文件（属于另一条线，不是这场演绎里发生的事）】\n'+
+    '下面是从私聊导入的旧聊天档案，属于「日常 / 私聊」那条世界线，不是这场演绎里刚发生的事。'+
+    '你可以用它们了解各人的性格、你和'+meName+'的关系、彼此的称呼与说话习惯，让演出来的角色更像；'+
+    '但不要把档案里的旧事当成场上刚发生的事，也不要主动大段复述、或把档案内容当成剧情里的秘密抖出来。\n\n'+
+    out.join('\n\n');
+}
 function actSys(act){
   var meName=cfg.userName||'她';
   var L=[];
@@ -6898,7 +6929,12 @@ async function actTurn(act,drive){
       ?('这一轮主要写「'+who2+'」的行动和对白，旁白用一两句交代画面与结果。')
       :('以旁白为主推进：交代新出现的画面、NPC 的反应、局面的变化，然后把剧情往前推。'))+
       '结尾给出 1~3 个可行选项（每行一个，格式：A. ……）。不要替'+meName+'做决定，也不要写'+meName+'说的话。';
-    var ctx=[{role:'system',content:actSys(act)},
+    /* 【新增】拿你最近说的一句话当关键词，去「记忆文件」里找相关片段 */
+    var lastQ='';
+    for(var qi=ms.length-1;qi>=0;qi--){
+      if(ms[qi].role==='user'&&ms[qi].content){lastQ=String(ms[qi].content);break}
+    }
+    var ctx=[{role:'system',content:actSys(act)+actMemFileBlock(act,lastQ)},
       {role:'user',content:'【演绎记录】\n'+(hist||'（刚刚开始，还没有任何记录）')+'\n\n'+hint}];
     var out=await callAPI(ctx,{stream:false,model:cfg.model,
       temp:Math.max(.7,Number(cfg.temp)||.85),maxtok:1400});
@@ -7072,7 +7108,9 @@ P5.actSetSheet=function(id){
     var mm=(act.members||[]).filter(function(x){return x.cid===c.id})[0]||{};
     return '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" class="actmb2" value="'+c.id+'" '+(on?'checked':'')+' style="flex:0 0 auto;margin-top:3px">'+
     '<span style="flex:1 1 auto"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>'+
-    '<input class="actidn2" data-cid="'+c.id+'" value="'+esc(mm.idn||'')+'" placeholder="它在这个设定里的身份 / 定位（可留空）" style="margin-top:5px;font-size:12px;padding:6px 10px"></span></label>';
+    '<input class="actidn2" data-cid="'+c.id+'" value="'+esc(mm.idn||'')+'" placeholder="它在这个设定里的身份 / 定位（可留空）" style="margin-top:5px;font-size:12px;padding:6px 10px"></span></label>'+
+    /* 【新增】这一场里，它能不能读到你私聊导入的记忆文件 */
+    '<label class="li" style="border:0;padding:2px 0 8px 30px"><input type="checkbox" class="actmf" data-cid="'+c.id+'" '+(mm.mem?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span class="dim" style="font-size:12px">记忆文件：能读到你私聊导入的旧聊天档案</span></label>';
   }).join('');
   showSheet('<div class="ttl">演绎设置 · '+esc(act.name)+'</div>'+
   '<label class="f">名称</label><input id="as_name" value="'+esc(act.name)+'">'+
@@ -7083,11 +7121,13 @@ P5.actSetSheet=function(id){
   '<option value="new"'+(act.memMode==='new'?' selected':'')+'>更换记忆设定（用下面这段）</option></select>'+
   '<textarea id="as_memtext" style="min-height:90px;margin-top:8px">'+esc(act.memText||'')+'</textarea>'+
   '<label class="f">参与角色（取消勾选＝让它退出这场演绎）</label>'+
+  '<p class="dim" style="font-size:11.5px;margin:0 0 6px">勾上名字下面的「记忆文件」＝这场演绎里能读到你私聊导入的旧聊天档案；默认不勾。</p>'+
   '<div style="max-height:30vh;overflow:auto">'+rows+'</div>'+
   '<div class="row" style="align-items:center;margin-top:10px">'+
   '<div class="col"><b style="font-size:13px">'+(act.narrOn!==false?('保留旁白（'+(act.narrName||'旁白')+'）'):'不要旁白')+'</b>'+
   '<div class="dim" style="font-size:11.5px">'+(act.narrOn!==false?'旁白是中立的工具人：铺设定、讲规则、念旁白、给选项':'删掉旁白后，就只由角色自己演，你可以随时加回来')+'</div></div>'+
   '<input type="checkbox" id="as_narr" '+(act.narrOn!==false?'checked':'')+'></div>'+
+  '<label class="li" style="border:0;padding:4px 0 0"><input type="checkbox" id="as_narrmem" '+(act.narrMem?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span class="dim" style="font-size:12px">记忆文件：让'+(act.narrOn!==false?(act.narrName||'旁白'):'旁白')+'也能读到你私聊导入的旧聊天档案</span></label>'+
   '<div class="row"><div style="width:110px"><label class="f">旁白叫</label><input id="as_narrname" value="'+esc(act.narrName||'旁白')+'"></div>'+
   '<label class="li" style="border:0;flex:1"><input type="checkbox" id="as_dice" '+(act.diceOn!==false?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许掷骰判定</span></label></div>'+
   '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P5.actSaveSet(\''+id+'\')">保存设置</button>'+
@@ -7105,7 +7145,8 @@ P5.actSaveSet=function(id){
     if(!el.checked)return;
     var cid=el.value;
     var idn=document.querySelector('.actidn2[data-cid="'+cid+'"]');
-    members.push({cid:cid,idn:idn?String(idn.value||'').trim():''});
+    var mf=document.querySelector('.actmf[data-cid="'+cid+'"]');   /* 【新增】记忆文件开关 */
+    members.push({cid:cid,idn:idn?String(idn.value||'').trim():'',mem:!!(mf&&mf.checked)});
   });
   act.name=v('as_name')||act.name;
   act.setting=v('as_set');
@@ -7115,6 +7156,7 @@ P5.actSaveSet=function(id){
   act.members=members;
   act.narrOn=ck('as_narr',true);
   act.narrName=v('as_narrname')||'旁白';
+  act.narrMem=ck('as_narrmem',false);      /* 【新增】旁白能不能读记忆文件 */
   act.diceOn=ck('as_dice',true);
   if(act.drive&&act.drive!=='narr'&&!members.some(function(m){return m.cid===act.drive}))act.drive='narr';
   var arr=actsAll();
@@ -8811,5 +8853,50 @@ try{
 }catch(e){}
 
 console.log('[深蓝海域] 补丁8-C 已加载');
+})();
+</script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁9-A（2026-09-19）
+   ① 修 bug：在「演绎」里打好字，点「发送 / ▶ 推进 / 选项 / 掷骰」时，
+      字会消失、也发不出去。
+      原因：点这些按钮时，程序会先把整个演绎面板重画一遍（为了马上显示
+            「正在写…」）。重画会把输入框换成一个新的空框；等发送函数去读
+            输入框时，里面已经空了——所以你打的字既没发出去，也从屏幕上没了。
+      修法：给「重画面板」这件事加一层保护——重画前先把输入框里没发出去的
+            字记下来，重画后原样放回新的输入框。生成期间你新打的字也不会
+            再被冲掉。
+   改动只追加，前面任何一段老代码都没动。
+   ===================================================================== */
+(function(){
+var W=window;
+if(W.P9&&W.P9.A)return;
+W.P9=W.P9||{};W.P9.A=1;
+
+var P9_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  /* 重画前：把演绎输入框里还没发出去的字先记下来 */
+  var draft=null;
+  try{
+    var box=document.getElementById('actinp');
+    if(box)draft=String(box.value||'');
+  }catch(e){}
+  var r=P9_renderToolPane.apply(this,arguments);
+  /* 重画后：把字放回新画出来的输入框（空的才放，不覆盖已有内容） */
+  try{
+    if(draft){
+      var nb=document.getElementById('actinp');
+      if(nb&&!nb.value){
+        nb.value=draft;
+        nb.style.height='auto';
+        nb.style.height=Math.min(120,nb.scrollHeight)+'px';
+      }
+    }
+  }catch(e){}
+  return r;
+};
+
+console.log('[深蓝海域] 补丁9-A 已加载');
 })();
 </script>
