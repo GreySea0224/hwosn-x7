@@ -9794,11 +9794,13 @@ function actsAllP(){try{return load('wh_acts',[])||[]}catch(e){return []}}
 document.addEventListener('scroll',function(e){
   var t=e.target;
   if(!t||!t.id)return;
-  if(t.id==='main')chatFollow=nearBottom(t);
-  else if(t.id==='amsgs')actFollow=nearBottom(t);
-  else if(t.id==='gmsgs')groupFollow=nearBottom(t);
+  var v=t._p11Hold?false:p11AtBottom(t);
+  if(t.id==='main')chatFollow=v;
+  else if(t.id==='amsgs')actFollow=v;
+  else if(t.id==='gmsgs')groupFollow=v;
 },true);
 /* 手指/滚轮操作时直接停住自动跟随，不和用户抢滚动条 */
+function p11AtBottom(el){return !el||el.scrollHeight-el.scrollTop-el.clientHeight<24}
 function p11FollowCtl(node){
   while(node&&node.nodeType===1){
     if(node.id==='amsgs')return {el:node,on:function(v){actFollow=v}};
@@ -9808,30 +9810,44 @@ function p11FollowCtl(node){
   }
   return null;
 }
+function p11Pause(c){
+  if(!c||!c.el)return;
+  clearTimeout(c.el._p11Rel);
+  c.el._p11Hold=true;
+  c.on(false);
+}
 function p11Release(c){
-  if(c&&c.el&&nearBottom(c.el))c.on(true);
+  if(!c||!c.el)return;
+  clearTimeout(c.el._p11Rel);
+  c.el._p11Rel=setTimeout(function(){
+    c.el._p11Hold=false;
+    if(p11AtBottom(c.el))c.on(true);
+  },260);
 }
 document.addEventListener('touchstart',function(e){
   var c=p11FollowCtl(e.target);
-  if(c)c.on(false);
+  if(c)p11Pause(c);
 },{capture:true,passive:true});
 document.addEventListener('touchmove',function(e){
   var c=p11FollowCtl(e.target);
-  if(c)c.on(false);
+  if(c)p11Pause(c);
 },{capture:true,passive:true});
 document.addEventListener('touchend',function(e){
   var c=p11FollowCtl(e.target);
-  if(c)setTimeout(function(){p11Release(c)},0);
+  if(c)p11Release(c);
 },{capture:true,passive:true});
 document.addEventListener('touchcancel',function(e){
   var c=p11FollowCtl(e.target);
-  if(c)setTimeout(function(){p11Release(c)},0);
+  if(c)p11Release(c);
 },{capture:true,passive:true});
 document.addEventListener('wheel',function(e){
   var c=p11FollowCtl(e.target);
   if(!c)return;
-  if(e.deltaY<0)c.on(false);
-  else if(nearBottom(c.el))c.on(true);
+  p11Pause(c);
+  c.el._p11Rel=setTimeout(function(){
+    c.el._p11Hold=false;
+    if(p11AtBottom(c.el))c.on(true);
+  },320);
 },{capture:true,passive:true});
 var p11OpenGroup=openGroup;
 openGroup=function(id){
@@ -9888,7 +9904,7 @@ var gateSeq=0;
 W.P11._ok={};
 function privAuth(desc,okFn){
   if(typeof hasAnyPrivPw!=='function'||!hasAnyPrivPw()){
-    if(confirm('你还没设置任何密码，无法验证身份。\n直接取消隐私吗？')){try{if(okFn)okFn()}catch(e){}}
+    if(confirm('你还没设置任何密码，无法验证身份。\n仍要继续吗？（建议先去「设置 → 隐私角色」设一个密码）')){try{if(okFn)okFn()}catch(e){}}
     return;
   }
   var id='p11_pw_'+(++gateSeq);
@@ -9904,6 +9920,7 @@ function privAuth(desc,okFn){
     if(el){el.focus();el.addEventListener('keydown',function(e){if(e.key==='Enter')W.P11.confirm(id)})}
   },80);
 }
+W.P11.auth=privAuth;
 W.P11.confirm=async function(id){
   var el=document.getElementById(id),err=document.getElementById(id+'_err');
   var pw=el?el.value:'';
@@ -10029,5 +10046,89 @@ P5.actSaveSet=function(id){
 };
 
 console.log('[深蓝海域] 补丁11-A 已加载');
+})();
+</script>
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁12-A（2026-09-20）
+   ① 隐私群聊：没解锁前，从列表打开「设置」要先输密码；
+      在设置里取消隐私、删除隐私群聊，也要先输密码。
+   ② 角色卡片右上角的编辑按钮：改小、去掉抢眼的大灰圆底，
+      做成低调的小铅笔，点按区域仍然够大。
+   ===================================================================== */
+(function(){
+var W=window;
+if(W.P12&&W.P12.A)return;
+W.P12=W.P12||{};W.P12.A=1;
+
+function say(m){try{toast(m)}catch(e){}}
+function groupsAllP(){try{return load(LS.groups,[])||[]}catch(e){return []}}
+function findGroupP(id){
+  var gs=groupsAllP();
+  for(var i=0;i<gs.length;i++){if(gs[i].id===id)return gs[i]}
+  return null;
+}
+function auth(desc,fn){
+  if(W.P11&&typeof W.P11.auth==='function')return W.P11.auth(desc,fn);
+  if(confirm(desc))fn();
+}
+
+/* ---------- ② 编辑按钮：小、轻、低调 ---------- */
+var CSS=[
+'.p6grid .card .p6edit{top:5px;right:5px;width:24px;height:24px;min-height:0;padding:0;display:flex;align-items:center;justify-content:center;border:0;border-radius:999px;background:transparent;color:var(--dim);opacity:.52;box-shadow:none;z-index:2;-webkit-tap-highlight-color:transparent}',
+'.p6grid .card .p6edit::after{content:"";position:absolute;top:-7px;right:-7px;bottom:-7px;left:-7px}',
+'.p6grid .card .p6edit svg{width:12px;height:12px;stroke-width:1.6}',
+'.p6grid .card .p6edit:active{opacity:1;color:var(--acc);background:var(--accdim);transform:scale(.94)}'
+].join('\n');
+var st=document.createElement('style');st.id='p12cssA';st.textContent=CSS;
+(document.head||document.documentElement).appendChild(st);
+
+/* ---------- ① 隐私群聊：设置 / 取消隐私 / 删除都要密码 ---------- */
+var p12GroupSetSheet=groupSetSheet;
+groupSetSheet=function(id){
+  var g=findGroupP(id);
+  if(g&&g.priv&&!gOpen[id]){
+    auth('进入这个隐私群聊的设置前要输一次密码。',function(){
+      gOpen[id]=true;
+      p12GroupSetSheet(id);
+    });
+    return;
+  }
+  return p12GroupSetSheet.apply(this,arguments);
+};
+var p12SaveGroupSet=saveGroupSet;
+saveGroupSet=function(id){
+  var el=document.getElementById('ge_priv');
+  var want=el?!!el.checked:null;
+  var g=findGroupP(id);
+  if(want===false&&g&&g.priv&&!gOpen[id]){
+    if(el)el.checked=true;                 /* 先按「保持隐私」保存其它设置 */
+    p12SaveGroupSet.apply(this,arguments);
+    auth('取消隐私群聊前要输一次密码，避免别人直接把锁关掉。',function(){
+      var gs=groupsAllP();
+      for(var i=0;i<gs.length;i++){if(gs[i].id===id){gs[i].priv=false;break}}
+      saveGroups(gs);
+      gOpen[id]=true;
+      if(view==='tools')renderTools();
+      say('已取消隐私群聊');
+    });
+    return;
+  }
+  return p12SaveGroupSet.apply(this,arguments);
+};
+var p12DelGroup=delGroup;
+delGroup=function(id){
+  var g=findGroupP(id);
+  if(g&&g.priv&&!gOpen[id]){
+    auth('删除这个隐私群聊前要输一次密码。',function(){
+      gOpen[id]=true;
+      p12DelGroup(id);
+    });
+    return;
+  }
+  return p12DelGroup.apply(this,arguments);
+};
+
+console.log('[深蓝海域] 补丁12-A 已加载');
 })();
 </script>
