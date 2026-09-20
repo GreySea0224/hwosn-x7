@@ -59,9 +59,9 @@ button:disabled{opacity:.45;pointer-events:none}
 @keyframes pop{from{transform:translateY(4px);opacity:0}}
 .think{margin:6px 0 0;max-width:84%}
 .thinkhead{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:12px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:color .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
-.thinkhead::after{content:'▾';font-size:10px;line-height:1;transform:translateY(-1px);transition:transform .18s ease}
+.thinkhead::after{content:'▸';font-size:10px;line-height:1;transform:translateY(-1px);transition:transform .18s ease}
 .thinkhead.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);box-shadow:0 2px 10px rgba(63,169,216,.18)}
-.thinkhead.on::after{transform:rotate(180deg) translateY(-1px)}
+.thinkhead.on::after{content:'▾';transform:translateY(-1px)}
 .thinkbody{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;padding:10px 12px;margin-top:6px;font-size:12.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;display:none;animation:pop .16s ease}
 .ops{display:flex;gap:7px;margin:7px 0 10px;flex-wrap:wrap}
 .ops.me{justify-content:flex-end}
@@ -812,6 +812,7 @@ const persist=()=>{if(curId){save(LS.msg(curId),msgs);scheduleBackup()}};
 const saveMem=()=>{if(curId){save(LS.mem(curId),mem);scheduleBackup()}};
 function loadChar(id){
   curId=id;save(LS.cur,id);
+  chatFollow=true;
   msgs=load(LS.msg(id),[]);
   mem=Object.assign(EMPTY_MEM(),load(LS.mem(id),null)||{});
   memCtx={id:id,obj:mem};
@@ -879,7 +880,11 @@ function draw(){
   else if(view==='tools')renderTools();
   else renderCfg();
 }
-const scrollDown=()=>{const m=$('#main');m.scrollTop=m.scrollHeight};
+/* 消息区是否自动跟随到底部：用户手动上滑后暂停，滑回底部再继续 */
+let chatFollow=true,actFollow=true,groupFollow=true;
+const nearBottom=el=>!el||el.scrollHeight-el.scrollTop-el.clientHeight<80;
+const scrollDown=()=>{const m=$('#main');if(m&&chatFollow)m.scrollTop=m.scrollHeight};
+const scrollActDown=()=>{const b=document.getElementById('amsgs');if(b&&actFollow)b.scrollTop=b.scrollHeight};
 
 /* ---------- 记忆上下文（角色设置里的「记忆」标签页共用） ---------- */
 function setMemCtx(id){
@@ -2029,7 +2034,7 @@ function setupAskUI(box){
   box.appendChild(liveThink);
   const a=document.createElement('div');a.className='bub ai typing';
   setBubbleAvatar(a,false);
-  a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);scrollDown();
+  a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);chatFollow=true;scrollDown();
   const thinkOn=()=>{if(liveThink.style.display==='none')liveThink.style.display='flex'};
   return {sendBtn:sendBtn,stopBtn:stopBtn,liveThink:liveThink,a:a,thinkOn:thinkOn};
 }
@@ -3365,7 +3370,7 @@ function groupChatHTML(g){
   '<p class="dim" style="font-size:11.5px;margin:6px 0 0">提示：在「角色 → 编辑 → 群聊权限」里打开开关后，那个角色在私聊时也能自己读群消息、自己在群里发言，并记住自己在群里说过的话。</p>'+
   '</div>';
 }
-function scrollGroupDown(){const b=document.getElementById('gmsgs');if(b)b.scrollTop=b.scrollHeight}
+function scrollGroupDown(){const b=document.getElementById('gmsgs');if(b&&groupFollow)b.scrollTop=b.scrollHeight}
 /* 【新增】删除单条群消息 / 清空本群消息 */
 function delGmsg(i){
   const g=findGroup(groupOpenId);if(!g)return;
@@ -3402,6 +3407,7 @@ async function groupKick(){
   const g=findGroup(groupOpenId);if(!g)return;
   if(groupBusy)return toast('群里还在说话，等一下');
   if(!gmsgsOf(g.id).length)return toast('先随便说一句，再让大家接');
+  groupFollow=true;
   await groupRun(g,'kick');
 }
 /* 群聊的「停不下来」保险：
@@ -5532,6 +5538,7 @@ groupSend=async function(){
   var t=el?el.value.trim():'';
   if(!t)return;
   el.value='';
+  groupFollow=true;
   var arr=gmsgsOf(g.id);
   arr.push({id:uid(),role:'user',content:t,t:Date.now(),tok:estTokens(t)});
   saveGmsgs(g.id,arr);
@@ -7076,7 +7083,10 @@ var TPL={
     r:'氧气每回合减 1 小时，共 6 回合。冒险行动掷 1d6：≥5 顺利，3~4 有代价（受伤 / 丢物资），≤2 触发事故。'},
   school:{n:'校园 · 高三的最后一个春天',
     s:'你们在同一所高中的高三（7）班，离高考还有 120 天。教室后墙的倒计时牌每天早上都被重新写一遍。',
-    r:'日常向，不强制判定；冲突、表白、比赛等关键时刻可以掷 1d6 看运气。每天只有早读、午休、晚自习三个时段。'}
+    r:'日常向，不强制判定；冲突、表白、比赛等关键时刻可以掷 1d6 看运气。每天只有早读、午休、晚自习三个时段。'},
+  spy:{n:'聚会 · 谁是卧底',
+    s:'大家围坐玩「谁是卧底」。游戏开始前，旁白给每个人单独发一个词：大多数人拿到同一个词，只有一名卧底拿到一个意思相近但不同的词。玩家不知道彼此拿到了什么词，也不知道自己是不是卧底。NPC 由旁白代演，用户也参加。',
+    r:'流程：①旁白先私下给每个玩家发词（不要在公开描述里直接说出来）；②每一轮每人用一句话描述自己的词，不能直接说出词本身，也不能重复别人说过的描述；③所有人描述完后一起投票，票最多的人出局，旁白公布他是不是卧底；④若卧底出局，平民获胜；若卧底活到只剩 3 人（或平民只剩 2 人），卧底获胜。旁白负责发词、计时、记录投票和判断胜负，不要替用户做决定。'}
 };
 
 /* ============ 列表 ============ */
@@ -7346,20 +7356,93 @@ function saveActTurnText(text,act){
   saveActMsgs(act.id,ms2);
   return true;
 }
+/* 流式输出时先放一条气泡，边收边显示；结束后再按原流程解析并存档 */
+function actLiveBubble(act){
+  var box=document.getElementById('amsgs');
+  if(!box)return null;
+  var who=(act.narrOn!==false?(act.narrName||'旁白'):'旁白');
+  var d=document.createElement('div');
+  d.className='abub narr actlive';
+  d.innerHTML='<div class="aav narr">🎭</div><div class="acol">'+
+    '<div class="awname">'+esc(who)+'</div>'+
+    '<div class="atext gen"></div></div>';
+  box.appendChild(d);
+  return {el:d,text:d.querySelector('.atext')};
+}
+/* 演绎的「打字机」：接口是否支持流式都能逐字显示，积压多时自动加速追上 */
+function actTypewrite(live,getText,isDone){
+  return new Promise(function(resolve){
+    if(!live||!live.text){resolve();return}
+    var shown=0,last=Date.now(),acc=0;
+    function frame(){
+      if(!live.el||!document.body.contains(live.el)){resolve();return}
+      var src=String(getText()||'');
+      var behind=src.length-shown;
+      if(behind>0){
+        var now=Date.now();
+        var dt=Math.min(120,now-last);last=now;
+        var speed=isDone()?200:70;
+        if(behind>1600)speed=1200;
+        else if(behind>600)speed=500;
+        else if(behind>200)speed=200;
+        acc+=dt*speed/1000;
+        var n=Math.floor(acc);
+        if(n>0){
+          acc-=n;
+          shown=Math.min(src.length,shown+n);
+          live.text.textContent=src.slice(0,shown);
+          scrollActDown();
+        }
+      }
+      if(isDone()&&shown>=String(getText()||'').length){resolve();return}
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+}
 async function actTurn(act,drive){
   if(actBusy)return;
   if(!cfg.key)return alert('先去设置里填 API Key');
   if(!(act.members||[]).length&&act.narrOn===false)return alert('这场演绎还没有角色也没有旁白');
   actBusy=true;
+  actFollow=true;                 /* 新一轮开始：默认跟随到最新 */
   renderToolPane();
-  var ok=false;
+  var ok=false,live=null,out='',done=false,typing=null;
   try{
     var ctx=buildActTurnContext(act,drive);
-    var out=await callAPI(ctx,{stream:false,model:cfg.model,
-      temp:Math.max(.7,Number(cfg.temp)||.85),maxtok:1400});
-    var text=String(out||'').trim();
+    live=actLiveBubble(act);
+    typing=actTypewrite(live,function(){return out},function(){return done});
+    var text='',streamErr=null;
+    try{
+      text=String(await callAPI(ctx,{stream:true,model:cfg.model,
+        temp:Math.max(.7,Number(cfg.temp)||.85),maxtok:1400,
+        onDelta:function(d){
+          out+=d;
+        }})||'');
+    }catch(e1){streamErr=e1}
+    if(!String(text||'').trim()){
+      /* 个别接口不支持流式、或直接拒绝流式：退回整段生成 */
+      try{
+        var whole=String(await callAPI(buildActTurnContext(act,drive),{stream:false,model:cfg.model,
+          temp:Math.max(.7,Number(cfg.temp)||.85),maxtok:1400})||'');
+        if(String(whole||'').trim())text=whole;
+      }catch(e2){
+        if(!out)throw (streamErr||e2);
+      }
+    }
+    if(!text&&!out&&streamErr)throw streamErr;
+    if(text&&text!==out)out=text;
+    if(!text)text=out;
+    done=true;
+    try{await typing}catch(e){}
+    text=String(text||'').trim();
+    if(live&&live.el&&live.el.parentNode)live.el.parentNode.removeChild(live.el);
     if(saveActTurnText(text,act))ok=true;
   }catch(e){
+    done=true;
+    try{if(typing)await typing}catch(_e){}
+    if(out&&String(out).trim()&&saveActTurnText(String(out),act))ok=true;
+    if(live&&live.el&&live.el.parentNode)live.el.parentNode.removeChild(live.el);
     say('演绎出错：'+String((e&&e.message)||e).slice(0,90));
   }finally{
     actBusy=false;
@@ -7371,7 +7454,7 @@ P5.actKick=function(){
   var act=findAct(actOpenId);if(!act)return;
   if(actBusy)return say('还在写，等一下');
   var el=document.getElementById('actDrive');
-  actTurn(act,(el&&el.value)||act.drive||'narr');
+  return actTurn(act,(el&&el.value)||act.drive||'narr');
 };
 P5.actSend=async function(){
   var act=findAct(actOpenId);if(!act)return;
@@ -7454,7 +7537,8 @@ P5.actNewSheet=function(){
   '<button class="ghost col" onclick="P5.actTpl(\'trpg\')">跑团</button>'+
   '<button class="ghost col" onclick="P5.actTpl(\'court\')">宫廷</button></div>'+
   '<div class="row" style="margin-top:6px"><button class="ghost col" onclick="P5.actTpl(\'escape\')">逃生</button>'+
-  '<button class="ghost col" onclick="P5.actTpl(\'school\')">校园</button></div>'+
+  '<button class="ghost col" onclick="P5.actTpl(\'school\')">校园</button>'+
+  '<button class="ghost col" onclick="P5.actTpl(\'spy\')">谁是卧底</button></div>'+
   '<label class="f">玩法规则（判定 / 掷骰 / 回合 / 胜负条件，可留空）</label>'+
   '<textarea id="actRules" style="min-height:80px" placeholder="例：任何高风险行动掷 1d6：≥5 成功，3~4 勉强，≤2 出事。"></textarea>'+
   '<label class="f">角色的初始记忆</label>'+
@@ -9682,5 +9766,268 @@ P5.actSaveSet=function(id){
 };
 
 console.log('[深蓝海域] 补丁10-A 已加载');
+})();
+</script>
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁11-A（2026-09-20）
+   ① 取消隐私保护前要输一次密码：
+      · 隐私画册卡片上的「取消隐私」按钮
+      · 设置页「隐私画册」复选框
+      · 演绎 ⚙ 设置里的「隐私演绎」复选框
+   ② 消息自动下滑改成「跟随模式」：滑到最底部时自动跟随，
+      手动上滑后停住；滑回底部继续跟随（聊天页 + 演绎页）
+   ③ 演绎页重画时，如果用户正在上滑阅读，不再把它拉回最下面
+   改动只追加在文件最末尾，前面任何一段老代码都没动。
+   ===================================================================== */
+(function(){
+var W=window;
+if(W.P11&&W.P11.A)return;
+W.P11=W.P11||{};W.P11.A=1;
+
+function say(m){try{toast(m)}catch(e){}}
+function actsAllP(){try{return load('wh_acts',[])||[]}catch(e){return []}}
+
+/* ================================================================
+   ② 滚动跟随：靠近底部就跟随，上滑离开底部就暂停
+   ================================================================ */
+document.addEventListener('scroll',function(e){
+  var t=e.target;
+  if(!t||!t.id)return;
+  if(t.id==='main')chatFollow=nearBottom(t);
+  else if(t.id==='amsgs')actFollow=nearBottom(t);
+  else if(t.id==='gmsgs')groupFollow=nearBottom(t);
+},true);
+/* 手指/滚轮操作时直接停住自动跟随，不和用户抢滚动条 */
+function p11FollowCtl(node){
+  while(node&&node.nodeType===1){
+    if(node.id==='amsgs')return {el:node,on:function(v){actFollow=v}};
+    if(node.id==='gmsgs')return {el:node,on:function(v){groupFollow=v}};
+    if(node.id==='main')return {el:node,on:function(v){chatFollow=v}};
+    node=node.parentNode;
+  }
+  return null;
+}
+function p11Release(c){
+  if(c&&c.el&&nearBottom(c.el))c.on(true);
+}
+document.addEventListener('touchstart',function(e){
+  var c=p11FollowCtl(e.target);
+  if(c)c.on(false);
+},{capture:true,passive:true});
+document.addEventListener('touchmove',function(e){
+  var c=p11FollowCtl(e.target);
+  if(c)c.on(false);
+},{capture:true,passive:true});
+document.addEventListener('touchend',function(e){
+  var c=p11FollowCtl(e.target);
+  if(c)setTimeout(function(){p11Release(c)},0);
+},{capture:true,passive:true});
+document.addEventListener('touchcancel',function(e){
+  var c=p11FollowCtl(e.target);
+  if(c)setTimeout(function(){p11Release(c)},0);
+},{capture:true,passive:true});
+document.addEventListener('wheel',function(e){
+  var c=p11FollowCtl(e.target);
+  if(!c)return;
+  if(e.deltaY<0)c.on(false);
+  else if(nearBottom(c.el))c.on(true);
+},{capture:true,passive:true});
+var p11OpenGroup=openGroup;
+openGroup=function(id){
+  groupFollow=true;               /* 打开一个群：默认跟到最新 */
+  return p11OpenGroup.apply(this,arguments);
+};
+
+/* ================================================================
+   ③ 演绎页重画时保住阅读位置
+   ================================================================ */
+var P11_renderChat=renderChat;
+renderChat=function(){
+  var keep=null;
+  try{
+    var m=document.getElementById('main');
+    if(m&&!chatFollow)keep=m.scrollTop;
+  }catch(e){}
+  var r=P11_renderChat.apply(this,arguments);
+  try{
+    if(keep!=null){
+      var m2=document.getElementById('main');
+      if(m2)m2.scrollTop=keep;
+    }
+  }catch(e){}
+  return r;
+};
+var P11_renderToolPane=renderToolPane;
+renderToolPane=function(){
+  var keep=null,keepG=null;
+  try{
+    var box=document.getElementById('amsgs');
+    if(box&&!actFollow)keep=box.scrollTop;
+    var gbox=document.getElementById('gmsgs');
+    if(gbox&&!groupFollow)keepG=gbox.scrollTop;
+  }catch(e){}
+  var r=P11_renderToolPane.apply(this,arguments);
+  try{
+    if(keep!=null){
+      var nb=document.getElementById('amsgs');
+      if(nb)nb.scrollTop=keep;
+    }
+    if(keepG!=null){
+      var ng=document.getElementById('gmsgs');
+      if(ng)ng.scrollTop=keepG;
+    }
+  }catch(e){}
+  return r;
+};
+
+/* ================================================================
+   ① 取消隐私前的密码验证（画册 / 演绎共用）
+   ================================================================ */
+var gateSeq=0;
+W.P11._ok={};
+function privAuth(desc,okFn){
+  if(typeof hasAnyPrivPw!=='function'||!hasAnyPrivPw()){
+    if(confirm('你还没设置任何密码，无法验证身份。\n直接取消隐私吗？')){try{if(okFn)okFn()}catch(e){}}
+    return;
+  }
+  var id='p11_pw_'+(++gateSeq);
+  W.P11._ok[id]=okFn||function(){};
+  showSheet('<div class="ttl">🔒 需要密码</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">'+esc(desc)+'</p>'+
+    '<input id="'+id+'" type="password" placeholder="密码" autocomplete="off">'+
+    '<p id="'+id+'_err" class="dim" style="font-size:12px;color:var(--warn);min-height:18px;margin:6px 0 0"></p>'+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="P11.confirm(\''+id+'\')">确认</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(function(){
+    var el=document.getElementById(id);
+    if(el){el.focus();el.addEventListener('keydown',function(e){if(e.key==='Enter')W.P11.confirm(id)})}
+  },80);
+}
+W.P11.confirm=async function(id){
+  var el=document.getElementById(id),err=document.getElementById(id+'_err');
+  var pw=el?el.value:'';
+  if(!pw){if(err)err.textContent='请输入密码';return}
+  var ok=false;try{ok=await verifyPriv(pw)}catch(e){ok=false}
+  if(!ok){if(err)err.textContent='密码不对';return}
+  var fn=W.P11._ok[id];delete W.P11._ok[id];
+  closeSheet();
+  try{if(fn)fn()}catch(e){}
+};
+
+/* 画册：卡片按钮和设置复选框都要过密码 */
+var p11ArtUnlocked=false;
+var p11TryArtPw=W.P10&&W.P10.tryArtPw;
+if(W.P10&&typeof p11TryArtPw==='function'){
+  W.P10.tryArtPw=async function(){
+    var r=await p11TryArtPw.apply(this,arguments);
+    try{if(!document.getElementById('p10_artpw'))p11ArtUnlocked=true}catch(e){}
+    return r;
+  };
+}
+var p11SetArtPriv=(W.P10&&W.P10.setArtPriv)||null;
+if(typeof p11SetArtPriv==='function'){
+  W.P10.setArtPriv=function(on){
+    if(!on&&cfg&&cfg.artPriv&&!p11ArtUnlocked){
+      privAuth('取消隐私画册前要输一次密码，避免别人直接把密码保护点掉。',function(){p11SetArtPriv(false)});
+      return;
+    }
+    return p11SetArtPriv.apply(this,arguments);
+  };
+}
+var P11_renderCfg=renderCfg;
+renderCfg=function(){
+  var r=P11_renderCfg.apply(this,arguments);
+  try{
+    var ck=document.getElementById('p10_artpriv_ck');
+    if(ck&&!ck.dataset.p11){
+      ck.dataset.p11='1';
+      ck.onchange=function(){
+        var want=!!this.checked;
+        if(!want&&cfg&&cfg.artPriv&&!p11ArtUnlocked){
+          this.checked=true;
+          privAuth('取消隐私画册前要输一次密码，避免别人直接把密码保护点掉。',function(){
+            if(typeof p11SetArtPriv==='function')p11SetArtPriv(false);
+          });
+          return;
+        }
+        if(typeof p11SetArtPriv==='function')p11SetArtPriv(want);
+      };
+    }
+  }catch(e){}
+  return r;
+};
+
+/* 演绎：取消「隐私演绎」也要过密码 */
+var p11ActUnlocked={};
+var p11TryActPw=W.P10&&W.P10.tryActPw;
+if(W.P10&&typeof p11TryActPw==='function'){
+  W.P10.tryActPw=async function(id){
+    var r=await p11TryActPw.apply(this,arguments);
+    try{if(!document.getElementById('p10_actpw'))p11ActUnlocked[id]=true}catch(e){}
+    return r;
+  };
+}
+function p11ActById(id){
+  try{
+    var arr=actsAllP();
+    for(var i=0;i<arr.length;i++){if(arr[i].id===id)return arr[i]}
+  }catch(e){}
+  return null;
+}
+function p11GateAct(id,desc,fn){
+  var a=p11ActById(id);
+  if(a&&a.priv&&!p11ActUnlocked[id]){
+    privAuth(desc,function(){p11ActUnlocked[id]=true;try{fn()}catch(e){}});
+    return;
+  }
+  try{fn()}catch(e){}
+}
+var p11ActSetSheet=P5.actSetSheet;
+P5.actSetSheet=function(id){
+  var args=arguments;
+  p11GateAct(id,'进入这场隐私演绎的设置前要输一次密码。',function(){
+    p11ActSetSheet.apply(null,args);
+  });
+};
+var p11ActTxt=P5.actTxt;
+P5.actTxt=function(id){
+  var args=arguments;
+  p11GateAct(id,'导出这场隐私演绎前要输一次密码。',function(){
+    p11ActTxt.apply(null,args);
+  });
+};
+var p11ActDel=P5.actDel;
+P5.actDel=function(id){
+  var args=arguments;
+  p11GateAct(id,'删除这场隐私演绎前要输一次密码。',function(){
+    p11ActDel.apply(null,args);
+  });
+};
+var p11ActSaveSet=P5.actSaveSet;
+P5.actSaveSet=function(id){
+  var el=document.getElementById('p10_actpriv');
+  var want=el?!!el.checked:null;
+  var a=null;
+  try{
+    var arr=actsAllP();
+    for(var i=0;i<arr.length;i++){if(arr[i].id===id){a=arr[i];break}}
+  }catch(e){}
+  if(want===false&&a&&a.priv){
+    if(el)el.checked=true;                 /* 先按「保持隐私」保存其它设置 */
+    p11ActSaveSet.apply(this,arguments);
+    privAuth('取消隐私演绎前要输一次密码，避免别人直接把这场演绎的锁关掉。',function(){
+      var all=actsAllP();
+      for(var i=0;i<all.length;i++){if(all[i].id===id){all[i].priv=false;break}}
+      save('wh_acts',all);
+      say('已取消隐私演绎');
+      try{renderToolPane()}catch(e){}
+    });
+    return;
+  }
+  return p11ActSaveSet.apply(this,arguments);
+};
+
+console.log('[深蓝海域] 补丁11-A 已加载');
 })();
 </script>
