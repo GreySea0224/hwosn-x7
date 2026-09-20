@@ -4720,9 +4720,15 @@ groupGenerate=async function(g,c){
   return {text:out,tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out),ptok:(usage&&usage.prompt_tokens)?usage.prompt_tokens:0,search:sMeta};
 };
 /* 群聊：按轮次和优先级挑出本轮可能发言的人。 */
-function groupRoundRoster(g,round){
+function groupPrioValue(m){
+  if(!m||m.prio==null||m.prio==='')return 50;
+  var p=Number(m.prio);
+  return isFinite(p)?p:50;
+}
+function groupRoundRoster(g,round,prioFn){
+  var pf=typeof prioFn==='function'?prioFn:groupPrioValue;
   var roster=(g.members||[]).filter(function(m){return round===1?true:(m.reply==='both')}).slice();
-  roster.sort(function(a,b){return prioOf(a)-prioOf(b)});
+  roster.sort(function(a,b){return pf(a)-pf(b)});
   return roster;
 }
 /* 群聊：保存一条角色生成的群消息和群记忆。 */
@@ -4734,8 +4740,8 @@ function saveGroupGeneratedMsg(g,c,out){
   gmemAdd(c.id,g.id,g.name,out.text,true,mid);
 }
 /* 群聊：跑一轮发言。返回这一轮是否有人发言、发言了几条。 */
-async function runGroupRound(g,round,chain,maxAI,total){
-  var roster=groupRoundRoster(g,round);
+async function runGroupRound(g,round,chain,maxAI,total,prioFn){
+  var roster=groupRoundRoster(g,round,prioFn);
   var spoke=false,speaks=0;
   for(var ri=0;ri<roster.length;ri++){
     var m=roster[ri];
@@ -5504,7 +5510,7 @@ groupRun=async function(g,trigger){
   var total=0;
   try{
     for(var round=1;round<=maxRound;round++){
-      var rr=await runGroupRound(g,round,chain,maxAI,total);
+      var rr=await runGroupRound(g,round,chain,maxAI,total,prioOf);
       total+=rr.speaks;
       if(!rr.spoke)break;
     }
