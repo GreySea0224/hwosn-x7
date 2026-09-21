@@ -10132,3 +10132,633 @@ delGroup=function(id){
 console.log('[深蓝海域] 补丁12-A 已加载');
 })();
 </script>
+
+<script>
+/* =====================================================================
+   深蓝海域 · 补丁13-A（2026-09-20）  表情包（用户和角色共用一套）
+   ---------------------------------------------------------------------
+   ① 表情库：设置页多了「表情包」卡片，能添加 / 改名字 / 改含义 /
+      换图 / 删除。每个表情都存「名字 + 含义」，存在本地
+      （localStorage 键 wh_stickers，会跟着备份和加密一起走）。
+   ② 角色看得懂：发消息时表情库会写进系统提示（名字 + 含义）；聊天
+      记录里带表情的消息写成「［表情包］名字（含义：…）」，所以角色
+      知道对方发的表情是什么意思。
+   ③ 用户发表情：聊天左下角「＋」菜单里多了「表情包」，点一个就发。
+   ④ 角色发表情：给角色一个 send_sticker 工具，它觉得语境合适就能
+      自己挑一个发，表情挂在它那条回复下面；设置里可以一键关掉。
+      如果模型不支持工具调用，会自动退回到不用表情的正常聊天。
+   整段只追加在文件最末尾，前面任何一段老代码都没动；出问题删掉
+   这一段（从本注释到文件结尾）即可恢复。
+   ===================================================================== */
+(function(){
+var W=window;
+if(W.P13&&W.P13.A)return;
+W.P13=W.P13||{};
+W.P13.A=1;
+W.P13.armed=false;     /* 只有私聊里等回复时才允许角色发表情 */
+W.P13.sent=[];         /* 这一轮角色已经挑过的表情 */
+
+var KEY='wh_stickers';
+var MAX_ONE=220000;    /* 单个表情（dataURL 字符数）上限，约 160KB */
+var MAX_ALL=1200000;   /* 整个表情库上限，约 900KB */
+
+function say(m){try{toast(m)}catch(e){}}
+function sendOn(){try{return cfg.stickerSend!==false}catch(e){return true}}
+/* 只留一层弹层：点「关闭」一次就能关掉，不会越点越往回退 */
+function sheetOnly(html){
+  var reset=false;
+  try{sheetStack.length=0;reset=true}catch(e){}
+  if(!reset){
+    for(var i=0;i<30;i++){
+      var md=document.getElementById('modal');
+      if(!md||!md.classList.contains('on'))break;
+      closeSheet();
+    }
+  }
+  var sh=document.getElementById('sheet');
+  if(sh)sh.innerHTML='';
+  showSheet(html);
+}
+function all(){
+  try{var a=load(KEY,[]);return Object.prototype.toString.call(a)==='[object Array]'?a:[]}
+  catch(e){return []}
+}
+function saveAll(a){
+  try{save(KEY,a)}catch(e){return false}
+  try{scheduleBackup()}catch(e){}
+  return true;
+}
+function usedBytes(){var a=all(),n=0;for(var i=0;i<a.length;i++)n+=String(a[i].img||'').length;return n}
+function findSt(id){
+  var a=all();
+  for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i]}
+  return null;
+}
+/* 聊天里给模型看的那行字（也是聊天记录里真正存的内容） */
+function msgText(s){
+  return '［表情包］'+(s.name||'表情')+(s.desc?('（含义：'+s.desc+'）'):'');
+}
+/* 存进消息里的一份拷贝，避免以后改表情库影响老消息 */
+function brief(s){return {id:s.id,name:s.name||'',desc:s.desc||'',img:s.img}}
+
+/* ---------- 样式 ---------- */
+var CSS=[
+'.p13grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;max-height:46vh;overflow:auto;padding:2px}',
+'.p13cell{border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:5px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}',
+'.p13cell img{width:100%;height:62px;object-fit:contain;border-radius:8px;background:var(--bg);display:block}',
+'.p13cell span{font-size:11px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+'#msgs .bub.p13only{padding:6px}',
+'#msgs .bub .p13sk{display:block;max-width:150px;max-height:150px;border-radius:12px;background:var(--bg2);margin-top:6px}',
+'#msgs .bub.p13only .p13sk{margin-top:0}',
+'#msgs .bub .p13utext{margin:0;white-space:pre-wrap;word-break:break-word}',
+'#msgs .p13line{margin:6px 0 0 38px;display:flex;align-items:flex-end;gap:6px;animation:pop .16s ease}',
+'#msgs .p13line img{display:block;max-width:132px;max-height:132px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);box-shadow:var(--shadow);cursor:pointer}',
+'#msgs .p13line .p13tag{font-size:10.5px;color:var(--dim);padding-bottom:2px}'
+].join('\n');
+var stEl=document.createElement('style');
+stEl.id='p13cssA';stEl.textContent=CSS;
+(document.head||document.documentElement).appendChild(stEl);
+
+/* 表情包图标：和「图片 / 文件」同一套线性风格（描边、不填充） */
+var SVG_STICKER='<svg viewBox="0 0 24 24"><path d="M9.2 5.6h5.6a3.6 3.6 0 0 1 3.6 3.6v5.3l-3.9 3.9H9.2a3.6 3.6 0 0 1-3.6-3.6V9.2a3.6 3.6 0 0 1 3.6-3.6Z"/><path d="M10.2 11h.01M13.8 11h.01"/><path d="M10.1 13.6c.5.7 1.1 1 1.9 1s1.4-.3 1.9-1"/></svg>';
+
+/* ---------- 图片处理：缩小后存本地；gif 不大就保留动效 ---------- */
+function shrinkOne(file,max,q){
+  return new Promise(function(res,rej){
+    var rd=new FileReader();
+    rd.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+          if(!w||!h){rej(new Error('图片尺寸不对'));return}
+          var s=Math.min(1,max/Math.max(w,h));
+          w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));
+          var alpha=/png|webp|svg/i.test(String((file&&file.type)||''));
+          var out='';
+          if(alpha){
+            var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+            cv.getContext('2d').drawImage(img,0,0,w,h);
+            out=cv.toDataURL('image/png');
+          }
+          if(!alpha||out.length>MAX_ONE){
+            var c2=document.createElement('canvas');c2.width=w;c2.height=h;
+            var x2=c2.getContext('2d');
+            x2.fillStyle='#ffffff';x2.fillRect(0,0,w,h);
+            x2.drawImage(img,0,0,w,h);
+            out=c2.toDataURL('image/jpeg',q||.85);
+          }
+          res(out);
+        }catch(e){rej(e)}
+      };
+      img.onerror=function(){rej(new Error('这个图片读不了'))};
+      img.src=String(rd.result||'');
+    };
+    rd.onerror=function(){rej(new Error('文件读不了'))};
+    rd.readAsDataURL(file);
+  });
+}
+function readSticker(file){
+  var t=String((file&&file.type)||'');
+  if(/gif/i.test(t)&&file.size&&file.size<=330*1024){
+    return new Promise(function(res,rej){
+      var rd=new FileReader();
+      rd.onload=function(){res(String(rd.result||''))};
+      rd.onerror=function(){rej(new Error('文件读不了'))};
+      rd.readAsDataURL(file);
+    });
+  }
+  return shrinkOne(file,360,.85);
+}
+
+/* ---------- 设置页的「表情包」卡片 ---------- */
+var FOLDKEY='表情包';
+var foldFallback=false;
+function p13Open(){
+  try{
+    var v=(W.P6&&W.P6.foldOpen)?W.P6.foldOpen[FOLDKEY]:undefined;
+    return v===undefined?foldFallback:!!v;
+  }catch(e){return foldFallback}
+}
+/* 和别的设置卡片一样：点标题收起 / 展开 */
+function foldCardP(){
+  var card=document.getElementById('p13card');
+  if(!card)return;
+  var ttl=null;
+  for(var i=0;i<card.children.length;i++){
+    var el=card.children[i];
+    if(el.classList&&el.classList.contains('ttl')){ttl=el;break}
+  }
+  if(!ttl)return;
+  var ch=ttl.querySelector('.p6chev');
+  var open=p13Open(),after=false;
+  Array.prototype.forEach.call(card.children,function(el){
+    if(el===ttl){after=true;return}
+    if(after)el.style.display=open?'':'none';
+  });
+  if(ch)ch.textContent=open?'▾':'▸';
+  ttl.style.cursor='pointer';
+  ttl.style.display='flex';            /* 和别的卡片一样：箭头和字之间留出间距 */
+  ttl.style.alignItems='center';
+  ttl.style.gap='6px';
+  if(ttl._p13fold)return;
+  ttl._p13fold=1;
+  ttl.addEventListener('click',function(e){
+    if(e.target&&e.target.closest&&e.target.closest('button,input,select,textarea,a'))return;
+    var now=!p13Open();
+    foldFallback=now;
+    try{W.P6.foldOpen[FOLDKEY]=now}catch(err){}
+    var a2=false;
+    Array.prototype.forEach.call(card.children,function(el){
+      if(el===ttl){a2=true;return}
+      if(a2)el.style.display=now?'':'none';
+    });
+    if(ch)ch.textContent=now?'▾':'▸';
+  });
+}
+function cardHTML(){
+  var n=all().length;
+  return '<div class="ttl"><span class="p6chev">'+(p13Open()?'▾':'▸')+'</span>表情包</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">已有 '+n+' 个表情。你和角色共用这一套，每个都写着「名字 + 含义」，角色看得懂。</p>'+
+  '<div class="row"><button class="pri col" onclick="P13.manage()">管理表情包</button><button class="col" onclick="P13.add()">＋ 添加表情</button></div>'+
+  '<div class="row" style="align-items:center;margin-top:12px">'+
+  '<div class="col"><b>让角色自己发表情</b><div class="dim" style="font-size:12px">聊天时它按语境自己挑一个发（需要模型支持工具调用；不支持会自动跳过，不影响聊天）</div></div>'+
+  '<input type="checkbox" id="p13_send" '+(sendOn()?'checked':'')+'></div>'+
+  '<div class="p6more"><button class="p6morebtn" type="button" onclick="P6.tog(this)">ⓘ 说明</button>'+
+  '<div class="p6morebody" style="display:none"><p class="dim">聊天时点左下角「＋」→「表情包」就能发。每个表情都要写清楚名字和含义，角色就是靠这句话理解它的，比如「摸头 = 安慰地摸摸头」；角色发来的表情，你点一下也能看到它理解的意思。图片会缩小后存在手机本地（和聊天记录共用存储空间），建议别一次存太多大图；动图（GIF）不大时会保留动效。</p></div></div>';
+}
+
+/* ---------- 管理 / 添加 / 编辑 ---------- */
+W.P13.manage=function(){
+  var list=all();
+  var grid=list.length?('<div class="p13grid">'+list.map(function(s,i){
+    return '<div class="p13cell" onclick="P13.edit(\''+s.id+'\')"><img src="'+esc(s.img)+'" alt="">'+
+      '<span>'+esc(s.name||('表情'+(i+1)))+'</span></div>';
+  }).join('')+'</div>')
+    :'<p class="dim" style="font-size:13px;margin:4px 0">还没有表情。点下面的「＋ 添加表情」，从手机里选一张图（表情包、截图、动图都行），再写清楚它的名字和意思。</p>';
+  sheetOnly('<div class="ttl">表情包（'+list.length+'）</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">点一个表情可以改名字、改含义、换图或删除。</p>'+
+    grid+
+    '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P13.add()">＋ 添加表情</button>'+
+    '<button class="ghost col" onclick="closeSheet()">关闭</button></div>'+
+    '<p class="dim" style="font-size:11.5px;margin:10px 0 0">图会缩小后存在手机本地，占的是浏览器的存储空间，建议别存太多张大图。动图（GIF）不大时会保留动效。</p>');
+};
+W.P13.add=function(){
+  W.P13._swapId=null;
+  var i=document.getElementById('p13_file');
+  if(!i)return;
+  i.value='';i.click();
+};
+W.P13.swap=function(id){
+  W.P13._swapId=id||null;
+  var i=document.getElementById('p13_file');
+  if(!i)return;
+  i.value='';i.click();
+};
+W.P13.edit=function(id){
+  var s=findSt(id);
+  if(!s){say('这个表情已经不在了');return}
+  W.P13._draft={id:s.id,img:s.img,name:s.name||'',desc:s.desc||''};
+  editSheet();
+};
+function editSheet(){
+  var d=W.P13._draft;
+  if(!d)return;
+  sheetOnly('<div class="ttl">'+(d.id?'编辑表情':'添加表情')+'</div>'+
+    '<div style="text-align:center;padding:4px 0 10px"><img src="'+esc(d.img)+'" style="max-width:150px;max-height:150px;border-radius:14px;border:1px solid var(--line);background:var(--bg2)"></div>'+
+    '<label class="f">名字（你和角色都看到的叫法）</label><input id="p13_name" value="'+esc(d.name)+'" placeholder="比如：摸头、无语、贴贴、谢谢老板">'+
+    '<label class="f">含义（角色靠这句话理解它）</label><textarea id="p13_desc" style="min-height:66px" placeholder="比如：摸摸头，表示安慰、宠爱">'+esc(d.desc)+'</textarea>'+
+    '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P13.saveEdit()">保存</button>'+
+    '<button class="col" onclick="P13.swap('+(d.id?('\''+d.id+'\''):'')+')">换一张图</button></div>'+
+    '<div class="row" style="margin-top:8px">'+
+    (d.id?('<button class="warn col" onclick="P13.del(\''+d.id+'\')">删除这个表情</button>'):'')+
+    '<button class="ghost col" onclick="P13.manage()">返回列表</button></div>');
+}
+W.P13.saveEdit=function(){
+  var d=W.P13._draft;
+  if(!d)return;
+  var nm=(document.getElementById('p13_name').value||'').trim();
+  var ds=(document.getElementById('p13_desc').value||'').trim();
+  if(!nm){alert('给它起个名字吧，角色靠名字认得它。');return}
+  if(!ds){alert('写一下这个表情是什么意思，角色才看得懂。');return}
+  var list=all(),hit=false;
+  if(d.id){
+    for(var i=0;i<list.length;i++){
+      if(list[i].id===d.id){list[i].name=nm;list[i].desc=ds;list[i].img=d.img;hit=true;break}
+    }
+  }
+  if(!hit)list.push({id:uid(),name:nm,desc:ds,img:d.img,t:Date.now()});
+  if(!saveAll(list)){alert('存不下了。先删掉几个表情，或者清一点聊天记录再试。');return}
+  W.P13._draft=null;
+  say('已保存');
+  W.P13.manage();
+  try{if(view==='cfg')renderCfg()}catch(e){}
+};
+W.P13.del=function(id){
+  var s=findSt(id);
+  if(!s)return;
+  if(!confirm('删掉表情「'+(s.name||'')+'」？'))return;
+  saveAll(all().filter(function(x){return x.id!==id}));
+  say('已删除');
+  W.P13.manage();
+  try{if(view==='cfg')renderCfg()}catch(e){}
+};
+function gotFile(f){
+  if(!f)return;
+  say('处理图片…');
+  readSticker(f).then(function(url){
+    url=String(url||'');
+    if(!url)return;
+    if(url.length>MAX_ONE){alert('这张图太大了，装不下。换一张小一点的，或者先把它裁小再添加。');return}
+    var swap=W.P13._swapId||null;W.P13._swapId=null;
+    var base=swap?findSt(swap):null;
+    var bonus=(base&&base.img===url)?0:url.length;
+    if(usedBytes()+bonus>MAX_ALL){alert('表情库已经很大了（手机上存的图太多会撑爆浏览器存储）。先去「管理表情包」删掉几个再添加。');return}
+    W.P13._draft={id:base?base.id:null,img:url,name:base?(base.name||''):'',desc:base?(base.desc||''):''};
+    editSheet();
+  }).catch(function(e){alert('这个图片读不了：'+((e&&e.message)||e))});
+}
+/* 藏起来的选图按钮 */
+var fileIn=document.createElement('input');
+fileIn.type='file';fileIn.accept='image/*';fileIn.id='p13_file';fileIn.style.display='none';
+fileIn.onchange=function(){var f=this.files&&this.files[0];this.value='';gotFile(f)};
+(document.body||document.documentElement).appendChild(fileIn);
+
+/* ---------- 看一张表情（聊天里点图） ---------- */
+function mkImg(s,cls){
+  var im=document.createElement('img');
+  im.className=cls;im.src=s.img;im.alt=s.name||'表情';
+  im.onclick=function(){viewSticker(s)};
+  return im;
+}
+/* 用户那条气泡：她自己打的字 + 表情图（时间小字留着） */
+function paintUserSticker(b,x){
+  if(!b||!x||!x.sticker)return;
+  var time=null;
+  Array.prototype.slice.call(b.childNodes).forEach(function(n){
+    if(n.nodeType===1&&n.classList&&n.classList.contains('p6time')){time=n;return}
+    b.removeChild(n);
+  });
+  if(x.text){
+    b.classList.remove('p13only');
+    var t=document.createElement('div');
+    t.className='p13utext';t.innerHTML=mdLite(String(x.text));
+    b.insertBefore(t,b.firstChild);
+  }else{
+    b.classList.add('p13only');
+  }
+  b.insertBefore(mkImg(x.sticker,'p13sk'),time&&time.parentNode===b?time:null);
+  if(time&&time.parentNode===b)b.appendChild(time);
+}
+/* 不等整页重画，先把刚发出去那条画对（不然会先看到一行说明文字） */
+function paintLastUserBubble(){
+  var box=document.getElementById('msgs');
+  if(!box)return;
+  var bubs=Array.prototype.slice.call(box.querySelectorAll('.bub'));
+  var b=null;
+  for(var i=bubs.length-1;i>=0;i--){
+    if(bubs[i].classList&&bubs[i].classList.contains('me')){b=bubs[i];break}
+  }
+  if(!b)return;
+  var x=msgs[msgs.length-1];
+  if(!x||x.role!=='user'||!x.sticker)return;
+  if(b.querySelector('.p13sk'))return;
+  paintUserSticker(b,x);
+}
+function viewSticker(s){
+  if(!s||!s.img)return;
+  sheetOnly('<div class="ttl">表情 · '+esc(s.name||'')+'</div>'+
+    '<div style="text-align:center;padding:4px 0 10px"><img src="'+esc(s.img)+'" style="max-width:190px;max-height:190px;border-radius:14px;border:1px solid var(--line);background:var(--bg2)"></div>'+
+    '<p class="dim" style="font-size:13px;margin:0 0 10px">角色理解的意思：'+esc(s.desc||'（没写）')+'</p>'+
+    '<div class="row"><button class="pri col" onclick="P13.choose(\''+s.id+'\')">发这个（可加文字）</button>'+
+    '<button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+}
+
+/* ---------- 用户发表情：先放进输入框，可以和自己的文字一起发 ---------- */
+/* 把表情放进「待发」区（就是输入框上面那条预览），不立刻发出去 */
+function stageSticker(st){
+  if(!st)return;
+  try{clearPicked()}catch(e){}          /* 清掉待发的图片/文件，和上一个表情 */
+  W.P13.pendSticker=st;
+  var p=document.getElementById('picked');
+  var t=document.getElementById('thumb');
+  var f=document.getElementById('fchip');
+  if(f){f.style.display='none';f.innerHTML=''}
+  if(t){t.style.display='';t.src=st.img;t.alt=st.name||'表情'}
+  if(p)p.classList.add('on');
+  try{updSendBtn()}catch(e){}
+}
+W.P13.choose=function(id){
+  var s=findSt(id);
+  if(!s){say('这个表情已经不在了');return}
+  if(!curChar())return say('先选个角色再发');
+  closeSheet();
+  stageSticker(s);
+  say('表情放好了，可以再打几个字，然后点发送');
+};
+/* 点发送：把「自己打的字 + 表情」当成一条消息发出去 */
+var P13_send=send;
+send=async function(){
+  var st=W.P13.pendSticker;
+  if(!st)return P13_send.apply(this,arguments);
+  var c=curChar();
+  if(!c)return say('先选个角色再发');
+  if(busy){say('ta还在输入，稍等一下');return}
+  var inp=document.getElementById('inp');
+  var txt=inp?String(inp.value||'').trim():'';
+  if(inp){inp.value=(txt?(txt+'\n'):'')+msgText(st);inp.style.height='auto'}
+  W.P13.pendSticker=null;
+  var before=msgs.length;
+  var p=P13_send.apply(this,arguments);   /* 里面先同步把消息发出去，再等它回复 */
+  try{clearPicked()}catch(e){}            /* 发出去以后，输入框上面那条预览要收掉 */
+  try{
+    if(msgs.length>before){
+      var m=msgs[msgs.length-1];
+      if(m&&m.role==='user'&&!m.sticker){
+        m.sticker=brief(st);
+        if(txt)m.text=txt;                /* 气泡里只画她自己打的字 + 表情图 */
+        try{persist()}catch(e){}
+        try{paintLastUserBubble()}catch(e){}
+      }
+    }
+  }catch(e){}
+  return await p;
+};
+/* 发送键要认得「只放了表情、还没打字」的情况 */
+var P13_updSendBtn=updSendBtn;
+updSendBtn=function(){
+  var r=P13_updSendBtn.apply(this,arguments);
+  try{
+    if(W.P13.pendSticker){
+      var b=document.getElementById('send');
+      if(b)b.disabled=!!busy;
+    }
+  }catch(e){}
+  return r;
+};
+/* 清掉待发内容时，表情也一起清掉 */
+var P13_clearPicked=clearPicked;
+clearPicked=function(){
+  var r=P13_clearPicked.apply(this,arguments);
+  W.P13.pendSticker=null;
+  return r;
+};
+/* 选了图片/文件，就把待发的表情让位 */
+var P13_pickImage=pickImage;
+pickImage=async function(){
+  W.P13.pendSticker=null;
+  return P13_pickImage.apply(this,arguments);
+};
+var P13_pickFile=pickFile;
+pickFile=async function(){
+  W.P13.pendSticker=null;
+  return P13_pickFile.apply(this,arguments);
+};
+/* 「＋」菜单里的「表情包」 */
+W.P13.pick=function(){
+  var list=all();
+  var grid=list.length?('<div class="p13grid">'+list.map(function(s){
+    return '<div class="p13cell" onclick="P13.choose(\''+s.id+'\')"><img src="'+esc(s.img)+'" alt="">'+
+      '<span>'+esc(s.name||'表情')+'</span></div>';
+  }).join('')+'</div>')
+    :'<p class="dim" style="font-size:13px;margin:4px 0">还没有表情。先去「设置 → 表情包」添加几个吧。</p>';
+  sheetOnly('<div class="ttl">发个表情</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">点一个会先放进输入框，你可以再打几个字，一起发出去；不打字直接点发送也行。角色知道每个表情是什么意思。</p>'+
+    grid+
+    '<div class="row" style="margin-top:12px">'+
+    '<button class="col" onclick="P13.manage()">管理表情包</button>'+
+    '<button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+};
+/* 把「＋」菜单换成带表情包入口的版本 */
+pickSheet=function(){
+  if(!curChar())return say('先选个角色再发');
+  sheetOnly('<div class="ttl">发点什么给ta</div>'+
+    '<div class="row" style="gap:10px">'+
+    '<button class="pri col" onclick="choosePic()">'+ICON.pic+'　图片</button>'+
+    '<button class="col" onclick="chooseFile()">'+FILE_ICON+'　文件</button></div>'+
+    '<div class="row" style="margin-top:10px"><button class="col" onclick="P13.pick()">'+SVG_STICKER+'　表情包</button></div>'+
+    '<p class="dim" style="font-size:12px;margin:10px 0 0">图片会压缩后直接给ta看。文件：文字类（txt / md / csv / json / 代码…）会把内容读给ta看，最多 '+FILE_TXT_MAX+' 字；其它格式只告诉ta「你发了一个文件」。表情包：挑一个先放进输入框，可以再打几行字，和她的话一起发。</p>');
+};
+(function(){
+  var pb=document.getElementById('plus');
+  if(pb)pb.onclick=pickSheet;
+  var sb=document.getElementById('send');
+  if(sb)sb.onclick=send;              /* 发送键换成会带表情的新版 */
+})();
+
+/* ---------- 渲染：把表情画进气泡 / 挂在回复下面 ---------- */
+var P13_renderChat=renderChat;
+renderChat=function(){
+  P13_renderChat.apply(this,arguments);
+  try{
+    var box=document.getElementById('msgs');if(!box)return;
+    var bubs=Array.prototype.slice.call(box.querySelectorAll('.bub'));
+    if(bubs.length!==msgs.length)return;
+    msgs.forEach(function(x,i){
+      var s=x&&x.sticker;
+      if(!s||!s.img)return;
+      var b=bubs[i];if(!b)return;
+      if(x.role==='user'){
+        if(b.querySelector('.p13sk'))return;
+        paintUserSticker(b,x);
+      }else{
+        var nx=b.nextElementSibling;
+        if(nx&&nx.classList&&nx.classList.contains('p13line'))return;
+        if(box.querySelector('.p13line[data-i="'+i+'"]'))return;
+        var line=document.createElement('div');
+        line.className='p13line';line.dataset.i=String(i);
+        line.appendChild(mkImg(s,'p13skimg'));
+        var tag=document.createElement('span');
+        tag.className='p13tag';tag.textContent='「'+(s.name||'表情')+'」';
+        line.appendChild(tag);
+        if(b.nextSibling)b.parentNode.insertBefore(line,b.nextSibling);
+        else b.parentNode.appendChild(line);
+      }
+    });
+    try{if(chatFollow)scrollDown()}catch(e){}
+  }catch(e){}
+};
+
+/* ---------- 让角色知道表情库（系统提示） ---------- */
+var P13_buildCtxSystem=buildCtxSystem;
+buildCtxSystem=function(){
+  var sys=P13_buildCtxSystem.apply(this,arguments);
+  try{
+    var list=all();
+    if(list.length&&sys&&sys.push){
+      var lines=list.map(function(s,i){
+        return (i+1)+'. '+(s.name||'表情')+(s.desc?('　意思是：'+s.desc):'');
+      });
+      var blk='【表情包（你和用户共用一套）】\n下面是你和她共用的表情库，你完全懂每个表情的意思：\n'+lines.join('\n')+
+        '\n她发表情给你时，消息里会写清楚是哪个表情、什么意思（比如「［表情包］摸头（含义：…）」），你按那个意思回应就行，不要问「这是什么图」，也不用描述这张图。';
+      if(W.P13.armed&&sendOn()){
+        blk+='\n你也可以在合适的时候自己发一个：调用 send_sticker 工具，id 填上面那个编号。适合发的时机：情绪正好对得上（开心、想逗她、安慰她、撒娇、被说得无语、她要出门/睡觉）；不适合的时机：她在说正经事或难过的事、你上一条刚发过表情。不要每句都发，一轮最多发一个，发完接着正常说话，不要再用文字解释那个表情。';
+      }
+      sys.push(blk);
+    }
+  }catch(e){}
+  return sys;
+};
+
+/* ---------- 角色的表情工具 ---------- */
+var SEND_STICKER_TOOL={type:'function',function:{
+  name:'send_sticker',
+  description:'从你和用户共用的表情库里挑一个表情发出去。只在这个表情的语境确实合适时用，一轮最多发一个；参数 id 是表情库里的编号。',
+  parameters:{type:'object',properties:{
+    id:{type:'string',description:'表情编号，例如 2，见系统提示里的表情库列表'}
+  },required:['id']}
+}};
+var P13_toolsFor=toolsFor;
+toolsFor=function(){
+  var t=P13_toolsFor.apply(this,arguments);
+  try{
+    if(W.P13.armed&&sendOn()&&all().length&&t&&t.push)t.push(SEND_STICKER_TOOL);
+  }catch(e){}
+  return t;
+};
+function execSticker(args){
+  var list=all();
+  if(!list.length)return {ok:false,msg:'表情库是空的，发不了表情，用文字说就行。'};
+  var want=String((args&&args.id)||'').trim();
+  var st=null;
+  for(var i=0;i<list.length;i++){
+    if(list[i].id===want||String(i+1)===want||list[i].name===want){st=list[i];break}
+  }
+  if(!st){
+    return {ok:false,msg:'没有找到这个表情。可用编号：'+list.map(function(s,i){return (i+1)+'='+(s.name||'')}).join('、')+'。要么换一个，要么这次就别发。'};
+  }
+  if((W.P13.sent||[]).length)return {ok:false,msg:'这一轮已经发过表情了，不要再发第二个。'};
+  W.P13.sent.push(brief(st));
+  return {ok:true,msg:'已经把表情「'+(st.name||'')+'」（含义：'+(st.desc||'无')+'）发给她了。不要再发第二个，也不要描述这张图，接着用一两句话正常说话就行。'};
+}
+var P13_execCharTool=execCharTool;
+execCharTool=function(){
+  var name=arguments[0];
+  if(name==='send_sticker'){
+    try{return execSticker(arguments[1])}
+    catch(e){return {ok:false,msg:'发不了表情：'+((e&&e.message)||e)}}
+  }
+  return P13_execCharTool.apply(this,arguments);
+};
+/* 模型不支持工具调用时，退回到「不用表情」的正常聊天 */
+var P13_toolLoop=toolLoop;
+toolLoop=async function(c,ctx,opt){
+  try{
+    return await P13_toolLoop.apply(this,arguments);
+  }catch(e){
+    var t=(opt&&opt.tools)||null;
+    if(!t&&typeof toolsFor==='function')t=toolsFor(c);
+    var has=false;
+    if(t&&t.some){has=t.some(function(x){return x&&x.function&&x.function.name==='send_sticker'})}
+    if(!has)throw e;
+    var filt=t.filter(function(x){return !(x&&x.function&&x.function.name==='send_sticker')});
+    var o2={};
+    for(var k in opt){if(Object.prototype.hasOwnProperty.call(opt,k))o2[k]=opt[k]}
+    o2.tools=filt;
+    return await P13_toolLoop.call(this,c,ctx,o2);
+  }
+};
+/* 角色这一轮挑的表情，等它说完话挂到那条回复下面 */
+var P13_askAndAppend=askAndAppend;
+askAndAppend=async function(){
+  W.P13.armed=true;
+  W.P13.sent=[];
+  var before=msgs.length;
+  try{
+    return await P13_askAndAppend.apply(this,arguments);
+  }finally{
+    W.P13.armed=false;
+    try{
+      var arr=W.P13.sent;W.P13.sent=[];
+      if(arr.length&&msgs.length>before){
+        var m=msgs[msgs.length-1];
+        if(m&&m.role==='assistant'&&!m.sticker){
+          m.sticker=arr[arr.length-1];
+          try{persist()}catch(e){}
+          try{renderChat()}catch(e){}
+        }
+      }
+    }catch(e){}
+  }
+};
+
+/* ---------- 设置页插入「表情包」卡片 ---------- */
+var P13_renderCfg=renderCfg;
+renderCfg=function(){
+  P13_renderCfg.apply(this,arguments);
+  try{
+    var m=document.getElementById('main');if(!m)return;
+    if(document.getElementById('p13card'))return;
+    var card=document.createElement('div');
+    card.className='card';card.id='p13card';card.innerHTML=cardHTML();
+    var anchor=document.getElementById('imgCard')||document.getElementById('webCard')||m.querySelector('.card');
+    if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(card,anchor.nextSibling);
+    else m.appendChild(card);
+    foldCardP();                       /* 和别的卡片一样：点标题收起／展开 */
+    var ck=document.getElementById('p13_send');
+    if(ck)ck.onchange=function(){
+      cfg.stickerSend=!!this.checked;
+      try{save(LS.cfg,cfg)}catch(e){}
+      say(cfg.stickerSend?'角色可以按语境自己发表情了':'已关掉：角色不会自己发表情');
+    };
+  }catch(e){}
+};
+
+console.log('[深蓝海域] 补丁13-A 已加载');
+
+/* ---------- 刷新后补画一次 ----------
+   页面开头那段启动代码（boot）在本段加载之前就已经画过聊天记录了，
+   那时还没有表情功能，所以刷新后会只看到「［表情包］…」那行字。
+   这里等本段装好后补画一次，把之前存下来的表情补上。 */
+(function(){
+  function repaint(){
+    try{
+      if(typeof chars==='undefined'||!chars||!chars.length)return;   /* 还没读完数据（比如锁屏中）就先不画 */
+      if(view==='chat')renderChat();
+    }catch(e){}
+  }
+  repaint();
+  setTimeout(repaint,80);
+})();
+})();
+</script>
