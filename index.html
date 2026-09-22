@@ -855,6 +855,7 @@ function updateDots(){
 /* ---------- 视图 ---------- */
 function go(v){
   view=v;
+  if(v==='chat')chatFollow=true;   /* 每次进聊天页都回到最新消息，不在上次滚到的位置停住 */
   $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='me'?'cfg':v)));
   $('#composer').style.display=(v==='chat')?'flex':'none';
   draw();
@@ -9843,7 +9844,8 @@ document.addEventListener('scroll',function(e){
   var t=e.target;
   if(!t||!t.id)return;
   var v=t._p11Hold?false:p11AtBottom(t);
-  if(t.id==='main')chatFollow=v;
+  /* 只有聊天页在滚动时才改「跟随最新消息」的开关，别的页面滚了不算 */
+  if(t.id==='main'){if(typeof view==='undefined'||view==='chat')chatFollow=v}
   else if(t.id==='amsgs')actFollow=v;
   else if(t.id==='gmsgs')groupFollow=v;
 },true);
