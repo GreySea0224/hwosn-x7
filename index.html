@@ -410,6 +410,11 @@ nav button.on .ind{width:16px}
 .thinkbody{border:0;border-left:2px solid var(--accline);background:var(--panel);color:var(--dim);font-size:12px}
 #picked{background:var(--bg)}
 
+/* ---------- 应用页（互动等）：卡片点标题收起／展开，小三角在右边 ---------- */
+.ttl.foldttl{display:flex;align-items:center;gap:8px;cursor:pointer}
+.ttl.foldttl:active{opacity:.75}
+.toychev{order:9;margin-left:auto;flex:0 0 auto;font-size:13px;line-height:1;color:var(--dim);opacity:.6}
+
 </style>
 </head>
 <body>
@@ -862,7 +867,11 @@ function topStatus(c){
 }
 /* 非聊天页显示的一行说明 */
 function viewHint(v){
-  return {roles:'点卡片进聊天 · 长按卡片排序',me:'名字、头像、备注（角色会看到这些）',tools:'演绎 / 群聊 / 互动都在这里',cfg:'接口 · 记忆 · 外观 · 备份'}[v]||'';
+  if(v==='tools'){
+    try{if(appOpen)return ''}catch(e){}
+    return '点一个应用打开';
+  }
+  return {roles:'点卡片进聊天 · 长按卡片排序',me:'名字、头像、备注（角色会看到这些）',cfg:'接口 · 记忆 · 外观 · 备份'}[v]||'';
 }
 function draw(){
   $('#title').textContent={chat:'聊天',roles:'角色',me:'我的资料',tools:'应用',cfg:'设置'}[view]||'深蓝海域';
@@ -5737,17 +5746,22 @@ function toySwitchCardHTML(T){
   '<button class="pri" style="width:100%;margin-top:10px" onclick="P4.toySave()">保存玩具开关</button>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">每个角色还能单独关（角色 → 编辑 → 互动玩具）；想让它们成群地在群里玩，去群设置里打开。</p></div>';
 }
-/* 互动页：心情和好感度卡片。 */
+/* 互动页：心情 · 好感度（看好感度、看变动、手动加减、回档都在这一块里） */
 function toyMoodCardHTML(list){
+  var F=W.P5||{};
   return '<div class="card"><div class="ttl">心情 · 好感度</div>'+
   list.map(function(c){
     var f=(c.favor&&Number(c.favor.n))||0;
     var m=(c.mood&&c.mood.text)?nl2br(c.mood.text):'<span class="dim">还没写过</span>';
     var at=(c.mood&&c.mood.at)?(' <span class="dim">· '+esc(stampOf(c.mood.at))+'</span>'):'';
     var why=(c.favor&&c.favor.why)?(' <span class="dim">（'+esc(c.favor.why)+'）</span>'):'';
+    var rows=(typeof F.favRows==='function')?F.favRows(c.id):'';
+    var btns=(typeof F.favBtns==='function')?F.favBtns(c.id):'';
     return '<div class="arcitem"><div class="arcname"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>　<span class="dim">好感度 '+f+'</span>'+why+'</div>'+
     '<div class="arcmeta">心情：'+m+at+'</div>'+
-    '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P4.toyClearMood(\''+c.id+'\')">清掉心情</button>'+
+    '<div class="fvlog">'+rows+'</div>'+
+    '<div class="fvbtns">'+btns+
+    '<button class="ghost iconbtn" onclick="P4.toyClearMood(\''+c.id+'\')">清掉心情</button>'+
     '<button class="ghost iconbtn" onclick="P4.toyZeroFavor(\''+c.id+'\')">好感度归零</button></div></div>';
   }).join('')+'</div>';
 }
@@ -5805,6 +5819,58 @@ P4.toyClearMood=function(cid){
 P4.toyZeroFavor=function(cid){
   var c=charOf(cid);if(!c)return;
   c.favor={n:0,at:Date.now(),why:''};save(LS.chars,chars);scheduleBackup();renderToolPane();
+};
+
+/* ---------- 互动页：每张卡片点标题收起／展开（和设置页一样的小三角） ---------- */
+var toyFoldOpen={};                   /* 标题 → 是否展开；默认全部收起 */
+function toyTtlOf(c){
+  for(var i=0;i<c.children.length;i++){
+    var el=c.children[i];
+    if(el.classList&&el.classList.contains('ttl'))return el;
+  }
+  return null;
+}
+function toyFoldKey(t){
+  return String((t&&t.textContent)||'').replace(/[▸▾]/g,'').replace(/[（(]\d+[）)]$/,'').trim();
+}
+function toyApplyFold(card,ttl,open){
+  var after=false;
+  Array.prototype.forEach.call(card.children,function(el){
+    if(el===ttl){after=true;return}
+    if(after)el.style.display=open?'':'none';
+  });
+}
+function foldToyCard(card){
+  var ttl=toyTtlOf(card);if(!ttl)return;
+  var key=toyFoldKey(ttl);if(!key)return;
+  var open=!!toyFoldOpen[key];
+  var ch=ttl.querySelector('.toychev');
+  if(!ch){
+    ch=document.createElement('span');ch.className='toychev';
+    ttl.insertBefore(ch,ttl.firstChild);
+    ttl.classList.add('foldttl');
+  }
+  ch.textContent=open?'▾':'▸';
+  toyApplyFold(card,ttl,open);
+  if(ttl._toyfold)return;
+  ttl._toyfold=1;
+  ttl.addEventListener('click',function(e){
+    if(e.target&&e.target.closest&&e.target.closest('button,input,select,textarea,a,label'))return;
+    var now=!toyFoldOpen[key];
+    toyFoldOpen[key]=now;
+    ch.textContent=now?'▾':'▸';
+    toyApplyFold(card,ttl,now);
+  });
+}
+/* 画完互动页后统一套一遍（只作用于互动页） */
+P4.foldToyPane=function(){
+  try{
+    if(typeof toolTab==='undefined'||toolTab!=='toy')return;
+    var p=document.getElementById('toolPane');if(!p)return;
+    Array.prototype.filter.call(p.children,function(el){
+      return el.classList&&el.classList.contains('card');
+    }).forEach(foldToyCard);
+  }catch(e){}
 };
 
 var P4_renderToolPane=renderToolPane;
@@ -6036,9 +6102,7 @@ P5.favUndo=function(cid,idx){
   safe(function(){save(LS.chars,chars);scheduleBackup()});
   safe(function(){save(KFav(cid),arr.slice(0,idx))});
   say('已回档：好感度 '+e.from.n+(e.from.why?('（'+e.from.why+'）'):'（备注已清空/还原）'));
-  var p=document.getElementById('p5favcard');
-  if(p){p.innerHTML=favCardInner()}
-  if(view==='tools'&&toolTab==='toy')renderToolPane();
+  refreshToyPane();
 };
 P5.favUndoLast=function(cid){
   var a=favLog(cid);
@@ -6057,43 +6121,34 @@ P5.favAdjust=function(cid,delta){
   if(el)el.value='';
   safe(function(){save(LS.chars,chars);scheduleBackup()});
   say((c.name||'角色')+' 好感度：'+before.n+' → '+nw);
-  var p=document.getElementById('p5favcard');
-  if(p){p.innerHTML=favCardInner()}
+  refreshToyPane();
 };
-function favCardInner(){
-  /* 【新增】隐私角色默认不出现在这里；进入过它的聊天（curId 是它）才显示 */
-  var list=chars.filter(function(c){return !c.priv||c.id===curId});
-  if(!list.length)return '<p class="dim" style="font-size:13px">还没有角色</p>';
-  return list.map(function(c){
-    var arrAll=favLog(c.id);
-    var arr=arrAll.slice(-3).reverse();
-    var cur=(c.favor&&Number(c.favor.n))||0;
-    var why=(c.favor&&c.favor.why)?(' <span class="dim">（'+esc(c.favor.why)+'）</span>'):'';
-    var rows=arr.length?arr.map(function(e,bi){
-      var i=arrAll.length-1-bi;
-      var d=(e.to.n)-(e.from.n);
-      var dt=(d>0?'<b class="up">+'+d+'</b>':(d<0?'<b class="dn">'+d+'</b>':'<b>±0</b>'));
-      return '<div class="fve">'+dt+
-        '<span>'+e.from.n+' → '+e.to.n+'</span>'+
-        (e.note?('<span>· '+esc(e.note)+'</span>'):'')+
-        '<span>· '+esc(safe(function(){return stampOf(e.t)},''))+'</span>'+
-        '<button class="ghost iconbtn" onclick="P5.favUndo(\''+c.id+'\','+i+')">撤回</button></div>';
-    }).join(''):'<span class="dim" style="font-size:12px">还没有变动记录</span>';
-    return '<div class="fvrow"><div class="fvh"><b>'+esc((c.emoji||'')+' '+c.name)+'</b>'+
-      '<span class="fvnum">当前 '+cur+'</span>'+why+'</div>'+rows+
-      '<div class="fvbtns"><input id="fvm_'+c.id+'" placeholder="备注（可留空）">'+
-      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',1)">+1</button>'+
-      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',5)">+5</button>'+
-      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',-1)">-1</button>'+
-      '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+c.id+'\',-5)">-5</button>'+
-      '</div></div>';
+/* 好感度的「变动记录 + 手动加减」：并入「心情 · 好感度」卡片，不再单独占一块 */
+function refreshToyPane(){
+  try{if(view==='tools'&&toolTab==='toy')renderToolPane()}catch(e){}
+}
+P5.favRows=function(cid){
+  var arrAll=favLog(cid);
+  var arr=arrAll.slice(-3).reverse();
+  if(!arr.length)return '<span class="dim" style="font-size:12px">还没有变动记录</span>';
+  return arr.map(function(e,bi){
+    var i=arrAll.length-1-bi;
+    var d=(e.to.n)-(e.from.n);
+    var dt=(d>0?'<b class="up">+'+d+'</b>':(d<0?'<b class="dn">'+d+'</b>':'<b>±0</b>'));
+    return '<div class="fve">'+dt+
+      '<span>'+e.from.n+' → '+e.to.n+'</span>'+
+      (e.note?('<span>· '+esc(e.note)+'</span>'):'')+
+      '<span>· '+esc(safe(function(){return stampOf(e.t)},''))+'</span>'+
+      '<button class="ghost iconbtn" onclick="P5.favUndo(\''+cid+'\','+i+')">撤回</button></div>';
   }).join('');
-}
-function favCardHTML(){
-  return '<div class="ttl">好感度 · 可回档</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 8px">角色用「好感度」玩具改数值时，这里会记一笔（含它写的原因）。点「撤回」就把<b>数值和备注一起</b>退回那一次改动之前，方便你回档重来。</p>'+
-  favCardInner();
-}
+};
+P5.favBtns=function(cid){
+  return '<input id="fvm_'+cid+'" placeholder="备注（可留空）">'+
+    '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+cid+'\',1)">+1</button>'+
+    '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+cid+'\',5)">+5</button>'+
+    '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+cid+'\',-1)">-1</button>'+
+    '<button class="ghost iconbtn" onclick="P5.favAdjust(\''+cid+'\',-5)">-5</button>';
+};
 /* 兼容：手动「好感度归零」也记一笔 */
 try{
   var P5_zeroFavor=P4.toyZeroFavor;
@@ -6399,13 +6454,6 @@ renderToolPane=function(){
   }
   P5A_renderToolPane();
   try{
-    var pane=document.getElementById('toolPane');if(!pane)return;
-    if(toolTab==='toy'&&!document.getElementById('p5favcard')){
-      var c=document.createElement('div');
-      c.className='card';c.id='p5favcard';
-      c.innerHTML=favCardHTML();
-      pane.insertBefore(c,pane.firstChild);
-    }
     if(toolTab==='group')decorateGroupToys();
   }catch(e){}
 };
@@ -8726,7 +8774,7 @@ P6.openMem=function(id){
 /* ================================================================
    ③ 设置页：分组 + 收起 + 长说明收起
    ================================================================ */
-P6.foldOpen={'外观与交互':true};      /* 默认只展开「外观与交互」 */
+P6.foldOpen={};                       /* 设置页默认全部收起，点标题才展开 */
 var GROUPS=[
   ['外观',['外观与交互']],
   ['连接',['接口']],
@@ -9893,6 +9941,8 @@ renderToolPane=function(){
       var ng=document.getElementById('gmsgs');
       if(ng)ng.scrollTop=keepG;
     }
+    /* 互动页画完之后，统一给每张卡片套上「点标题收起／展开」的小三角 */
+    if(window.P4&&P4.foldToyPane)P4.foldToyPane();
   }catch(e){}
   return r;
 };
