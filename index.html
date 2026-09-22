@@ -444,6 +444,9 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .mstat{font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.5}
 
 /* ---------- 朋友圈 ---------- */
+.momtop{display:flex;justify-content:flex-end;margin:0 0 10px}
+.momnew{padding:5px 12px;font-size:12.5px;line-height:1.25;border-radius:12px;flex:0 0 auto}
+.momnew .msvg{width:1.1em;height:1.1em;vertical-align:-.18em}
 .momwrap{display:flex;flex-direction:column;gap:10px}
 .momcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 13px;box-shadow:var(--shadow)}
 .momhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -457,8 +460,11 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .mombtn{padding:4px 10px;font-size:12.5px;line-height:1.2;border-radius:10px;flex:0 0 auto}
 .mombtn.on{color:var(--acc);border-color:var(--accline)}
 .momcmts{margin-top:9px;padding:8px 10px;background:var(--bg2);border-radius:12px}
-.momcmt{font-size:12.5px;line-height:1.55;color:var(--txt);word-break:break-word}
+.momcmt{position:relative;font-size:12.5px;line-height:1.55;color:var(--txt);word-break:break-word;padding-right:26px}
 .momcmt b{color:var(--acc);margin-right:6px;font-weight:600}
+.momcmt .cmtdel{position:absolute;right:-4px;top:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;box-shadow:none;padding:0;color:var(--dim);opacity:.6}
+.momcmt .cmtdel:active{opacity:1}
+.momcmt .cmtdel .msvg{width:12px;height:12px;vertical-align:0}
 #main input[type=range],.sheet input[type=range]{padding:0;border:0;background:transparent;box-shadow:none;height:22px;accent-color:var(--acc)}
 
 </style>
@@ -3760,6 +3766,7 @@ const MICO={
   pencil:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.7 19.3l.9-4L15.9 5a1.7 1.7 0 0 1 2.4 0l.7.7a1.7 1.7 0 0 1 0 2.4L8.7 18.4z"/><path d="m14.7 6.6 2.7 2.7"/></svg>',
   folder:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.6a2 2 0 0 1 2-2h3.2l2 2.3h7.6a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2z"/></svg>',
   cross:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6 6.6 17.4"/></svg>',
+  plus:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg>',
   heart:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19.4s-6.9-4.3-6.9-8.6A3.9 3.9 0 0 1 12 8.1a3.9 3.9 0 0 1 6.9 2.7c0 4.3-6.9 8.6-6.9 8.6Z"/></svg>',
   comment:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 11.6c0 4-3.7 7.2-8.2 7.2-1 0-2-.2-2.9-.5l-4.3 1.5 1.2-3.5a6.9 6.9 0 0 1-2-4.7C4 7.6 7.7 4.4 12 4.4s8.2 3.2 8.2 7.2Z"/></svg>',
   moments:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>'
@@ -3910,14 +3917,19 @@ function sbMediaSet(txt){
   t.classList.remove('marq');
   t.textContent=txt;
   if(!txt){t.removeAttribute('data-t');return}
-  t.style.maxWidth='none';
-  const nat=Math.round(t.getBoundingClientRect().width);
-  t.style.maxWidth='';
   const box=Math.round(t.getBoundingClientRect().width);
   if(!box)return;                                 /* 状态栏现在没显示，等下次再量 */
+  /* 量「一行文字到底多宽」：临时塞一把不占地方的尺子进去量。
+     不能直接量它自己：它是能伸缩的，量出来永远是「刚好放得下」。 */
+  const ruler=document.createElement('span');
+  ruler.style.cssText='position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap';
+  ruler.textContent=txt;
+  t.appendChild(ruler);
+  const nat=Math.round(ruler.getBoundingClientRect().width);
+  t.removeChild(ruler);
   t.setAttribute('data-t',txt);
   if(nat<=box+2)return;                           /* 放得下，不用滚 */
-  const gap=20,dist=nat+gap,dur=Math.max(5,dist/26);
+  const gap=20,dist=nat+gap,dur=Math.max(6,dist/22);
   t.innerHTML='<span class="sbm-i">'+esc(txt)+'</span><span class="sbm-i">'+esc(txt)+'</span>';
   t.style.setProperty('--marX',(-dist)+'px');
   t.style.setProperty('--marT',dur.toFixed(1)+'s');
@@ -4098,6 +4110,17 @@ function momentAdd(cid,text){
 function momentDel(id){
   momentsSave(momentsAll().filter(x=>x.id!==id));
 }
+function momentDelComment(id,i){
+  const arr=momentsAll();const p=arr.find(x=>x.id===id);
+  if(!p||!Array.isArray(p.comments))return;
+  p.comments.splice(i,1);
+  momentsSave(arr);
+}
+function momentDelCommentAsk(id,i){
+  if(!confirm('删掉这条评论吗？'))return;
+  momentDelComment(id,i);
+  momentRefresh();
+}
 function momentLike(id,cid){
   cid=cid||'user';
   const arr=momentsAll();const p=arr.find(x=>x.id===id);if(!p)return;
@@ -4124,12 +4147,12 @@ function momentsMarkSeen(){try{save(LS.momSeen,Date.now())}catch(e){}}
 function momentCardHTML(p){
   const mine=(p.cid==='user');
   const liked=(p.likes||[]).some(x=>x.cid==='user');
-  const cmts=(p.comments||[]).slice(-3);
+  const cmts=(p.comments||[]).map((c,i)=>({c:c,i:i})).slice(-3);
   const av=p.avatar?('<img src="'+esc(p.avatar)+'" alt="">'):esc(p.emoji||'🙂');
   return '<div class="momcard">'+
     '<div class="momhead"><span class="momav">'+av+'</span><span class="momnm">'+esc(p.name||'')+'</span>'+
       '<span class="momt">'+esc(fmtStamp(p.t))+'</span>'+
-      (mine?('<button class="ghost momdel" onclick="momentDelAsk(\''+p.id+'\')">删除</button>'):'')+
+      '<button class="ghost momdel" onclick="momentDelAsk(\''+p.id+'\')">删除</button>'+
     '</div>'+
     '<div class="momtx">'+nl2br(p.text||'')+'</div>'+
     '<div class="momfoot">'+
@@ -4138,27 +4161,36 @@ function momentCardHTML(p){
       '<button class="ghost mombtn" onclick="momentCommentUI(\''+p.id+'\')">'+MICO.comment+
         ((p.comments||[]).length?(' '+p.comments.length):'')+'</button>'+
     '</div>'+
-    (cmts.length?('<div class="momcmts">'+cmts.map(c=>'<div class="momcmt"><b>'+esc(c.name||'')+'</b>'+esc(c.text||'')+'</div>').join('')+'</div>'):'')+
+    (cmts.length?('<div class="momcmts">'+cmts.map(x=>
+      '<div class="momcmt"><b>'+esc(x.c.name||'')+'</b>'+esc(x.c.text||'')+
+        '<button class="cmtdel" title="删除这条评论" aria-label="删除这条评论" onclick="momentDelCommentAsk(\''+p.id+'\','+x.i+')">'+MICO.cross+'</button></div>').join('')+
+      ((p.comments||[]).length>3?('<div class="dim" style="font-size:11.5px;margin-top:4px">还有 '+((p.comments||[]).length-3)+' 条评论没显示</div>'):'')+
+      '</div>'):'')+
   '</div>';
 }
 function momentsHTML(){
   momentsMarkSeen();
   try{dots()}catch(e){}
   const arr=momentsAll().slice().reverse();
-  const head='<div class="card"><div class="ttl">'+MICO.moments+' 朋友圈</div>'+
-    '<p class="dim" style="font-size:12px;margin:0 0 10px">像微信朋友圈：你可以发一条，角色也会自己发（在「角色 → 编辑」里能关掉它的朋友圈权限）。动态只存在这台手机上，会和别的数据一起备份。</p>'+
-    '<textarea id="momText" style="min-height:64px" placeholder="这一刻的想法…"></textarea>'+
-    '<div class="row" style="margin-top:8px"><button class="col pri" onclick="momentPostMine()">发表</button></div></div>';
+  const top='<div class="momtop"><button class="ghost momnew" onclick="momentCompose()" title="发表动态">'+MICO.plus+' 发表</button></div>';
   const list=arr.length?arr.map(momentCardHTML).join('')
-    :'<div class="card"><p class="dim" style="font-size:12px;margin:0">还没有动态。你自己发一条试试，或者让角色在聊天里发——想让它发，可以在聊天时说一句「发条朋友圈」。</p></div>';
-  return head+'<div class="momwrap">'+list+'</div>';
+    :'<div class="card"><p class="dim" style="font-size:12px;margin:0">还没有动态。点右上角「发表」你自己发一条，或者让角色在聊天里发——跟它说一句「发条朋友圈」就行。</p></div>';
+  return top+'<div class="momwrap">'+list+'</div>';
 }
-function momentPostMine(){
-  const el=document.getElementById('momText');
+/* 点右上角「发表」：弹层里慢慢写，像微信那样 */
+function momentCompose(){
+  showSheet('<div class="ttl">'+MICO.moments+' 发表动态</div>'+
+    '<textarea id="momNew" style="min-height:130px" placeholder="这一刻的想法…"></textarea>'+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="momentPublish()">发表</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(()=>{const el=document.getElementById('momNew');if(el)el.focus()},80);
+}
+function momentPublish(){
+  const el=document.getElementById('momNew');
   const t=el?String(el.value||'').trim():'';
   if(!t)return toast('先写点什么吧');
   momentAdd('user',t);
-  if(el)el.value='';
+  try{closeSheet()}catch(e){}
   momentRefresh();
   toast('已发表');
 }
