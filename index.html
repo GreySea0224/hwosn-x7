@@ -415,10 +415,33 @@ nav button.on .ind{width:16px}
 .ttl.foldttl:active{opacity:.75}
 .toychev{order:9;margin-left:auto;flex:0 0 auto;font-size:13px;line-height:1;color:var(--dim);opacity:.6}
 
+/* ---------- 查找聊天记录（新增） ---------- */
+header .hact svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#hsearch{display:flex;align-items:center;justify-content:center}
+.findres{max-height:52vh;overflow-y:auto;margin-top:10px}
+.sresrow{padding:9px 10px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg2);cursor:pointer}
+.sresrow:active{opacity:.8}
+.sreshead{font-size:11px;color:var(--meta);margin-bottom:3px}
+.srestext{font-size:13px;color:var(--txt);word-break:break-word;line-height:1.5}
+.srestext mark{background:var(--accdim);color:var(--acc);border-radius:4px;padding:0 2px}
+.bub.findhit{outline:2px solid var(--acc);outline-offset:2px}
+
+/* ---------- 音乐（新增） ---------- */
+.mnow{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.mttl{font-size:15px;font-weight:700;color:var(--txt);word-break:break-word}
+.mrow{display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.mrow:last-child{border-bottom:0}
+.mrow.on{color:var(--acc)}
+.mrow .mi{flex:0 0 18px;text-align:center;font-size:13px}
+.mrow .mt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .mt .dim{font-size:11px}
+.mrow .mbtn{padding:4px 9px;font-size:13px;line-height:1;border-radius:10px;flex:0 0 auto}
+#main input[type=range],.sheet input[type=range]{padding:0;border:0;background:transparent;box-shadow:none;height:22px;accent-color:var(--acc)}
+
 </style>
 </head>
 <body>
-<header><div class="hcol"><h1 id="title">聊天</h1><span class="who" id="who"></span></div><button class="hact" id="hact" type="button" aria-label="更多">⋯</button></header>
+<header><div class="hcol"><h1 id="title">聊天</h1><span class="who" id="who"></span></div><button class="hact" id="hsearch" type="button" aria-label="查找聊天记录" title="查找聊天记录" onclick="openFind()" style="display:none"><svg viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.2"/><path d="m15.2 15.2 4.6 4.6"/></svg></button><button class="hact" id="hact" type="button" aria-label="更多">⋯</button></header>
 <main id="main"></main>
 <div id="picked"><img id="thumb" alt=""><span id="fchip" class="filechip" style="display:none"></span><button id="pickedX" onclick="clearPicked()">✕</button></div>
 <div id="composer"><div id="cbox"><button id="plus" title="发送图片或文件" aria-label="发送图片或文件"><svg viewBox="0 0 24 24"><path d="M12 5.2v13.6M5.2 12h13.6"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button><button id="send" aria-label="发送" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5.4"/><path d="M5.8 11.6 12 5.4l6.2 6.2"/></svg></button></div></div>
@@ -446,7 +469,7 @@ nav button.on .ind{width:16px}
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',priv:'wh_priv',unread:'wh_unread',
-  groups:'wh_groups',gauto:'wh_gauto',
+  groups:'wh_groups',gauto:'wh_gauto',music:'wh_music',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
   summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id};
 
@@ -675,12 +698,13 @@ function idbOpen(){
   return new Promise((res,rej)=>{
     if(_db)return res(_db);
     if(!window.indexedDB)return rej(new Error('这个浏览器不支持 IndexedDB'));
-    const r=indexedDB.open('wh_db',3);
+    const r=indexedDB.open('wh_db',4);
     r.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains('arc'))d.createObjectStore('arc');
       if(!d.objectStoreNames.contains('rawlog'))d.createObjectStore('rawlog');
       if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');
+      if(!d.objectStoreNames.contains('music'))d.createObjectStore('music');   /* 新增：存手机里的音乐文件 */
     };
     r.onsuccess=e=>{_db=e.target.result;res(_db)};
     r.onerror=()=>rej(r.error||new Error('IndexedDB 打不开'));
@@ -914,6 +938,8 @@ function draw(){
   if(whoEl)whoEl.textContent=inChat?topStatus(c):viewHint(view);
   const hact=$('#hact');
   if(hact)hact.style.display=inChat?'':'none';
+  const hsearch=$('#hsearch');           /* 新增：查找聊天记录按钮，只在聊天页显示 */
+  if(hsearch)hsearch.style.display=inChat?'':'none';
   $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(view==='me'?'cfg':view)));
   updSendBtn();
   if(view==='chat')renderChat();
@@ -1944,6 +1970,19 @@ function buildCtxSystem(c,extra){
   const th=THINK_LEVELS[(c.think==null?1:c.think)];
   if(th&&th.hint)sys.push('【思考要求】'+th.hint);
   if(cfg.timeOn!==false)sys.push('【现在的时间】'+nowText()+'。消息开头「（月/日 时:分）」是那条消息发出的时间，你可以据此判断现在几点、上次聊天是多久以前、隔了几天。');
+  /* ↓ 新增：把「用户正在听的歌」告诉角色（一起听音乐功能） */
+  try{
+    musicEnsure();
+    const song=musicNow();
+    if(song&&sys&&sys.push){
+      const others=MUSIC.list.filter(s=>s!==song).slice(0,6).map(s=>s.title).filter(Boolean);
+      sys.push('【她正在听什么】她这会儿在用手机听《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):'')+
+        (MUSIC.playing?'，还在放着。':'，现在是暂停的。')+
+        '这是她和你在「音乐」小应用里放的歌。'+
+        (others.length?('\n她最近的歌单里还有：'+others.join('、')+'。'):'')+
+        '\n聊天时可以自然地带上（比如问问这首歌好不好听、她最近喜欢听什么、你也在听什么），但不要每句话都提，也别装作你能真的听到声音、不要报歌单流水账。');
+    }
+  }catch(e){}
   const mode=(cfg.histMode||'auto');
   if(mode==='full')sys.push('【聊天记录说明】下面是你们尽量完整的聊天记录，按时间先后排列，请像真人一样记得里面的细节。');
   else if(mode==='sum')sys.push('【聊天记录说明】较早的聊天没有逐条给你，只保留在下面的记忆总结里。如果对方提到很早以前的具体细节，可以说记不太清、让她提醒你，不要编造。');
@@ -3340,6 +3379,7 @@ function renderToolPane(){
       const p=document.getElementById('toolPane');if(!p)return;
       if(toolTab==='todo')p.innerHTML=todoHTML();
       else if(toolTab==='group'){p.innerHTML=groupHTML();scrollGroupDown()}
+      else if(toolTab==='music')p.innerHTML=musicHTML();
       else p.innerHTML=funHTML();
     }
   }
@@ -3508,6 +3548,366 @@ function funPick(){
   const arr=String(el?el.value:'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean);
   if(!arr.length)return toast('先填几个选项，用逗号隔开');
   funRun(()=>'👉 '+arr[Math.floor(Math.random()*arr.length)],()=>'👉 '+arr[Math.floor(Math.random()*arr.length)]);
+}
+
+/* ================= 一起听音乐（本地播放器） =================
+   QQ音乐 / 网易云的歌单没法在一个纯网页里直接同步（要登录授权，浏览器也不允许
+   跨网站读取），所以这里做成本地歌单：贴歌曲链接（mp3 / m4a / ogg 等），
+   或者从手机里选一首音频文件。正在放的歌会写进角色的系统提示，
+   角色就知道你在听什么了。 */
+const MUSIC={list:[],cur:-1,vol:.9,playing:false,audio:null,loaded:false,seeking:false,tick:null,lastErr:0};
+function musicLoad(){
+  const d=load(LS.music,null);
+  if(!d||typeof d!=='object')return;
+  MUSIC.list=(Array.isArray(d.list)?d.list:[]).filter(s=>s&&s.title&&(s.url||s.kind==='file')).map(s=>{
+    if(s.kind==='file')return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId||s.id,url:''};
+    return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'url',url:s.url};
+  });
+  MUSIC.vol=(typeof d.vol==='number')?Math.min(1,Math.max(0,d.vol)):.9;
+  if(d.curId)MUSIC.cur=MUSIC.list.findIndex(s=>s.id===d.curId);
+  else MUSIC.cur=(d.curUrl?MUSIC.list.map(s=>s.url).indexOf(d.curUrl):-1);
+  /* 本机文件：把音频从浏览器本地库里取回来（自动补上，取到就刷新界面） */
+  MUSIC.list.forEach(s=>{
+    if(s.kind!=='file')return;
+    musicFileUrl(s).then(()=>{try{musicSync()}catch(e){}}).catch(()=>{s.missing=true;try{musicSync()}catch(e){}});
+  });
+}
+function musicEnsure(){if(MUSIC.loaded)return;MUSIC.loaded=true;musicLoad()}
+function musicNow(){return (MUSIC.cur>=0&&MUSIC.list[MUSIC.cur])||null}
+function musicFileUrl(s){
+  if(!s)return Promise.reject(new Error('没有这首歌'));
+  if(s.url)return Promise.resolve(s.url);
+  if(s.kind!=='file'||!s.blobId)return Promise.reject(new Error('这不是本机文件'));
+  return Promise.resolve().then(()=>idbGetRaw(s.blobId,'music')).then(b=>{
+    if(!b)throw new Error('本机文件不见了');
+    s.url=URL.createObjectURL(b);
+    return s.url;
+  });
+}
+function musicSave(){
+  const cur=musicNow();
+  /* 本机文件的地址（blob:…）关掉页面就失效，所以只存歌的信息；音频本身存在浏览器本地库里 */
+  const list=MUSIC.list.map(s=>s.kind==='file'
+    ?{id:s.id,title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId}
+    :{id:s.id,title:s.title,artist:s.artist||'',kind:'url',url:s.url});
+  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol})}
+  catch(e){try{toast('歌单存不下了：'+((e&&e.message)||e))}catch(_){}}
+}
+function musicAudio(){
+  if(!MUSIC.audio){
+    const a=new Audio();
+    a.preload='metadata';
+    a.volume=MUSIC.vol;
+    a.addEventListener('ended',()=>musicNext());
+    a.addEventListener('error',()=>{                 /* 链接不是音频文件时会走这里 */
+      if(a.getAttribute('src'))musicFail('这个链接放不出来');
+    });
+    MUSIC.audio=a;
+  }
+  return MUSIC.audio;
+}
+/* 放不出来：标在歌单里，并给一句人话的提示（同一个问题只弹一次） */
+function musicFail(msg){
+  MUSIC.playing=false;
+  const s=musicNow();
+  if(s&&s.kind!=='file')s.failed=true;
+  try{musicSave()}catch(e){}
+  musicSync();
+  const now=Date.now();
+  if(now-(MUSIC.lastErr||0)<1500)return;
+  MUSIC.lastErr=now;
+  toast(msg+'。多半是这个链接不是音频文件，点 ✎ 可以改链接，或用「从手机里选一首」。');
+}
+function musicName(s){s=s||{};return (s.title||'')+(s.artist?(' - '+s.artist):'')}
+function musicSec(x){x=Math.floor(x||0);return Math.floor(x/60)+':'+('0'+(x%60)).slice(-2)}
+function musicNowHTML(){
+  const s=musicNow();
+  if(!s)return '<div class="dim" style="font-size:13px">🎧 还没放歌</div>';
+  return '<div class="mttl">'+esc(s.title||'')+'</div>'+
+    '<div class="dim" style="font-size:12px">'+esc(s.artist||'未知歌手')+' · '+(MUSIC.playing?'正在播放':'已暂停')+'</div>';
+}
+function musicListHTML(){
+  if(!MUSIC.list.length)return '<p class="dim" style="font-size:12px;margin:0">歌单还是空的，在下面加一首吧。</p>';
+  return MUSIC.list.map((s,i)=>{
+    const on=(i===MUSIC.cur);
+    const src=(s.kind==='file')?(s.missing?'手机文件（找不到了）':'手机文件'):(s.failed?'链接（放不出来）':'链接');
+    return '<div class="mrow'+(on?' on':'')+'" onclick="musicPlayAt('+i+')">'+
+      '<span class="mi">'+(on?(MUSIC.playing?'▶':'⏸'):'🎵')+'</span>'+
+      '<span class="mt">'+esc(musicName(s))+'<span class="dim"> · '+src+'</span></span>'+
+      '<button class="ghost mbtn" title="编辑歌名" aria-label="编辑歌名" onclick="event.stopPropagation();musicRename('+i+')">✎</button>'+
+      '<button class="ghost mbtn" title="删除" aria-label="删除" onclick="event.stopPropagation();musicDelAsk('+i+')">✕</button></div>';
+  }).join('');
+}
+/* 给一首歌改名/改歌手 */
+function musicRename(i){
+  const s=MUSIC.list[i];if(!s)return;
+  showSheet('<div class="ttl">✎ 编辑这首歌</div>'+
+    '<label class="f">歌名</label><input id="mrT" value="'+esc(s.title||'')+'" placeholder="歌名">'+
+    '<label class="f">歌手</label><input id="mrA" value="'+esc(s.artist||'')+'" placeholder="歌手（可不填）">'+
+    (s.kind==='url'?('<label class="f">歌曲链接</label><input id="mrU" value="'+esc(s.url||'')+'" placeholder="要以 .mp3 / .m4a 这种结尾" autocapitalize="off" autocorrect="off">'):'')+
+    '<div class="row" style="margin-top:12px"><button class="pri col" onclick="musicRenameSave('+i+')">保存</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="warn col" onclick="musicDelAsk('+i+')">删除这首歌</button></div>');
+  setTimeout(()=>{const el=document.getElementById('mrT');if(el){el.focus();el.select()}},80);
+}
+function musicRenameSave(i){
+  const s=MUSIC.list[i];if(!s)return;
+  const t=document.getElementById('mrT'),a=document.getElementById('mrA');
+  const nt=String((t&&t.value)||'').trim();
+  if(!nt)return toast('歌名不能是空的');
+  s.title=nt;s.artist=String((a&&a.value)||'').trim();
+  if(s.kind==='url'){
+    const u=document.getElementById('mrU');
+    const nu=String((u&&u.value)||'').trim();
+    if(!/^https?:\/\//i.test(nu))return toast('链接要以 http 开头（比如 https://…/歌.mp3）');
+    if(nu!==s.url){s.url=nu;s.failed=false}
+  }
+  musicSave();musicSync();closeSheet();
+  toast('已保存');
+}
+function musicHTML(){
+  musicEnsure();
+  if(!MUSIC.tick)MUSIC.tick=setInterval(musicTick,500);
+  return '<div class="card"><div class="ttl">🎵 一起听歌</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">你在这里放的歌，角色会知道你在听什么。</p>'+
+    '<div class="mnow" id="mNow">'+musicNowHTML()+'</div>'+
+    '<div class="row" style="margin-top:10px">'+
+      '<button class="col" onclick="musicPrev()">⏮ 上一首</button>'+
+      '<button class="col pri" id="mPlayBtn" onclick="musicToggle()">'+(MUSIC.playing?'⏸ 暂停':'▶ 播放')+'</button>'+
+      '<button class="col" onclick="musicNext()">下一首 ⏭</button>'+
+    '</div>'+
+    '<input id="mProg" type="range" min="0" max="1000" value="0" oninput="musicSeek(this.value)" onchange="musicSeek(this.value)" style="margin-top:10px">'+
+    '<div class="dim" style="font-size:11.5px;display:flex;align-items:center;justify-content:space-between;gap:10px">'+
+      '<span id="mTime">0:00 / 0:00</span>'+
+      '<span>音量 <input id="mVol" type="range" min="0" max="100" value="'+Math.round(MUSIC.vol*100)+'" oninput="musicVol(this.value)" style="width:96px;vertical-align:middle"></span>'+
+    '</div>'+
+  '</div>'+
+  '<div class="card"><div class="ttl" id="mCount">我的歌单（'+MUSIC.list.length+' 首）</div><div id="mList">'+musicListHTML()+'</div></div>'+
+  '<div class="card"><div class="ttl">加歌</div>'+
+    '<input id="mUrl" placeholder="歌曲链接（http 开头，mp3 / m4a / ogg …）">'+
+    '<div class="row" style="margin-top:8px"><input id="mTitle" class="col" placeholder="歌名"><input id="mArtist" class="col" placeholder="歌手（可不填）"></div>'+
+    '<div class="row" style="margin-top:8px"><button class="col pri" onclick="musicAddUrl()">加进歌单</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="col" onclick="musicPickFile()">📁 从手机里选一首</button></div>'+
+    '<input id="mFile" type="file" accept="audio/*" style="display:none" onchange="musicFileChosen(this)">'+
+    '<p class="dim" style="font-size:11.5px;margin:8px 0 0">链接要能直接在浏览器里播放的音频直链（以 .mp3 / .m4a 结尾）。</p>'+
+    '<p class="dim" style="font-size:11.5px;margin:4px 0 0">QQ音乐、网易云那种「分享链接」和短链接放不了，请用下面的「从手机里选一首」。</p>'+
+    '<p class="dim" style="font-size:11.5px;margin:8px 0 0">批量加：每行一条「链接|歌名|歌手」，贴在链接框里再点添加。</p>'+
+    '<p class="dim" style="font-size:11.5px;margin:6px 0 0">手机里的歌会存在这个浏览器里，刷新、关掉再开都还在（清理浏览器数据才会丢）；点歌名右边的 ✎ 可以改歌名。</p>'+
+  '</div>';
+}
+function musicSync(){
+  const n=$('#mNow');if(n)n.innerHTML=musicNowHTML();
+  const b=$('#mPlayBtn');if(b)b.textContent=MUSIC.playing?'⏸ 暂停':'▶ 播放';
+  const l=$('#mList');if(l)l.innerHTML=musicListHTML();
+  const c=$('#mCount');if(c)c.textContent='我的歌单（'+MUSIC.list.length+' 首）';
+  musicTick();
+}
+/* 状态栏中间那条「正在播放」：放歌时出现，暂停后变灰、离开页面自动消失 */
+function sbNowPaint(){
+  const el=document.getElementById('sbMedia');
+  if(!el)return;
+  const s=musicNow();
+  const playing=!!MUSIC.playing;
+  const touched=!!(MUSIC.audio&&MUSIC.audio.getAttribute&&MUSIC.audio.getAttribute('src'));
+  if(!s||(!playing&&!touched)){if(el.style.display!=='none')el.style.display='none';return}
+  const txt=musicName(s);
+  const t=document.getElementById('sbMediaT');
+  if(t&&t.textContent!==txt)t.textContent=txt;
+  el.title=(playing?'正在播放：':'已暂停：')+txt;
+  el.classList.toggle('on',playing);
+  if(el.style.display!=='flex')el.style.display='flex';
+}
+function musicTick(){
+  sbNowPaint();
+  const a=MUSIC.audio;if(!a)return;
+  const p=$('#mProg'),t=$('#mTime');
+  const dur=isFinite(a.duration)?a.duration:0;
+  if(p&&!MUSIC.seeking)p.value=dur?Math.round(a.currentTime/dur*1000):0;
+  if(t)t.textContent=musicSec(a.currentTime)+' / '+musicSec(dur);
+  if(MUSIC.playing===a.paused){          /* 状态对不上就同步一下按钮 */
+    MUSIC.playing=!a.paused;
+    const b=$('#mPlayBtn');if(b)b.textContent=MUSIC.playing?'⏸ 暂停':'▶ 播放';
+  }
+}
+function musicStart(i){
+  const s=MUSIC.list[i];if(!s)return;
+  const a=musicAudio();
+  MUSIC.cur=i;
+  try{a.src=s.url}catch(e){}
+  a.volume=MUSIC.vol;
+  const pr=a.play();
+  if(pr&&pr.then){
+    pr.then(()=>{MUSIC.playing=true;s.failed=false;musicSync();musicSave()})
+      .catch(err=>{
+        MUSIC.playing=false;
+        if(String((err&&err.name)||'')==='AbortError'){musicSync();return}   /* 自己按了暂停或换了歌，不算出错 */
+        musicFail('这首歌放不出来');
+      });
+  }else{MUSIC.playing=true;s.failed=false;musicSync();musicSave()}
+}
+function musicPlayAt(i){
+  const s=MUSIC.list[i];if(!s)return;
+  if(s.kind==='file'&&!s.url){          /* 手机里的歌：先从浏览器本地库取回来再放 */
+    if(s.missing)return toast('这首歌的本机文件找不到了，删掉重新选一次吧');
+    musicFileUrl(s).then(()=>musicStart(i)).catch(()=>{s.missing=true;musicSync();toast('这首歌的本机文件找不到了')});
+    return;
+  }
+  musicStart(i);
+}
+function musicToggle(){
+  const a=musicAudio();
+  if(!musicNow()){if(MUSIC.list.length)return musicPlayAt(0);return toast('歌单是空的，先加一首吧')}
+  if(MUSIC.playing){
+    a.pause();MUSIC.playing=false;musicSync();
+  }else{
+    const pr=a.play();
+    if(pr&&pr.then){pr.then(()=>{MUSIC.playing=true;musicSync()}).catch(err=>{MUSIC.playing=false;musicSync();toast('放不出来：'+((err&&err.message)||'试试重新点一次播放'))})}
+    else{MUSIC.playing=true;musicSync()}
+  }
+}
+function musicNext(){if(!MUSIC.list.length)return;musicPlayAt((MUSIC.cur+1+MUSIC.list.length)%MUSIC.list.length)}
+function musicPrev(){
+  if(!MUSIC.list.length)return;
+  const a=MUSIC.audio;
+  if(a&&a.currentTime>4){a.currentTime=0;return}
+  musicPlayAt((MUSIC.cur-1+MUSIC.list.length)%MUSIC.list.length);
+}
+function musicSeek(v){
+  const a=MUSIC.audio;if(!a||!isFinite(a.duration)||!a.duration)return;
+  MUSIC.seeking=true;
+  a.currentTime=a.duration*Math.max(0,Math.min(1000,Number(v)||0))/1000;
+  setTimeout(()=>{MUSIC.seeking=false},400);
+}
+function musicVol(v){
+  MUSIC.vol=Math.max(0,Math.min(1,(Number(v)||0)/100));
+  if(MUSIC.audio)MUSIC.audio.volume=MUSIC.vol;
+  musicSave();
+}
+function musicDel(i){
+  const s=MUSIC.list[i];if(!s)return;
+  const wasCur=(i===MUSIC.cur);
+  if(s.kind==='file'){
+    if(s.blobId&&typeof idbDel==='function'){try{idbDel(s.blobId,'music').catch(()=>{})}catch(e){}}
+    if(s.url&&String(s.url).indexOf('blob:')===0){try{URL.revokeObjectURL(s.url)}catch(e){}}
+  }
+  MUSIC.list.splice(i,1);
+  if(wasCur){
+    MUSIC.cur=-1;MUSIC.playing=false;
+    if(MUSIC.audio){try{MUSIC.audio.pause();MUSIC.audio.removeAttribute('src')}catch(e){}}
+  }else if(i<MUSIC.cur)MUSIC.cur--;
+  musicSave();musicSync();
+}
+function musicDelAsk(i){
+  const s=MUSIC.list[i];if(!s)return;
+  if(!confirm('删掉《'+(s.title||'这首歌')+'》吗？'))return;
+  musicDel(i);
+  const m=document.getElementById('modal');
+  if(m&&m.classList.contains('on')){try{closeSheet()}catch(e){}}
+}
+function musicAddUrl(){
+  const u=$('#mUrl'),t=$('#mTitle'),ar=$('#mArtist');
+  const raw=String((u&&u.value)||'').trim();
+  if(!raw)return toast('先把歌曲链接贴进来');
+  const lines=raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const t0=String((t&&t.value)||'').trim(),a0=String((ar&&ar.value)||'').trim();
+  let added=0,odd=0;
+  lines.forEach(line=>{
+    const p=line.split('|').map(s=>s.trim());
+    const url=p[0];
+    if(!/^https?:\/\//i.test(url))return;
+    if(!/\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac|weba|webm|mp4)([?#]|$)/i.test(url))odd++;
+    MUSIC.list.push({id:uid(),title:p[1]||(lines.length===1&&t0?t0:('第 '+(MUSIC.list.length+1)+' 首')),artist:p[2]||(lines.length===1?a0:''),url:url,kind:'url'});
+    added++;
+  });
+  if(!added)return toast('没认出链接：要用 http 开头的那串网址');
+  if(u)u.value='';if(t)t.value='';if(ar)ar.value='';
+  musicSave();musicSync();
+  toast(odd?('加好了（'+added+' 首），但 '+odd+' 个链接不像音频文件，可能会放不出来。要放歌最稳的是用「从手机里选一首」。'):('已加进歌单（'+added+' 首）'));
+}
+function musicPickFile(){const el=$('#mFile');if(el)el.click()}
+function musicFileChosen(inp){
+  const f=inp&&inp.files&&inp.files[0];
+  try{if(inp)inp.value=''}catch(e){}
+  if(!f)return;
+  try{
+    const nm=String(f.name||'').replace(/\.[A-Za-z0-9]+$/,'');
+    const id=uid();
+    MUSIC.list.push({id:id,title:nm||'本机音频',artist:'',kind:'file',blobId:id,url:URL.createObjectURL(f)});
+    musicSave();musicSync();
+    /* 音频文件本身也存进浏览器本地库，刷新/关掉再开都还在 */
+    if(typeof idbPutRaw==='function'){try{idbPutRaw(id,f,'music').catch(()=>{})}catch(e){}}
+    musicPlayAt(MUSIC.list.length-1);
+  }catch(e){toast('读不了这个文件：'+((e&&e.message)||e))}
+}
+
+/* ================= 查找聊天记录 ================= */
+let findHits=[],findTimer=null;
+function escRe(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
+function findPlain(x){
+  if(!x)return '';
+  let s=String(x.content||'');
+  if(x.files&&x.files.length)s+=' '+x.files.map(f=>(f&&f.name)||'').join(' ');
+  if(!String(s).trim()&&x.img)s='［发了一张图片］';
+  return s;
+}
+function findMark(text,kw){
+  const t=String(text||'');
+  const i=t.toLowerCase().indexOf(String(kw).toLowerCase());
+  let cut=t;
+  if(i>=0&&t.length>200)cut=t.slice(Math.max(0,i-60),i+150)+(t.length>i+150?'…':'');
+  else if(t.length>200)cut=t.slice(0,200)+'…';
+  return esc(cut).replace(new RegExp(escRe(esc(kw)),'gi'),m=>'<mark>'+m+'</mark>');
+}
+function openFind(){
+  showSheet('<div class="ttl">🔍 查找聊天记录</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">在所有角色的聊天里找，从新到旧排。</p>'+
+    '<input id="findQ" placeholder="输入关键词" oninput="findRun()" autocomplete="off">'+
+    '<div class="findres" id="findRes"></div>');
+  findRun();
+  setTimeout(()=>{const q=$('#findQ');if(q)q.focus()},80);
+}
+function findRun(){clearTimeout(findTimer);findTimer=setTimeout(findRunNow,180)}
+function findRunNow(){
+  const box=$('#findRes');if(!box)return;
+  const q=$('#findQ');
+  const kw=String((q&&q.value)||'').trim();
+  if(!kw){findHits=[];box.innerHTML='<p class="dim" style="font-size:12px">输入关键词，比如她说过的某句话。</p>';return}
+  const low=kw.toLowerCase();
+  const hits=[];
+  (chars||[]).forEach(c=>{
+    let arr=[];try{arr=load(LS.msg(c.id),[])||[]}catch(e){arr=[]}
+    (arr||[]).forEach((m,i)=>{
+      const tx=findPlain(m);
+      if(tx&&tx.toLowerCase().indexOf(low)>=0)hits.push({cid:c.id,cname:c.name||'角色',idx:i,role:m&&m.role,t:tx,ts:(m&&m.t)||0});
+    });
+  });
+  hits.sort((a,b)=>(b.ts||0)-(a.ts||0));
+  findHits=hits;
+  if(!hits.length){box.innerHTML='<p class="dim" style="font-size:12px">没找到「'+esc(kw)+'」。</p>';return}
+  box.innerHTML='<div class="dim" style="font-size:11.5px;margin:0 0 6px">找到 '+hits.length+' 条，点一条跳过去</div>'+
+    hits.slice(0,200).map((h,i)=>'<div class="sresrow" onclick="findGoto('+i+')">'+
+      '<div class="sreshead">'+esc(h.cname)+' · '+(h.role==='user'?'我':'ta')+' · '+esc(fmtStamp(h.ts))+'</div>'+
+      '<div class="srestext">'+findMark(h.t,kw)+'</div></div>').join('');
+}
+function findGoto(i){
+  const h=findHits[i];if(!h)return;
+  closeSheet();
+  findJump(h.cid,h.idx);
+}
+function findJump(cid,idx){
+  try{if(cid!==curId)loadChar(cid)}catch(e){}
+  try{if(view!=='chat')go('chat');else draw()}catch(e){}
+  chatFollow=false;                     /* 别自动弹回最新消息，停在找到的那条 */
+  setTimeout(()=>{
+    try{
+      const box=$('#msgs');if(!box)return;
+      const el=box.querySelectorAll('.bub')[idx];
+      if(!el)return;
+      el.scrollIntoView({block:'center'});
+      el.classList.add('findhit');
+      setTimeout(()=>el.classList.remove('findhit'),3000);
+    }catch(e){}
+  },90);
 }
 
 /* ---------- 群聊记忆：角色记得自己在群里说过什么 ---------- */
@@ -4642,7 +5042,9 @@ const APPS=[
   {k:'group',n:'群聊',d:'让角色们一起聊',
    ic:'<svg viewBox="0 0 24 24"><circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/></svg>'},
   {k:'fun',n:'小工具',d:'骰子 · 抽签 · 随机',
-   ic:'<svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>'}
+   ic:'<svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>'},
+  {k:'music',n:'音乐',d:'一起听歌 · 歌单',
+   ic:'<svg viewBox="0 0 24 24"><path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/></svg>'}
 ];
 let appOpen=false;
 renderTools=function(){
@@ -10393,6 +10795,7 @@ var G={
   todo:'<path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/>',
   group:'<circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/>',
   fun:'<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/>',
+  music:'<path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/>',
   toy:'<path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/>',
   act:'<path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/>',
   cfg:'<circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/>'
@@ -10400,7 +10803,9 @@ var G={
 /* 状态栏右边的小图标（纯装饰） */
 var SIG='<svg class="f" viewBox="0 0 24 24"><rect x="3.2" y="13.4" width="3.2" height="6" rx="1"/><rect x="8.4" y="10.2" width="3.2" height="9.2" rx="1"/><rect x="13.6" y="7" width="3.2" height="12.4" rx="1"/><rect x="18.8" y="3.8" width="3.2" height="15.6" rx="1"/></svg>';
 var WIFI='<svg viewBox="0 0 24 24"><path d="M3.6 8.9a13 13 0 0 1 16.8 0"/><path d="M6.7 12.4a9 9 0 0 1 10.6 0"/><path d="M9.7 15.9a5 5 0 0 1 4.6 0"/><circle cx="12" cy="18.9" r="1.1"/></svg>';
-var BATT='<svg viewBox="0 0 24 24"><rect x="2.6" y="7.6" width="16.4" height="8.8" rx="2.6"/><path d="M21.4 10.6v2.8"/><rect class="f" x="4.8" y="9.7" width="9.6" height="4.6" rx="1.4"/></svg>';
+var BATT='<svg viewBox="0 0 24 24"><rect x="2.6" y="7.6" width="16.4" height="8.8" rx="2.6"/><path d="M21.4 10.6v2.8"/><rect class="f" id="batFill" x="4.8" y="9.7" width="9.6" height="4.6" rx="1.4"/></svg>';
+/* 充电时电池旁边的小闪电（自己画的，比 emoji 干净） */
+var BOLT='<svg id="sbBolt" viewBox="0 0 24 24" style="display:none"><path d="M3.9 13.6 14.4 2.3 12.2 10.5h8.2L9.8 21.7l2.2-8.1H3.9Z"/></svg>';
 
 /* ---------- ② 应用清单：桌面上放的图标 ---------- */
 var GRID=[
@@ -10408,6 +10813,7 @@ var GRID=[
   {k:'todo',  n:'待办',     g:'todo'},
   {k:'group', n:'群聊',     g:'group'},
   {k:'fun',   n:'小工具',   g:'fun'},
+  {k:'music', n:'音乐',     g:'music'},
   {k:'toy',   n:'互动',     g:'toy'},
   {k:'act',   n:'演绎',     g:'act'}
 ];
@@ -10430,6 +10836,19 @@ body.home #statusbar{display:flex}
 #statusbar .sb-r{display:flex;align-items:center;gap:6px;opacity:.85}
 #statusbar .sb-r svg{width:15px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 #statusbar .sb-r svg.f,#statusbar .sb-r svg .f{fill:currentColor;stroke:none}
+#statusbar .sbpct{font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:0;min-width:0}
+#statusbar .sbpct:empty{display:none}
+#statusbar #sbBolt{width:11px;height:13px;margin-left:-3px;fill:#ffcf4d;stroke:rgba(0,0,0,.22);stroke-width:.6;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(255,207,77,.5))}
+/* 状态栏中间的「正在播放」（放歌时才出现） */
+#statusbar .sb-media{flex:1;min-width:0;display:none;align-items:center;justify-content:center;gap:5px;font-size:11px;font-weight:600;color:var(--meta);opacity:.75}
+#statusbar .sb-media .sbm-t{max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#statusbar .sb-media .eq{display:inline-flex;align-items:flex-end;gap:2px;height:11px;flex:0 0 auto}
+#statusbar .sb-media .eq b{width:2.5px;height:4.5px;border-radius:1.5px;background:currentColor}
+#statusbar .sb-media.on{color:var(--acc);opacity:1}
+#statusbar .sb-media.on .eq b{animation:sbeq 1s ease-in-out infinite}
+#statusbar .sb-media.on .eq b:nth-child(2){animation-delay:.22s}
+#statusbar .sb-media.on .eq b:nth-child(3){animation-delay:.44s}
+@keyframes sbeq{0%,100%{height:4.5px}50%{height:11px}}
 
 header .hback{width:34px;height:34px;flex:0 0 34px;display:none;align-items:center;justify-content:center;border-radius:50%;background:transparent;border:0;color:var(--txt);font-size:22px;line-height:1;padding:0 0 2px;box-shadow:none;margin:-4px 2px 0 0}
 header .hback:active{background:var(--bg2)}
@@ -10579,7 +10998,9 @@ W.updateDots=function(){
 /* ---------- ⑨ 插入外壳元件 ---------- */
 (function(){
   var sb=D.createElement('div');sb.id='statusbar';
-  sb.innerHTML='<span class="sb-l" id="sbClock">--:--</span><span class="sb-r">'+SIG+WIFI+BATT+'</span>';
+  sb.innerHTML='<span class="sb-l" id="sbClock">--:--</span>'+
+    '<span class="sb-media" id="sbMedia"><i class="eq"><b></b><b></b><b></b></i><span class="sbm-t" id="sbMediaT"></span></span>'+
+    '<span class="sb-r">'+SIG+WIFI+'<span class="sbpct" id="sbPct"></span>'+BATT+BOLT+'</span>';
   D.body.insertBefore(sb,D.body.firstChild);
   var hd=D.querySelector('header');
   if(hd){
@@ -10591,6 +11012,36 @@ W.updateDots=function(){
   var dk=D.createElement('div');dk.id='homedock';
   dk.innerHTML='<div class="dockbar">'+DOCK.map(function(a){return tile(a,true)}).join('')+'</div>';
   D.body.appendChild(dk);
+})();
+
+/* ---------- ⑩ 状态栏电量：读手机真实电量（浏览器允许的话） ---------- */
+function batPaint(b){
+  var lv=Math.max(0,Math.min(1,(b&&typeof b.level==='number')?b.level:0));
+  var ch=!!(b&&b.charging);
+  var low=(lv<=.2&&!ch);
+  var fill=D.getElementById('batFill');
+  if(fill)fill.setAttribute('width',(0.9+11.5*lv).toFixed(2));
+  if(fill&&fill.ownerSVGElement)fill.ownerSVGElement.style.color=low?'#e06a60':'';
+  var pct=D.getElementById('sbPct');
+  if(pct){
+    pct.textContent=Math.round(lv*100)+'%';
+    pct.style.color=low?'#e06a60':'';
+    pct.title=ch?'正在充电':'手机电量';
+  }
+  var bolt=D.getElementById('sbBolt');
+  if(bolt)bolt.style.display=ch?'':'none';     /* 充电时才亮出小闪电 */
+}
+(function(){
+  try{
+    if(!navigator.getBattery)return;          /* 有的浏览器不给读，那就保持原来的装饰图标 */
+    navigator.getBattery().then(function(b){
+      batPaint(b);
+      try{
+        b.addEventListener('levelchange',function(){batPaint(b)});
+        b.addEventListener('chargingchange',function(){batPaint(b)});
+      }catch(e){}
+    }).catch(function(){});
+  }catch(e){}
 })();
 
 syncGlass();
