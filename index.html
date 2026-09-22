@@ -10928,3 +10928,313 @@ console.log('[深蓝海域] 补丁13-A 已加载');
 })();
 })();
 </script>
+<script>
+/* ================================================================
+   补丁14（2026-09-21）  虚拟手机外壳：手机桌面
+   ① 新增「桌面」首页：手机状态栏 + 时钟小组件 + 应用图标 + 底部 Dock
+   ② 打开应用后，顶栏多一个「‹」返回桌面；原来的底部四个 tab 收起来
+   ③ 只加外壳和样式，原有功能逻辑一行不动（出问题也只影响这一段）
+   ================================================================ */
+(function(){
+var W=window,D=document;
+function hexA(h,a){
+  h=String(h||'').trim().replace('#','');
+  if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+  if(h.length!==6)return '';
+  var n=parseInt(h,16);if(isNaN(n))return '';
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+function isLocked(){var l=D.getElementById('lock');return !!(l&&getComputedStyle(l).display!=='none')}
+function pad2(n){return (n<10?'0':'')+n}
+var WK=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+/* ---------- ① 图标（和原 app 同一套线条风格） ---------- */
+var G={
+  chat:'<path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/>',
+  roles:'<circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/>',
+  me:'<rect x="3.4" y="5.4" width="17.2" height="13.2" rx="3.2"/><circle cx="9.2" cy="11" r="2.1"/><path d="M5.9 16.3c.5-1.4 1.8-2.2 3.3-2.2s2.8.8 3.3 2.2"/><path d="M15.6 10.6h3.1M15.6 13.8h3.1"/>',
+  todo:'<path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/>',
+  group:'<circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/>',
+  fun:'<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/>',
+  toy:'<path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/>',
+  act:'<path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/>',
+  cfg:'<circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/>'
+};
+/* 状态栏右边的小图标（纯装饰） */
+var SIG='<svg class="f" viewBox="0 0 24 24"><rect x="3.2" y="13.4" width="3.2" height="6" rx="1"/><rect x="8.4" y="10.2" width="3.2" height="9.2" rx="1"/><rect x="13.6" y="7" width="3.2" height="12.4" rx="1"/><rect x="18.8" y="3.8" width="3.2" height="15.6" rx="1"/></svg>';
+var WIFI='<svg viewBox="0 0 24 24"><path d="M3.6 8.9a13 13 0 0 1 16.8 0"/><path d="M6.7 12.4a9 9 0 0 1 10.6 0"/><path d="M9.7 15.9a5 5 0 0 1 4.6 0"/><circle cx="12" cy="18.9" r="1.1"/></svg>';
+var BATT='<svg viewBox="0 0 24 24"><rect x="2.6" y="7.6" width="16.4" height="8.8" rx="2.6"/><path d="M21.4 10.6v2.8"/><rect class="f" x="4.8" y="9.7" width="9.6" height="4.6" rx="1.4"/></svg>';
+
+/* ---------- ② 应用清单：桌面上放的图标 ---------- */
+var GRID=[
+  {k:'me',    n:'我的资料', g:'me'},
+  {k:'todo',  n:'待办',     g:'todo'},
+  {k:'group', n:'群聊',     g:'group'},
+  {k:'fun',   n:'小工具',   g:'fun'},
+  {k:'toy',   n:'互动',     g:'toy'},
+  {k:'act',   n:'演绎',     g:'act'}
+];
+var DOCK=[
+  {k:'chat',  n:'聊天', g:'chat'},
+  {k:'roles', n:'角色', g:'roles'},
+  {k:'cfg',   n:'设置', g:'cfg'}
+];
+
+/* ---------- ③ 样式 ---------- */
+var CSS=`nav{display:none!important}
+.appbar{display:none!important}
+
+body.home{background:radial-gradient(44% 26% at 16% 6%,var(--p14acc,rgba(120,170,255,.16)) 0%,transparent 70%),radial-gradient(48% 30% at 88% 88%,var(--p14acc,rgba(120,170,255,.16)) 0%,transparent 72%),var(--grad)}
+body.home #main{max-width:560px;padding-top:8px}
+
+#statusbar{display:none;flex:0 0 auto;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 9px) 20px 5px;font-size:12.5px;font-weight:600;color:var(--txt);letter-spacing:.3px}
+body.home #statusbar{display:flex}
+#statusbar .sb-l{flex:1;font-variant-numeric:tabular-nums}
+#statusbar .sb-r{display:flex;align-items:center;gap:6px;opacity:.85}
+#statusbar .sb-r svg{width:15px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#statusbar .sb-r svg.f,#statusbar .sb-r svg .f{fill:currentColor;stroke:none}
+
+header .hback{width:34px;height:34px;flex:0 0 34px;display:none;align-items:center;justify-content:center;border-radius:50%;background:transparent;border:0;color:var(--txt);font-size:22px;line-height:1;padding:0 0 2px;box-shadow:none;margin:-4px 2px 0 0}
+header .hback:active{background:var(--bg2)}
+header.p8chat .hback{align-self:center;margin-top:0}
+
+.hcard{display:flex;align-items:center;gap:12px;margin:6px 0 16px;padding:15px 17px;border-radius:22px;background:var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.10);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.hc-l{flex:1;min-width:0}
+.hc-t{font-size:34px;font-weight:700;line-height:1.05;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.hc-d{font-size:12px;color:var(--meta);margin-top:2px}
+.hc-av{display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:46%;background:transparent;border:0;box-shadow:none;padding:4px;border-radius:16px;color:var(--txt)}
+.hc-av:active{background:var(--p14glass2,rgba(127,127,127,.12))}
+.hc-avbox{width:38px;height:38px;flex:0 0 38px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--accdim);color:var(--acc);font-size:20px;line-height:1;overflow:hidden}
+.hc-avbox img{width:100%;height:100%;object-fit:cover;display:block}
+.hc-avnm{font-size:12px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+
+.hgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 8px;padding:2px 0 10px}
+.happ{display:flex;flex-direction:column;align-items:center;gap:7px;background:transparent;border:0;box-shadow:none;padding:0;color:var(--txt);min-width:0}
+.happ:active .hico{transform:scale(.93)}
+.hico{width:58px;height:58px;border-radius:19px;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(160deg,var(--p14glass2,rgba(255,255,255,.10)),transparent 72%),var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.10);transition:transform .12s ease}
+.hico svg{width:26px;height:26px;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.hnm{font-size:11.5px;color:var(--txt);opacity:.9;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdot{position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:#ff4d5e;box-shadow:0 0 0 2px var(--panel),0 0 8px rgba(255,77,94,.7);display:none}
+.hdot.on{display:block;animation:pulse 1.6s infinite}
+
+#homedock{display:none;flex:0 0 auto;padding:4px 14px calc(env(safe-area-inset-bottom) + 12px)}
+body.home #homedock{display:flex}
+.dockbar{flex:1;display:flex;align-items:flex-start;justify-content:space-around;gap:8px;padding:9px 12px;border-radius:28px;background:var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.14);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.dockbar .hico{width:54px;height:54px;border-radius:18px}`;
+(function(){var s=D.createElement('style');s.id='p14css';s.textContent=CSS;var h=D.head||D.documentElement;h.appendChild(s)})();
+
+/* ---------- ④ 主题色换算（毛玻璃用） ---------- */
+function syncGlass(){
+  try{
+    var cs=getComputedStyle(D.documentElement),r=D.documentElement.style;
+    var g=hexA(cs.getPropertyValue('--panel'),.66),g2=hexA(cs.getPropertyValue('--panel'),.32),
+        ac=hexA(cs.getPropertyValue('--acc'),.18);
+    if(g)r.setProperty('--p14glass',g);
+    if(g2)r.setProperty('--p14glass2',g2);
+    if(ac)r.setProperty('--p14acc',ac);
+  }catch(e){}
+}
+
+/* ---------- ⑤ 桌面渲染 ---------- */
+function svgOf(g){return '<svg viewBox="0 0 24 24">'+G[g]+'</svg>'}
+function tile(a,dock){
+  return '<button class="happ" type="button" onclick="P14.open(\''+a.k+'\')" aria-label="'+a.n+'">'+
+    '<span class="hico">'+svgOf(a.g)+(dock&&a.k==='chat'?'<i class="hdot" id="homeDot"></i>':'')+'</span>'+
+    '<span class="hnm">'+a.n+'</span></button>';
+}
+function renderHome(){
+  var m=D.getElementById('main');if(!m)return;
+  m.innerHTML=
+    '<div class="hcard">'+
+      '<div class="hc-l"><div class="hc-t" id="homeClock">--:--</div><div class="hc-d" id="homeDate"></div></div>'+
+      '<button class="hc-av" type="button" id="homeAv" aria-label="继续聊天"><span class="hc-avbox" id="homeAvBox"></span><span class="hc-avnm" id="homeAvNm"></span></button>'+
+    '</div>'+
+    '<div class="hgrid">'+GRID.map(function(a){return tile(a,false)}).join('')+'</div>';
+  var av=D.getElementById('homeAv');
+  if(av)av.onclick=function(){open2('chat')};
+  tick();dots();
+}
+function tick(){
+  var d=new Date(),t=pad2(d.getHours())+':'+pad2(d.getMinutes());
+  var a=D.getElementById('sbClock');if(a)a.textContent=t;
+  var b=D.getElementById('homeClock');if(b)b.textContent=t;
+  var c=D.getElementById('homeDate');
+  if(c)c.textContent=d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+WK[d.getDay()];
+  var av=D.getElementById('homeAv'),box=D.getElementById('homeAvBox'),nm=D.getElementById('homeAvNm');
+  if(av&&box&&nm){
+    var ch=null;try{ch=curChar()}catch(e){}
+    if(!ch){av.style.display='none'}
+    else{
+      av.style.display='';
+      box.innerHTML='';
+      if(ch.avatar){var im=D.createElement('img');im.src=ch.avatar;im.alt='';box.appendChild(im)}
+      else box.textContent=ch.emoji||'🙂';
+      nm.textContent=ch.name||'';
+    }
+  }
+}
+function dots(){
+  var d=D.getElementById('homeDot');if(!d)return;
+  var n=0;try{n=Object.keys(unreadMap()).length}catch(e){}
+  d.classList.toggle('on',n>0);
+}
+
+/* ---------- ⑥ 页面外壳：状态栏 / 顶栏返回键 / Dock ---------- */
+function chrome(){
+  var home=(view==='home');
+  try{D.body.classList.toggle('home',home)}catch(e){}
+  var sb=D.getElementById('statusbar');if(sb)sb.style.display=home?'flex':'none';
+  var hb=D.getElementById('hback');if(hb)hb.style.display=home?'none':'flex';
+  var hd=D.querySelector('header');if(hd)hd.style.display=home?'none':'';
+  var dk=D.getElementById('homedock');if(dk)dk.style.display=home?'flex':'none';
+  if(home)tick();
+}
+function fixTitle(){
+  try{
+    if(view==='tools'){
+      var at=D.querySelector('#main .appbar .at');
+      if(at&&at.textContent){var t=D.getElementById('title');if(t)t.textContent=at.textContent}
+    }
+  }catch(e){}
+}
+
+/* ---------- ⑦ 打开某个应用 ---------- */
+function open2(k){
+  try{if(k!=='chat'&&typeof clearPicked==='function')clearPicked()}catch(e){}
+  if(k==='chat'){go('chat');return}
+  if(k==='roles'){go('roles');return}
+  if(k==='me'){go('me');return}
+  if(k==='cfg'){go('cfg');return}
+  try{if(W.openApp)W.openApp(k)}catch(e){}
+  go('tools');
+}
+W.P14={open:open2,home:function(){go('home')}};
+
+/* ---------- ⑧ 把外壳挂到原来的 go / draw / 主题 / 红点上 ---------- */
+var _go=W.go,_draw=W.draw,_dots=W.updateDots,_theme=W.applyTheme;
+var bootHome=false;
+function goHome(){
+  view='home';
+  try{if(typeof clearPicked==='function')clearPicked()}catch(e){}
+  try{if(W.P6&&W.P6.selStop)W.P6.selStop()}catch(e){}
+  var cb=D.getElementById('composer');if(cb)cb.style.display='none';
+  var mn=D.getElementById('main');if(mn)mn.classList.remove('p6actfit');
+  chrome();renderHome();
+}
+W.go=function(v){
+  if(v==='home'){goHome();return}
+  if(!bootHome&&v==='chat'){bootHome=true;goHome();return}
+  bootHome=true;
+  return _go.apply(this,arguments);
+};
+W.draw=function(){
+  if(view==='home'){chrome();renderHome();return}
+  var r=_draw.apply(this,arguments);
+  chrome();fixTitle();
+  return r;
+};
+W.updateDots=function(){
+  try{_dots.apply(this,arguments)}catch(e){}
+  dots();
+};
+var _chat=W.renderChat;
+W.renderChat=function(){
+  if(view==='home')return;                 /* 看桌面时，后台来的消息先存着，别抢屏 */
+  return _chat.apply(this,arguments);
+};
+W.applyTheme=function(){
+  try{_theme.apply(this,arguments)}catch(e){}
+  syncGlass();
+  if(view==='home')try{renderHome()}catch(e){}
+};
+
+/* ---------- ⑨ 插入外壳元件 ---------- */
+(function(){
+  var sb=D.createElement('div');sb.id='statusbar';
+  sb.innerHTML='<span class="sb-l" id="sbClock">--:--</span><span class="sb-r">'+SIG+WIFI+BATT+'</span>';
+  D.body.insertBefore(sb,D.body.firstChild);
+  var hd=D.querySelector('header');
+  if(hd){
+    var hb=D.createElement('button');
+    hb.id='hback';hb.className='hback';hb.type='button';hb.setAttribute('aria-label','返回桌面');hb.textContent='‹';
+    hb.onclick=function(){go('home')};
+    hd.insertBefore(hb,hd.firstChild);
+  }
+  var dk=D.createElement('div');dk.id='homedock';
+  dk.innerHTML='<div class="dockbar">'+DOCK.map(function(a){return tile(a,true)}).join('')+'</div>';
+  D.body.appendChild(dk);
+})();
+
+syncGlass();
+try{if(cfg&&typeof applyTheme==='function')applyTheme()}catch(e){}
+setInterval(tick,15000);
+D.addEventListener('visibilitychange',function(){if(!D.hidden)tick()});
+setTimeout(function(){if(!isLocked()){bootHome=true;goHome()}},0);
+})();
+</script>
+<script>
+/* ================================================================
+   补丁15（2026-09-22）  设置页：手机设置列表样式
+   分组、展开／收起这些原来就有，这里只是在画完之后给每张卡片
+   配一个小图标、把箭头挪到右边，让它看起来像手机里的设置列表。
+   设置项的逻辑一个都不动。
+   ================================================================ */
+(function(){
+var W=window,D=document;
+var IC=[
+  ['外观与交互','<path d="M5.2 8.4h13.6M5.2 15.6h13.6"/><circle cx="9.4" cy="8.4" r="2.1"/><circle cx="14.6" cy="15.6" r="2.1"/>'],
+  ['接口','<path d="M9.4 3.6v4.2M14.6 3.6v4.2"/><path d="M5.8 7.8h12.4v3.4a6.2 6.2 0 0 1-12.4 0Z"/><path d="M12 17.4v3"/>'],
+  ['记忆注入','<path d="M6.4 3.8h11.2v16.4l-5.6-3.6-5.6 3.6Z"/>'],
+  ['自动总结','<circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3.2 2"/>'],
+  ['联网搜索','<circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4"/><path d="M12 3.8c2.1 2.4 3.3 5.2 3.3 8.2s-1.2 5.8-3.3 8.2c-2.1-2.4-3.3-5.2-3.3-8.2S9.9 6.2 12 3.8Z"/>'],
+  ['画图','<rect x="3.6" y="5.4" width="16.8" height="13.2" rx="3"/><circle cx="8.8" cy="10.2" r="1.5"/><path d="M4.4 17.4 9.6 12l3.4 3.4 2.6-2.4 4 4.4"/>'],
+  ['演绎','<path d="M4.8 5.4h5.6a2.4 2.4 0 0 1 2.4 2.4v11.2a2.2 2.2 0 0 0-2.2-2.2H4.8Z"/><path d="M19.2 5.4h-5.6a2.4 2.4 0 0 0-2.4 2.4v11.2a2.2 2.2 0 0 1 2.2-2.2h5.8Z"/>'],
+  ['表情','<circle cx="12" cy="12" r="8.2"/><path d="M8.8 14.2c.9 1.4 2 2 3.2 2s2.3-.6 3.2-2"/><path d="M9.4 9.8h.1M14.6 9.8h.1"/>'],
+  ['隐私角色','<circle cx="10" cy="8.6" r="3.2"/><path d="M4.4 19.4c0-3.1 2.5-5.4 5.6-5.4 1 0 1.9.3 2.7.7"/><rect x="14" y="13.2" width="6.6" height="6.2" rx="1.8"/><path d="M15.8 13.2v-1.2a1.5 1.5 0 0 1 3 0v1.2"/>'],
+  ['安全','<rect x="4.6" y="10.2" width="14.8" height="9.8" rx="3"/><path d="M8.4 10.2V7.8a3.6 3.6 0 0 1 7.2 0v2.4"/>'],
+  ['数据','<ellipse cx="12" cy="6.8" rx="7.2" ry="3.1"/><path d="M4.8 6.8v10.4c0 1.7 3.2 3.1 7.2 3.1s7.2-1.4 7.2-3.1V6.8"/><path d="M4.8 12c0 1.7 3.2 3.1 7.2 3.1s7.2-1.4 7.2-3.1"/>'],
+  ['我的资料','<rect x="3.4" y="5.4" width="17.2" height="13.2" rx="3.2"/><circle cx="9.2" cy="11" r="2.1"/><path d="M5.9 16.3c.5-1.4 1.8-2.2 3.3-2.2s2.8.8 3.3 2.2"/><path d="M15.6 10.6h3.1M15.6 13.8h3.1"/>']
+];
+var DEF='<circle cx="12" cy="12" r="8.2"/><path d="M12 8.2h.1M12 11.6v4.4"/>';
+function iconFor(t){
+  for(var i=0;i<IC.length;i++){if(t.indexOf(IC[i][0])>=0)return IC[i][1]}
+  return DEF;
+}
+var CSS=`#main > .s14card{background:var(--p14glass2,rgba(127,127,127,.12));border:1px solid var(--line);border-radius:18px;padding:6px 14px 12px;margin-bottom:10px;box-shadow:none}
+#main > .s14card > .s14ttl{border-left:0;padding:10px 2px;margin:0;font-size:14.5px;font-weight:600;color:var(--txt);display:flex;align-items:center;gap:10px;letter-spacing:.2px;border-radius:12px}
+#main > .s14card > .s14ttl:active{background:var(--bg2)}
+.s14ic{order:-1;width:30px;height:30px;flex:0 0 30px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accdim);border:1px solid var(--line)}
+.s14ic svg{width:17px;height:17px;stroke:var(--acc);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+#main > .s14card > .s14ttl .p6chev{order:9;margin-left:auto;font-size:13px;opacity:.45}
+#main .p6glab{font-size:11.5px;letter-spacing:1px;color:var(--meta);margin:14px 2px 8px}
+#main .p6cbar{background:var(--p14glass2,rgba(127,127,127,.12));border:1px solid var(--line);border-radius:14px;padding:7px 10px;box-shadow:none;margin-bottom:14px}`;
+(function(){var s=D.createElement('style');s.id='p15css';s.textContent=CSS;(D.head||D.documentElement).appendChild(s)})();
+
+function styleCfgList(){
+  var m=D.getElementById('main');if(!m)return;
+  var cards=Array.prototype.filter.call(m.children,function(el){
+    return el.classList&&el.classList.contains('card');
+  });
+  cards.forEach(function(c){
+    var ttl=null;
+    for(var i=0;i<c.children.length;i++){
+      var el=c.children[i];
+      if(el.classList&&el.classList.contains('ttl')){ttl=el;break}
+    }
+    if(!ttl)return;
+    c.classList.add('s14card');ttl.classList.add('s14ttl');
+    if(ttl.querySelector('.s14ic'))return;
+    var txt=String(ttl.textContent||'').replace(/[▸▾]/g,'').trim();
+    var ic=D.createElement('span');ic.className='s14ic';
+    ic.innerHTML='<svg viewBox="0 0 24 24">'+iconFor(txt)+'</svg>';
+    ttl.insertBefore(ic,ttl.firstChild);
+  });
+}
+var _cfg=W.renderCfg;
+W.renderCfg=function(){
+  var r=_cfg.apply(this,arguments);
+  try{styleCfgList()}catch(e){}
+  return r;
+};
+})();
+</script>
