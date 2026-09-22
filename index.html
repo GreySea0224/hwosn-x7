@@ -436,6 +436,29 @@ header .hact svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-wid
 .mrow .mt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mrow .mt .dim{font-size:11px}
 .mrow .mbtn{padding:4px 9px;font-size:13px;line-height:1;border-radius:10px;flex:0 0 auto}
+.msvg{width:1.06em;height:1.06em;vertical-align:-.16em;display:inline-block;flex:0 0 auto}
+svg.msvg.ln{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+svg.msvg.fl{fill:currentColor;stroke:none}
+.mrow .mi .msvg{width:1.12em;height:1.12em}
+.mrow .mbtn .msvg{width:1.15em;height:1.15em;vertical-align:-.18em}
+.mstat{font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.5}
+
+/* ---------- 朋友圈 ---------- */
+.momwrap{display:flex;flex-direction:column;gap:10px}
+.momcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 13px;box-shadow:var(--shadow)}
+.momhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.momav{width:34px;height:34px;flex:0 0 34px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--accdim);color:var(--acc);font-size:17px;line-height:1;overflow:hidden}
+.momav img{width:100%;height:100%;object-fit:cover;display:block}
+.momnm{font-size:13.5px;font-weight:600;color:var(--txt);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.momt{font-size:11px;color:var(--dim);flex:0 0 auto}
+.momdel{padding:2px 8px;font-size:11.5px;line-height:1.3;border-radius:8px;flex:0 0 auto}
+.momtx{font-size:14px;line-height:1.6;color:var(--txt);word-break:break-word}
+.momfoot{display:flex;gap:8px;margin-top:9px}
+.mombtn{padding:4px 10px;font-size:12.5px;line-height:1.2;border-radius:10px;flex:0 0 auto}
+.mombtn.on{color:var(--acc);border-color:var(--accline)}
+.momcmts{margin-top:9px;padding:8px 10px;background:var(--bg2);border-radius:12px}
+.momcmt{font-size:12.5px;line-height:1.55;color:var(--txt);word-break:break-word}
+.momcmt b{color:var(--acc);margin-right:6px;font-weight:600}
 #main input[type=range],.sheet input[type=range]{padding:0;border:0;background:transparent;box-shadow:none;height:22px;accent-color:var(--acc)}
 
 </style>
@@ -469,7 +492,7 @@ header .hact svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-wid
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',priv:'wh_priv',unread:'wh_unread',
-  groups:'wh_groups',gauto:'wh_gauto',music:'wh_music',
+  groups:'wh_groups',gauto:'wh_gauto',music:'wh_music',moments:'wh_moments',momSeen:'wh_momseen',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
   summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id};
 
@@ -1987,6 +2010,23 @@ function buildCtxSystem(c,extra){
         '\n聊天时可以自然带上（问问这首歌、说你也喜欢、或聊聊她的品味），但不要每句话都提。');
     }
   }catch(e){}
+  /* ↓ 新增：把「朋友圈」最近的事告诉角色（它自己也能发） */
+  try{
+    const ms=momentsAll();
+    const canPost=!(c.momentPerm&&c.momentPerm.on===false);
+    if((ms.length||canPost)&&sys&&sys.push){
+      const one=p=>'「'+String(p.text||'').replace(/\s+/g,' ').slice(0,50)+'」';
+      const mine=ms.filter(p=>p.cid===c.id).slice(-2);
+      const hers=ms.filter(p=>p.cid==='user').slice(-2);
+      let blk='';
+      if(hers.length)blk+='\n她最近发的动态：'+hers.map(one).join('、');
+      if(mine.length)blk+='\n你自己最近发的动态：'+mine.map(one).join('、');
+      let s='【朋友圈】你和她共用一个「朋友圈」（像微信朋友圈，她也能看到）。'+blk;
+      if(canPost)s+='\n你可以调用 post_moment 自己发一条动态：想发就发（今天心情不错、想起一件事、看到什么好玩的都行），不用等她说，也别连着刷屏；发过的事不要在聊天里再复述一遍。看到她的动态，聊天时可以自然提一句，但不要每条都提。';
+      else s+='\n（你的「朋友圈权限」被关掉了，这次不用想着发动态。）';
+      sys.push(s);
+    }
+  }catch(e){}
   const mode=(cfg.histMode||'auto');
   if(mode==='full')sys.push('【聊天记录说明】下面是你们尽量完整的聊天记录，按时间先后排列，请像真人一样记得里面的细节。');
   else if(mode==='sum')sys.push('【聊天记录说明】较早的聊天没有逐条给你，只保留在下面的记忆总结里。如果对方提到很早以前的具体细节，可以说记不太清、让她提醒你，不要编造。');
@@ -2660,7 +2700,7 @@ function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     sysPrompt:'',examples:'',think:1,priv:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -2723,6 +2763,10 @@ function charPermissionCardsHTML(c){
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>群聊权限</b><div class="dim" style="font-size:12px">允许它在和你聊天时自己查看所在的群、自己在群里发言（它会记得自己在群里说过的话）</div></div>'+
   '<input type="checkbox" id="e_group" '+((c.groupPerm&&c.groupPerm.on)?'checked':'')+'></div></div>'+
+  /* 【新增】朋友圈权限：开了以后它想发动态就能自己发一条 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>朋友圈权限</b><div class="dim" style="font-size:12px">允许它在「朋友圈」里自己发动态（像发微信朋友圈那样，想发就发）</div></div>'+
+  '<input type="checkbox" id="e_moment" '+((c.momentPerm&&c.momentPerm.on===false)?'':'checked')+'></div></div>'+
   /* 【新增】演绎记忆：让它在私聊里也记得「演绎」里经历的事 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能看见演绎记忆</b><div class="dim" style="font-size:12px">你在「演绎」里和它经历过的事，它在私聊里也记得（演绎是另一条世界线，默认互相看不见）</div></div>'+
@@ -2864,6 +2908,10 @@ function applyCharInputs(id){
   if(c.auto.max<=c.auto.min)c.auto.max=c.auto.min+1;
   c.todoPerm={on:ck('e_todo')};
   c.groupPerm={on:ck('e_group')};
+  /* ↓ 新增：朋友圈权限（没这个开关的旧页面就当默认开着） */
+  const elMoment=document.getElementById('e_moment');
+  if(elMoment)c.momentPerm={on:!!elMoment.checked};
+  else if(!c.momentPerm)c.momentPerm={on:true};
   const actN=parseInt(v('e_actn'),10);
   c.actMem={on:ck('e_actmem'),n:(Number.isFinite(actN)&&actN>0)?Math.min(60,actN):12};
   c.priv=ck('e_priv');
@@ -3384,6 +3432,7 @@ function renderToolPane(){
       if(toolTab==='todo')p.innerHTML=todoHTML();
       else if(toolTab==='group'){p.innerHTML=groupHTML();scrollGroupDown()}
       else if(toolTab==='music')p.innerHTML=musicHTML();
+      else if(toolTab==='moments')p.innerHTML=momentsHTML();
       else p.innerHTML=funHTML();
     }
   }
@@ -3560,7 +3609,8 @@ function funPick(){
    或者从手机里选一首音频文件。正在放的歌会写进角色的系统提示，
    角色就知道你在听什么了。 */
 const MUSIC={list:[],cur:-1,vol:.9,playing:false,audio:null,loaded:false,seeking:false,tick:null,lastErr:0,
-  manual:{title:'',artist:'',on:false,at:0}};   /* 手动记录「我在别的App里听这首」 */
+  manual:{title:'',artist:'',on:false,at:0},   /* 手动记录「我在别的App里听这首」 */
+  stat:{d:'',sec:0,plays:{}}};                 /* 听歌账本：今天的时长 + 每首歌的次数 */
 function musicLoad(){
   const d=load(LS.music,null);
   if(!d||typeof d!=='object')return;
@@ -3572,6 +3622,11 @@ function musicLoad(){
   const mm=d.manual;
   MUSIC.manual=(mm&&mm.title)?{title:mm.title,artist:mm.artist||'',at:mm.at||0,
     on:!!mm.on&&(Date.now()-(mm.at||0)<6*3600*1000)}:{title:'',artist:'',on:false,at:0};
+  /* 听歌账本 */
+  const st=d.stat;
+  MUSIC.stat=(st&&typeof st==='object')?{d:String(st.d||''),sec:Math.max(0,Number(st.sec)||0),
+    plays:(st.plays&&typeof st.plays==='object')?st.plays:{}}:{d:'',sec:0,plays:{}};
+  musicStatRoll();
   if(d.curId)MUSIC.cur=MUSIC.list.findIndex(s=>s.id===d.curId);
   else MUSIC.cur=(d.curUrl?MUSIC.list.map(s=>s.url).indexOf(d.curUrl):-1);
   /* 本机文件：把音频从浏览器本地库里取回来（自动补上，取到就刷新界面） */
@@ -3592,13 +3647,80 @@ function musicFileUrl(s){
     return s.url;
   });
 }
+/* ---------- 听歌账本：今天听了多久 / 每首歌听过几次 ---------- */
+function musicDayKey(){
+  const d=new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+/* 跨天了就把「今天」的部分清零（总次数保留） */
+function musicStatRoll(){
+  const k=musicDayKey();
+  if(!MUSIC.stat)MUSIC.stat={d:k,sec:0,plays:{}};
+  if(MUSIC.stat.d===k)return;
+  MUSIC.stat.d=k;MUSIC.stat.sec=0;
+  const p=MUSIC.stat.plays||{};
+  for(const id in p)p[id].dn=0;
+}
+function musicStatGet(s){
+  musicStatRoll();
+  if(!s)return null;
+  const k=s.id||'';
+  const p=MUSIC.stat.plays[k]||(MUSIC.stat.plays[k]={n:0,dn:0});
+  if(typeof p.n!=='number')p.n=0;
+  if(typeof p.dn!=='number')p.dn=0;
+  return p;
+}
+/* 秒数说成人话：1 小时 12 分 / 3 分 20 秒 / 12 秒 */
+function musicHuman(sec){
+  sec=Math.floor(sec||0);
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),ss=sec%60;
+  if(h)return h+' 小时 '+m+' 分';
+  if(m)return m+' 分 '+ss+' 秒';
+  return ss+' 秒';
+}
+function musicStatText(s){
+  const p=s?musicStatGet(s):null;
+  let t='今日已听 '+musicHuman(MUSIC.stat.sec);
+  if(p)t+=' · 这首听过 '+p.n+' 次'+(p.dn?('（今天 '+p.dn+' 次）'):'');
+  return t;
+}
+/* 开始放一首歌：次数 +1 */
+function musicCountPlay(s){
+  const p=musicStatGet(s);if(!p)return;
+  p.n++;p.dn++;
+  musicSave();
+}
+/* 正在放的时候按真实时间累计（定时器被手机挂起也不会虚增） */
+function musicAddTime(dt){
+  if(!(dt>0))return;
+  musicStatRoll();
+  MUSIC.stat.sec+=dt;
+  const now=Date.now();
+  if(now-(MUSIC.statSaved||0)>10000){MUSIC.statSaved=now;musicSave()}
+}
+function musicTimeTick(){
+  const a=MUSIC.audio;
+  const now=Date.now();
+  const prev=MUSIC.pendAt||now;
+  MUSIC.pendAt=now;
+  if(!a||a.paused||a.ended)return;
+  let dt=(now-prev)/1000;
+  if(dt>5)dt=5;
+  musicAddTime(dt);
+  try{
+    const sl=document.getElementById('mStatLine');
+    if(sl)sl.textContent=musicStatText(musicNow());
+  }catch(e){}
+}
+setInterval(musicTimeTick,1000);
 function musicSave(){
   const cur=musicNow();
+  musicStatRoll();
   /* 本机文件的地址（blob:…）关掉页面就失效，所以只存歌的信息；音频本身存在浏览器本地库里 */
   const list=MUSIC.list.map(s=>s.kind==='file'
     ?{id:s.id,title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId}
     :{id:s.id,title:s.title,artist:s.artist||'',kind:'url',url:s.url});
-  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,manual:MUSIC.manual})}
+  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,manual:MUSIC.manual,stat:MUSIC.stat})}
   catch(e){try{toast('歌单存不下了：'+((e&&e.message)||e))}catch(_){}}
 }
 function musicAudio(){
@@ -3625,15 +3747,31 @@ function musicFail(msg){
   const now=Date.now();
   if(now-(MUSIC.lastErr||0)<1500)return;
   MUSIC.lastErr=now;
-  toast(msg+'。多半是这个链接不是音频文件，点 ✎ 可以改链接，或用「从手机里选一首」。');
+  toast(msg+'。多半是这个链接不是音频文件，点歌名右边的铅笔按钮可以改链接，或用「从手机里选一首」。');
 }
+/* ---------- 音乐里用的小图标（矢量，统一现代简约风） ---------- */
+const MICO={
+  play:'<svg class="msvg fl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.4 5.3v13.4l11-6.7z"/></svg>',
+  pause:'<svg class="msvg fl" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.7" height="14" rx="1.7"/><rect x="13.3" y="5" width="3.7" height="14" rx="1.7"/></svg>',
+  prev:'<svg class="msvg fl" viewBox="0 0 24 24" aria-hidden="true"><rect x="5.2" y="6" width="2.7" height="12" rx="1.3"/><path d="M19 6.6v10.8L10.3 12z"/></svg>',
+  next:'<svg class="msvg fl" viewBox="0 0 24 24" aria-hidden="true"><rect x="16.1" y="6" width="2.7" height="12" rx="1.3"/><path d="M5 6.6v10.8L13.7 12z"/></svg>',
+  note:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 17.6V6.5l8.6-1.8v11.1"/><circle cx="6.9" cy="17.8" r="2.6"/><circle cx="15.5" cy="16" r="2.6"/></svg>',
+  headset:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.3 14.2v-2a6.7 6.7 0 0 1 13.4 0v2"/><rect x="3.4" y="13.3" width="3.8" height="6.3" rx="1.9"/><rect x="16.8" y="13.3" width="3.8" height="6.3" rx="1.9"/></svg>',
+  pencil:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.7 19.3l.9-4L15.9 5a1.7 1.7 0 0 1 2.4 0l.7.7a1.7 1.7 0 0 1 0 2.4L8.7 18.4z"/><path d="m14.7 6.6 2.7 2.7"/></svg>',
+  folder:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.6a2 2 0 0 1 2-2h3.2l2 2.3h7.6a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2z"/></svg>',
+  cross:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6 6.6 17.4"/></svg>',
+  heart:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19.4s-6.9-4.3-6.9-8.6A3.9 3.9 0 0 1 12 8.1a3.9 3.9 0 0 1 6.9 2.7c0 4.3-6.9 8.6-6.9 8.6Z"/></svg>',
+  comment:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 11.6c0 4-3.7 7.2-8.2 7.2-1 0-2-.2-2.9-.5l-4.3 1.5 1.2-3.5a6.9 6.9 0 0 1-2-4.7C4 7.6 7.7 4.4 12 4.4s8.2 3.2 8.2 7.2Z"/></svg>',
+  moments:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>'
+};
 function musicName(s){s=s||{};return (s.title||'')+(s.artist?(' - '+s.artist):'')}
 function musicSec(x){x=Math.floor(x||0);return Math.floor(x/60)+':'+('0'+(x%60)).slice(-2)}
 function musicNowHTML(){
   const s=musicNow();
-  if(!s)return '<div class="dim" style="font-size:13px">🎧 还没放歌</div>';
+  if(!s)return '<div class="dim" style="font-size:13px">'+MICO.headset+' 还没放歌</div>';
   return '<div class="mttl">'+esc(s.title||'')+'</div>'+
-    '<div class="dim" style="font-size:12px">'+esc(s.artist||'未知歌手')+' · '+(MUSIC.playing?'正在播放':'已暂停')+'</div>';
+    '<div class="dim" style="font-size:12px">'+esc(s.artist||'未知歌手')+' · '+(MUSIC.playing?'正在播放':'已暂停')+'</div>'+
+    '<div class="mstat" id="mStatLine">'+esc(musicStatText(s))+'</div>';
 }
 function musicListHTML(){
   if(!MUSIC.list.length)return '<p class="dim" style="font-size:12px;margin:0">歌单还是空的，在下面加一首吧。</p>';
@@ -3641,16 +3779,16 @@ function musicListHTML(){
     const on=(i===MUSIC.cur);
     const src=(s.kind==='file')?(s.bad?'手机文件（放不了）':(s.missing?'手机文件（找不到了）':'手机文件')):(s.failed?'链接（放不出来）':'链接');
     return '<div class="mrow'+(on?' on':'')+'" onclick="musicPlayAt('+i+')">'+
-      '<span class="mi">'+(on?(MUSIC.playing?'▶':'⏸'):'🎵')+'</span>'+
+      '<span class="mi">'+(on?(MUSIC.playing?MICO.pause:MICO.play):MICO.note)+'</span>'+
       '<span class="mt">'+esc(musicName(s))+'<span class="dim"> · '+src+'</span></span>'+
-      '<button class="ghost mbtn" title="编辑歌名" aria-label="编辑歌名" onclick="event.stopPropagation();musicRename('+i+')">✎</button>'+
-      '<button class="ghost mbtn" title="删除" aria-label="删除" onclick="event.stopPropagation();musicDelAsk('+i+')">✕</button></div>';
+      '<button class="ghost mbtn" title="编辑歌名" aria-label="编辑歌名" onclick="event.stopPropagation();musicRename('+i+')">'+MICO.pencil+'</button>'+
+      '<button class="ghost mbtn" title="删除" aria-label="删除" onclick="event.stopPropagation();musicDelAsk('+i+')">'+MICO.cross+'</button></div>';
   }).join('');
 }
 /* 给一首歌改名/改歌手 */
 function musicRename(i){
   const s=MUSIC.list[i];if(!s)return;
-  showSheet('<div class="ttl">✎ 编辑这首歌</div>'+
+  showSheet('<div class="ttl">'+MICO.pencil+' 编辑这首歌</div>'+
     '<label class="f">歌名</label><input id="mrT" value="'+esc(s.title||'')+'" placeholder="歌名">'+
     '<label class="f">歌手</label><input id="mrA" value="'+esc(s.artist||'')+'" placeholder="歌手（可不填）">'+
     (s.kind==='url'?('<label class="f">歌曲链接</label><input id="mrU" value="'+esc(s.url||'')+'" placeholder="要以 .mp3 / .m4a 这种结尾" autocapitalize="off" autocorrect="off">'):'')+
@@ -3691,13 +3829,13 @@ function musicManualStop(){
 function musicHTML(){
   musicEnsure();
   if(!MUSIC.tick)MUSIC.tick=setInterval(musicTick,500);
-  return '<div class="card"><div class="ttl">🎵 一起听歌</div>'+
+  return '<div class="card"><div class="ttl">'+MICO.note+' 一起听歌</div>'+
     '<p class="dim" style="font-size:12px;margin:0 0 10px">你在这里放的歌，角色会知道你在听什么。</p>'+
     '<div class="mnow" id="mNow">'+musicNowHTML()+'</div>'+
     '<div class="row" style="margin-top:10px">'+
-      '<button class="col" onclick="musicPrev()">⏮ 上一首</button>'+
-      '<button class="col pri" id="mPlayBtn" onclick="musicToggle()">'+(MUSIC.playing?'⏸ 暂停':'▶ 播放')+'</button>'+
-      '<button class="col" onclick="musicNext()">下一首 ⏭</button>'+
+      '<button class="col" onclick="musicPrev()">'+MICO.prev+' 上一首</button>'+
+      '<button class="col pri" id="mPlayBtn" onclick="musicToggle()">'+(MUSIC.playing?(MICO.pause+' 暂停'):(MICO.play+' 播放'))+'</button>'+
+      '<button class="col" onclick="musicNext()">下一首 '+MICO.next+'</button>'+
     '</div>'+
     '<input id="mProg" type="range" min="0" max="1000" value="0" oninput="musicSeek(this.value)" onchange="musicSeek(this.value)" style="margin-top:10px">'+
     '<div class="dim" style="font-size:11.5px;display:flex;align-items:center;justify-content:space-between;gap:10px">'+
@@ -3705,7 +3843,7 @@ function musicHTML(){
       '<span>音量 <input id="mVol" type="range" min="0" max="100" value="'+Math.round(MUSIC.vol*100)+'" oninput="musicVol(this.value)" style="width:96px;vertical-align:middle"></span>'+
     '</div>'+
   '</div>'+
-  '<div class="card"><div class="ttl">🎧 在别的App里听</div>'+
+  '<div class="card"><div class="ttl">'+MICO.headset+' 在别的App里听</div>'+
     '<p class="dim" style="font-size:12px;margin:0 0 10px">音乐App里「下载」的歌是加密的，网页放不了；但你在这里填一下，角色照样知道你在听什么。</p>'+
     '<div class="row"><input id="mmT" class="col" placeholder="歌名"><input id="mmA" class="col" placeholder="歌手（可不填）"></div>'+
     '<div class="row" style="margin-top:8px"><button class="col pri" onclick="musicManualSet()">告诉ta我在听这首</button></div>'+
@@ -3716,18 +3854,18 @@ function musicHTML(){
     '<input id="mUrl" placeholder="歌曲链接（http 开头，mp3 / m4a / ogg …）">'+
     '<div class="row" style="margin-top:8px"><input id="mTitle" class="col" placeholder="歌名"><input id="mArtist" class="col" placeholder="歌手（可不填）"></div>'+
     '<div class="row" style="margin-top:8px"><button class="col pri" onclick="musicAddUrl()">加进歌单</button></div>'+
-    '<div class="row" style="margin-top:8px"><button class="col" onclick="musicPickFile()">📁 从手机里选一首</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="col" onclick="musicPickFile()">'+MICO.folder+' 从手机里选一首</button></div>'+
     '<input id="mFile" type="file" accept="audio/*" style="display:none" onchange="musicFileChosen(this)">'+
     '<p class="dim" style="font-size:11.5px;margin:8px 0 0">链接要能直接在浏览器里播放的音频直链（以 .mp3 / .m4a 结尾）。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:4px 0 0">QQ音乐、网易云那种「分享链接」和短链接放不了，请用下面的「从手机里选一首」。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:8px 0 0">批量加：每行一条「链接|歌名|歌手」，贴在链接框里再点添加。</p>'+
-    '<p class="dim" style="font-size:11.5px;margin:6px 0 0">手机里的歌会存在这个浏览器里，刷新、关掉再开都还在（清理浏览器数据才会丢）；点歌名右边的 ✎ 可以改歌名。</p>'+
+    '<p class="dim" style="font-size:11.5px;margin:6px 0 0">手机里的歌会存在这个浏览器里，刷新、关掉再开都还在（清理浏览器数据才会丢）；点歌名右边的铅笔按钮可以改歌名。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:4px 0 0">注意：音乐App里「下载」的歌是加密的（名字常带 [mqms2]），网页放不了，要用没加密的 mp3 / flac。</p>'+
   '</div>';
 }
 function musicSync(){
   const n=$('#mNow');if(n)n.innerHTML=musicNowHTML();
-  const b=$('#mPlayBtn');if(b)b.textContent=MUSIC.playing?'⏸ 暂停':'▶ 播放';
+  const b=$('#mPlayBtn');if(b)b.innerHTML=MUSIC.playing?(MICO.pause+' 暂停'):(MICO.play+' 播放');
   const l=$('#mList');if(l)l.innerHTML=musicListHTML();
   const c=$('#mCount');if(c)c.textContent='我的歌单（'+MUSIC.list.length+' 首）';
   const st=$('#mmState');
@@ -3754,13 +3892,37 @@ function sbNowPaint(){
     txt=musicName(MUSIC.manual);on=true;tip='正在听（在别的App里）：'+txt;
   }else{
     if(el.style.display!=='none')el.style.display='none';
+    sbMediaSet('');
     return;
   }
-  const t=document.getElementById('sbMediaT');
-  if(t&&t.textContent!==txt)t.textContent=txt;
+  sbMediaSet(txt);
   el.title=tip;
   el.classList.toggle('on',on);
   if(el.style.display!=='flex')el.style.display='flex';
+}
+/* 状态栏中间的歌名：短的就居中显示，太长的就左右循环滚动 */
+function sbMediaSet(txt){
+  const t=document.getElementById('sbMediaT');if(!t)return;
+  txt=String(txt||'');
+  if(t.getAttribute('data-t')===txt)return;      /* 没变就不重来，免得动画一直从头开始 */
+  const par=t.parentNode;
+  if(par)par.classList.remove('marq');
+  t.classList.remove('marq');
+  t.textContent=txt;
+  if(!txt){t.removeAttribute('data-t');return}
+  t.style.maxWidth='none';
+  const nat=Math.round(t.getBoundingClientRect().width);
+  t.style.maxWidth='';
+  const box=Math.round(t.getBoundingClientRect().width);
+  if(!box)return;                                 /* 状态栏现在没显示，等下次再量 */
+  t.setAttribute('data-t',txt);
+  if(nat<=box+2)return;                           /* 放得下，不用滚 */
+  const gap=20,dist=nat+gap,dur=Math.max(5,dist/26);
+  t.innerHTML='<span class="sbm-i">'+esc(txt)+'</span><span class="sbm-i">'+esc(txt)+'</span>';
+  t.style.setProperty('--marX',(-dist)+'px');
+  t.style.setProperty('--marT',dur.toFixed(1)+'s');
+  t.classList.add('marq');
+  if(par)par.classList.add('marq');
 }
 function musicTick(){
   sbNowPaint();
@@ -3771,8 +3933,9 @@ function musicTick(){
   if(t)t.textContent=musicSec(a.currentTime)+' / '+musicSec(dur);
   if(MUSIC.playing===a.paused){          /* 状态对不上就同步一下按钮 */
     MUSIC.playing=!a.paused;
-    const b=$('#mPlayBtn');if(b)b.textContent=MUSIC.playing?'⏸ 暂停':'▶ 播放';
+    const b=$('#mPlayBtn');if(b)b.innerHTML=MUSIC.playing?(MICO.pause+' 暂停'):(MICO.play+' 播放');
   }
+  const sl=$('#mStatLine');if(sl)sl.textContent=musicStatText(musicNow());
 }
 function musicStart(i){
   const s=MUSIC.list[i];if(!s)return;
@@ -3782,13 +3945,13 @@ function musicStart(i){
   a.volume=MUSIC.vol;
   const pr=a.play();
   if(pr&&pr.then){
-    pr.then(()=>{MUSIC.playing=true;s.failed=false;musicSync();musicSave()})
+    pr.then(()=>{MUSIC.playing=true;s.failed=false;musicCountPlay(s);musicSync();musicSave()})
       .catch(err=>{
         MUSIC.playing=false;
         if(String((err&&err.name)||'')==='AbortError'){musicSync();return}   /* 自己按了暂停或换了歌，不算出错 */
         musicFail('这首歌放不出来');
       });
-  }else{MUSIC.playing=true;s.failed=false;musicSync();musicSave()}
+  }else{MUSIC.playing=true;s.failed=false;musicCountPlay(s);musicSync();musicSave()}
 }
 function musicPlayAt(i){
   const s=MUSIC.list[i];if(!s)return;
@@ -3905,6 +4068,150 @@ function musicFileChosen(inp){
     musicPlayAt(MUSIC.list.length-1);
   }).catch(e=>toast('读不了这个文件：'+((e&&e.message)||e)));
 }
+
+/* ================= 朋友圈（角色也能自己发动态） =================
+   像微信朋友圈：你自己可以发一条、点赞、评论；角色那边有一个工具
+   （post_moment），在聊天的时候它想发就能自己发一条。
+   数据都存在本地（wh_moments），和别的东西一起进备份。 */
+const MOM_MAX=200;                 /* 最多留 200 条，太老的自动丢 */
+function momentsAll(){const a=load(LS.moments,[]);return Array.isArray(a)?a:[]}
+function momentsSave(arr){
+  while(arr.length>MOM_MAX)arr.shift();
+  save(LS.moments,arr);scheduleBackup();
+}
+/* 一条动态归谁：'user' 是我自己，其余是角色 id */
+function momentWho(cid){
+  if(cid==='user')return {cid:'user',name:(cfg&&cfg.userName)||'我',emoji:(cfg&&cfg.userEmoji)||'🙂',avatar:(cfg&&cfg.userAvatar)||''};
+  const c=(typeof p5Char==='function'&&p5Char(cid))||(chars||[]).find(x=>x.id===cid);
+  return {cid:cid,name:(c&&c.name)||'角色',emoji:(c&&c.emoji)||'🙂',avatar:(c&&c.avatar)||''};
+}
+function momentAdd(cid,text){
+  text=String(text||'').trim().slice(0,1200);
+  if(!text)return null;
+  const w=momentWho(cid);
+  const arr=momentsAll();
+  const p={id:uid(),cid:cid,name:w.name,emoji:w.emoji,avatar:w.avatar,text:text,t:Date.now(),likes:[],comments:[]};
+  arr.push(p);
+  momentsSave(arr);
+  return p;
+}
+function momentDel(id){
+  momentsSave(momentsAll().filter(x=>x.id!==id));
+}
+function momentLike(id,cid){
+  cid=cid||'user';
+  const arr=momentsAll();const p=arr.find(x=>x.id===id);if(!p)return;
+  if(!Array.isArray(p.likes))p.likes=[];
+  const i=p.likes.findIndex(x=>x.cid===cid);
+  if(i>=0)p.likes.splice(i,1);else p.likes.push({cid:cid,t:Date.now()});
+  momentsSave(arr);
+}
+function momentComment(id,cid,text){
+  text=String(text||'').trim().slice(0,300);if(!text)return;
+  const arr=momentsAll();const p=arr.find(x=>x.id===id);if(!p)return;
+  if(!Array.isArray(p.comments))p.comments=[];
+  const w=momentWho(cid);
+  p.comments.push({cid:cid,name:w.name,text:text,t:Date.now()});
+  momentsSave(arr);
+}
+/* 有没有「还没看过的」角色动态（桌面图标上的小红点用） */
+function momentsSeenAt(){return Number(load(LS.momSeen,0))||0}
+function momentsUnseen(){
+  const seen=momentsSeenAt();
+  return momentsAll().filter(p=>p.cid!=='user'&&(p.t||0)>seen).length;
+}
+function momentsMarkSeen(){try{save(LS.momSeen,Date.now())}catch(e){}}
+function momentCardHTML(p){
+  const mine=(p.cid==='user');
+  const liked=(p.likes||[]).some(x=>x.cid==='user');
+  const cmts=(p.comments||[]).slice(-3);
+  const av=p.avatar?('<img src="'+esc(p.avatar)+'" alt="">'):esc(p.emoji||'🙂');
+  return '<div class="momcard">'+
+    '<div class="momhead"><span class="momav">'+av+'</span><span class="momnm">'+esc(p.name||'')+'</span>'+
+      '<span class="momt">'+esc(fmtStamp(p.t))+'</span>'+
+      (mine?('<button class="ghost momdel" onclick="momentDelAsk(\''+p.id+'\')">删除</button>'):'')+
+    '</div>'+
+    '<div class="momtx">'+nl2br(p.text||'')+'</div>'+
+    '<div class="momfoot">'+
+      '<button class="ghost mombtn'+(liked?' on':'')+'" onclick="momentLikeUI(\''+p.id+'\')">'+MICO.heart+
+        ((p.likes||[]).length?(' '+p.likes.length):'')+'</button>'+
+      '<button class="ghost mombtn" onclick="momentCommentUI(\''+p.id+'\')">'+MICO.comment+
+        ((p.comments||[]).length?(' '+p.comments.length):'')+'</button>'+
+    '</div>'+
+    (cmts.length?('<div class="momcmts">'+cmts.map(c=>'<div class="momcmt"><b>'+esc(c.name||'')+'</b>'+esc(c.text||'')+'</div>').join('')+'</div>'):'')+
+  '</div>';
+}
+function momentsHTML(){
+  momentsMarkSeen();
+  try{dots()}catch(e){}
+  const arr=momentsAll().slice().reverse();
+  const head='<div class="card"><div class="ttl">'+MICO.moments+' 朋友圈</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">像微信朋友圈：你可以发一条，角色也会自己发（在「角色 → 编辑」里能关掉它的朋友圈权限）。动态只存在这台手机上，会和别的数据一起备份。</p>'+
+    '<textarea id="momText" style="min-height:64px" placeholder="这一刻的想法…"></textarea>'+
+    '<div class="row" style="margin-top:8px"><button class="col pri" onclick="momentPostMine()">发表</button></div></div>';
+  const list=arr.length?arr.map(momentCardHTML).join('')
+    :'<div class="card"><p class="dim" style="font-size:12px;margin:0">还没有动态。你自己发一条试试，或者让角色在聊天里发——想让它发，可以在聊天时说一句「发条朋友圈」。</p></div>';
+  return head+'<div class="momwrap">'+list+'</div>';
+}
+function momentPostMine(){
+  const el=document.getElementById('momText');
+  const t=el?String(el.value||'').trim():'';
+  if(!t)return toast('先写点什么吧');
+  momentAdd('user',t);
+  if(el)el.value='';
+  momentRefresh();
+  toast('已发表');
+}
+function momentLikeUI(id){momentLike(id,'user');momentRefresh()}
+function momentDelAsk(id){
+  if(!confirm('删掉这条动态吗？'))return;
+  momentDel(id);momentRefresh();
+}
+function momentCommentUI(id){
+  showSheet('<div class="ttl">'+MICO.comment+' 评论</div>'+
+    '<input id="momCmt" placeholder="说点什么…" autocomplete="off">'+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="momentCommentSave(\''+id+'\')">发送</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(()=>{const el=document.getElementById('momCmt');if(el)el.focus()},80);
+}
+function momentCommentSave(id){
+  const el=document.getElementById('momCmt');
+  const t=el?String(el.value||'').trim():'';
+  if(!t)return toast('先写点什么');
+  momentComment(id,'user',t);
+  try{closeSheet()}catch(e){}
+  momentRefresh();
+}
+function momentRefresh(){
+  try{dots()}catch(e){}
+  try{if(view==='tools'&&toolTab==='moments')renderToolPane()}catch(e){}
+}
+/* 打开朋友圈（通知点进来、桌面点图标都走这里） */
+function openMoments(){
+  try{toolTab='moments';appOpen=true}catch(e){}
+  try{if(view==='tools')renderTools();else go('tools')}catch(e){}
+}
+window.openMoments=openMoments;
+/* 角色用的工具：发一条朋友圈 */
+window.MOMENT_TOOL={type:'function',function:{
+  name:'post_moment',
+  description:'在「朋友圈」里发一条自己的动态（像真人发微信朋友圈：一句心情、一件小事、随手拍的感觉）。想发就发，不用等用户回复；但不要连着刷屏，也不要把聊天内容原样搬过去。',
+  parameters:{type:'object',properties:{
+    text:{type:'string',description:'这条动态的正文，1~3 句，自然、口语化，不要写括号旁白、不要写表情说明'}
+  },required:['text']}
+}};
+window.execMoment=function(args,cid){
+  const t=String((args&&args.text)||'').trim();
+  if(!t)return {ok:false,msg:'没写内容，发不了。要发的话再调用一次，把 text 写成 1~3 句自然的话。'};
+  const w=momentWho(cid);
+  if(cid!=='user'&&momentsAll().slice(-8).some(p=>p.cid===cid&&p.text===t))
+    return {ok:false,msg:'这句话你刚刚已经发过了，换一句新的，或者这次先不发。'};
+  const p=momentAdd(cid,t);
+  if(!p)return {ok:false,msg:'没发出去，再试一次吧。'};
+  try{P5.maybeNotify({kind:'moment',name:((w.emoji||'')+' '+w.name),emoji:w.emoji,avatar:w.avatar,text:t,where:'朋友圈'})}catch(e){}
+  momentRefresh();
+  return {ok:true,msg:'已经发到朋友圈了。不要在聊天里再复述这条动态，也不用特意提（除非用户问起），接着自然聊天就行。'};
+};
 
 /* ================= 查找聊天记录 ================= */
 let findHits=[],findTimer=null;
@@ -4920,7 +5227,7 @@ function loadInitialState(){
       persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,priv:false,
-      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false}}];
+      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false},momentPerm:{on:true}}];
     save(LS.chars,chars);
   }
   /* 上次如果停在隐私角色上，重启后不自动进入它 */
@@ -5109,6 +5416,8 @@ const APPS=[
    ic:'<svg viewBox="0 0 24 24"><circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/></svg>'},
   {k:'fun',n:'小工具',d:'骰子 · 抽签 · 随机',
    ic:'<svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>'},
+  {k:'moments',n:'朋友圈',d:'角色发动态 · 点赞评论',
+   ic:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>'},
   {k:'music',n:'音乐',d:'一起听歌 · 歌单',
    ic:'<svg viewBox="0 0 24 24"><path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/></svg>'}
 ];
@@ -6424,6 +6733,11 @@ execCharTool=function(name,args,cid){
     try{return window.execSticker(args)}
     catch(e){return {ok:false,msg:'发不了表情：'+((e&&e.message)||e)}}
   }
+  /* ↓ 新增：发朋友圈 */
+  if(name==='post_moment'){
+    try{return window.execMoment(args,cid)}
+    catch(e){return {ok:false,msg:'发不了朋友圈：'+((e&&e.message)||e)}}
+  }
   /* ↓ 补丁5-B：画一张图 */
   if(name==='draw_image')return P5.drawStep(args,cid);
   var c=p5Char(cid);
@@ -6601,6 +6915,7 @@ P5.notify=function(o){
 };
 P5.jump=function(o){
   try{
+    if(o.kind==='moment'){window.openMoments();return}
     if(o.kind==='group'){openGroup(o.gid);return}
     var c=p5Char(o.cid);if(!c)return;
     if(c.priv){openPriv(c.id);return}
@@ -6612,6 +6927,7 @@ P5.maybeNotify=function(o){
   if(document.hidden)return;                                  /* 页面在后台：交给系统通知 */
   if(o.kind==='group'&&view==='tools'&&toolTab==='group'&&groupOpenId===o.gid)return;
   if(o.kind==='char'&&view==='chat'&&curId===o.cid)return;
+  if(o.kind==='moment'&&view==='tools'&&toolTab==='moments')return;
   P5.notify(o);
 };
 /* 群聊：一轮结束后，把玩具挂到消息上 + 有人说话就弹通知 */
@@ -7285,6 +7601,7 @@ function normalizeImportedChar(c,nid){
   if(!c.todoPerm)c.todoPerm={on:false};
   if(!c.groupPerm)c.groupPerm={on:false};
   if(!c.search)c.search={on:false};
+  if(!c.momentPerm)c.momentPerm={on:true};
   if(!c.toyPerm)c.toyPerm={on:true};
   if(!c.imgPerm)c.imgPerm={on:true};
   return c;
@@ -10793,6 +11110,10 @@ toolsFor=function(c){
   try{
     if(W.P13.armed&&sendOn()&&all().length&&t&&t.push)t.push(SEND_STICKER_TOOL);
   }catch(e){}
+  /* ↓ 新增：加上「发朋友圈」（默认开，角色设置里可以关掉） */
+  try{
+    if(c&&!(c.momentPerm&&c.momentPerm.on===false)&&window.MOMENT_TOOL)t.push(window.MOMENT_TOOL);
+  }catch(e){}
   return t;
 };
 function execSticker(args){
@@ -10861,6 +11182,7 @@ var G={
   todo:'<path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/>',
   group:'<circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/>',
   fun:'<rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/>',
+  moments:'<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/>',
   music:'<path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/>',
   toy:'<path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/>',
   act:'<path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/>',
@@ -10878,6 +11200,7 @@ var GRID=[
   {k:'me',    n:'我的资料', g:'me'},
   {k:'todo',  n:'待办',     g:'todo'},
   {k:'group', n:'群聊',     g:'group'},
+  {k:'moments',n:'朋友圈',  g:'moments'},
   {k:'fun',   n:'小工具',   g:'fun'},
   {k:'music', n:'音乐',     g:'music'},
   {k:'toy',   n:'互动',     g:'toy'},
@@ -10907,7 +11230,12 @@ body.home #statusbar{display:flex}
 #statusbar #sbBolt{width:11px;height:13px;margin-left:-3px;fill:#ffcf4d;stroke:rgba(0,0,0,.22);stroke-width:.6;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(255,207,77,.5))}
 /* 状态栏中间的「正在播放」（放歌时才出现） */
 #statusbar .sb-media{flex:1;min-width:0;display:none;align-items:center;justify-content:center;gap:5px;font-size:11px;font-weight:600;color:var(--meta);opacity:.75}
-#statusbar .sb-media .sbm-t{max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#statusbar .sb-media .sbm-t{max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+#statusbar .sb-media .sbm-t.marq{text-overflow:clip}
+#statusbar .sb-media .sbm-t .sbm-i{display:inline-block;white-space:nowrap;padding-right:20px;will-change:transform}
+#statusbar .sb-media .sbm-t.marq .sbm-i{animation:sbmarq var(--marT,8s) linear infinite}
+#statusbar .sb-media.marq{justify-content:flex-start}
+@keyframes sbmarq{from{transform:translateX(0)}to{transform:translateX(var(--marX,-60px))}}
 #statusbar .sb-media .eq{display:inline-flex;align-items:flex-end;gap:2px;height:11px;flex:0 0 auto}
 #statusbar .sb-media .eq b{width:2.5px;height:4.5px;border-radius:1.5px;background:currentColor}
 #statusbar .sb-media.on{color:var(--acc);opacity:1}
@@ -10960,8 +11288,11 @@ function syncGlass(){
 /* ---------- ⑤ 桌面渲染 ---------- */
 function svgOf(g){return '<svg viewBox="0 0 24 24">'+G[g]+'</svg>'}
 function tile(a,dock){
+  var dot='';
+  if(dock&&a.k==='chat')dot='<i class="hdot" id="homeDot"></i>';
+  if(!dock&&a.k==='moments')dot='<i class="hdot" id="homeDotM"></i>';
   return '<button class="happ" type="button" onclick="P14.open(\''+a.k+'\')" aria-label="'+a.n+'">'+
-    '<span class="hico">'+svgOf(a.g)+(dock&&a.k==='chat'?'<i class="hdot" id="homeDot"></i>':'')+'</span>'+
+    '<span class="hico">'+svgOf(a.g)+dot+'</span>'+
     '<span class="hnm">'+a.n+'</span></button>';
 }
 function renderHome(){
@@ -10996,9 +11327,10 @@ function tick(){
   }
 }
 function dots(){
-  var d=D.getElementById('homeDot');if(!d)return;
-  var n=0;try{n=Object.keys(unreadMap()).length}catch(e){}
-  d.classList.toggle('on',n>0);
+  var d=D.getElementById('homeDot');
+  if(d){var n=0;try{n=Object.keys(unreadMap()).length}catch(e){};d.classList.toggle('on',n>0)}
+  var m=D.getElementById('homeDotM');
+  if(m){var k=0;try{k=momentsUnseen()}catch(e){};m.classList.toggle('on',k>0)}
 }
 
 /* ---------- ⑥ 页面外壳：状态栏 / 顶栏返回键 / Dock ---------- */
