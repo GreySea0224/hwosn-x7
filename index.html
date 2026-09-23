@@ -2766,18 +2766,70 @@ function scheduleAuto(force){
   if(live&&!autoTick)autoTick=setInterval(checkAuto,15000);
   if(!live&&autoTick){clearInterval(autoTick);autoTick=null}
 }
+/* 「距上一条消息过了多久」说成大白话，给主动消息用 */
+function autoAgoText(t){
+  if(!t)return '';
+  const d=Date.now()-t;
+  if(!(d>0))return '刚刚';
+  const mi=Math.floor(d/60000);
+  if(mi<1)return '刚刚';
+  if(mi<60)return mi+' 分钟前';
+  const h=Math.floor(mi/60);
+  if(h<24)return h+' 小时前';
+  return Math.floor(h/24)+' 天前';
+}
+/* 主动发消息时，放在最末尾那段话：让角色明白「是系统戳了它一下」 */
+function autoProactiveNudge(lastMsg){
+  const ago=autoAgoText(lastMsg&&lastMsg.t);
+  let s='（系统提示：这不是她发来的新消息，上面聊天记录里的那些话也都已经聊过了，不用再回应。\n'+
+    '是她给你开了「自动发消息」，现在时间到了，系统在旁边戳了你一下——这一轮由你主动，给她发一条新的消息。\n';
+  if(ago)s+='距你们上一条消息：'+ago+'。你可以自己判断这个时间合不合适开口。\n';
+  s+='你可以顺着刚才的话题再多说一句（她没回，你也可以像突然想起什么似的自己补一句），也可以起一个全新的话头：\n'+
+    '想起一件事、看到点什么、想知道她现在在干嘛、想分享心情、想约她或者逗逗她，都可以，全看你此刻想不想说话。\n'+
+    '必须注意：不要回答上面最后一条消息（不管它是她说的还是你说的）；不要重复你上一条已经说过的话；\n'+
+    '不要解释你为什么突然发消息，不要说「看你没回」「系统提示我」这类话，也不要提到这条提示本身。\n'+
+    '就用 1-2 句自然的话，像随手发微信那样，符合你的性格和你们平时的相处方式。）';
+  return s;
+}
+/* 只保留汉字、字母和数字，用来比较两条消息是不是在说同一件事 */
+function autoFlatText(s){return String(s||'').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]+/g,'').toLowerCase()}
+function autoIsRepeat(a,b){
+  const x=autoFlatText(a),y=autoFlatText(b);
+  if(!x||!y)return false;
+  if(x===y)return true;
+  const short=x.length<=y.length?x:y,long=x.length<=y.length?y:x;
+  return short.length>=8&&long.indexOf(short)>=0;
+}
 async function autoGenerate(c){
   if(!autoKeep)autoKeep={curId:curId,msgs:msgs,mem:mem};
   const wasOpen=(autoKeep.curId===c.id);
   curId=c.id;
   msgs=load(LS.msg(c.id),[]);
   mem=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
-  const extra='【系统】现在你先开口。主动给ta发一条消息，1-2 句，符合你的性格和你们平时的相处方式，不解释为什么发。'+(c.auto&&c.auto.hint?('（'+c.auto.hint+'）'):'');
+  const autoHint=(c.auto&&c.auto.hint)?String(c.auto.hint).trim():'';
+  /* 你填的「主动消息提示」在系统提示里也放一份，免得被忽略 */
+  const extra=autoHint?('【主动消息提示（只在你主动发消息时生效）】这是她写给你的要求，请照做：'+autoHint):'';
   const tp=thinkParams(c);
+  const lastAI=msgs.slice().reverse().find(x=>x.role==='assistant'&&x.content);
+  const lastMsg=msgs.length?msgs[msgs.length-1]:null;
+  /* ↓ 关键：这句放在「最后一条消息」的位置，模型最容易看见 */
+  const nudge=autoProactiveNudge(lastMsg);
   let out='',reasoning='',usage=null;
-  await callAPI(buildCtx(c,extra),{stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
-    onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r},onUsage:u=>{usage=u}});
+  const autoCall=async(note)=>{
+    out='';reasoning='';usage=null;
+    const ctx=buildCtx(c,extra);
+    ctx.push({role:'user',content:nudge+(note||'')});
+    await callAPI(ctx,{stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
+      onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r},onUsage:u=>{usage=u}});
+    return String(out||'').trim();
+  };
+  out=await autoCall('');
   if(!out)return false;
+  /* ↓ 保险：万一又和上一条几乎一样，明确提醒一次「这是重复」，只重试一次 */
+  if(lastAI&&autoIsRepeat(lastAI.content,out)){
+    const again=await autoCall('\n（注意：这样又重复你上一条说过的话了，不能这样。请换一个说法或换一个话题，发给她的必须是新的内容。）');
+    if(again)out=again;
+  }
   const m={role:'assistant',content:out,t:Date.now(),
     tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out)};
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
@@ -6170,7 +6222,7 @@ groupAutoSpeak=async function(g,m){
   if(groupBusy)return;
   groupBusy=true;
   try{
-    const out=await groupGenerate(g,c);
+    const out=await groupGenerate(g,c,true);
     if(!out||!out.text)return;
     const arr=gmsgsOf(g.id);
     arr.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,search:out.search});
@@ -6786,7 +6838,7 @@ async function runGroupToyProbe(sys,c,g,hist,tp){
     }
   }catch(e){}
 }
-groupGenerate=async function(g,c){
+groupGenerate=async function(g,c,autoSay){
   var base=buildGroupBaseContext(g,c);
   var arr=base.arr,nm=base.nm,me=base.me,sys=base.sys;
 
@@ -6801,7 +6853,10 @@ groupGenerate=async function(g,c){
   await runGroupToyProbe(sys,c,g,hist,tp);
 
   var ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
-  ctx.push({role:'user',content:'（继续群聊，现在轮到你发言，用你的身份发一条）'});
+  /* ↓ 主动冒泡：说清楚是系统戳了它一下，不然它会去回答已经聊过的内容、或重复上一条 */
+  ctx.push({role:'user',content:autoSay
+    ?'（系统提示：群里这会儿没有人说话，也不是她刚发了新消息。是她给你开了「自动发消息」，现在时间到了，系统戳了你一下，让你主动在群里冒个泡。你可以开个新话头（想起一件事、看到点什么、想聊什么），也可以顺着群里刚才的气氛自然接一句。注意：不要去回答上面最后一条消息、不要重复你上一条说过的话、不要解释你为什么突然冒泡，也不要提到这条提示本身。用你的身份发一条，只说你要发的消息。）'
+    :'（继续群聊，现在轮到你发言，用你的身份发一条）'});
   var out='',usage=null;
   try{
     out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400),onUsage:function(u){usage=u}})||'').trim();
