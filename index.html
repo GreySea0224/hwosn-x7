@@ -366,9 +366,32 @@ header .hact:active{background:var(--bg2)}
 body.dev .tk{display:inline}
 body:not(.dev) .gtok,body:not(.dev) .atok,body:not(.dev) .p6toksum{display:none!important}
 
-/* 加粗 / 行内代码用主色，而不是纯黑 */
-b.hl,strong.hl{color:var(--acc);font-weight:600}
-code.hl{color:var(--acc);background:var(--accdim);border-radius:6px;padding:1px 5px;font-size:.94em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* ---------- markdown：加粗 / 斜体 / 代码 / 列表 / 引用 / 标题 / 表格 / 链接 ----------
+   --em / --embg 是「强调色」，黑白主题里会换成高对比的底色，不然加粗看不出来 */
+b.hl,strong.hl{color:var(--em,var(--acc));font-weight:700;background:var(--embg,transparent);border-radius:5px;padding:var(--empad,0)}
+code.hl{color:var(--em,var(--acc));background:var(--accdim);border:1px solid var(--line);border-radius:6px;padding:1px 5px;font-size:.94em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+i.md-em{font-style:italic;color:var(--txt)}
+.md-s{text-decoration:line-through;color:var(--meta)}
+.md-a{color:var(--em,var(--acc));text-decoration:underline;text-underline-offset:2px;word-break:break-all}
+.md-p{margin:0}
+.md-p+.md-p,.md-p+.md-list,.md-list+.md-p,.md-pre+.md-p,.md-quote+.md-p{margin-top:8px}
+.md-h{font-weight:700;color:var(--txt);line-height:1.35;margin:9px 0 4px}
+.md-h:first-child{margin-top:0}
+.md-h1{font-size:1.24em}
+.md-h2{font-size:1.15em}
+.md-h3{font-size:1.07em}
+.md-h4,.md-h5,.md-h6{font-size:1em;color:var(--meta)}
+.md-list{margin:5px 0;padding-left:1.4em}
+.md-list li{margin:2px 0}
+.md-list .md-list{margin:2px 0}
+.md-quote{margin:6px 0;padding:6px 11px;border-left:3px solid var(--accline);background:var(--bg2);border-radius:0 10px 10px 0;color:var(--dim)}
+.md-hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+.md-pre{margin:6px 0;padding:9px 11px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+.md-pre code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;white-space:pre;color:var(--txt)}
+.md-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0}
+.md-t{border-collapse:collapse;width:100%;font-size:12.5px}
+.md-t th,.md-t td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.md-t th{background:var(--bg2);color:var(--txt);font-weight:600;white-space:nowrap}
 
 /* 输入区：一个胶囊，＋ 收在里面，右边是 ↑ */
 #composer{padding:8px 12px calc(env(safe-area-inset-bottom) + 10px);background:var(--bg);border-top:1px solid var(--line);display:flex}
@@ -557,10 +580,14 @@ const THEMES={
   light:{label:'浅色（白）',v:{'--bg':'#e7ebf1','--bg2':'#edf0f5','--panel':'#ffffff','--line':'#e1e6ef','--txt':'#0f1724','--dim':'#6b7280','--meta':'#5f6774','--acc':'#2f6fed','--acc2':'#5b8cf5','--accdim':'#e3ebfd','--accline':'#b9cdf7','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f5f9 0%,#e7ebf1 60%)','--shadow':'0 1px 2px rgba(16,24,40,.05)','--bubme':'linear-gradient(135deg,#e8ecf4,#dfe5ef)'}},
   /* 【新】黑白（极简）：纯黑底 + 白字 + 白色按钮，没有一点彩色。
      --onsend 是「白色按钮上的字/图标」颜色（黑），不然白按钮上的白图标会看不见。 */
-  mono:{label:'黑白（极简）',v:{'--bg':'#0a0a0a','--bg2':'#111111','--panel':'#161616','--line':'#2a2a2a','--txt':'#f2f2f2','--dim':'#9c9c9c','--meta':'#a8a8a8','--acc':'#e8e8e8','--acc2':'#ffffff','--accdim':'#202020','--accline':'#4a4a4a','--warn':'#8e8e8e','--grad':'linear-gradient(160deg,#181818 0%,#0a0a0a 62%)','--shadow':'0 1px 2px rgba(0,0,0,.5)','--bubme':'linear-gradient(135deg,#282828,#1e1e1e)','--onsend':'#0a0a0a','--accglow':'rgba(255,255,255,.32)','--scbg':'rgba(20,20,20,.92)','--scfg':'#f2f2f2'}},
+  mono:{label:'黑白（极简）',v:{'--bg':'#0a0a0a','--bg2':'#111111','--panel':'#161616','--line':'#2a2a2a','--txt':'#f2f2f2','--dim':'#9c9c9c','--meta':'#a8a8a8','--acc':'#e8e8e8','--acc2':'#ffffff','--accdim':'#202020','--accline':'#4a4a4a','--warn':'#8e8e8e','--grad':'linear-gradient(160deg,#181818 0%,#0a0a0a 62%)','--shadow':'0 1px 2px rgba(0,0,0,.5)','--bubme':'linear-gradient(135deg,#282828,#1e1e1e)','--onsend':'#0a0a0a','--accglow':'rgba(255,255,255,.32)','--scbg':'rgba(20,20,20,.92)','--scfg':'#f2f2f2',
+    /* 【新】黑白主题没有彩色可用，加粗/强调改用纯白 + 一层淡淡白底，不然和正文几乎一样 */
+    '--em':'#ffffff','--embg':'rgba(255,255,255,.14)'}},
   /* 【新】黑白（明亮）：白底黑字，按钮是黑的、字是白的。
      --onacc 是「深色按钮上的字色」（白色），--onsend 是「发送键上的图标色」（白色）。 */
-  paper:{label:'黑白（明亮）',v:{'--bg':'#f2f2f2','--bg2':'#f8f8f8','--panel':'#ffffff','--line':'#e4e4e4','--txt':'#111111','--dim':'#6b6b6b','--meta':'#5f5f5f','--acc':'#1a1a1a','--acc2':'#3d3d3d','--accdim':'#ececec','--accline':'#d8d8d8','--warn':'#6f6f6f','--grad':'linear-gradient(160deg,#ffffff 0%,#f2f2f2 62%)','--shadow':'0 1px 2px rgba(0,0,0,.06)','--bubme':'linear-gradient(135deg,#efefef,#e6e6e6)','--onacc':'#ffffff','--onsend':'#ffffff','--accglow':'rgba(0,0,0,.16)','--scbg':'rgba(255,255,255,.94)','--scfg':'#111111'}},
+  paper:{label:'黑白（明亮）',v:{'--bg':'#f2f2f2','--bg2':'#f8f8f8','--panel':'#ffffff','--line':'#e4e4e4','--txt':'#111111','--dim':'#6b6b6b','--meta':'#5f5f5f','--acc':'#1a1a1a','--acc2':'#3d3d3d','--accdim':'#ececec','--accline':'#d8d8d8','--warn':'#6f6f6f','--grad':'linear-gradient(160deg,#ffffff 0%,#f2f2f2 62%)','--shadow':'0 1px 2px rgba(0,0,0,.06)','--bubme':'linear-gradient(135deg,#efefef,#e6e6e6)','--onacc':'#ffffff','--onsend':'#ffffff','--accglow':'rgba(0,0,0,.16)','--scbg':'rgba(255,255,255,.94)','--scfg':'#111111',
+    /* 【新】同黑白（极简）：黑色强调 + 淡淡灰底 */
+    '--em':'#000000','--embg':'rgba(0,0,0,.08)'}},
   cyan:{label:'浅青（推荐）',v:{'--bg':'#e8edee','--bg2':'#eef2f3','--panel':'#ffffff','--line':'#dfe6e7','--txt':'#142b2e','--dim':'#5f7c80','--meta':'#4c6a6e','--acc':'#128e9c','--acc2':'#3ab0be','--accdim':'#dcf0f2','--accline':'#9fcbd2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f7f8 0%,#e8edee 60%)','--shadow':'0 1px 2px rgba(16,60,70,.05)','--bubme':'linear-gradient(135deg,#e6f1f2,#dbe9ec)'}},
   sea:{label:'青碧（暗）',v:{'--bg':'#0a1315','--bg2':'#101a1c','--panel':'#162023','--line':'#223033','--txt':'#d8eef0','--dim':'#7fa3a6','--meta':'#93b3b6','--acc':'#2fb3a8','--acc2':'#59e0d6','--accdim':'#10443f','--accline':'#1f6b66','--warn':'#e0776c','--grad':'linear-gradient(160deg,#131f22 0%,#0a1315 60%)','--shadow':'0 1px 2px rgba(0,0,0,.24)','--bubme':'linear-gradient(135deg,#10443f,#0b3a38)'}},
   sakura:{label:'樱雪（淡粉）',v:{'--bg':'#f2ecee','--bg2':'#f7f1f3','--panel':'#ffffff','--line':'#e8dfe2','--txt':'#33222b','--dim':'#8a6f7a','--meta':'#755c67','--acc':'#d2598f','--acc2':'#ec93bd','--accdim':'#fbe0ec','--accline':'#eec2d6','--warn':'#d9534f','--grad':'linear-gradient(160deg,#faf4f6 0%,#f2ecee 60%)','--shadow':'0 1px 2px rgba(120,60,90,.06)','--bubme':'linear-gradient(135deg,#f6e6ee,#f0dae5)'}},
@@ -577,6 +604,10 @@ function applyTheme(){
   r.setProperty('--onacc',t.v['--onacc']||'#02131c');
   r.setProperty('--onsend',t.v['--onsend']||'#fff');
   r.setProperty('--accglow',t.v['--accglow']||'rgba(63,169,216,.55)');
+  /* 【新】markdown 的强调色：主题里没写就用主题色；黑白主题写了高对比的那套 */
+  r.setProperty('--em',t.v['--em']||t.v['--acc']||'#3fa9d8');
+  r.setProperty('--embg',t.v['--embg']||'transparent');
+  r.setProperty('--empad',t.v['--embg']?'0 2px':'0');   /* 只有带底色的主题才留一点内边距 */
   r.setProperty('--fs',(((cfg&&cfg.fs)||15))+'px');
   /* 自动判断深浅：浅色主题给关闭键用白底深字，深色主题用深底浅字 */
   const lit=(()=>{
@@ -780,10 +811,147 @@ const msgBrief=m=>{
   const ex=(m&&m.img?'［图片］':'')+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
   return (s+(s&&ex?' ':'')+ex)||'（空）';
 };
-/* 轻量 markdown：**加粗** 和 `代码` 用主色显示；其它内容照旧转义，安全 */
-const mdLite=s=>nl2br(s)
-  .replace(/\*\*([^*\n]{1,120})\*\*/g,'<b class="hl">$1</b>')
-  .replace(/`([^`\n]{1,200})`/g,'<code class="hl">$1</code>');
+/* ---------- markdown 渲染（自己写的，不联网、不装库） ----------
+   支持：标题 #、列表 - / 1.、引用 >、代码块 ```、行内代码 `、
+        加粗 **、斜体 *、删除线 ~~、链接 [文字](网址)、表格、分隔线 ---
+   做法：先把整段文字转义（esc），再按语法拼标签，所以别人的原文里
+   写 <script> 也只会被当成普通文字显示，不会被执行。 */
+function mdLink(url,txt){
+  /* 网址在转义后已经变成 &amp; 这种写法，先还原再交给 safeUrl 检查，避免 && 变错 */
+  const raw=String(url).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+    .replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  return '<a class="md-a" href="'+safeUrl(raw)+'" target="_blank" rel="noopener noreferrer">'+txt+'</a>';
+}
+function mdInline(s){
+  const box=[];
+  const keep=h=>{box.push(h);return '\u0001'+(box.length-1)+'\u0001'};
+  let t=esc(s);
+  t=t.replace(/`([^`\n]{1,400})`/g,(m,c)=>keep('<code class="hl">'+c+'</code>'));
+  t=t.replace(/!?\[([^\]\n]{1,200})\]\(\s*(https?:\/\/[^\s)]+)\s*\)/g,(m,txt,url)=>keep(mdLink(url,txt)));
+  t=t.replace(/(^|[\s(（【])(https?:\/\/[^\s<>"）)】]+)/g,(m,pre,url)=>pre+keep(mdLink(url,url)));
+  t=t.replace(/\*\*([^\n]+?)\*\*/g,'<b class="hl">$1</b>');
+  t=t.replace(/__([^\n]+?)__/g,'<b class="hl">$1</b>');
+  t=t.replace(/~~([^\n]+?)~~/g,'<span class="md-s">$1</span>');
+  t=t.replace(/(^|[^*\w])\*([^*\n]+?)\*(?!\*)/g,'$1<i class="md-em">$2</i>');
+  t=t.replace(/(^|[^_\w])_([^_\n]+?)_(?!_)/g,'$1<i class="md-em">$2</i>');
+  t=t.replace(/\u0002/g,'<br>');           /* 列表里的续行 */
+  return t.replace(/\u0001(\d+)\u0001/g,(m,i)=>box[+i]);
+}
+const MD_BLOCK=/^\s{0,3}(#{1,6}\s|>\s?|([-*+]|\d{1,3}[.)])\s+|```|~~~)/;
+const MD_RULE=/^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
+const MD_TSEP=/^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
+function mdTableAt(L,i){return i+1<L.length&&String(L[i]).indexOf('|')>=0&&MD_TSEP.test(L[i+1])&&String(L[i+1]).indexOf('-')>=0}
+function mdHasBlock(src){
+  const L=src.split('\n');
+  for(let i=0;i<L.length;i++){
+    if(MD_BLOCK.test(L[i])||MD_RULE.test(L[i])||mdTableAt(L,i))return true;
+  }
+  return false;
+}
+function mdTableRow(s){return s.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(x=>x.trim())}
+/* 列表：按缩进一层层套（- 和 1. 都能混着用） */
+function mdBuildList(L,i){
+  const stack=[];
+  let html='',openLi=false;
+  const closeTo=ind=>{
+    while(stack.length&&stack[stack.length-1].ind>ind){
+      const s=stack.pop();
+      if(openLi)html+='</li>';
+      html+='</'+s.tag+'>';
+      openLi=stack.length>0;                  /* 里面收掉了，外面那一项还开着 */
+    }
+  };
+  while(i<L.length){
+    const m=/^(\s*)([-*+]|\d{1,3}[.)])\s+(.*)$/.exec(L[i]);
+    if(!m)break;
+    const ind=m[1].replace(/\t/g,'  ').length;
+    const ordered=/\d/.test(m[2]);
+    const tag=ordered?'ol':'ul';
+    let txt=m[3];
+    i++;
+    while(i<L.length&&/^\s{2,}\S/.test(L[i])&&!/^\s*([-*+]|\d{1,3}[.)])\s+/.test(L[i])){
+      txt+='\u0002'+L[i].trim();i++;
+    }
+    const item='<li>'+mdInline(txt);
+    closeTo(ind);
+    const top=stack.length?stack[stack.length-1]:null;
+    if(top&&ind>top.ind){                     /* 更深 → 在上一项里面再开一层 */
+      html+='<'+tag+' class="md-list">'+item;
+      stack.push({ind:ind,tag:tag});openLi=true;
+    }else if(top&&ind===top.ind&&top.tag!==tag){   /* 同一层但换了一种列表 */
+      if(openLi)html+='</li>';
+      html+='</'+top.tag+'>';
+      stack.pop();
+      html+='<'+tag+' class="md-list">'+item;
+      stack.push({ind:ind,tag:tag});openLi=true;
+    }else if(top&&ind===top.ind){             /* 同一层、同一种列表 */
+      if(openLi)html+='</li>';
+      html+=item;openLi=true;
+    }else{                                    /* 新的一层 */
+      html+='<'+tag+' class="md-list">'+item;
+      stack.push({ind:ind,tag:tag});openLi=true;
+    }
+  }
+  while(stack.length){
+    const s=stack.pop();
+    if(openLi)html+='</li>';
+    html+='</'+s.tag+'>';
+    openLi=stack.length>0;
+  }
+  return {html:html,i:i};
+}
+function mdBlocks(src){
+  const L=src.split('\n'),out=[];
+  let i=0,m;
+  while(i<L.length){
+    const ln=L[i];
+    if(!ln.trim()){i++;continue}
+    if((m=/^\s*(```+|~~~+)\s*([^\s`]*)\s*$/.exec(ln))){                    /* 代码块 */
+      const buf=[];
+      i++;
+      while(i<L.length&&!/^\s*(```+|~~~+)\s*$/.test(L[i])){buf.push(L[i]);i++}
+      if(i<L.length)i++;
+      out.push('<div class="md-pre"><code>'+esc(buf.join('\n'))+'</code></div>');
+      continue;
+    }
+    if((m=/^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(ln))){                 /* 标题 */
+      out.push('<div class="md-h md-h'+m[1].length+'">'+mdInline(m[2])+'</div>');
+      i++;continue;
+    }
+    if(MD_RULE.test(ln)){out.push('<hr class="md-hr">');i++;continue}      /* 分隔线 */
+    if(/^\s{0,3}>\s?/.test(ln)){                                           /* 引用 */
+      const buf=[];
+      while(i<L.length&&/^\s{0,3}>\s?/.test(L[i])){buf.push(L[i].replace(/^\s{0,3}>\s?/,''));i++}
+      out.push('<div class="md-quote">'+mdBlocks(buf.join('\n'))+'</div>');
+      continue;
+    }
+    if(mdTableAt(L,i)){                                                    /* 表格 */
+      const head=mdTableRow(L[i]),rows=[];
+      i+=2;
+      while(i<L.length&&L[i].trim()&&L[i].indexOf('|')>=0){rows.push(mdTableRow(L[i]));i++}
+      out.push('<div class="md-tw"><table class="md-t"><thead><tr>'+
+        head.map(c=>'<th>'+mdInline(c)+'</th>').join('')+'</tr></thead><tbody>'+
+        rows.map(r=>'<tr>'+head.map((_,k)=>'<td>'+mdInline(r[k]||'')+'</td>').join('')+'</tr>').join('')+
+        '</tbody></table></div>');
+      continue;
+    }
+    if(/^\s*([-*+]|\d{1,3}[.)])\s+/.test(ln)){                             /* 列表 */
+      const r=mdBuildList(L,i);
+      out.push(r.html);i=r.i;continue;
+    }
+    const buf=[ln];                                                        /* 普通段落 */
+    i++;
+    while(i<L.length&&L[i].trim()&&!MD_BLOCK.test(L[i])&&!MD_RULE.test(L[i])&&!mdTableAt(L,i))buf.push(L[i++]);
+    out.push('<p class="md-p">'+buf.map(mdInline).join('<br>')+'</p>');
+  }
+  return out.join('');
+}
+/* 普通消息（没有任何块级语法）就照老样子显示：转义 + 换行 + 行内语法，气泡里的时间还是贴着最后一行 */
+const mdLite=s=>{
+  const src=String(s==null?'':s).replace(/\r\n?/g,'\n');
+  if(!mdHasBlock(src))return src.split('\n').map(mdInline).join('<br>');
+  return mdBlocks(src);
+};
 const SUM_N=60,MAX_SCAN=4000;
 const MS_PER_MIN=60000;     /* 分钟换算成毫秒，用于自动消息和备份定时 */
 const MS_PER_DAY=86400000;  /* 一天的毫秒数，用于判断“昨天” */
@@ -1099,6 +1267,8 @@ function go(v){
     var m=document.getElementById('main');
     if(m&&v!=='tools')m.classList.remove('p6actfit');
   }catch(e){}
+  /* 进聊天页就贴到最新一条消息（图片/表情晚点才撑开也能跟上） */
+  if(v==='chat')try{pinChatBottom(true)}catch(e){}
 }
 /* 顶栏第二行的小字：角色 · 模型 · 自动发消息状态 */
 function topStatus(c){
@@ -1140,6 +1310,31 @@ let chatFollow=true,actFollow=true,groupFollow=true;
 const nearBottom=el=>!el||el.scrollHeight-el.scrollTop-el.clientHeight<80;
 const scrollDown=()=>{const m=$('#main');if(m&&chatFollow)m.scrollTop=m.scrollHeight};
 const scrollActDown=()=>{const b=document.getElementById('amsgs');if(b&&actFollow)b.scrollTop=b.scrollHeight};
+/* ---------- 进聊天页时，稳稳停在最新一条消息上 ----------
+   从桌面（点角色头像、或点「聊天」应用）进聊天时，消息里的图片、表情、
+   字体常常比滚动慢一步才把页面撑高，光滚一次会停在半路，所以多贴几次。 */
+function pinChatBottom(force){
+  const m=$('#main');if(!m)return;
+  const at=()=>{
+    if(typeof view!=='undefined'&&view!=='chat')return;
+    if(force)chatFollow=true;      /* 刚进聊天页：这一次一定要贴到底 */
+    if(!chatFollow)return;         /* 她在往上翻旧消息时，别抢滚动条 */
+    m.scrollTop=m.scrollHeight;
+  };
+  at();
+  requestAnimationFrame(at);
+  [60,150,300,520].forEach(d=>setTimeout(at,d));
+}
+/* 消息区一变高（图片加载完、表情包出现、换字体…）就立刻再贴一次底 */
+function watchChatBottom(){
+  const box=document.getElementById('msgs');
+  if(!box||!window.ResizeObserver)return;
+  try{
+    if(!window._chatRO)window._chatRO=new ResizeObserver(()=>{if(chatFollow)scrollDown()});
+    window._chatRO.disconnect();
+    window._chatRO.observe(box);
+  }catch(e){}
+}
 
 /* ---------- 软键盘弹出时，别让它挡住最后一条消息 ----------
    安卓上键盘弹出会让页面变矮（内容被顶出屏幕）或者干脆盖住底部，
@@ -2067,6 +2262,7 @@ function renderChatCore(){
     appendChatMessage(box,x,i);
   });
   scrollDown();
+  watchChatBottom();
 }
 /* ↓ 这个函数是十一层补丁合并后的样子（顺序与原来一层层包裹时一致） */
 function renderChat(){
@@ -2614,7 +2810,7 @@ function typeLastChatMsg(text){
 function sayOut(el,text){
   const t=window.P5&&window.P5.say;
   if(el&&typeof t==='function'){try{if(t(el,text))return}catch(e){}}
-  if(el)el.innerHTML=nl2br(text);
+  if(el)el.innerHTML=mdLite(text);
 }
 /* 把模型返回的文字、思考、用量组装成一条聊天记录。 */
 function makeAssistantMsg(out,reasoning,usage){
@@ -9999,7 +10195,7 @@ console.log('[深蓝海域] 补丁6-A 已加载');
         · 每场演绎的 ⚙ 设置里还能单独改这一场的旁白设定
    ③ 消息操作改成「长按消息」：
         复制 / 引用 / 编辑 / 重新生成 / 追加原文 / 加入记忆 / 朗读 /
-        删除 / 多选删除   （电脑上：右键消息）
+        删除 / 多选（可批量删除、也可批量追加原文）   （电脑上：右键消息）
    ④ 多选消息，批量删除
    粘法：整段粘到文件最末尾（补丁6-A 的后面），存盘刷新。
    ===================================================================== */
@@ -10034,9 +10230,10 @@ var CSS=[
 '.p6grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 4px;font-size:12.5px;line-height:1.2;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;border-radius:14px}',
 '.p6grid button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}',
 '.p6grid button.warn{color:var(--warn)}',
-'#p6bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 62px);display:none;align-items:center;gap:6px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line);z-index:88;box-shadow:0 -8px 22px rgba(0,0,0,.24)}',
+'#p6bar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 62px);display:none;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line);z-index:88;box-shadow:0 -8px 22px rgba(0,0,0,.24)}',
 '#p6bar.on{display:flex}',
-'#p6bar .n{flex:1;font-size:13px;color:var(--dim)}'
+'#p6bar .n{flex:1 1 auto;min-width:70px;font-size:13px;color:var(--dim)}',
+'#p6bar button{flex:0 0 auto;padding:6px 9px}'
 ].join('\n');
 var _st=document.createElement('style');_st.id='p6cssB';_st.textContent=CSS;
 (document.head||document.documentElement).appendChild(_st);
@@ -10273,7 +10470,7 @@ function openMsgSheet(i){
       mb('toMem',I.mem,'加入记忆')+
       mb('speak',I.speak,'朗读')+
       mb('del',I.del,'删除',true)+
-      mb('multi',I.multi,'多选删除',true)+
+      mb('multi',I.multi,'多选',true)+
     '</div>'+
     '<p class="dim" style="font-size:12px;margin:10px 0 0">以后想对某条消息做操作，<b>长按它</b>就行（电脑上是右键）。</p>'+
     '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="closeSheet()">取消</button></div>');
@@ -10371,6 +10568,7 @@ function barUpdate(){
   b.innerHTML='<span class="n">已选 '+Object.keys(sel.set).length+' 条</span>'+
    '<button class="ghost" onclick="P6.selAll()">全选</button>'+
    '<button class="ghost" onclick="P6.selNone()">清空</button>'+
+   '<button class="ghost" onclick="P6.selRaw()">追加原文</button>'+
    '<button class="ghost" style="color:var(--warn)" onclick="P6.selDel()">删除</button>'+
    '<button class="ghost" onclick="P6.selStop()">取消</button>';
 }
@@ -10383,7 +10581,7 @@ function bar(on){
 function selStart(){
   sel.on=true;sel.set={};
   renderChat();bar(true);
-  say('点消息可以选中／取消，选好了点下面的「删除」');
+  say('点消息可以选中／取消，选好了点下面的「追加原文」或「删除」');
 }
 var selStop=function(){
   sel.on=false;sel.set={};
@@ -10398,6 +10596,24 @@ P6.selDel=function(){
   if(!confirm('删除选中的 '+idx.length+' 条消息？删了就找不回来了'))return;
   idx.forEach(function(i){msgs.splice(i,1)});
   persist();var n=idx.length;selStop();renderChat();say('已删除 '+n+' 条');
+};
+/* 【新】把选中的这几条，按原来的先后顺序追加到「原文日志」里（不用管它们是不是连着的） */
+P6.selRaw=async function(){
+  var idx=Object.keys(sel.set).map(Number).filter(function(i){return msgs[i]}).sort(function(a,b){return a-b});
+  if(!idx.length)return say('先点几条消息选中');
+  var c=safeV(function(){return curChar()},null);
+  if(!c)return say('先去「角色」里选一个角色');
+  var who=function(m){return m.role==='user'?'我':((c.emoji||'')+' '+c.name)};
+  var head='===== '+new Date().toLocaleString('zh-CN')+'（手动挑选 '+idx.length+' 条） =====';
+  var body=idx.map(function(i){return who(msgs[i])+'：'+msgBrief(msgs[i])}).join('\n');
+  var n=idx.length;
+  selStop();
+  var ok=false;
+  try{
+    var prev=await rawGet(c.id);
+    ok=await rawPut(c.id,(prev||'')+head+'\n'+body+'\n\n');
+  }catch(e){ok=false}
+  say(ok?('已把 '+n+' 条追加到「'+c.name+'」的原文日志'):'追加失败');
 };
 
 /* ================================================================
