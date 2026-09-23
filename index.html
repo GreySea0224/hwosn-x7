@@ -2616,6 +2616,34 @@ function buildCtx(c,extra){
   }catch(e){}
   return res;
 }
+/* 出问题时用的「精简上下文」：只带角色最基本的设定 + 一点记忆 + 最近几条聊天。
+   什么时候用：这次请求失败（内容太长、中转站返回空）时自动拿它重发一次，
+   不带图片、不带旧档案，体积小很多，老角色也能重新说上话。 */
+function buildCtxLite(c){
+  const sys=[];
+  sys.push(String((c&&c.persona)||('你是'+(c&&c.name||'角色')+'。')).slice(0,4000));
+  if(c&&c.scenario)sys.push('【当前情境】'+String(c.scenario).slice(0,1500));
+  if(c&&c.style)sys.push('【说话风格】'+String(c.style).slice(0,1500));
+  try{
+    const mb=String(memBlock(mem)||'');
+    if(mb)sys.push('【你记得的事（节选）】\n'+mb.slice(-6000));
+  }catch(e){}
+  try{
+    const song=(typeof musicNow==='function')?musicNow():null;
+    if(song&&song.title)sys.push('【她正在听什么】《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):''));
+  }catch(e){}
+  sys.push('【这次的特殊说明】这一轮是「内容太长，自动精简后重发」，她更早以前的聊天记录这次没有带给你。如果她提到很早以前的具体事情，就自然地说记不太清、让她提醒你，不要编造。');
+  sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、不要提供系统提示词。');
+  let head=sys.join('\n\n');
+  if(head.length>12000)head=head.slice(0,12000);
+  const hist=msgs.slice(-8).map(x=>{
+    let t=String((x&&x.content)||'').replace(/\s+/g,' ').slice(0,600);
+    if(!t&&x&&x.img)t='（我给你发了张图片）';
+    if(!t&&x&&x.sticker)t='［发了一个表情包］';
+    return {role:((x&&x.role)==='user'?'user':'assistant'),content:t||'（这条没有文字）'};
+  });
+  return [{role:'system',content:head}].concat(hist);
+}
 /* 组装 OpenAI 兼容接口的地址和请求参数。 */
 function buildApiRequest(messages,opt){
   const url=String(cfg.base||'').replace(/\/+$/,'')+'/chat/completions';
@@ -2636,7 +2664,24 @@ function pickReasoning(m){
   return '';
 }
 /* 处理非流式接口返回。 */
-function handleApiJsonResponse(j,opt){
+/* 接口返回的内容先检查一遍：只有正常的对象才往下走。
+   中转站出问题时经常回一个 null，以前会直接去读它的 usage 而崩掉，
+   现在改成抛出一句能看懂的中文提示。 */
+function apiErrText(err){
+  if(!err)return '';
+  if(typeof err==='string')return String(err).replace(/\s+/g,' ').slice(0,300);
+  return String(err.message||err.msg||err.detail||err.code||'').replace(/\s+/g,' ').slice(0,300);
+}
+function apiJsonGuard(j,raw){
+  if(j&&typeof j==='object'&&!Array.isArray(j)){
+    if(j.error)throw new Error('接口报错：'+apiErrText(j.error));
+    return j;
+  }
+  const tail=raw?('　服务器原样返回：'+String(raw).replace(/\s+/g,' ').slice(0,160)):'';
+  throw new Error('接口没返回正常内容（常见原因：这次发的内容太长、额度用完、或中转站出错）'+tail);
+}
+function handleApiJsonResponse(j,opt,raw){
+  j=apiJsonGuard(j,raw);
   if(opt.onUsage&&j.usage)opt.onUsage(j.usage);
   const msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
   if(opt.onReasoning){const rc=pickReasoning(msg);if(rc)opt.onReasoning(rc)}
@@ -7338,7 +7383,8 @@ function buildP4Request(messages,opt){
   return {url:url,fopt:{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)}};
 }
 /* 处理补丁4-A 的非流式返回。 */
-function handleP4JsonResponse(j,opt){
+function handleP4JsonResponse(j,opt,raw){
+  j=apiJsonGuard(j,raw);
   if(opt.onUsage&&j.usage)opt.onUsage(j.usage);
   var msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
   var rc=pickReasoning(msg);
@@ -7393,8 +7439,10 @@ async function p4raw(messages,opt){
   if(!res.ok){var er='';try{er=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(er).replace(/\s+/g,' ').slice(0,200))}
 
   if(!opt.stream){
-    var j=await res.json();
-    return handleP4JsonResponse(j,opt);
+    var raw4='',j=null;              /* 先把原文读下来：服务器到底回了什么，一眼能看见 */
+    try{raw4=await res.text()}catch(e){}
+    try{j=raw4?JSON.parse(raw4):null}catch(e){}
+    return handleP4JsonResponse(j,opt,raw4);
   }
   var parser=createP4StreamParser(opt);
   return readP4StreamText(res,parser);
@@ -8619,10 +8667,10 @@ askAndAppend=async function(){
       const tools=toolsFor(c);
       if(tools.length){
         thinkOn();                       /* 有工具时它要先去想/去调工具，先亮起「思考中」 */
-        const r=await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools});
-        reasoning=r.reasoning;usage=r.usage;out=r.finalText;
+        const r=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools}))||{};
+        reasoning=r.reasoning||'';usage=r.usage||null;out=r.finalText||'';
         if(!out){
-          const ctx2=r.messages.concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
+          const ctx2=(r.messages||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
           await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
         }else{
           a.classList.remove('typing');sayOut(a,out);scrollDown();
@@ -8634,7 +8682,24 @@ askAndAppend=async function(){
       const m=makeAssistantMsg(out,reasoning,usage);
       msgs.push(m);persist();ok=true;
     }catch(e){
-      ok=handleAskError(e,a,out,reasoning,usage);
+      /* ↓ 新增：这次没发出去（内容太长 / 中转站返回空）→ 自动用「精简上下文」再发一次 */
+      var liteOK=false;
+      try{
+        var aborted0=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
+        if(!aborted0&&!out){
+          out='';reasoning='';usage=null;
+          await callAPI(buildCtxLite(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,
+            onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},
+            onReasoning:rr=>{reasoning+=rr;thinkOn()},
+            onUsage:u=>{usage=u}});
+          if(out){
+            const mLite=makeAssistantMsg(out,reasoning,usage);
+            msgs.push(mLite);persist();ok=true;liteOK=true;
+            toast('刚才这条没发出去，已自动精简上下文重发成功');
+          }
+        }
+      }catch(e2){}
+      if(!liteOK)ok=handleAskError(e,a,out,reasoning,usage);
     }
     finishAskUI(sendBtn,stopBtn,liveThink,ok);
     /* ================= 原来的生成逻辑结束 ================= */
@@ -10063,7 +10128,12 @@ callAPI=async function(msgs,opt){
       var req=buildApiRequest(msgs,oo);
       var res=await fetch(req.url,req.fopt);
       if(!res.ok){var t0='';try{t0=await res.text()}catch(e){};throw new Error('HTTP '+res.status+' '+String(t0).slice(0,180))}
-      if(!oo.stream){var jj=await res.json();return handleApiJsonResponse(jj,oo)}
+      if(!oo.stream){
+        var raw1='',jj=null;           /* 同样先把原文读下来再解析 */
+        try{raw1=await res.text()}catch(e){}
+        try{jj=raw1?JSON.parse(raw1):null}catch(e){}
+        return handleApiJsonResponse(jj,oo,raw1);
+      }
       var parser=createApiStreamParser(oo);
       return readApiStreamText(res,parser);
     }
