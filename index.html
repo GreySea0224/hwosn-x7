@@ -21,7 +21,7 @@
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{font:var(--fs)/1.65 -apple-system,"PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--txt);display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
 header{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;background:var(--grad);border-bottom:1px solid var(--line)}
 header h1{margin:0;font-size:16px;font-weight:700;letter-spacing:.5px;color:var(--acc);flex:0 0 auto}
@@ -467,18 +467,24 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .momcmt .cmtdel .msvg{width:12px;height:12px;vertical-align:0}
 #main input[type=range],.sheet input[type=range]{padding:0;border:0;background:transparent;box-shadow:none;height:22px;accent-color:var(--acc)}
 
-/* 角色帮你操作音乐后，聊天里留一行简约的小胶囊提示 */
-.mctl{display:inline-flex;align-items:center;gap:8px;width:fit-content;max-width:calc(92% - 38px);margin:7px 0 0 38px;padding:5px 12px 5px 5px;font-size:11.5px;line-height:1.5;letter-spacing:.2px;color:var(--meta);background:var(--bg2);border:1px solid var(--line);border-radius:999px;animation:mctlIn .22s ease both}
-.mctl.me{margin-left:auto;margin-right:38px}
-.mctl i{width:20px;height:20px;flex:0 0 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--accdim);color:var(--acc)}
-.mctl i svg{width:11px;height:11px;display:block;fill:currentColor;stroke:none}
-.mctl b{color:var(--txt);font-weight:600}
-.mctl em{font-style:normal;color:var(--acc);display:inline-block;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:baseline}
-.mctl.tap{cursor:pointer}
-.mctl.tap:active{filter:brightness(1.08)}
-.mctl[data-act="play"] i{animation:mctlPulse 1.9s ease-in-out infinite}
-@keyframes mctlIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@keyframes mctlPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 0 0 4px var(--accdim)}}
+/* 工具小条：角色做了什么（放歌 / 玩具 / 画图 / 联网…），聊天里都长这样 */
+.tchip{display:inline-flex;align-items:center;gap:8px;width:fit-content;max-width:calc(92% - 38px);margin:7px 0 0 38px;padding:4px 12px 4px 4px;font-size:11.5px;line-height:1.5;letter-spacing:.2px;color:var(--meta);background:var(--bg2);border:1px solid var(--line);border-radius:999px;word-break:break-word;text-size-adjust:100%;-webkit-text-size-adjust:100%;animation:tchipIn .2s ease both}
+.tchip.me{margin-left:auto;margin-right:38px}
+.tchip>.ic{width:20px;height:20px;flex:0 0 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--accdim);color:var(--acc);font-size:12px;line-height:1;font-style:normal}
+.tchip>.ic svg{width:11px;height:11px;display:block;fill:currentColor;stroke:none}
+.tchip .tx{font-size:11.5px;line-height:1.5}
+.tchip b{font-size:11.5px;font-weight:600;color:var(--txt)}
+.tchip .sg{font-size:11.5px;font-weight:600;color:var(--acc)}
+.tchip u{text-decoration:none;color:var(--acc)}
+.tchip.tap{cursor:pointer}
+.tchip.tap:active{filter:brightness(1.08)}
+.tchip.wait{color:var(--dim)}
+.tchip[data-act="play"]>.ic{animation:tchipPulse 1.9s ease-in-out infinite}
+.tchiprow{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 0 38px;max-width:calc(92% - 38px)}
+.tchiprow .tchip{margin:0;max-width:100%}
+.gtoy .tchip{margin:0}
+@keyframes tchipIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes tchipPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 0 0 4px var(--accdim)}}
 
 </style>
 </head>
@@ -1787,7 +1793,7 @@ function appendChatMessage(box,x,i){
   appendMessageMeta(box,x,isMe);
   if(i===msgs.length-1&&!busy)appendMessageOps(box,x);
 }
-/* ---------- 角色操作音乐后，聊天里那行小提示（播放 / 暂停 / 下一首） ---------- */
+/* ---------- 工具小条：角色做了什么，聊天里留的一行（播放 / 暂停 / 玩具 / 画图…共用一套样子） ---------- */
 const MCTL_IC={
   play:'<svg viewBox="0 0 24 24"><path d="M8.6 5.6v12.8L18.6 12z"/></svg>',
   pause:'<svg viewBox="0 0 24 24"><rect x="7.4" y="5.2" width="3.4" height="13.6" rx="1.7"/><rect x="13.2" y="5.2" width="3.4" height="13.6" rx="1.7"/></svg>',
@@ -1795,19 +1801,51 @@ const MCTL_IC={
 };
 function mctlAct(a){return (a==='pause'||a==='next')?a:'play'}
 function mctlVerb(a){a=mctlAct(a);return a==='pause'?'暂停了':(a==='next'?'下一首':'继续播放')}
+/* 小条里面长这样：左边一个小圆图标（emoji 或矢量图），右边一行小字 */
+function tchipIconHTML(ic){
+  if(!ic)return '';
+  const s=String(ic);
+  return '<i class="ic">'+(s.indexOf('<svg')===0?s:esc(s))+'</i>';
+}
+function tchipOuterHTML(ic,html){
+  return tchipIconHTML(ic)+'<span class="tx">'+((html==null)?'':html)+'</span>';
+}
+/* 把「🎲 掷骰子…」这种开头带表情的话，拆成「小图标 + 文字」 */
+function tchipParts(txt){
+  const s=String((txt==null)?'':txt).trim();
+  const m=s.match(/^(?:[\u2190-\u2BFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uFE0F\u200D])+\s*/);
+  return m?{ic:m[0].trim(),tx:s.slice(m[0].length).trim()}:{ic:'',tx:s};
+}
+/* 纯文字的小条（玩具那种）：表情自动搬到左边小圆里 */
+function tchipPlainEl(txt,opts){
+  opts=opts||{};
+  const p=tchipParts(txt);
+  const d=document.createElement('div');
+  d.className='tchip'+(opts.me?' me':'')+(opts.tap?' tap':'');
+  d.innerHTML=tchipOuterHTML(p.ic,esc(p.tx));
+  if(opts.onclick)d.onclick=opts.onclick;
+  return d;
+}
+/* 音乐小条：左边图标 +「继续播放 / 暂停了 / 下一首」+ 歌名（太长就截断） */
+function mctlName(nm){
+  nm=String(nm==null?'':nm).trim();
+  if(nm.length>18)nm=nm.slice(0,18)+'…';
+  return nm;
+}
 function musicChipHTML(mu){
-  const a=mctlAct(mu&&mu.act),nm=String((mu&&mu.name)||'');
-  return '<i>'+MCTL_IC[a]+'</i><span><b>'+mctlVerb(a)+'</b>'+(nm?(' <em>'+esc(nm)+'</em>'):'')+'</span>';
+  const a=mctlAct(mu&&mu.act),nm=mctlName(mu&&mu.name);
+  return tchipOuterHTML(MCTL_IC[a],'<b>'+mctlVerb(a)+'</b>'+(nm?(' <span class="sg">'+esc(nm)+'</span>'):''));
 }
 function musicChipEl(mu,isMe){
   const d=document.createElement('div');
-  d.className='mctl tap'+(isMe?' me':'');
+  d.className='tchip tap'+(isMe?' me':'');
   d.innerHTML=musicChipHTML(mu);
   return musicChipBind(d,mu);
 }
 /* 让这条提示可以点：点一下直接去「音乐」小应用 */
 function musicChipBind(el,mu){
   if(!el)return el;
+  el.classList.add('tap');
   el.setAttribute('data-music','1');
   el.setAttribute('data-act',mctlAct(mu&&mu.act));
   el.title='点一下去「音乐」看看';
@@ -1857,8 +1895,8 @@ function renderChat(){
           if(!x.search||!x.search.q||!x.search.list)return;
           const b=bubs[i];if(!b)return;
           const t=document.createElement('div');
-          t.className='srcline'+(x.role==='user'?' me':'');
-          t.innerHTML='🌐 联网查过：'+esc(x.search.q)+'（'+x.search.list.length+' 条）· <u>看来源</u>';
+          t.className='tchip tap'+(x.role==='user'?' me':'');
+          t.innerHTML=tchipOuterHTML('🌐','联网查过：'+esc(x.search.q)+'（'+x.search.list.length+' 条）· <u>看来源</u>');
           t.onclick=()=>showSearchRes(x.search);
           if(b.nextSibling)b.parentNode.insertBefore(t,b.nextSibling);else b.parentNode.appendChild(t);
         });
@@ -1874,7 +1912,15 @@ function renderChat(){
         if(!x.toys||!x.toys.length)return;
         var b=bubs3[i];if(!b)return;
         var d3=document.createElement('div');
-        d3.className='srcline';d3.textContent=x.toys.join('　');
+        d3.className='tchiprow';
+        d3.innerHTML=x.toys.map(function(t){
+          var p=tchipParts(t),fav=(String(t).indexOf('好感度')>=0);
+          return '<span class="tchip'+(fav?' tap':'')+'">'+tchipOuterHTML(p.ic,esc(p.tx))+'</span>';
+        }).join('');
+        /* 好感度那条可以点：点一下回档（撤销上一次变化） */
+        Array.prototype.slice.call(d3.querySelectorAll('.tchip.tap')).forEach(function(el){
+          el.onclick=function(){try{P5.favUndoLast(curId)}catch(e){}};
+        });
         if(b.nextSibling)b.parentNode.insertBefore(d3,b.nextSibling);else b.parentNode.appendChild(d3);
       });
     }
@@ -1888,8 +1934,11 @@ function renderChat(){
         Array.prototype.slice.call(box4.querySelectorAll('.srcline')).forEach(function(el){
           if(el.onclick)return;                       /* 联网来源那条不动 */
           if(String(el.textContent).indexOf('🌐')>=0)return;
-          el.className='toychip';
+          /* 统一成新的小条样子（开头那个表情搬进左边小圆） */
+          var pt=tchipParts(el.textContent);
+          el.className='tchip';
           el.setAttribute('data-toy','1');
+          if(pt.ic)el.innerHTML=tchipOuterHTML(pt.ic,esc(pt.tx));
           if(String(el.textContent).indexOf('好感度')>=0){
             el.classList.add('tap');
             el.onclick=function(){P5.favUndoLast(curId)};
@@ -5959,17 +6008,28 @@ async function doSearchStep(c){
   pendingSearch='';pendingSM=null;
   const box=$('#msgs');if(!box||!cfg.key)return;
   const st=document.createElement('div');
-  st.className='searchline';
-  st.innerHTML='🔎 正在想：要不要上网查一下…';
+  st.className='tchip';
+  st.innerHTML=tchipOuterHTML('🔎','正在想：要不要上网查一下…');
+  /* 搜索过程中它一直改这行字：开头那个表情搬到左边小圆里，剩下的照原样显示 */
+  const setTxt=function(t){
+    try{
+      const s=String(t||'').trim();
+      if(!s){if(st.parentNode)st.remove();return}
+      if(!st.parentNode)box.appendChild(st);
+      const p=tchipParts(s);
+      st.innerHTML=tchipOuterHTML(p.ic||'🔎',p.tx);
+    }catch(e){}
+    try{scrollDown()}catch(e){}
+  };
   box.appendChild(st);scrollDown();
   const conv=(msgs||[]).slice(-6).map(m=>(m.role==='user'?'她':c.name)+'：'+(m.content||'')).join('\n');
   let r=null;
-  try{r=await searchForChar(c,conv,t=>{st.innerHTML=t;scrollDown()})}catch(e){}
+  try{r=await searchForChar(c,conv,setTxt)}catch(e){}
   if(!r){if(st.parentNode)st.remove();return}
   pendingSearch=r.block;
   pendingSM={q:r.q,list:r.list};
-  st.className='searchline on';
-  st.innerHTML='🌐 联网搜索：<b>'+esc(r.q)+'</b> · '+r.list.length+' 条资料（点这里看来源）';
+  st.className='tchip tap';
+  st.innerHTML=tchipOuterHTML('🌐','联网搜索：<b>'+esc(r.q)+'</b> · '+r.list.length+' 条资料（点这里看来源）');
   st.onclick=()=>showSearchRes(pendingSM);
   scrollDown();
 }
@@ -6871,7 +6931,7 @@ function liveBubble(){
 function chatLine(html,cls){
   var box=document.getElementById('msgs');if(!box)return null;
   var el=document.createElement('div');
-  el.className=cls||'toychip';el.innerHTML=html;
+  el.className=cls||'tchip';el.innerHTML=html;
   var tp=liveBubble();
   if(tp&&tp.parentNode===box)box.insertBefore(el,tp);else box.appendChild(el);
   try{scrollDown()}catch(e){}
@@ -6892,7 +6952,14 @@ function emitToy(name,args,cid,msg){
     gToys.push({cid:cid,msg:msg,t:Date.now(),used:0});
     if(gTurn&&view==='tools'&&toolTab==='group')groupLine(nm,msg);
   }else{
-    if(view==='chat')chatLine('<b>'+esc(nm)+'</b><span>'+esc(msg)+'</span>');
+    if(view==='chat'){
+      var tp2=tchipParts(msg);
+      var el2=chatLine(tchipOuterHTML(tp2.ic,esc(tp2.tx)),'tchip');
+      if(el2&&String(msg).indexOf('好感度')>=0){
+        el2.classList.add('tap');
+        el2.onclick=function(){try{P5.favUndoLast(cid)}catch(e){}};
+      }
+    }
   }
 }
 
@@ -6931,7 +6998,7 @@ execCharTool=function(name,args,cid){
         window.P5MUSIC=window.P5MUSIC||[];
         window.P5MUSIC.push({act:rm.act||'play',name:rm.name||'',t:Date.now()});
         /* 先马上显示一条，不用等它把话说完整 */
-        if(view==='chat')musicChipBind(chatLine(musicChipHTML(rm),'mctl tap'),rm);
+        if(view==='chat')musicChipBind(chatLine(musicChipHTML(rm),'tchip tap'),rm);
       }
     }catch(e){}
     return {ok:!!(rm&&rm.ok),msg:(rm&&rm.msg)||'音乐操作没成功'};
@@ -6962,7 +7029,7 @@ execCharTool=function(name,args,cid){
   if(name==='send_group_message'&&r&&r.ok){
     var g2=null;try{g2=findGroupFlex(args&&args.group,cid)}catch(e){}
     if(g2&&view==='chat')
-      chatLine('<b>'+esc(p5CharName(cid))+'</b><span>在《'+esc(g2.name)+'》里说了一句：'+esc(String((args&&args.text)||'').slice(0,60))+'</span>');
+      chatLine(tchipOuterHTML('💬','<b>'+esc(p5CharName(cid))+'</b> 在《'+esc(g2.name)+'》里说了一句：'+esc(String((args&&args.text)||'').slice(0,60))),'tchip');
     if(g2&&!(view==='tools'&&toolTab==='group'&&groupOpenId===g2.id))
       P5.notify({kind:'group',gid:g2.id,name:p5CharName(cid),emoji:(c&&c.emoji)||'',
         avatar:(c&&c.avatar)||'',text:String((args&&args.text)||''),where:g2.name});
@@ -6984,7 +7051,10 @@ function decorateGroupToys(){
     var el=rows[i];if(!el)continue;
     var d=document.createElement('div');
     d.className='gtoy'+(m.role==='user'?' me':'');
-    d.innerHTML=m.toys.map(function(t){return '<span class="toychip">'+esc(t)+'</span>'}).join('');
+    d.innerHTML=m.toys.map(function(t){
+      var p=tchipParts(t);
+      return '<span class="tchip">'+tchipOuterHTML(p.ic,esc(p.tx))+'</span>';
+    }).join('');
     if(el.nextSibling)el.parentNode.insertBefore(d,el.nextSibling);else el.parentNode.appendChild(d);
   }
 }
@@ -7576,7 +7646,7 @@ window.DRAW_TOOL=DRAW_TOOL;   /* 挂到全局：toolsFor 要用 */
 function chatLineB(html,cls){
   var box=document.getElementById('msgs');if(!box)return null;
   var el=document.createElement('div');
-  el.className=cls||'toychip';el.innerHTML=html;
+  el.className=cls||'tchip';el.innerHTML=html;
   var tp=box.querySelector('.bub[data-live="1"]')||box.querySelector('.bub.typing');
   if(tp&&tp.parentNode===box)box.insertBefore(el,tp);else box.appendChild(el);
   try{scrollDown()}catch(e){}
@@ -7585,8 +7655,8 @@ function chatLineB(html,cls){
 /* 画图成功：更新聊天里的占位并插入预览图。 */
 function finishDrawSuccess(chip,nm,cap,url){
   if(!chip)return;
-  chip.className='toychip';
-  chip.innerHTML='<b>'+esc(nm)+'</b><span>🖼 画好啦'+(cap?('：'+esc(cap)):'')+'</span>';
+  chip.className='tchip';
+  chip.innerHTML=tchipOuterHTML('🖼','<b>'+esc(nm)+'</b> 画好啦'+(cap?('：'+esc(cap)):''));
   var par=chip.parentNode;
   if(par){
     var im=document.createElement('img');
@@ -7599,8 +7669,8 @@ function finishDrawSuccess(chip,nm,cap,url){
 function drawErrorResult(chip,nm,e){
   var em=String((e&&e.message)||e).slice(0,120);
   if(chip){
-    chip.className='toychip';
-    chip.innerHTML='<b>'+esc(nm)+'</b><span>🎨 画图失败：'+esc(em.slice(0,60))+'</span>';
+    chip.className='tchip';
+    chip.innerHTML=tchipOuterHTML('🎨','<b>'+esc(nm)+'</b> 画图失败：'+esc(em.slice(0,60)));
   }
   return {ok:false,msg:'画图失败：'+em+'（可以告诉她画不出来，或者直接继续聊天）'};
 }
@@ -7612,9 +7682,9 @@ P5.drawStep=async function(args,cid){
   var cap=String((args&&args.caption)||'').trim().slice(0,200);
   var chip=null;
   if(view==='chat')
-    chip=chatLineB('<b>'+esc(nm)+'</b><span>🎨 正在画「'+esc(prompt.slice(0,36)||'…')+'」…</span>','toychip wait');
+    chip=chatLineB(tchipOuterHTML('🎨','<b>'+esc(nm)+'</b> 正在画「'+esc(prompt.slice(0,36)||'…')+'」…'),'tchip wait');
   if(!prompt){
-    if(chip)chip.innerHTML='<b>'+esc(nm)+'</b><span>🎨 想画点什么，但没写清楚</span>';
+    if(chip)chip.innerHTML=tchipOuterHTML('🎨','<b>'+esc(nm)+'</b> 想画点什么，但没写清楚');
     return {ok:false,msg:'没有画面描述，画不了。请再调用一次并写清 prompt。'};
   }
   try{
