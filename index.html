@@ -486,6 +486,26 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 @keyframes tchipIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @keyframes tchipPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 0 0 4px var(--accdim)}}
 
+/* ---------- 通用小图标：小条里的表情换成本地矢量图（线条风） ---------- */
+.ci{width:15px;height:15px;vertical-align:-2.6px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tchip>.ic svg.ci{width:11px;height:11px;display:block;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.tchip>.ic svg.ci.fl{fill:currentColor;stroke:none}
+
+/* ---------- 音乐：播放方式（顺序 / 单曲循环 / 随机） ---------- */
+.seg.mmodes{gap:4px;padding:3px;margin-top:10px;background:var(--bg2);border:1px solid var(--line);border-radius:14px}
+.seg.mmodes button{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;background:transparent;padding:8px 4px;border-radius:11px}
+.seg.mmodes button.on{background:var(--accdim);border:0;color:var(--acc)}
+.seg.mmodes .msvg{width:1.2em;height:1.2em;vertical-align:-.2em}
+
+/* ---------- 世界书 ---------- */
+.wbchk{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.wbchk label{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--bg2);font-size:12.5px;color:var(--dim);box-shadow:none}
+.wbchk label.on{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
+.wbchk input[type=checkbox]{width:auto;margin:0;flex:0 0 auto}
+.wbtxt{font-size:12.5px;line-height:1.65;color:var(--txt);white-space:pre-wrap;word-break:break-word;margin:6px 0 0}
+.wbwho{font-size:11.5px;color:var(--dim);margin-top:7px}
+.wbwho .n{color:var(--acc)}
+
 </style>
 </head>
 <body>
@@ -1004,6 +1024,25 @@ let chatFollow=true,actFollow=true,groupFollow=true;
 const nearBottom=el=>!el||el.scrollHeight-el.scrollTop-el.clientHeight<80;
 const scrollDown=()=>{const m=$('#main');if(m&&chatFollow)m.scrollTop=m.scrollHeight};
 const scrollActDown=()=>{const b=document.getElementById('amsgs');if(b&&actFollow)b.scrollTop=b.scrollHeight};
+
+/* ---------- 软键盘弹出时，别让它挡住最后一条消息 ----------
+   安卓上键盘弹出会让页面变矮（内容被顶出屏幕）或者干脆盖住底部，
+   这两种情况浏览器都不会帮我们滚回最新消息，所以点输入框时自己贴底。
+   kbPin=「正在打字、要看最新消息」；手指碰聊天区或离开输入框就取消。 */
+window.kbPin=false;
+function kbKeepBottom(){
+  if(!window.kbPin)return;
+  if(typeof view!=='undefined'&&view!=='chat')return;      /* 只在聊天页动手 */
+  const m=$('#main');if(!m)return;
+  chatFollow=true;                                         /* 之后来的新消息也继续跟到最新 */
+  m.scrollTop=m.scrollHeight;
+}
+function kbPinOn(){
+  window.kbPin=true;
+  kbKeepBottom();
+  [60,150,280,450].forEach(d=>setTimeout(kbKeepBottom,d));  /* 键盘是渐变动画，多贴几次才稳 */
+}
+function kbPinOff(){window.kbPin=false}
 
 /* ---------- 记忆上下文（角色设置里的「记忆」标签页共用） ---------- */
 function setMemCtx(id){
@@ -1802,10 +1841,57 @@ const MCTL_IC={
 function mctlAct(a){return (a==='pause'||a==='next')?a:'play'}
 function mctlVerb(a){a=mctlAct(a);return a==='pause'?'暂停了':(a==='next'?'下一首':'继续播放')}
 /* 小条里面长这样：左边一个小圆图标（emoji 或矢量图），右边一行小字 */
+/* ---------- 小图标库：小条里原来的表情符号，换成本地矢量图（简约线条风） ---------- */
+const CHIP_IC=(function(){
+  const P={
+    dice:'<rect x="3.8" y="3.8" width="16.4" height="16.4" rx="4.4"/><circle cx="9" cy="9" r="1.35"/><circle cx="15" cy="15" r="1.35"/><circle cx="12" cy="12" r="1.35"/>',
+    coin:'<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.6"/>',
+    card:'<rect x="4.6" y="3.6" width="14.8" height="16.8" rx="3.2"/><path d="M8.6 8.6h6.8M8.6 12h6.8M8.6 15.4h3.6"/>',
+    clock:'<circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.4 2.1"/>',
+    drop:'<path d="M12 4.2c3.1 3.5 6 6.2 6 9.4a6 6 0 0 1-12 0c0-3.2 2.9-5.9 6-9.4Z"/>',
+    memo:'<path d="M5.6 4.6h8.6l4.2 4.2v10.6H5.6z"/><path d="M14 4.6v4.4h4.4M9 13.2h6M9 16.2h4"/>',
+    book:'<path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/>',
+    heart:'<path d="M12 19.6s-6.8-4.3-6.8-8.5A3.9 3.9 0 0 1 12 8.3a3.9 3.9 0 0 1 6.8 2.8c0 4.2-6.8 8.5-6.8 8.5Z"/>',
+    globe:'<circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/><path d="M12 3.6c2.2 2.4 3.3 5.3 3.3 8.4S14.2 18 12 20.4C9.8 18 8.7 15.1 8.7 12S9.8 6 12 3.6Z"/>',
+    search:'<circle cx="10.6" cy="10.6" r="6"/><path d="m15.2 15.2 4.6 4.6"/>',
+    chat:'<path d="M20 11.6c0 4-3.6 7.2-8 7.2-1 0-1.9-.2-2.8-.5L4.6 19.8l1.2-3.5a6.8 6.8 0 0 1-2-4.7c0-4 3.6-7.2 8-7.2s8.2 3.2 8.2 7.2Z"/><circle cx="8.6" cy="11.6" r="1"/><circle cx="12" cy="11.6" r="1"/><circle cx="15.4" cy="11.6" r="1"/>',
+    image:'<rect x="3.8" y="5.4" width="16.4" height="13.2" rx="3"/><circle cx="9" cy="10.4" r="1.5"/><path d="m4.6 17.2 4.6-4.2 3.6 3.2 3.2-2.6 3.4 3"/>',
+    palette:'<path d="M12 20.2a8.2 8.2 0 1 1 8.2-8.2c0 2-1.4 3-3 3h-1.6a1.9 1.9 0 0 0-1.4 3.2 1.9 1.9 0 0 1-1.4 3.2Z"/><circle cx="8.4" cy="11.4" r="1.1"/><circle cx="11.6" cy="8.4" r="1.1"/><circle cx="15.2" cy="10.6" r="1.1"/>'
+  };
+  const FL={
+    play:'<svg class="ci fl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6v12.8L18.6 12z"/></svg>',
+    pause:'<svg class="ci fl" viewBox="0 0 24 24" aria-hidden="true"><rect x="7.4" y="5.2" width="3.4" height="13.6" rx="1.7"/><rect x="13.2" y="5.2" width="3.4" height="13.6" rx="1.7"/></svg>',
+    next:'<svg class="ci fl" viewBox="0 0 24 24" aria-hidden="true"><rect x="16" y="6.2" width="2.6" height="11.6" rx="1.3"/><path d="M5.4 6.8v10.4L13.8 12z"/></svg>'
+  };
+  return {
+    '🎲':P.dice,'🪙':P.coin,'👉':P.card,'🕒':P.clock,'🕐':P.clock,'🕑':P.clock,'🕓':P.clock,
+    '🫧':P.drop,'💧':P.drop,'📝':P.memo,'🗒':P.memo,'📖':P.book,'📕':P.book,
+    '💠':P.heart,'❤':P.heart,'❤️':P.heart,'💖':P.heart,'🌐':P.globe,'🔎':P.search,'🔍':P.search,
+    '💬':P.chat,'🖼':P.image,'🎨':P.palette,'▶':FL.play,'⏸':FL.pause,'⏭':FL.next
+  };
+})();
+function chipIconKey(s){return String(s==null?'':s).replace(/[\uFE0E\uFE0F\u200D]/g,'').trim()}
+/* 把「一个（或几个）表情」换成矢量图；认不出来就返回空字符串（外面会原样显示表情） */
+function chipIconSVG(ic){
+  const raw=String(ic==null?'':ic).trim();
+  if(!raw)return '';
+  if(raw.indexOf('<svg')===0)return raw;              /* 本来就是矢量图，直接用 */
+  const mk=p=>(p.indexOf('<svg')===0)?p:('<svg class="ci" viewBox="0 0 24 24" aria-hidden="true">'+p+'</svg>');
+  const one=CHIP_IC[chipIconKey(raw)];
+  if(one)return mk(one);
+  /* 一条里挤了好几个表情（少见）：都认出来才换 */
+  const arr=Array.from(chipIconKey(raw));
+  if(arr.length>1&&arr.every(ch=>CHIP_IC[ch]))return arr.map(ch=>mk(CHIP_IC[ch])).join('');
+  return '';
+}
+/* 按钮 / 标签里单独用的小图标：认不出来还是原样显示表情 */
+function ciHTML(txt){return chipIconSVG(txt)||esc(String(txt==null?'':txt))}
 function tchipIconHTML(ic){
   if(!ic)return '';
-  const s=String(ic);
-  return '<i class="ic">'+(s.indexOf('<svg')===0?s:esc(s))+'</i>';
+  const raw=String(ic);
+  if(raw.indexOf('<svg')===0)return '<i class="ic">'+raw+'</i>';
+  const svg=chipIconSVG(raw);
+  return '<i class="ic">'+(svg||esc(raw))+'</i>';
 }
 function tchipOuterHTML(ic,html){
   return tchipIconHTML(ic)+'<span class="tx">'+((html==null)?'':html)+'</span>';
@@ -2101,6 +2187,7 @@ function buildCtxSystem(c,extra){
   const amb=actMemBlock(c);if(amb)sys.push(amb);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
+  const wbLine=wbForChar(c);if(wbLine)sys.push(wbLine);   /* 世界书：挂在这个角色身上的共同设定 */
   if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
   const th=THINK_LEVELS[(c.think==null?1:c.think)];
   if(th&&th.hint)sys.push('【思考要求】'+th.hint);
@@ -3582,6 +3669,7 @@ function renderToolPane(){
       else if(toolTab==='group'){p.innerHTML=groupHTML();scrollGroupDown()}
       else if(toolTab==='music')p.innerHTML=musicHTML();
       else if(toolTab==='moments')p.innerHTML=momentsHTML();
+      else if(toolTab==='world')p.innerHTML=worldHTML();
       else p.innerHTML=funHTML();
     }
   }
@@ -3717,8 +3805,8 @@ function funRefresh(){const el=document.getElementById('funBoxOut');if(el)el.inn
 function funHTML(){
   return '<div class="card"><div class="ttl">小工具（互动）</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 10px">不用联网的小玩法，纯本地随机。</p>'+
-  '<div class="row"><button class="col" onclick="funDice()">🎲 掷骰子</button>'+
-  '<button class="col" onclick="funCoin()">🪙 抛硬币</button></div>'+
+  '<div class="row"><button class="col" onclick="funDice()">'+ciHTML("🎲")+' 掷骰子</button>'+
+  '<button class="col" onclick="funCoin()">'+ciHTML("🪙")+' 抛硬币</button></div>'+
   '<div class="row" style="margin-top:8px"><input id="funMax" class="col" type="number" value="100" placeholder="最大数"><button onclick="funRand()">抽数字</button></div>'+
   '<div class="row" style="margin-top:8px"><input id="funList" class="col" placeholder="逗号分隔，比如：吃火锅,吃面,点外卖"><button onclick="funPick()">抽一个</button></div>'+
   '<div id="funBoxOut">'+funBoxHTML()+'</div></div>';
@@ -3758,6 +3846,7 @@ function funPick(){
    或者从手机里选一首音频文件。正在放的歌会写进角色的系统提示，
    角色就知道你在听什么了。 */
 const MUSIC={list:[],cur:-1,vol:.9,playing:false,audio:null,loaded:false,seeking:false,tick:null,lastErr:0,
+  mode:'order',                                /* 播放方式：order 顺序 / one 单曲循环 / shuffle 随机 */
   manual:{title:'',artist:'',on:false,at:0},   /* 手动记录「我在别的App里听这首」 */
   stat:{d:'',sec:0,plays:{}}};                 /* 听歌账本：今天的时长 + 每首歌的次数 */
 function musicLoad(){
@@ -3768,6 +3857,7 @@ function musicLoad(){
     return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'url',url:s.url};
   });
   MUSIC.vol=(typeof d.vol==='number')?Math.min(1,Math.max(0,d.vol)):.9;
+  MUSIC.mode=(d.mode==='one'||d.mode==='shuffle')?d.mode:'order';   /* 播放方式（顺序 / 单曲循环 / 随机） */
   const mm=d.manual;
   MUSIC.manual=(mm&&mm.title)?{title:mm.title,artist:mm.artist||'',at:mm.at||0,
     on:!!mm.on&&(Date.now()-(mm.at||0)<6*3600*1000)}:{title:'',artist:'',on:false,at:0};
@@ -3880,7 +3970,7 @@ function musicSave(){
   const list=MUSIC.list.map(s=>s.kind==='file'
     ?{id:s.id,title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId}
     :{id:s.id,title:s.title,artist:s.artist||'',kind:'url',url:s.url});
-  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,manual:MUSIC.manual,stat:MUSIC.stat})}
+  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,mode:MUSIC.mode,manual:MUSIC.manual,stat:MUSIC.stat})}
   catch(e){try{toast('歌单存不下了：'+((e&&e.message)||e))}catch(_){}}
 }
 function musicAudio(){
@@ -3888,7 +3978,7 @@ function musicAudio(){
     const a=new Audio();
     a.preload='metadata';
     a.volume=MUSIC.vol;
-    a.addEventListener('ended',()=>musicNext());
+    a.addEventListener('ended',()=>musicEnded());
     a.addEventListener('error',()=>{                 /* 链接不是音频文件时会走这里 */
       if(a.getAttribute('src'))musicFail('这个链接放不出来');
     });
@@ -3923,7 +4013,11 @@ const MICO={
   plus:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg>',
   heart:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19.4s-6.9-4.3-6.9-8.6A3.9 3.9 0 0 1 12 8.1a3.9 3.9 0 0 1 6.9 2.7c0 4.3-6.9 8.6-6.9 8.6Z"/></svg>',
   comment:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 11.6c0 4-3.7 7.2-8.2 7.2-1 0-2-.2-2.9-.5l-4.3 1.5 1.2-3.5a6.9 6.9 0 0 1-2-4.7C4 7.6 7.7 4.4 12 4.4s8.2 3.2 8.2 7.2Z"/></svg>',
-  moments:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>'
+  moments:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>',
+  /* 播放方式：顺序（列表循环） / 单曲循环 / 随机 */
+  mode_order:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 9.2a4.2 4.2 0 0 1 4.2-3.4h9.6"/><path d="m15.6 3.4 2.6 2.4-2.6 2.4"/><path d="M19.4 14.8a4.2 4.2 0 0 1-4.2 3.4H5.6"/><path d="m8.4 20.6-2.6-2.4 2.6-2.4"/></svg>',
+  mode_one:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 9.2a4.2 4.2 0 0 1 4.2-3.4h9.6"/><path d="m15.6 3.4 2.6 2.4-2.6 2.4"/><path d="M19.4 14.8a4.2 4.2 0 0 1-4.2 3.4H5.6"/><path d="m8.4 20.6-2.6-2.4 2.6-2.4"/><path d="M11.2 11.6 12.9 10.4v4.4"/></svg>',
+  mode_shuffle:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.4h2.8c1.4 0 2.3.7 3.1 1.7l4.4 5.8c.8 1 1.7 1.7 3.1 1.7h2.6"/><path d="M3.6 16.6h2.8c1.4 0 2.3-.7 3.1-1.7l4.4-5.8c.8-1 1.7-1.7 3.1-1.7h2.6"/><path d="m17.6 4.7 2.6 2.5-2.6 2.5"/><path d="m17.6 13.3 2.6 2.5-2.6 2.5"/></svg>'
 };
 function musicName(s){s=s||{};return (s.title||'')+(s.artist?(' - '+s.artist):'')}
 function musicSec(x){x=Math.floor(x||0);return Math.floor(x/60)+':'+('0'+(x%60)).slice(-2)}
@@ -3998,6 +4092,7 @@ function musicHTML(){
       '<button class="col pri" id="mPlayBtn" onclick="musicToggle()">'+(MUSIC.playing?(MICO.pause+' 暂停'):(MICO.play+' 播放'))+'</button>'+
       '<button class="col" onclick="musicNext()">下一首 '+MICO.next+'</button>'+
     '</div>'+
+    '<div class="seg mmodes" id="mModes">'+musicModesHTML()+'</div>'+
     '<input id="mProg" type="range" min="0" max="1000" value="0" oninput="musicSeek(this.value)" onchange="musicSeek(this.value)" style="margin-top:10px">'+
     '<div class="dim" style="font-size:11.5px;display:flex;align-items:center;justify-content:space-between;gap:10px">'+
       '<span id="mTime">0:00 / 0:00</span>'+
@@ -4026,6 +4121,7 @@ function musicHTML(){
 }
 function musicSync(){
   const n=$('#mNow');if(n)n.innerHTML=musicNowHTML();
+  const mr=$('#mModes');if(mr)mr.innerHTML=musicModesHTML();
   const b=$('#mPlayBtn');if(b)b.innerHTML=MUSIC.playing?(MICO.pause+' 暂停'):(MICO.play+' 播放');
   const l=$('#mList');if(l)l.innerHTML=musicListHTML();
   const c=$('#mCount');if(c)c.textContent='我的歌单（'+MUSIC.list.length+' 首）';
@@ -4139,7 +4235,51 @@ function musicToggle(){
     else{MUSIC.playing=true;musicSync()}
   }
 }
-function musicNext(){if(!MUSIC.list.length)return;musicPlayAt((MUSIC.cur+1+MUSIC.list.length)%MUSIC.list.length)}
+/* ---------- 播放方式：顺序 / 单曲循环 / 随机 ---------- */
+function musicModesHTML(){
+  const m=MUSIC.mode||'order';
+  const b=(k,n,ic)=>'<button type="button" class="'+(m===k?'on':'')+'" onclick="musicMode(\''+k+'\')">'+ic+'<span>'+n+'</span></button>';
+  return b('order','顺序',MICO.mode_order)+b('one','单曲循环',MICO.mode_one)+b('shuffle','随机',MICO.mode_shuffle);
+}
+function musicMode(m){
+  m=(m==='one'||m==='shuffle')?m:'order';
+  MUSIC.mode=m;
+  try{musicSave()}catch(e){}
+  try{musicSync()}catch(e){}
+  toast('播放方式：'+(m==='one'?'单曲循环':(m==='shuffle'?'随机播放':'顺序播放')));
+}
+/* 随机挑一首（尽量别挑到正在放的这首） */
+function musicRandIdx(){
+  const n=MUSIC.list.length;
+  if(n<=1)return 0;
+  let k=MUSIC.cur,i=0;
+  do{k=Math.floor(Math.random()*n);i++}while(k===MUSIC.cur&&i<40);
+  return k;
+}
+/* 手动点「下一首」要去哪一首：随机模式就随机，其它按顺序 */
+function musicNextIdx(){
+  const n=MUSIC.list.length;
+  if(n<2)return (MUSIC.cur<0?0:MUSIC.cur);
+  if((MUSIC.mode||'order')==='shuffle')return musicRandIdx();
+  return (MUSIC.cur+1+n)%n;
+}
+/* 一首放完了自动接：单曲循环就重放这一首，随机就随机下一首，否则顺序下一首 */
+function musicEnded(){
+  if(!MUSIC.list.length)return;
+  if((MUSIC.mode||'order')==='one'){
+    const a=MUSIC.audio;if(!a)return;
+    const s=musicNow();
+    try{a.currentTime=0}catch(e){}
+    MUSIC.playing=true;
+    if(s)musicCountPlay(s);
+    const pr=a.play();
+    if(pr&&pr.then)pr.then(()=>{try{musicSync()}catch(e){}}).catch(()=>{MUSIC.playing=false;try{musicSync()}catch(e){}});
+    else{try{musicSync()}catch(e){}}
+    return;
+  }
+  musicPlayAt(musicNextIdx());
+}
+function musicNext(){if(!MUSIC.list.length)return;musicPlayAt(musicNextIdx())}
 function musicPrev(){
   if(!MUSIC.list.length)return;
   const a=MUSIC.audio;
@@ -4173,7 +4313,7 @@ function musicCtlRun(action){
   }
   if(action==='next'){
     if(MUSIC.list.length<2)return {ok:false,msg:'她的歌单里只有这一首歌，没有下一首可以切。'};
-    const idx=(MUSIC.cur+1+MUSIC.list.length)%MUSIC.list.length;
+    const idx=musicNextIdx();                 /* 随机模式下，角色喊「下一首」也跟着随机 */
     const nx=MUSIC.list[idx];
     musicPlayAt(idx);
     return {ok:true,msg:'已经帮她切到《'+musicName(nx)+'》了。接着正常聊天就行。',
@@ -4658,6 +4798,7 @@ function buildGroupContext(g,c){
   if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
+  const wbG=wbForChar(c);if(wbG)sys.push(wbG);   /* 世界书：挂在这个角色身上的共同设定 */
   if(c.examples)sys.push('【对话示例】'+c.examples);
   sys.push('【硬性要求】中文回复；只输出你要发的那条群消息本身，不要加任何名字前缀。');
   const hist=arr.map(m=>({role:(m.role==='user'?'user':'assistant'),content:(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}));
@@ -5195,7 +5336,7 @@ function cfgSafe(){const c=JSON.parse(JSON.stringify(cfg||{}));delete c.key;if(c
 async function backupPayload(){
   const d={v:8,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{},stickers:load('wh_stickers',[]),stickerCats:load('wh_sticker_cats',[]),
-    notes:{},diary:{},favs:{},arts:{},summarks:{},rawMarks:{},rawLogs:{}};
+    notes:{},diary:{},favs:{},arts:{},summarks:{},rawMarks:{},rawLogs:{},world:load('wh_world',[])};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id);d.gmems[c.id]=gmemOf(c.id);
     /* 这几类数据以前没进备份，恢复后会缺，这里补上：便条、日记、好感度记录、画册、自动总结进度 */
     d.notes[c.id]=load('wh_p4_note_'+c.id,[]);
@@ -5272,6 +5413,7 @@ function importBackupExtraData(d){
   if(d.actMsgs)Object.keys(d.actMsgs).forEach(k=>{if(d.actMsgs[k])save('wh_actmsg_'+k,d.actMsgs[k])});
   if(d.stickers)save('wh_stickers',d.stickers);
   if(d.stickerCats)save('wh_sticker_cats',d.stickerCats);
+  if(d.world&&d.world.length)save('wh_world',d.world);   /* 世界书：键名和「世界书」应用里的一致（旧备份没这个字段，跳过就行） */
   const preOf={notes:'wh_p4_note_',diary:'wh_p4_diary_',favs:'wh_p5_fav_',arts:'wh_p5_art_',summarks:'wh_summark_',rawMarks:'wh_rawmark_'};
   Object.keys(preOf).forEach(k=>{
     const map=d[k];if(!map||typeof map!=='object')return;
@@ -5431,6 +5573,23 @@ function bindAppControls(){
   const inp=$('#inp');  /* 同一个输入框只查一次，绑两个事件 */
   inp.addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=e.target.scrollHeight+'px'});
   inp.addEventListener('input',updSendBtn);
+  /* ↓ 键盘：点输入框就贴到最底下（本来就在看最新消息才贴），别让键盘挡住最后一条 */
+  inp.addEventListener('focus',()=>{
+    if(chatFollow||nearBottom($('#main')))kbPinOn();
+    else window.kbPin=false;
+  });
+  inp.addEventListener('blur',()=>kbPinOff());
+  inp.addEventListener('input',()=>kbKeepBottom());
+  window.addEventListener('resize',kbKeepBottom);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',kbKeepBottom);
+    window.visualViewport.addEventListener('scroll',kbKeepBottom);
+  }
+  /* 手指碰聊天区（她在往上翻旧消息）：马上松手，不跟她抢滚动条 */
+  document.addEventListener('touchstart',e=>{
+    const t=e.target;
+    if(t&&t.closest&&t.closest('#main'))kbPinOff();
+  },{capture:true,passive:true});
   const hact=$('#hact');
   if(hact)hact.onclick=()=>{if(curId)editChar(curId)};
   $('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
@@ -5637,6 +5796,136 @@ buildSummaryPrompt=function(slice,prev){
   '现在开始，对话如下：\n'+slice;
 };
 
+/* ================= 世界书（多个角色共用的系统提示） =================
+   你写一条提示词，勾选要挂的角色，保存就挂上了；这些角色以后聊天、群聊
+   都会照它来（相当于给它们加了一条共同的系统提示）。
+   数据存在浏览器本地：wh_world，跟着导出备份一起走。 */
+const KWorld='wh_world';
+let wbEditId='';
+function wbAll(){
+  try{const a=load(KWorld,[]);return Array.isArray(a)?a:[]}catch(e){return []}
+}
+function wbSaveAll(arr){
+  save(KWorld,arr);
+  try{scheduleBackup()}catch(e){}
+}
+function wbFind(id){return wbAll().filter(w=>w&&w.id===id)[0]||null}
+function wbWhoText(w){
+  if(!w)return '';
+  if(w.all)return '全部角色';
+  return (w.cids||[]).map(id=>{const c=charOf(id);return c?c.name:''}).filter(Boolean).join('、');
+}
+/* 给某个角色拼「世界书」这段系统提示；这个角色一条都没挂就返回空字符串 */
+function wbForChar(c){
+  if(!c)return '';
+  const out=[];
+  wbAll().forEach(w=>{
+    if(!w||w.on===false)return;
+    if(!String(w.text||'').trim())return;
+    if(!(w.all||(w.cids||[]).indexOf(c.id)>=0))return;
+    out.push('◆ '+(String(w.title||'').trim()||'世界设定')+'\n'+String(w.text||'').trim());
+  });
+  if(!out.length)return '';
+  return '【世界书】下面是用户为这个世界写下的共同设定，对这里所有人都成立，和你的人设一样重要，'+
+    '你说话、做事、判断都要符合它们。这些是幕后规则：不要照抄，也不要主动提「世界书」这个词。\n\n'+out.join('\n\n');
+}
+window.wbForChar=wbForChar;
+
+/* 世界书页面 */
+function worldHTML(){
+  const ws=wbAll();
+  let h='<div class="card"><div class="ttl">世界书</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">在这里写一段提示词，勾选角色保存，就「挂」在它们身上了。挂上以后，这些角色单聊、群聊时都会照它来（相当于给它们加了一条共同的系统提示）。</p>'+
+    '<div class="row"><button class="col pri" onclick="wbNew()">＋ 写一条提示词</button></div>'+
+    '<p class="dim" style="font-size:11.5px;margin:8px 0 0">一条提示词可以同时挂给好几个角色；选「全部角色」的话，以后新建的角色也自动生效。</p>'+
+  '</div>';
+  if(!ws.length){
+    return h+'<div class="card"><div class="dim" style="font-size:12.5px;line-height:1.7">还没有写过东西。<br>点上面的按钮，第一条可以写比如：<br>「大家说话都简短一点，别用表情符号；现在是 2099 年，人类已经住在火星上了。」</div></div>';
+  }
+  h+=ws.map(w=>{
+    const who=wbWhoText(w),t=String(w.text||'');
+    const prev=(t.length>90)?(t.slice(0,90)+'…'):t;
+    return '<div class="card">'+
+      '<div class="row" style="align-items:center">'+
+        '<div class="col"><b style="font-size:14px">'+esc((w.title||'').trim()||'世界设定')+'</b></div>'+
+        '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);flex:0 0 auto">'+
+          '<input type="checkbox" style="width:auto;margin:0;flex:0 0 auto" '+(w.on===false?'':'checked')+' onchange="wbToggle(\''+w.id+'\')">生效'+
+        '</label>'+
+      '</div>'+
+      '<div class="wbtxt">'+esc(prev)+'</div>'+
+      '<div class="wbwho">挂着：'+(who?('<span class="n">'+esc(who)+'</span>'):'<span style="color:var(--warn)">还没挂任何角色</span>')+'</div>'+
+      '<div class="row" style="margin-top:9px">'+
+        '<button class="ghost col" onclick="wbEdit(\''+w.id+'\')">编辑 / 换角色</button>'+
+        '<button class="warn col" onclick="wbDel(\''+w.id+'\')">删除</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return h+'<p class="dim" style="font-size:11.5px">挂好以后不用再做什么，角色下一条回复就会带上它。</p>';
+}
+function wbNew(){wbEdit('')}
+function wbEdit(id){
+  wbEditId=id||'';
+  const w=wbEditId?wbFind(wbEditId):null;
+  if(wbEditId&&!w)return toast('这条找不到了');
+  const cids=(w&&w.cids)?w.cids:[];
+  const allOn=!!(w&&w.all);
+  const box=chars.map(c=>{
+    const on=(cids.indexOf(c.id)>=0);
+    return '<label'+(on?' class="on"':'')+'><input type="checkbox" value="'+esc(c.id)+'" '+(on?'checked':'')+
+      ' onchange="this.parentNode.classList.toggle(\'on\',this.checked)">'+esc(c.emoji||'')+' '+esc(c.name)+'</label>';
+  }).join('');
+  showSheet('<div class="ttl">'+(w?'编辑世界书':'写一条世界书')+'</div>'+
+    '<label class="f">名字（只有你自己看，方便认）</label>'+
+    '<input id="wbT" value="'+esc(w?(w.title||''):'')+'" placeholder="比如：未来世界设定">'+
+    '<label class="f">提示词内容</label>'+
+    '<textarea id="wbX" rows="6" placeholder="写给角色们的规则。比如：大家说话都简短一点；现在是 2099 年，人类已经住在火星上了。">'+esc(w?(w.text||''):'')+'</textarea>'+
+    '<label class="f">挂到哪些角色（可以多选）</label>'+
+    '<div class="wbchk">'+(box||'<span class="dim" style="font-size:12px">你还没有角色</span>')+'</div>'+
+    '<label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px">'+
+      '<input type="checkbox" id="wbAll" style="width:auto;margin:0;flex:0 0 auto" '+(allOn?'checked':'')+'>'+
+      '<span>全部角色（以后新建的也自动挂上）</span></label>'+
+    '<div class="row" style="margin-top:12px">'+
+      '<button class="pri col" onclick="wbSheetSave()">保存并挂上</button>'+
+      '<button class="ghost col" onclick="closeSheet()">取消</button>'+
+    '</div>');
+}
+function wbSheetSave(){
+  const t=$('#wbT'),x=$('#wbX'),al=$('#wbAll');
+  const title=String((t&&t.value)||'').trim();
+  const text=String((x&&x.value)||'').trim();
+  if(!text)return toast('提示词还是空的，先写点内容吧');
+  const all=!!(al&&al.checked);
+  const cids=[];
+  $$('#sheet .wbchk input[type=checkbox]').forEach(el=>{if(el.checked)cids.push(el.value)});
+  const arr=wbAll();
+  const old=wbEditId?wbFind(wbEditId):null;
+  if(old){
+    old.title=title;old.text=text;old.all=all;old.cids=cids;old.u=Date.now();
+  }else{
+    arr.push({id:uid(),title:title,text:text,all:all,cids:cids,on:true,t:Date.now(),u:Date.now()});
+  }
+  wbSaveAll(arr);
+  try{closeSheet()}catch(e){}
+  try{renderToolPane()}catch(e){}
+  toast(all?'已保存，挂给全部角色':(cids.length?('已保存，挂给 '+cids.length+' 个角色'):'已保存（还没挂角色，记得回来勾人）'));
+}
+function wbToggle(id){
+  const arr=wbAll();let w=null;
+  arr.forEach(x=>{if(x&&x.id===id)w=x});
+  if(!w)return;
+  w.on=(w.on===false);
+  wbSaveAll(arr);
+  toast(w.on?'这条世界书已生效':'这条世界书已停用');
+}
+function wbDel(id){
+  const w=wbFind(id);if(!w)return;
+  if(!confirm('删掉「'+((w.title||'').trim()||'世界设定')+'」吗？删掉后就不再对任何角色生效了。'))return;
+  const arr=wbAll().filter(x=>!x||x.id!==id);
+  wbSaveAll(arr);
+  try{renderToolPane()}catch(e){}
+  toast('已删除');
+}
+
 /* ================= 补丁3：应用 / 隐私群聊 / 私聊同步 / 上下文token / 联网搜索 ================= */
 
 /* ---------- ⑥ 应用：手机桌面式宫格 ---------- */
@@ -5650,7 +5939,9 @@ const APPS=[
   {k:'moments',n:'朋友圈',d:'角色发动态 · 点赞评论',
    ic:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>'},
   {k:'music',n:'音乐',d:'一起听歌 · 歌单',
-   ic:'<svg viewBox="0 0 24 24"><path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/></svg>'}
+   ic:'<svg viewBox="0 0 24 24"><path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/></svg>'},
+  {k:'world',n:'世界书',d:'多角色共用的设定',
+   ic:'<svg viewBox="0 0 24 24"><path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/></svg>'}
 ];
 let appOpen=false;
 renderTools=function(){
@@ -6442,6 +6733,7 @@ function addGroupCharacterContext(sys,g,c){
   if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
+  var wbC=wbForChar(c);if(wbC)sys.push(wbC);   /* 世界书：挂在这个角色身上的共同设定 */
   if(c.examples)sys.push('【对话示例】'+c.examples);
   if(cfg.timeOn!==false)sys.push('【现在的时间】现在是 '+P4.now()+'。群里聊天记录里提到的时间（比如 5 月）都是过去，不要当成现在。');
 }
@@ -6706,10 +6998,10 @@ function toySwitchCardHTML(T){
   };
   return '<div class="card"><div class="ttl">互动玩具（角色能自己调用）</div>'+
   '<div class="row" style="align-items:center"><div class="col"><b>总开关</b><div class="dim" style="font-size:12px">关掉后所有角色都不能再用玩具</div></div><input type="checkbox" id="ty_on" '+(T.on!==false?'checked':'')+'></div>'+
-  box('dice','🎲 掷骰子')+box('coin','🪙 抛硬币')+box('pick','👉 抽签 / 帮你选一个')+
-  box('time','🕒 看现在的真实时间')+box('mood','🫧 写下心情状态','显示在下面')+
-  box('note','📝 给你留小纸条','挂在便条墙')+box('diary','📖 写日记','只在下面给你看')+
-  box('favor','💠 调整好感度','-10 ~ +10')+
+  box('dice',ciHTML("🎲")+' 掷骰子')+box('coin',ciHTML("🪙")+' 抛硬币')+box('pick',ciHTML("👉")+' 抽签 / 帮你选一个')+
+  box('time',ciHTML("🕒")+' 看现在的真实时间')+box('mood',ciHTML("🫧")+' 写下心情状态','显示在下面')+
+  box('note',ciHTML("📝")+' 给你留小纸条','挂在便条墙')+box('diary',ciHTML("📖")+' 写日记','只在下面给你看')+
+  box('favor',ciHTML("💠")+' 调整好感度','-10 ~ +10')+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="P4.toySave()">保存玩具开关</button>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">每个角色还能单独关（角色 → 编辑 → 互动玩具）；想让它们成群地在群里玩，去群设置里打开。</p></div>';
 }
@@ -10541,6 +10833,9 @@ function actsAllP(){try{return load('wh_acts',[])||[]}catch(e){return []}}
 document.addEventListener('scroll',function(e){
   var t=e.target;
   if(!t||!t.id)return;
+  /* ↓ 软键盘弹出/收起会让聊天区高度变化，浏览器这时也会发一次 scroll；
+     这不算「她要往上翻旧消息」，别把自动跟随关掉（关了就会一直被键盘挡住） */
+  if(t.id==='main'&&window.kbPin)return;
   var v=t._p11Hold?false:p11AtBottom(t);
   /* 只有聊天页在滚动时才改「跟随最新消息」的开关，别的页面滚了不算 */
   if(t.id==='main'){if(typeof view==='undefined'||view==='chat')chatFollow=v}
@@ -11472,7 +11767,8 @@ var G={
   music:'<path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/>',
   toy:'<path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/>',
   act:'<path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/>',
-  cfg:'<circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/>'
+  cfg:'<circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/>',
+  world:'<path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/>'
 };
 /* 状态栏右边的小图标（纯装饰） */
 var SIG='<svg class="f" viewBox="0 0 24 24"><rect x="3.2" y="13.4" width="3.2" height="6" rx="1"/><rect x="8.4" y="10.2" width="3.2" height="9.2" rx="1"/><rect x="13.6" y="7" width="3.2" height="12.4" rx="1"/><rect x="18.8" y="3.8" width="3.2" height="15.6" rx="1"/></svg>';
@@ -11490,7 +11786,8 @@ var GRID=[
   {k:'fun',   n:'小工具',   g:'fun'},
   {k:'music', n:'音乐',     g:'music'},
   {k:'toy',   n:'互动',     g:'toy'},
-  {k:'act',   n:'演绎',     g:'act'}
+  {k:'act',   n:'演绎',     g:'act'},
+  {k:'world', n:'世界书',   g:'world'}
 ];
 var DOCK=[
   {k:'chat',  n:'聊天', g:'chat'},
