@@ -528,9 +528,9 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 <input id="avaIn" type="file" accept="image/*" style="display:none" onchange="avaChange(this)">
 <nav>
   <button data-v="chat" class="on"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/></svg></span><i class="ind"></i><span>聊天</span><i class="dot" id="navDot"></i></button>
-  <button data-v="roles"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/></svg></span><i class="ind"></i><span>角色</span></button>
+  <button data-v="roles"><span class="ico"><svg viewBox="0 0 24 24"><rect x="4.4" y="3.6" width="15.2" height="16.8" rx="3"/><path d="M8 3.6v16.8"/><circle cx="14.2" cy="10.2" r="2.1"/><path d="M10.9 16.4c.5-1.5 1.9-2.5 3.3-2.5s2.8 1 3.3 2.5"/></svg></span><i class="ind"></i><span>角色</span></button>
   <button data-v="tools"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="3.6" width="7.2" height="7.2" rx="2.2"/><rect x="3.6" y="13.2" width="7.2" height="7.2" rx="2.2"/><rect x="13.2" y="13.2" width="7.2" height="7.2" rx="2.2"/></svg></span><i class="ind"></i><span>应用</span></button>
-  <button data-v="cfg"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/></svg></span><i class="ind"></i><span>设置</span></button>
+  <button data-v="cfg"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span><i class="ind"></i><span>设置</span></button>
 </nav>
 <div class="modal" id="modal"><button class="sheetclose" onclick="closeSheet()" aria-label="关闭">✕</button><div class="sheet" id="sheet"></div></div>
 <div id="lock">
@@ -600,6 +600,100 @@ function applyTheme(){
   /* ↓ 补丁14：手机外壳的玻璃质感 + 桌面重画 */
   if(window.syncGlass)window.syncGlass();       /* 补丁14 装上之前没有这层，所以要先判断 */
   if(view==='home'&&window.renderHome)try{window.renderHome()}catch(e){}
+}
+
+/* ---------- 自定义背景图（桌面 / 聊天） ----------
+   两张图分开设置：桌面（首页）一张、聊天页一张；透明度 5%~100%。
+   图存在本机（跟着备份走），太大会自动压小。 */
+function wallCfg(){
+  if(!cfg)return {dOp:.45,cOp:.45};
+  if(!cfg.wall||typeof cfg.wall!=='object')cfg.wall={};
+  const w=cfg.wall;
+  if(w.dOp==null)w.dOp=.45;
+  if(w.cOp==null)w.cOp=.45;
+  return w;
+}
+function wallLayer(){
+  let el=document.getElementById('wallBg');
+  if(!el){
+    el=document.createElement('div');
+    el.id='wallBg';
+    el.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:-1;pointer-events:none;background-position:center center;background-size:cover;background-repeat:no-repeat;opacity:0;transition:opacity .25s ease';
+    document.body.insertBefore(el,document.body.firstChild);
+  }
+  return el;
+}
+function applyWall(){
+  try{
+    const w=wallCfg(),el=wallLayer(),home=(view==='home');
+    const on=home?(w.dOn&&w.dImg):(view==='chat'&&w.cOn&&w.cImg);
+    const img=home?(w.dImg||''):(w.cImg||'');
+    const op=home?(w.dOp||.45):(w.cOp||.45);
+    if(on&&img){
+      el.style.backgroundImage='url("'+String(img).replace(/["'\n\r]/g,'')+'")';
+      el.style.opacity=String(Math.max(.05,Math.min(1,op)));
+    }else{el.style.backgroundImage='none';el.style.opacity='0'}
+  }catch(e){}
+}
+/* 设置页：背景图卡片 */
+function cfgWallCardHTML(){
+  const w=wallCfg();
+  const row=(tag,label,hint)=>{
+    const on=tag==='desk'?!!w.dOn:!!w.cOn;
+    const has=!!(tag==='desk'?w.dImg:w.cImg);
+    const op=Math.round((tag==='desk'?(w.dOp||.45):(w.cOp||.45))*100);
+    return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">'+
+    '<div class="row" style="align-items:center">'+
+    '<div class="col"><b>'+label+'</b><div class="dim" style="font-size:12px">'+hint+'</div></div>'+
+    '<input type="checkbox" '+(on?'checked':'')+(has?'':' disabled')+' onchange="wallSetOn(\''+tag+'\',this.checked)"></div>'+
+    '<div class="row" style="margin-top:8px;align-items:center">'+
+    '<button class="ghost" onclick="wallPick(\''+tag+'\')">'+(has?'换一张图':'选一张图')+'</button>'+
+    '<span class="dim" style="font-size:12px;flex:1;min-width:0;text-align:right">透明度 <b id="wop_'+tag+'">'+op+'%</b></span></div>'+
+    '<input type="range" min="5" max="100" step="5" value="'+op+'" oninput="wallSetOp(\''+tag+'\',this.value,0)" onchange="wallSetOp(\''+tag+'\',this.value,1)" '+(has?'':'disabled')+'>'+
+    (has?'<button class="ghost" style="margin-top:6px" onclick="wallClear(\''+tag+'\')">删掉这张图</button>':'')+
+    '<input type="file" accept="image/*" id="wallIn_'+tag+'" style="display:none" onchange="wallFile(this,\''+tag+'\')">'+
+    '</div>';
+  };
+  return '<div class="card"><div class="ttl">背景图</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 4px">给自己换桌面和聊天页的背景。图片只存在你手机本地（跟着备份走），太大时会自动压小。</p>'+
+  row('desk','桌面背景','手机桌面（首页）的背景图')+
+  row('chat','聊天背景','聊天页消息区后面的背景图')+
+  '</div>';
+}
+function wallSetOn(tag,on){
+  const w=wallCfg();
+  if(tag==='desk')w.dOn=!!on;else w.cOn=!!on;
+  save(LS.cfg,cfg);applyWall();
+}
+/* persist=0 只做实时预览（拖动中），persist=1 才写进本地存储（松手时） */
+function wallSetOp(tag,v,persist){
+  const w=wallCfg(),n=Math.max(5,Math.min(100,parseInt(v,10)||45))/100;
+  if(tag==='desk')w.dOp=n;else w.cOp=n;
+  const lb=document.getElementById('wop_'+tag);if(lb)lb.textContent=Math.round(n*100)+'%';
+  applyWall();
+  if(persist)save(LS.cfg,cfg);
+}
+function wallPick(tag){const el=document.getElementById('wallIn_'+tag);if(el)el.click()}
+async function wallFile(inp,tag){
+  const f=inp&&inp.files&&inp.files[0];if(!f)return;
+  try{
+    toast('正在处理图片…');
+    const small=await shrinkImage(f,1600,.8);      /* 自动压小，免得塞满本地存储 */
+    const w=wallCfg();
+    if(tag==='desk'){w.dImg=small;w.dOn=true}else{w.cImg=small;w.cOn=true}
+    save(LS.cfg,cfg);applyWall();
+    if(view==='cfg')renderCfg();else draw();
+    toast('背景图换好了');
+  }catch(e){alert('这张图用不了：'+((e&&e.message)||e))}
+  try{inp.value=''}catch(e){}
+}
+function wallClear(tag){
+  if(!confirm('删掉这张背景图？'))return;
+  const w=wallCfg();
+  if(tag==='desk'){w.dImg='';w.dOn=false}else{w.cImg='';w.cOn=false}
+  save(LS.cfg,cfg);applyWall();
+  if(view==='cfg')renderCfg();else draw();
+  toast('已删掉背景图');
 }
 
 /* ---------- 存储基础（带加密支持） ---------- */
@@ -2403,10 +2497,20 @@ const TODO_TOOLS=[
   {type:'function',function:{name:'complete_todo',description:'把自己的一条待办勾选为已完成。只能操作你自己的待办。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}},
   {type:'function',function:{name:'uncomplete_todo',description:'把自己一条已完成的待办改回未完成。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}},
   {type:'function',function:{name:'delete_todo',description:'删除自己的一条待办。只能删你自己的。',parameters:{type:'object',properties:{id:{type:'string',description:'待办的id'}},required:['id']}}}
+  ,
+  /* 【新增】到点提醒：角色可以在指定时间主动给用户发消息，叫她去完成一件事 */
+  {type:'function',function:{name:'set_reminder',description:'给用户设一个「到点提醒」：在指定时间你会主动给用户发一条消息，提醒她去做这件事，同时这件事会出现在她的待办清单里。当她说「记得…」「提醒我…」「X 分钟后…」「明天 8 点…」这类要求时，就用它。设好之后不用你自己盯着时钟，到时间系统会叫你。',parameters:{type:'object',properties:{
+    text:{type:'string',description:'要做的那件事，写短一点，例如「吃饭」「吃药」「开会」。不要带时间，也不要写「提醒我」'},
+    after_minutes:{type:'integer',description:'从现在起多少分钟后提醒。她说了分钟或小时就用这个，例如「一小时后」填 60、「20 分钟后」填 20'},
+    time:{type:'string',description:'具体钟点，24 小时制 HH:MM，例如 08:30、21:00。她说了「明天 8 点」「晚上 9 点」这类就用这个，不要再填 after_minutes'},
+    type:{type:'string',enum:['提醒','事项','欠账','备忘'],description:'待办类型，默认「提醒」'}},
+    required:['text']}}}
 ];
 function todoBrief(arr){
   if(!arr||!arr.length)return '（空）';
-  return arr.map(t=>(t.done?'✅':'⬜')+' ['+(t.type||'事项')+'] '+t.text+'（id:'+t.id+'）').join('\n');
+  return arr.map(t=>(t.done?'✅':'⬜')+' ['+(t.type||'事项')+'] '+t.text+
+    (t.remindAt?('（到点提醒她：'+remindStamp(t.remindAt)+(t.remindSent?'，已经提醒过':'，还没到点')+'）'):'')+
+    '（id:'+t.id+'）').join('\n');
 }
 function execTodoTool(name,args,cid){
   const arr=todosOf(cid);
@@ -2417,6 +2521,17 @@ function execTodoTool(name,args,cid){
     const t={id:uid(),text:text,type:type,done:false,t:Date.now()};
     arr.push(t);saveTodos(cid,arr);
     return {ok:true,msg:'已添加待办：'+text,todos:todoBrief(arr)};
+  }
+  /* 【新增】设一个到点提醒：先存成待办，到时间由系统叫角色来发消息 */
+  if(name==='set_reminder'){
+    const text=String(args&&args.text||'').trim();
+    if(!text)return {ok:false,msg:'没写要提醒她什么事，所以没设成。'};
+    const at=remindWhen(args);
+    if(!at)return {ok:false,msg:'没听出具体时间，所以没设成。你可以直接问她「想几点提醒」，或者让她自己去「应用 → 待办」里加一条带提醒的。'};
+    const type=(args&&['提醒','事项','欠账','备忘'].indexOf(args.type)>=0)?args.type:'提醒';
+    const t={id:uid(),text:text,type:type,done:false,t:Date.now(),remindAt:at,remindSent:false};
+    arr.push(t);saveTodos(cid,arr);startRemindTick();
+    return {ok:true,msg:'已经设好了：'+remindStamp(at)+' 你会主动发消息提醒她「'+text+'」。现在可以告诉她你记住了，不用再自己记时间。',todos:todoBrief(arr)};
   }
   if(name==='list_todos')return {ok:true,msg:'你的待办列表',todos:todoBrief(arr)};
   const id=String(args&&args.id||'');
@@ -2828,7 +2943,7 @@ function autoIsRepeat(a,b){
   const short=x.length<=y.length?x:y,long=x.length<=y.length?y:x;
   return short.length>=8&&long.indexOf(short)>=0;
 }
-async function autoGenerate(c){
+async function autoGenerate(c,forceNudge){
   if(!autoKeep)autoKeep={curId:curId,msgs:msgs,mem:mem};
   const wasOpen=(autoKeep.curId===c.id);
   curId=c.id;
@@ -2841,7 +2956,8 @@ async function autoGenerate(c){
   const lastAI=msgs.slice().reverse().find(x=>x.role==='assistant'&&x.content);
   const lastMsg=msgs.length?msgs[msgs.length-1]:null;
   /* ↓ 关键：这句放在「最后一条消息」的位置，模型最容易看见 */
-  const nudge=autoProactiveNudge(lastMsg);
+  /* 到点提醒时会传进来一段专门的提示（forceNudge），平时就是「主动找她聊聊」那段 */
+  const nudge=forceNudge||autoProactiveNudge(lastMsg);
   let out='',reasoning='',usage=null;
   const autoCall=async(note)=>{
     out='';reasoning='';usage=null;
@@ -2894,10 +3010,11 @@ async function autoSumForLoaded(c){
   const hit=await runSummary(slice,true,c.id);
   if(!hit)setAutoSumMark(c.id,done);
 }
-async function runAutoNow(c){
+async function runAutoNow(c,forceNudge){
   busy=true;curAbort=new AbortController();
+  let ok=false;
   try{
-    await autoGenerate(c);
+    ok=await autoGenerate(c,forceNudge);
   }catch(e){
     const aborted=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
     if(!aborted)toast('自动消息失败：'+((e&&e.message)||'未知错误'));
@@ -2916,6 +3033,7 @@ async function runAutoNow(c){
     }
     scheduleAuto(false);
   }
+  return ok;
 }
 async function checkAuto(){
   if(busy||!cfg||!cfg.autoOn||!cfg.key)return;
@@ -3051,7 +3169,7 @@ function charPermissionCardsHTML(c){
   (hasAnyPrivPw()?'<p class="dim" style="font-size:12px;margin:8px 0 0">✅ 已设置密码，可以直接用。</p>':'<p class="dim" style="font-size:12px;margin:8px 0 0;color:var(--warn)">⚠️ 你还没设置任何密码，请先去「设置 → 隐私角色」设一个，否则会进不去。</p>')+
   '</div>'+
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成自己的待办（碰不到别人和你的）</div></div>'+
+  '<div class="col"><b>待办权限</b><div class="dim" style="font-size:12px">允许它自己添加/勾选完成待办，并在你要求的时间主动发消息提醒你（碰不到别人的待办）</div></div>'+
   '<input type="checkbox" id="e_todo" '+((c.todoPerm&&c.todoPerm.on)?'checked':'')+'></div></div>'+
   /* 【新增】群聊权限：开了以后它在私聊里也能自己看群消息、在群里发言，并记住自己在群里说过的话 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
@@ -3708,6 +3826,169 @@ function shrinkImage(file,max,q){
 function todosOf(id){return load(LS.todo(id),[])}
 function saveTodos(id,arr){save(LS.todo(id),arr);scheduleBackup()}
 
+/* ================= 待办提醒（到点由角色发消息） =================
+   角色在聊天里用 set_reminder 工具设定；用户也能在「应用 → 待办」里自己填时间。
+   提醒就存在待办本身里（多两个字段 remindAt / remindSent），所以备份会一起带走。
+   注意：和「自动发消息」一样，只有页面开着的时候才会到点触发。 */
+let remindTick=null,remindBusy=false;
+const REMIND_LATE=6*3600000;         /* 迟了超过 6 小时就不再补发（只标成已过时），免得一开页面冒一堆 */
+/* 把工具给的时间参数换算成一个绝对时间点（毫秒）；听不出具体时间就返回 0 */
+function remindWhen(args){
+  const now=Date.now();
+  const mi=parseInt((args&&args.after_minutes)||'',10);
+  if(Number.isFinite(mi)&&mi>0)return now+Math.min(mi,43200)*MS_PER_MIN;   /* 最多 30 天 */
+  const raw=String((args&&args.time)||'').trim();
+  /* 保险：万一模型把「一小时后」写进了 time，也认 */
+  const duro=raw.match(/(\d+)\s*(个)?\s*(小时|钟头|h\b|hours?)/i);
+  if(duro)return now+Math.min(parseInt(duro[1],10)||1,720)*60*MS_PER_MIN;
+  const durm=raw.match(/(\d+)\s*(分钟|min(ute)?s?\b)/i);
+  if(durm)return now+Math.min(parseInt(durm[1],10)||1,43200)*MS_PER_MIN;
+  /* 允许前面带「晚上 / 明天 / 下午」这类字，只要里面找得到「9点 / 21:30」就算 */
+  const m=raw.match(/[^\d]*(\d{1,2})\s*[:：点时]\s*(\d{1,2})?/)||raw.match(/^\s*(\d{1,2})\s*$/);
+  if(!m)return 0;
+  let h=parseInt(m[1],10),mm=m[2]?parseInt(m[2],10):0;
+  if(!m[2]&&/半/.test(raw))mm=30;
+  if(/晚|夜|下午|傍晚/.test(raw)&&h<12)h+=12;
+  if(/凌晨/.test(raw)&&h>=12)h-=12;
+  if(h>23||mm>59)return 0;
+  const d=new Date();
+  if(/明天|明日/.test(raw))d.setDate(d.getDate()+1);   /* 说了「明天」就一定是明天 */
+  d.setHours(h,mm,0,0);
+  let at=d.getTime();
+  if(at<=now)at+=MS_PER_DAY;         /* 今天这个点已经过了，就顺延到明天 */
+  return at;
+}
+function remindStamp(ms){return fmtStamp(ms)}
+/* 待办列表里那一行小字 */
+function remindChip(t){
+  if(!t||!t.remindAt)return '';
+  if(t.done)return '⏰ '+remindStamp(t.remindAt)+'（已完成）';
+  if(t.remindMissed)return '⏰ '+remindStamp(t.remindAt)+'（错过太久，没提醒）';
+  if(t.remindSent)return '⏰ '+remindStamp(t.remindAt)+'（已经提醒过）';
+  if(t.remindAt<=Date.now())return '⏰ '+remindStamp(t.remindAt)+'（已过时）';
+  return '⏰ '+remindStamp(t.remindAt)+' 会来提醒 · ';
+}
+/* 待办页：几个一键填时间的小按钮 */
+function dtLocalStr(d){
+  const two=n=>(n<10?'0':'')+n;
+  return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'T'+two(d.getHours())+':'+two(d.getMinutes());
+}
+function quickRemind(min){
+  const el=document.getElementById('todoWhen');if(!el)return;
+  const d=new Date();
+  if(min<0){d.setDate(d.getDate()+1);d.setHours(9,0,0,0)}else{d.setMinutes(d.getMinutes()+min,0,0)}
+  el.value=dtLocalStr(d);
+  toast('提醒时间：'+remindStamp(d.getTime()));
+}
+function cancelRemind(id){
+  if(!confirm('取消这条待办的到点提醒？（待办本身留着）'))return;
+  const arr=todosOf(todoCharId),t=arr.find(x=>x.id===id);if(!t)return;
+  delete t.remindAt;delete t.remindSent;saveTodos(todoCharId,arr);renderToolPane();
+  toast('已取消这条提醒');
+}
+function startRemindTick(){
+  if(!remindTick)remindTick=setInterval(checkReminders,20000);
+  checkReminders();
+}
+async function checkReminders(){
+  if(remindBusy)return;
+  /* 应用锁着的时候先不响，免得提醒内容出现在锁屏上；解锁后下一次检查会补上 */
+  try{if(typeof isLocked==='function'&&isLocked())return}catch(e){}
+  const now=Date.now(),due=[],old=[];
+  (chars||[]).forEach(c=>{
+    let arr=[];try{arr=todosOf(c.id)}catch(e){arr=[]}
+    arr.forEach(t=>{
+      if(!t||!t.remindAt||t.done||t.remindSent)return;
+      if(t.remindAt>now)return;
+      if(now-t.remindAt>REMIND_LATE)old.push({cid:c.id,todo:t});else due.push({cid:c.id,todo:t});
+    });
+  });
+  /* 迟太久的：只标一下，不补发消息 */
+  old.forEach(x=>{
+    try{const a=todosOf(x.cid),t=a.find(y=>y.id===x.todo.id);if(t){t.remindSent=true;t.remindMissed=true;saveTodos(x.cid,a)}}catch(e){}
+  });
+  if(!due.length){
+    if(old.length&&view==='tools'&&toolTab==='todo')try{renderToolPane()}catch(e){}
+    return;
+  }
+  due.sort((a,b)=>a.todo.remindAt-b.todo.remindAt);
+  const one=due[0];
+  remindBusy=true;
+  try{await fireReminder(one.cid,one.todo)}catch(e){}
+  remindBusy=false;
+  if(due.length>1)setTimeout(checkReminders,1500);   /* 一次来一条，别刷屏 */
+}
+/* 到点了：先响闹钟，再让角色自己说一句提醒她 */
+async function fireReminder(cid,todo){
+  const c=(chars||[]).find(x=>x.id===cid);if(!c)return;
+  /* 先标成已提醒：万一接口出问题，也不会过 20 秒又响一次 */
+  try{const a=todosOf(cid),t=a.find(y=>y.id===todo.id);if(t){t.remindSent=true;saveTodos(cid,a)}}catch(e){}
+  playAlarm();
+  let ok=false;
+  if(cfg&&cfg.key&&!busy){try{ok=await runAutoNow(c,remindNudge(todo))}catch(e){ok=false}}
+  if(!ok)remindFallback(c,todo);
+  try{if(view==='tools'&&toolTab==='todo')renderToolPane()}catch(e){}
+}
+/* 塞给模型的「该你提醒她了」提示 */
+function remindNudge(t){
+  const late=Date.now()-(t.remindAt||0);
+  const lateTxt=(late>10*60000)?('（说好的时间是 '+remindStamp(t.remindAt)+'，现在稍微晚了一点。）'):'';
+  return '（系统提示：这是她之前让你记着的一件事，说好的时间到了。'+lateTxt+
+    '现在请你主动给她发一条消息，提醒她去做这件事：「'+String(t.text||'')+'」。'+
+    '用你自己的语气，1-2 句，短、口语、自然，像随手发微信；可以顺便带一点你自己的态度或关心。'+
+    '不要提到系统、提醒功能、闹钟或这条说明本身，也不要重复你上一条说过的话。）';
+}
+/* 接口没配好、或者正好在忙：至少用一条消息把提醒送到，别让闹钟白响 */
+function remindFallback(c,t){
+  const txt='⏰ 到点啦，别忘了「'+String(t.text||'')+'」哦。';
+  const m={role:'assistant',content:txt,t:Date.now(),tok:0};
+  const wasOpen=(curId===c.id&&view==='chat'&&!document.hidden);
+  if(curId===c.id&&msgs&&msgs.length!==undefined){msgs.push(m);persist()}
+  else{const a=load(LS.msg(c.id),[]);a.push(m);save(LS.msg(c.id),a)}
+  try{window.P5.maybeNotify({kind:'char',cid:c.id,name:(c.emoji||'')+' '+c.name,emoji:c.emoji,avatar:c.avatar,text:txt})}catch(e){}
+  if(wasOpen){try{renderChat()}catch(e){}}
+  else{markUnread(c.id);toast('⏰ '+c.name+' 提醒你：'+String(t.text||''))}
+}
+/* 闹钟提示音：用浏览器自己合成，不需要音频文件（手机静音档听不到） */
+let alarmCtx=null;
+function playAlarm(){
+  try{if(navigator.vibrate&&!(cfg&&cfg.vibrateOff))navigator.vibrate([0,260,140,260,140,420])}catch(e){}
+  if(cfg&&cfg.alarmOff)return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+    alarmCtx=alarmCtx||new AC();
+    const ac=alarmCtx;
+    if(ac.state==='suspended')try{ac.resume()}catch(e){}
+    const t0=ac.currentTime+0.03;
+    for(let i=0;i<3;i++){
+      const t=t0+i*0.46;
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='sine';
+      o.frequency.setValueAtTime(988,t);
+      o.frequency.setValueAtTime(740,t+0.16);
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.linearRampToValueAtTime(0.3,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+      o.connect(g);g.connect(ac.destination);
+      o.start(t);o.stop(t+0.42);
+    }
+  }catch(e){}
+}
+function setAlarmOpt(kind,on){
+  if(kind==='alarm')cfg.alarmOff=!on;else cfg.vibrateOff=!on;
+  save(LS.cfg,cfg);
+  toast(kind==='alarm'?(cfg.alarmOff?'提醒提示音：关':'提醒提示音：开'):(cfg.vibrateOff?'提醒振动：关':'提醒振动：开'));
+}
+/* 设置页的「预览提醒效果」：给当前角色加一条 8 秒后的提醒 */
+function testRemindSoon(){
+  const c=curChar();if(!c)return alert('先建一个角色');
+  const at=Date.now()+8000;
+  const arr=todosOf(c.id);
+  arr.push({id:uid(),text:'这是一条测试提醒，看到就可以删掉',type:'提醒',done:false,t:Date.now(),remindAt:at,remindSent:false});
+  saveTodos(c.id,arr);startRemindTick();
+  toast('8 秒后会响一次提醒（用「'+c.name+'」的身份发消息）');
+}
+
 /* ================= 工具页（待办 / 群聊 / 小工具） ================= */
 let funResult='',funRolling=false,funSpin=null,funTxt='',funEnd=0;
 function setToolTab(v){toolTab=v;renderTools()}
@@ -3825,15 +4106,24 @@ function todoHTML(){
   const all=todosOf(todoCharId);
   const openCnt=all.filter(t=>!t.done).length;
   const list=all.filter(t=>todoFilter==='all'?true:(todoFilter==='open'?!t.done:t.done));
-  const badge={事项:'事项',欠账:'欠账',备忘:'备忘'};
+  const badge={提醒:'提醒',事项:'事项',欠账:'欠账',备忘:'备忘'};
   return '<div class="card"><div class="ttl">待办事项</div>'+
   '<label class="f">选择角色</label><select id="todoChar" onchange="pickTodoChar(this.value)">'+
   useList.map(x=>'<option value="'+x.id+'" '+(x.id===todoCharId?'selected':'')+'>'+esc((x.emoji||'')+' '+x.name)+'（'+todosOf(x.id).filter(t=>!t.done).length+' 未完成）</option>').join('')+
   '</select></div>'+
   '<div class="card"><div class="ttl">新增</div>'+
   '<div class="row"><select id="todoType" style="width:88px;flex:0 0 auto">'+
-  '<option value="事项">事项</option><option value="欠账">欠账</option><option value="备忘">备忘</option></select>'+
+  '<option value="提醒">提醒</option><option value="事项">事项</option><option value="欠账">欠账</option><option value="备忘">备忘</option></select>'+
   '<input id="todoText" class="col" placeholder="记点什么…"></div>'+
+  /* 【新增】到点提醒：填了时间，到点这个角色会主动发消息 + 响提示音 */
+  '<label class="f">到点提醒（可选）</label>'+
+  '<input id="todoWhen" type="datetime-local">'+
+  '<div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px">'+
+  '<button class="ghost" onclick="quickRemind(30)">30 分钟后</button>'+
+  '<button class="ghost" onclick="quickRemind(60)">1 小时后</button>'+
+  '<button class="ghost" onclick="quickRemind(180)">3 小时后</button>'+
+  '<button class="ghost" onclick="quickRemind(-1)">明天 9 点</button></div>'+
+  '<p class="dim" style="font-size:11.5px;margin:6px 0 0">填了时间：到点会响提示音，上面选中的角色会主动发一条消息提醒你（页面要开着；手机静音档听不到声音）。</p>'+
   '<div class="row" style="margin-top:8px"><button class="pri col" onclick="addTodo()">＋ 添加</button></div></div>'+
   '<div class="card"><div class="row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:6px"><div class="ttl" style="margin:0;flex:1 1 120px">清单（未完成 '+openCnt+'）</div>'+
   '<button class="ghost" onclick="setTodoFilter(\'all\')">全部</button>'+
@@ -3841,7 +4131,8 @@ function todoHTML(){
   '<button class="ghost" onclick="setTodoFilter(\'done\')">已完成</button></div>'+
   (list.length?list.map(t=>
     '<div class="li"><input type="checkbox" '+(t.done?'checked':'')+' onchange="toggleTodo(\''+t.id+'\')" style="margin-top:3px;flex:0 0 auto">'+
-    '<span style="'+(t.done?'text-decoration:line-through;color:var(--dim)':'')+'"><b class="dim" style="font-weight:400">['+(badge[t.type]||'事项')+']</b> '+esc(t.text)+'</span>'+
+    '<span style="'+(t.done?'text-decoration:line-through;color:var(--dim)':'')+'"><b class="dim" style="font-weight:400">['+(badge[t.type]||'事项')+']</b> '+esc(t.text)+
+    (t.remindAt?('<br><span class="dim" style="font-size:11.5px">'+esc(remindChip(t))+(t.done||t.remindSent?'':'<a href="javascript:;" onclick="cancelRemind(\''+t.id+'\')" style="color:var(--acc)">取消提醒</a>')+'</span>'):'')+'</span>'+
     '<button class="x" onclick="delTodo(\''+t.id+'\')">×</button></div>').join('')
   :'<p class="dim" style="font-size:13px">没有记录</p>')+'</div>'+
   '<div style="height:16px"></div>';
@@ -3852,8 +4143,15 @@ function addTodo(){
   const t=$('#todoText').value.trim();if(!t)return alert('写点内容');
   const ty=$('#todoType').value;
   const arr=todosOf(todoCharId);
-  arr.push({id:uid(),text:t,type:ty,done:false,t:Date.now()});
+  const wEl=$('#todoWhen');
+  const wd=(wEl&&wEl.value)?new Date(wEl.value):null;
+  const at=(wd&&!isNaN(wd.getTime()))?wd.getTime():0;
+  if(at&&at<=Date.now())return alert('提醒时间已经过去了，请选一个以后的时间。');
+  const item={id:uid(),text:t,type:ty,done:false,t:Date.now()};
+  if(at){item.remindAt=at;item.remindSent=false}
+  arr.push(item);
   saveTodos(todoCharId,arr);renderToolPane();
+  if(at){startRemindTick();toast('已加好待办，并会在这个时间提醒：'+remindStamp(at))}
 }
 function toggleTodo(id){
   const arr=todosOf(todoCharId);
@@ -5421,6 +5719,22 @@ function cfgLookCardHTML(){
   '<div class="col"><b>系统通知</b><div class="dim" style="font-size:12px">页面在后台时弹通知（需授权）</div></div>'+
   '<input type="checkbox" id="c_notify" '+(cfg.notify?'checked':'')+'></div></div>';
 }
+/* 设置页：待办提醒卡片（提示音 / 振动 / 试一下）。 */
+function cfgRemindCardHTML(){
+  return '<div class="card"><div class="ttl">待办提醒</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">角色在聊天里答应「一小时后提醒你」时，到点它会主动给你发一条消息，并且响一下提示音。你也可以在「应用 → 待办」里自己填提醒时间。<br>页面要开着才会到点触发（和「自动发消息」一样）；手机静音档、或者浏览器在后台被系统限速时，可能听不到声音。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 8px">想让某个角色自己在聊天里安排提醒：去「角色 → 编辑」把它的<b>待办权限</b>打开（关着的话它没有这个能力，但你自己在待办页填时间照样能用）。</p>'+
+  '<div class="row" style="align-items:center;margin-top:8px">'+
+  '<div class="col"><b>提醒提示音</b><div class="dim" style="font-size:12px">闹钟一样的三声「叮」</div></div>'+
+  '<input type="checkbox" '+(cfg.alarmOff?'':'checked')+' onchange="setAlarmOpt(\'alarm\',this.checked)"></div>'+
+  '<div class="row" style="align-items:center;margin-top:12px">'+
+  '<div class="col"><b>提醒时振动</b><div class="dim" style="font-size:12px">手机支持振动时才会振</div></div>'+
+  '<input type="checkbox" '+(cfg.vibrateOff?'':'checked')+' onchange="setAlarmOpt(\'vibrate\',this.checked)"></div>'+
+  '<div class="row" style="margin-top:10px">'+
+  '<button class="ghost col" onclick="playAlarm()">🔔 试听提示音</button>'+
+  '<button class="ghost col" onclick="testRemindSoon()">⏰ 预览提醒效果</button></div>'+
+  '<p class="dim" style="font-size:11.5px;margin:8px 0 0">「预览提醒效果」会拿当前角色做一次真的提醒：8 秒后响铃、并发一条消息，同时待办里会多一条测试项，看到就能删掉。</p></div>';
+}
 /* 设置页：隐私角色卡片。 */
 function cfgPrivRoleCardHTML(){
   return '<div class="card"><div class="ttl">隐私角色</div>'+
@@ -5468,6 +5782,8 @@ function renderCfg(){
   cfgAutoSumCardHTML()+
   cfgMeCardHTML()+
   cfgLookCardHTML()+
+  cfgWallCardHTML()+                 /* 【新增】自定义背景图（桌面 / 聊天） */
+  cfgRemindCardHTML()+               /* 【新增】待办提醒：提示音 / 振动 */
   cfgPrivRoleCardHTML()+
   cfgSecurityCardHTML()+
   cfgDataCardHTML()+
@@ -5954,6 +6270,12 @@ function fixCfg(){
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
   if(cfg.autoSum==null)cfg.autoSum=false;
   if(cfg.ctx==null)cfg.ctx=30;
+  /* ↓ 新增：待办提醒的提示音/振动开关，以及自定义背景图（桌面 / 聊天） */
+  if(cfg.alarmOff==null)cfg.alarmOff=false;
+  if(cfg.vibrateOff==null)cfg.vibrateOff=false;
+  if(!cfg.wall||typeof cfg.wall!=='object')cfg.wall={};
+  if(cfg.wall.dOp==null)cfg.wall.dOp=.45;
+  if(cfg.wall.cOp==null)cfg.wall.cOp=.45;
   /* ↓ 补丁5：万一默认模型是空的，兜一个默认值，避免请求里没有 model 字段 */
   if(!cfg.model)cfg.model='gpt-4o-mini';
 }
@@ -6035,6 +6357,7 @@ function finishAppStart(){
   go('chat');
   scheduleAuto(false);
   scheduleGroupAuto(false);
+  startRemindTick();            /* 【新增】待办提醒：到点由角色发消息 */
 }
 async function initApp(){
   loadInitialState();
@@ -8717,7 +9040,7 @@ var st=document.createElement('style');st.id='p5cssC';st.textContent=CSS;
 try{
   if(!APPS.some(function(a){return a.k==='act'})){
     APPS.push({k:'act',n:'演绎',d:'换个世界线扮演',
-      ic:'<svg viewBox="0 0 24 24"><path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/></svg>'});
+      ic:'<svg viewBox="0 0 24 24"><path d="M12 4.3c3.2 0 5.8 1 5.8 1v5.4c0 4.3-2.6 7.6-5.8 8.8-3.2-1.2-5.8-4.5-5.8-8.8V5.3s2.6-1 5.8-1Z"/><path d="M8.9 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M12.7 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M8.9 13.8c1.8 1.7 4.4 1.7 6.2 0"/></svg>'});
   }
 }catch(e){}
 
@@ -12160,7 +12483,7 @@ var WK=['星期日','星期一','星期二','星期三','星期四','星期五',
 /* ---------- ① 图标（和原 app 同一套线条风格） ---------- */
 var G={
   chat:'<path d="M20.5 11.6c0 4.3-3.8 7.8-8.5 7.8-1 0-1.9-.2-2.8-.5l-4.7 1.6 1.2-3.7c-1.4-1.4-2.2-3.2-2.2-5.2C3.5 7.3 7.3 3.8 12 3.8s8.5 3.5 8.5 7.8Z"/>',
-  roles:'<circle cx="9.2" cy="8.3" r="3.2"/><path d="M3.6 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.3 6.5a3 3 0 0 1 0 5.6"/><path d="M17.4 14.9c2 .6 3.4 2.3 3.4 4.7"/>',
+  roles:'<rect x="4.4" y="3.6" width="15.2" height="16.8" rx="3"/><path d="M8 3.6v16.8"/><circle cx="14.2" cy="10.2" r="2.1"/><path d="M10.9 16.4c.5-1.5 1.9-2.5 3.3-2.5s2.8 1 3.3 2.5"/>',
   me:'<rect x="3.4" y="5.4" width="17.2" height="13.2" rx="3.2"/><circle cx="9.2" cy="11" r="2.1"/><path d="M5.9 16.3c.5-1.4 1.8-2.2 3.3-2.2s2.8.8 3.3 2.2"/><path d="M15.6 10.6h3.1M15.6 13.8h3.1"/>',
   todo:'<path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/>',
   group:'<circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/>',
@@ -12168,8 +12491,8 @@ var G={
   moments:'<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/>',
   music:'<path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/>',
   toy:'<path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/>',
-  act:'<path d="M4.6 8.2h14.8M4.6 12h14.8M4.6 15.8h9.4"/><path d="M18.2 15.4 20.6 17.8 18.2 20.2"/>',
-  cfg:'<circle cx="12" cy="12" r="3.1"/><path d="M12 3.4v2.2M12 18.4v2.2M4.9 7.8l1.9 1.1M17.2 15.1l1.9 1.1M4.9 16.2l1.9-1.1M17.2 8.9l1.9-1.1"/>',
+  act:'<path d="M12 4.3c3.2 0 5.8 1 5.8 1v5.4c0 4.3-2.6 7.6-5.8 8.8-3.2-1.2-5.8-4.5-5.8-8.8V5.3s2.6-1 5.8-1Z"/><path d="M8.9 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M12.7 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M8.9 13.8c1.8 1.7 4.4 1.7 6.2 0"/>',
+  cfg:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   world:'<path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/>'
 };
 /* 状态栏右边的小图标（纯装饰） */
@@ -12327,6 +12650,7 @@ function chrome(){
   var hd=D.querySelector('header');if(hd)hd.style.display=home?'none':'';
   var dk=D.getElementById('homedock');if(dk)dk.style.display=home?'flex':'none';
   if(home)tick();
+  applyWall();                 /* 【新增】按当前页面（桌面 / 聊天）铺背景图 */
 }
 function fixTitle(){
   try{
