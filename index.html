@@ -32,17 +32,17 @@ main::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .row{display:flex;gap:8px}
 .col{flex:1;min-width:0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
-.card.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 4px 16px rgba(63,169,216,.18)}
+.card.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 4px 16px var(--p8accSh,rgba(63,169,216,.18))}
 .ttl{font-weight:700;font-size:14px;color:var(--acc);margin-bottom:8px;letter-spacing:.3px}
 .dim{color:var(--dim)}
 label.f{display:block;margin:10px 0 4px;font-size:12px;color:var(--dim)}
 input,textarea,select{width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;outline:none;transition:border-color .15s ease,box-shadow .15s ease}
 textarea{resize:vertical;min-height:72px}
-input:focus,textarea:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(63,169,216,.12)}
+input:focus,textarea:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--p8accSh,rgba(63,169,216,.12))}
 input[type=checkbox]{width:auto;transform:scale(1.2);accent-color:var(--acc)}
 button{font:inherit;background:var(--accdim);color:var(--txt);border:0;border-radius:12px;padding:10px 14px;font-size:14px;cursor:pointer;transition:transform .06s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 2px rgba(0,0,0,.15)}
 button:active{transform:scale(.97)}
-button.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;font-weight:700;box-shadow:0 4px 14px rgba(63,169,216,.28)}
+button.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--onacc,#02131c);font-weight:700;box-shadow:0 4px 14px var(--p8accSh,rgba(63,169,216,.28))}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim);font-size:12px;padding:6px 10px;border-radius:10px;box-shadow:none}
 button.warn{background:transparent;border:1px solid var(--line);color:var(--warn);box-shadow:none}
 button:disabled{opacity:.45;pointer-events:none}
@@ -60,7 +60,7 @@ button:disabled{opacity:.45;pointer-events:none}
 .think{margin:6px 0 0;max-width:84%}
 .thinkhead{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:12px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:color .15s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease}
 .thinkhead::after{content:'▸';font-size:10px;line-height:1;transform:translateY(-1px);transition:transform .18s ease}
-.thinkhead.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);box-shadow:0 2px 10px rgba(63,169,216,.18)}
+.thinkhead.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);box-shadow:0 2px 10px var(--p8accSh,rgba(63,169,216,.18))}
 .thinkhead.on::after{content:'▾';transform:translateY(-1px)}
 .thinkbody{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;padding:10px 12px;margin-top:6px;font-size:12.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;display:none;animation:pop .16s ease}
 .ops{display:flex;gap:7px;margin:7px 0 10px;flex-wrap:wrap}
@@ -104,7 +104,7 @@ button:disabled{opacity:.45;pointer-events:none}
 /* ---------- 底部输入栏：去掉右下角小点 + 更圆润 ---------- */
 #composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--grad);border-top:1px solid var(--line);align-items:flex-end}
 #composer textarea{flex:1;min-height:42px;max-height:120px;border-radius:16px;padding:10px 14px;resize:none;background:var(--bg2);border-color:transparent;box-shadow:inset 0 0 0 1px var(--line);overflow-y:auto;scrollbar-width:none}
-#composer textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(63,169,216,.12)}
+#composer textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--p8accSh,rgba(63,169,216,.12))}
 #composer textarea::-webkit-scrollbar{width:0;height:0}
 #composer textarea::-webkit-resizer{display:none;background:transparent}
 #composer button{width:48px;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;font-weight:800;font-size:18px}
@@ -115,14 +115,14 @@ button:disabled{opacity:.45;pointer-events:none}
 .thinkbar button.active{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
 /* ---------- 底部导航（美化版） ---------- */
 nav{flex:0 0 auto;display:flex;gap:4px;background:var(--grad);border-top:1px solid var(--line);padding:5px 6px calc(env(safe-area-inset-bottom) + 5px);position:relative;box-shadow:0 -6px 20px rgba(0,0,0,.16)}
-nav::before{content:'';position:absolute;left:0;right:0;top:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(63,169,216,.5),transparent);pointer-events:none}
+nav::before{content:'';position:absolute;left:0;right:0;top:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--accglow,rgba(63,169,216,.5)),transparent);pointer-events:none}
 nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:0;color:var(--dim);padding:7px 2px 6px;font-size:10.5px;letter-spacing:.4px;border-radius:14px;position:relative;box-shadow:none;transition:background .18s ease,color .18s ease,transform .12s ease}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s ease,filter .18s ease}
 nav button span{line-height:1}
 nav button:active{transform:scale(.94)}
 nav button.on{color:var(--acc);background:radial-gradient(70% 70% at 50% 0%,rgba(63,169,216,.18),rgba(63,169,216,0) 72%)}
-nav button.on svg{transform:translateY(-1px) scale(1.08);filter:drop-shadow(0 3px 8px rgba(63,169,216,.5))}
-nav button.on::after{content:'';position:absolute;top:1px;left:50%;transform:translateX(-50%);width:22px;height:3px;border-radius:0 0 3px 3px;background:linear-gradient(90deg,var(--acc),var(--acc2));box-shadow:0 0 10px rgba(63,169,216,.6)}
+nav button.on svg{transform:translateY(-1px) scale(1.08);filter:drop-shadow(0 3px 8px var(--accglow,rgba(63,169,216,.5)))}
+nav button.on::after{content:'';position:absolute;top:1px;left:50%;transform:translateX(-50%);width:22px;height:3px;border-radius:0 0 3px 3px;background:linear-gradient(90deg,var(--acc),var(--acc2));box-shadow:0 0 10px var(--accglow,rgba(63,169,216,.6))}
 /* 未读红点 */
 nav button .dot{position:absolute;top:5px;right:calc(50% - 17px);width:9px;height:9px;border-radius:50%;background:#ff4d5e;box-shadow:0 0 0 2px var(--panel),0 0 8px rgba(255,77,94,.8);display:none}
 nav button .dot.on{display:block;animation:pulse 1.6s infinite}
@@ -164,7 +164,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:14px;margin-top:4px}
 .apptile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 8px 15px;background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);cursor:pointer;transition:transform .1s ease,border-color .18s ease}
 .apptile:active{transform:scale(.95)}
-.apptile .ai{width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(63,169,216,.18),rgba(63,169,216,.05));border:1px solid var(--line)}
+.apptile .ai{width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--p8accSh,rgba(63,169,216,.18)),transparent);border:1px solid var(--line)}
 .apptile .ai svg{width:26px;height:26px;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .apptile .an{font-size:13px;font-weight:600}
 .apptile .ad{font-size:10.5px;color:var(--dim);text-align:center;line-height:1.3}
@@ -200,10 +200,10 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .gbub.me .gtok{text-align:right}
 .ginbar{display:flex;gap:8px;align-items:flex-end}
 .ginbar textarea{flex:1;min-height:44px;max-height:110px;resize:none;border-radius:16px;padding:11px 14px;background:var(--bg2);border:1px solid transparent;box-shadow:inset 0 0 0 1px var(--line);overflow-y:auto;scrollbar-width:none;font:inherit;font-size:14px;color:var(--txt)}
-.ginbar textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(63,169,216,.12)}
+.ginbar textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--p8accSh,rgba(63,169,216,.12))}
 .ginbar textarea::-webkit-scrollbar{width:0;height:0}
 .ginbar textarea::-webkit-resizer{display:none;background:transparent}
-.gsend{width:62px;flex:0 0 62px;height:44px;border-radius:15px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#02131c;font-weight:800;font-size:15px}
+.gsend{width:62px;flex:0 0 62px;height:44px;border-radius:15px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--onacc,#02131c);font-weight:800;font-size:15px}
 .gmem{display:flex;flex-wrap:wrap;gap:6px}
 .gm{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:4px 9px 4px 4px}
 .gm .nm{font-size:12.5px;line-height:1.2}
@@ -235,9 +235,9 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .bub.ai{box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 3px 12px rgba(0,0,0,.28)}
 .bub.me{background:var(--accdim);background-image:none}
 
-/* 3) 小字不再看不清（如果你常用浅色主题，把 #93aec0 换成 #5f7a8a） */
-.bub .time{opacity:1;font-size:12px;color:#93aec0}
-.tok,.arcmeta,.gtok,.apptile .ad,.srcline,.searchline,.setrow .lbl{font-size:12px;color:#93aec0}
+/* 3) 小字不再看不清（改成跟着主题走，浅色/黑白主题也自动合适） */
+.bub .time{opacity:1;font-size:12px;color:var(--meta)}
+.tok,.arcmeta,.gtok,.apptile .ad,.srcline,.searchline,.setrow .lbl{font-size:12px;color:var(--meta)}
 
 /* 4) 圆角统一 */
 .card,.sheet,.gmsgs{border-radius:18px}
@@ -246,7 +246,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .bub.ai{border-bottom-left-radius:6px}
 
 /* 5) 主按钮去掉渐变，只留「发送」一个用渐变，更显贵 */
-button.pri{background:var(--acc);background-image:none;color:#02131c;box-shadow:none}
+button.pri{background:var(--acc);background-image:none;color:var(--onacc,#02131c);box-shadow:none}
 #composer #send{background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 4px 14px rgba(63,169,216,.3)}
 
 /* 6) 底部导航只留两种信号，去掉放大和光晕，不再乱抖 */
@@ -379,7 +379,7 @@ code.hl{color:var(--acc);background:var(--accdim);border-radius:6px;padding:1px 
 #composer #plus svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
 #composer textarea,#composer #inp{flex:1;min-height:34px;max-height:120px;background:transparent;border:0;box-shadow:none;padding:8px 4px;font-size:var(--fs)}
 #composer textarea:focus{border:0;box-shadow:none}
-#composer #send{background:var(--acc);color:#fff;box-shadow:none}
+#composer #send{background:var(--acc);color:var(--onsend,#fff);box-shadow:none}
 #composer #send svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 #composer #send:disabled{background:var(--line);color:var(--meta);opacity:1}
 #composer #stop{background:var(--warn);color:#fff}
@@ -398,10 +398,10 @@ nav button .ind{display:block;width:0;height:3px;border-radius:3px;background:va
 nav button.on .ind{width:16px}
 
 /* 头像色块 */
-#msgs .bub.ai.withav.avaem::before{background:var(--acc);color:#fff}
+#msgs .bub.ai.withav.avaem::before{background:var(--acc);color:var(--onsend,#fff)}
 #msgs .bub.me.withav.avaem::before{background:var(--bg2);color:var(--meta)}
 .gbub .avbox{background:var(--accdim)}
-.gbub:not(.me) .avbox{background:var(--acc);color:#fff}
+.gbub:not(.me) .avbox{background:var(--acc);color:var(--onsend,#fff)}
 .p6grid .card .avbox{background:var(--accdim)}
 
 /* 思考胶囊：浅底、无边框、小字，和效果图一致 */
@@ -441,6 +441,16 @@ svg.msvg.ln{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;
 svg.msvg.fl{fill:currentColor;stroke:none}
 .mrow .mi .msvg{width:1.12em;height:1.12em}
 .mrow .mbtn .msvg{width:1.15em;height:1.15em;vertical-align:-.18em}
+/* 歌单切换条（全部 / 默认 / 自己建的歌单） */
+.mplbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.mplbar button{background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:12.5px;padding:7px 12px;border-radius:99px;box-shadow:none;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mplbar button.on{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
+.mrow .mpl{flex:0 0 auto;font-size:11px;color:var(--meta);border:1px solid var(--line);border-radius:99px;padding:1px 7px;white-space:nowrap}
+/* 拖动排序模式：每行左边一个 ☰ 抓手，拖的时候能看出来拖到了哪儿 */
+.mrow .mgrab{flex:0 0 auto;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;color:var(--meta);padding:0;border-radius:9px;box-shadow:none;touch-action:none;cursor:grab}
+.mrow .mgrab .msvg{width:1.3em;height:1.3em}
+.mrow.dragging{opacity:.4;background:var(--accdim);border-radius:10px}
+.mrow.dragover{background:var(--accdim);box-shadow:inset 0 0 0 1px var(--acc);border-radius:10px}
 .mstat{font-size:11.5px;color:var(--dim);margin-top:3px;line-height:1.5}
 
 /* ---------- 朋友圈 ---------- */
@@ -545,6 +555,12 @@ const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',p
 const THEMES={
   dark:{label:'深海（深蓝·暗）',v:{'--bg':'#0a1219','--bg2':'#101922','--panel':'#141e26','--line':'#1f2c36','--txt':'#e3eef6','--dim':'#8aa0b0','--meta':'#93a7b6','--acc':'#4d9bf0','--acc2':'#6fb4ff','--accdim':'#16354f','--accline':'#2f6ea8','--warn':'#e07068','--grad':'linear-gradient(160deg,#111d27 0%,#0a1219 62%)','--shadow':'0 1px 2px rgba(0,0,0,.22)','--bubme':'linear-gradient(135deg,#1b3a52,#16324a)'}},
   light:{label:'浅色（白）',v:{'--bg':'#e7ebf1','--bg2':'#edf0f5','--panel':'#ffffff','--line':'#e1e6ef','--txt':'#0f1724','--dim':'#6b7280','--meta':'#5f6774','--acc':'#2f6fed','--acc2':'#5b8cf5','--accdim':'#e3ebfd','--accline':'#b9cdf7','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f5f9 0%,#e7ebf1 60%)','--shadow':'0 1px 2px rgba(16,24,40,.05)','--bubme':'linear-gradient(135deg,#e8ecf4,#dfe5ef)'}},
+  /* 【新】黑白（极简）：纯黑底 + 白字 + 白色按钮，没有一点彩色。
+     --onsend 是「白色按钮上的字/图标」颜色（黑），不然白按钮上的白图标会看不见。 */
+  mono:{label:'黑白（极简）',v:{'--bg':'#0a0a0a','--bg2':'#111111','--panel':'#161616','--line':'#2a2a2a','--txt':'#f2f2f2','--dim':'#9c9c9c','--meta':'#a8a8a8','--acc':'#e8e8e8','--acc2':'#ffffff','--accdim':'#202020','--accline':'#4a4a4a','--warn':'#8e8e8e','--grad':'linear-gradient(160deg,#181818 0%,#0a0a0a 62%)','--shadow':'0 1px 2px rgba(0,0,0,.5)','--bubme':'linear-gradient(135deg,#282828,#1e1e1e)','--onsend':'#0a0a0a','--accglow':'rgba(255,255,255,.32)','--scbg':'rgba(20,20,20,.92)','--scfg':'#f2f2f2'}},
+  /* 【新】黑白（明亮）：白底黑字，按钮是黑的、字是白的。
+     --onacc 是「深色按钮上的字色」（白色），--onsend 是「发送键上的图标色」（白色）。 */
+  paper:{label:'黑白（明亮）',v:{'--bg':'#f2f2f2','--bg2':'#f8f8f8','--panel':'#ffffff','--line':'#e4e4e4','--txt':'#111111','--dim':'#6b6b6b','--meta':'#5f5f5f','--acc':'#1a1a1a','--acc2':'#3d3d3d','--accdim':'#ececec','--accline':'#d8d8d8','--warn':'#6f6f6f','--grad':'linear-gradient(160deg,#ffffff 0%,#f2f2f2 62%)','--shadow':'0 1px 2px rgba(0,0,0,.06)','--bubme':'linear-gradient(135deg,#efefef,#e6e6e6)','--onacc':'#ffffff','--onsend':'#ffffff','--accglow':'rgba(0,0,0,.16)','--scbg':'rgba(255,255,255,.94)','--scfg':'#111111'}},
   cyan:{label:'浅青（推荐）',v:{'--bg':'#e8edee','--bg2':'#eef2f3','--panel':'#ffffff','--line':'#dfe6e7','--txt':'#142b2e','--dim':'#5f7c80','--meta':'#4c6a6e','--acc':'#128e9c','--acc2':'#3ab0be','--accdim':'#dcf0f2','--accline':'#9fcbd2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f7f8 0%,#e8edee 60%)','--shadow':'0 1px 2px rgba(16,60,70,.05)','--bubme':'linear-gradient(135deg,#e6f1f2,#dbe9ec)'}},
   sea:{label:'青碧（暗）',v:{'--bg':'#0a1315','--bg2':'#101a1c','--panel':'#162023','--line':'#223033','--txt':'#d8eef0','--dim':'#7fa3a6','--meta':'#93b3b6','--acc':'#2fb3a8','--acc2':'#59e0d6','--accdim':'#10443f','--accline':'#1f6b66','--warn':'#e0776c','--grad':'linear-gradient(160deg,#131f22 0%,#0a1315 60%)','--shadow':'0 1px 2px rgba(0,0,0,.24)','--bubme':'linear-gradient(135deg,#10443f,#0b3a38)'}},
   sakura:{label:'樱雪（淡粉）',v:{'--bg':'#f2ecee','--bg2':'#f7f1f3','--panel':'#ffffff','--line':'#e8dfe2','--txt':'#33222b','--dim':'#8a6f7a','--meta':'#755c67','--acc':'#d2598f','--acc2':'#ec93bd','--accdim':'#fbe0ec','--accline':'#eec2d6','--warn':'#d9534f','--grad':'linear-gradient(160deg,#faf4f6 0%,#f2ecee 60%)','--shadow':'0 1px 2px rgba(120,60,90,.06)','--bubme':'linear-gradient(135deg,#f6e6ee,#f0dae5)'}},
@@ -556,6 +572,11 @@ function applyTheme(){
   const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
   const r=document.documentElement.style;
   for(const k in t.v)r.setProperty(k,t.v[k]);
+  /* 【新】三个跟着主题走的颜色：按钮上的字色 / 发送键图标色 / 发光色。
+     每个主题都要设一次，不然换主题时会留下上一个主题的值。（没写就用原来的蓝色） */
+  r.setProperty('--onacc',t.v['--onacc']||'#02131c');
+  r.setProperty('--onsend',t.v['--onsend']||'#fff');
+  r.setProperty('--accglow',t.v['--accglow']||'rgba(63,169,216,.55)');
   r.setProperty('--fs',(((cfg&&cfg.fs)||15))+'px');
   /* 自动判断深浅：浅色主题给关闭键用白底深字，深色主题用深底浅字 */
   const lit=(()=>{
@@ -565,8 +586,9 @@ function applyTheme(){
     const R=(n>>16)&255,G=(n>>8)&255,B=n&255;
     return (0.299*R+0.587*G+0.114*B)>140;
   })();
-  r.setProperty('--scbg',lit?'rgba(255,255,255,.94)':'rgba(10,22,32,.82)');
-  r.setProperty('--scfg',lit?(t.v['--txt']||'#12313f'):'#eaf3f8');
+  /* 弹层右上角那个关闭按钮的底色/字色：主题里写了就用主题的（黑白主题不想带蓝色） */
+  r.setProperty('--scbg',t.v['--scbg']||(lit?'rgba(255,255,255,.94)':'rgba(10,22,32,.82)'));
+  r.setProperty('--scfg',t.v['--scfg']||(lit?(t.v['--txt']||'#12313f'):'#eaf3f8'));
   /* 开发者模式：打开才在界面上显示 token 统计 */
   try{document.body.classList.toggle('dev',!!(cfg&&cfg.dev))}catch(e){}
   /* ↓ 补丁8-A：浅色主题时给 html 加 p6light */
@@ -2199,21 +2221,27 @@ function buildCtxSystem(c,extra){
     /* 【新增】听歌数据（今天听了多久 / 这首听了几遍）受角色设置里的开关控制 */
     const statOn=!(c.listenPerm&&c.listenPerm.on===false);
     const statLine=statOn?musicPromptStatLine(song):'';
+    /* 【新增】除了正在放的那首，还让它看哪些歌：由「音乐」页里的「角色能看到什么」决定 */
+    const seeLine=musicSeeText(song);
     if(song&&sys&&sys.push){
-      const others=MUSIC.list.filter(s=>s!==song).slice(0,6).map(s=>s.title).filter(Boolean);
       sys.push('【她正在听什么】她这会儿在用手机听《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):'')+
         (MUSIC.playing?'，还在放着。':'，现在是暂停的。')+
         '这是她和你在「音乐」小应用里放的歌。'+
-        (others.length?('\n她最近的歌单里还有：'+others.join('、')+'。'):'')+
+        (seeLine?('\n'+seeLine):'')+
         (statLine?('\n她今天的听歌情况：'+statLine):'')+
         '\n聊天时可以自然地带上（比如问问这首歌好不好听、她最近喜欢听什么、你也在听什么），但不要每句话都提，也别装作你能真的听到声音、不要报歌单流水账。');
     }else if(MUSIC.manual&&MUSIC.manual.on&&MUSIC.manual.title&&sys&&sys.push){
       sys.push('【她正在听什么】她这会儿在别的音乐App里听《'+MUSIC.manual.title+'》'+(MUSIC.manual.artist?('（'+MUSIC.manual.artist+'）'):'')+
         '。这个网页只是在旁边记着歌名，所以你只知道她在听什么歌，不知道播到哪一句、也听不到声音。'+
+        (seeLine?('\n'+seeLine):'')+
         (statLine?('\n她今天的听歌情况：'+statLine):'')+
         '\n聊天时可以自然带上（问问这首歌、说你也喜欢、或聊聊她的品味），但不要每句话都提。');
-    }else if(statLine&&sys&&sys.push){
-      sys.push('【她今天的听歌情况】'+statLine+'聊天时可以自然提一句（比如她今天听歌是不是特别多），但不要每句话都提、也不要报流水账。');
+    }else if(sys&&sys.push){
+      /* 现在没在放歌：只有她自己选了「某个歌单」或「最近播放」，才把歌单里的歌告诉角色 */
+      const bits=[];
+      if(seeLine&&MUSIC.see&&MUSIC.see.mode!=='added')bits.push('【她的歌单】'+seeLine);
+      if(statLine)bits.push('【她今天的听歌情况】'+statLine);
+      if(bits.length)sys.push(bits.join('\n')+'聊天时可以自然地提一句（比如这个歌单是干什么的、她今天听歌是不是特别多），但不要每句话都提、也不要报流水账。');
     }
   }catch(e){}
   /* ↓ 新增：把「她手机还剩多少电」告诉角色（角色设置里可以关掉这个开关） */
@@ -3046,7 +3074,7 @@ function charPermissionCardsHTML(c){
   '<input type="checkbox" id="e_batperm" '+((c.batPerm&&c.batPerm.on===false)?'':'checked')+'></div></div>'+
   /* 【新增】听歌数据可见：它能不能知道你今天听了多久、这首听了几遍 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>能看见我的听歌数据</b><div class="dim" style="font-size:12px">打开后，它就知道你今天在「音乐」里听了多久、这一首你一共听了几遍（「正在听哪首歌」本来就会告诉它，不受这个开关影响）</div></div>'+
+  '<div class="col"><b>能看见我的听歌数据</b><div class="dim" style="font-size:12px">打开后，它就知道你今天在「音乐」里听了多久、这一首你一共听了几遍（「正在听哪首歌」本来就会告诉它，不受这个开关影响；还能看到歌单里的哪些歌，去「音乐」页最下面的「角色能看到什么」里选）</div></div>'+
   '<input type="checkbox" id="e_listenperm" '+((c.listenPerm&&c.listenPerm.on===false)?'':'checked')+'></div></div>'+
   /* 【新增】音乐控制权限：它能不能帮你放歌 / 暂停 / 切下一首 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
@@ -3900,14 +3928,27 @@ function funPick(){
 const MUSIC={list:[],cur:-1,vol:.9,playing:false,audio:null,loaded:false,seeking:false,tick:null,lastErr:0,
   mode:'order',                                /* 播放方式：order 顺序 / one 单曲循环 / shuffle 随机 */
   manual:{title:'',artist:'',on:false,at:0},   /* 手动记录「我在别的App里听这首」 */
-  stat:{d:'',sec:0,plays:{}}};                 /* 听歌账本：今天的时长 + 每首歌的次数 */
+  stat:{d:'',sec:0,plays:{}},                  /* 听歌账本：今天的时长 + 每首歌的次数 */
+  lists:[],pl:'all',                           /* 【新】歌单：lists 是自己建的歌单；pl 是现在页面上选中的那个（'all'=全部歌曲，''=默认歌单） */
+  see:{mode:'added',listId:''},                /* 【新】让角色看哪些歌：added 最前面加的 / list 某个歌单 / recent 最近播放 */
+  recent:[],                                   /* 【新】最近播放过的歌（歌的 id，越靠前越新） */
+  sorting:false,drag:null};                    /* 【新】拖动排序：sorting 是「正在排序」模式，drag 记着这次拖动 */
 function musicLoad(){
   const d=load(LS.music,null);
   if(!d||typeof d!=='object')return;
   MUSIC.list=(Array.isArray(d.list)?d.list:[]).filter(s=>s&&s.title&&(s.url||s.kind==='file')).map(s=>{
-    if(s.kind==='file')return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId||s.id,url:''};
-    return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'url',url:s.url};
+    if(s.kind==='file')return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId||s.id,url:'',pl:s.pl||''};
+    return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'url',url:s.url,pl:s.pl||''};
   });
+  /* 【新】歌单：自己建的歌单列表 + 每首歌属于哪个歌单 */
+  MUSIC.lists=(Array.isArray(d.lists)?d.lists:[]).filter(x=>x&&x.id&&x.name).map(x=>({id:x.id,name:String(x.name).slice(0,20)}));
+  MUSIC.list.forEach(s=>{if(s.pl&&!MUSIC.lists.some(x=>x.id===s.pl))s.pl=''});    /* 歌单被删了就把歌放回默认 */
+  if(typeof d.pl==='string'&&(d.pl==='all'||d.pl===''||MUSIC.lists.some(x=>x.id===d.pl)))MUSIC.pl=d.pl;
+  else MUSIC.pl='all';
+  /* 【新】让角色看哪些歌 + 最近播放 */
+  const se=(d.see&&typeof d.see==='object')?d.see:{};
+  MUSIC.see={mode:(se.mode==='list'||se.mode==='recent')?se.mode:'added',listId:(typeof se.listId==='string')?se.listId:''};
+  MUSIC.recent=(Array.isArray(d.recent)?d.recent:[]).filter(id=>MUSIC.list.some(s=>s.id===id)).slice(0,30);
   MUSIC.vol=(typeof d.vol==='number')?Math.min(1,Math.max(0,d.vol)):.9;
   MUSIC.mode=(d.mode==='one'||d.mode==='shuffle')?d.mode:'order';   /* 播放方式（顺序 / 单曲循环 / 随机） */
   const mm=d.manual;
@@ -3928,6 +3969,53 @@ function musicLoad(){
 }
 function musicEnsure(){if(MUSIC.loaded)return;MUSIC.loaded=true;musicLoad()}
 function musicNow(){return (MUSIC.cur>=0&&MUSIC.list[MUSIC.cur])||null}
+/* ---------- 【新】歌单：分类、播放队列 ---------- */
+function musicSongPl(s){return (s&&s.pl)||''}                    /* 这首歌在哪：'' 是默认歌单 */
+function musicPlName(id){                                        /* 歌单名字（'all' 和 '' 是内置的两档） */
+  if(id==='all')return '全部歌曲';
+  if(!id)return '默认歌单';
+  const p=MUSIC.lists.find(x=>x.id===id);
+  return p?p.name:'默认歌单';
+}
+/* 现在页面上这个歌单里，歌在 MUSIC.list 里的下标（按加进来的顺序） */
+function musicShownIdx(){
+  const p=MUSIC.pl||'all';
+  return MUSIC.list.map((s,i)=>i).filter(i=>p==='all'||musicSongPl(MUSIC.list[i])===p);
+}
+/* 播放队列 = 现在选中的这个歌单里的歌。顺序播完会回到开头，就是「循环这个歌单」。
+   这个歌单是空的话，就退回「全部歌曲」，免得放不了也切不了。 */
+function musicQIdx(){
+  const q=musicShownIdx();
+  return q.length?q:MUSIC.list.map((s,i)=>i);
+}
+/* 接下来这首歌在哪：给「加歌」用（在「全部歌曲」里加歌就放进默认歌单） */
+function musicAddPl(){return (MUSIC.pl==='all')?'':MUSIC.pl}
+function musicPlOptsHTML(sel){                                   /* 歌单下拉的选项 */
+  return '<option value=""'+((sel||'')===''?' selected':'')+'>默认歌单</option>'+
+    MUSIC.lists.map(x=>'<option value="'+esc(x.id)+'"'+((sel||'')===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join('');
+}
+/* ---------- 【新】角色能看到哪些歌：由「角色能看到什么」这个选择决定 ---------- */
+function musicSeeSongs(){
+  try{
+    const m=(MUSIC.see&&MUSIC.see.mode)||'added';
+    if(m==='recent'){
+      const arr=[];
+      (MUSIC.recent||[]).forEach(id=>{const s=MUSIC.list.find(x=>x.id===id);if(s&&arr.indexOf(s)<0)arr.push(s)});
+      return arr;
+    }
+    if(m==='list')return MUSIC.list.filter(s=>musicSongPl(s)===(MUSIC.see.listId||''));
+    return MUSIC.list.slice();      /* added：歌单里最前面加进来的排前面 */
+  }catch(e){return []}
+}
+function musicSeeText(cur){         /* 拼成给角色看的一句话；没歌可看就返回空 */
+  const arr=musicSeeSongs().filter(s=>s!==cur).slice(0,6);
+  if(!arr.length)return '';
+  const names=arr.map(s=>'《'+(s.title||'')+'》').join('、');
+  const m=(MUSIC.see&&MUSIC.see.mode)||'added';
+  if(m==='recent')return '她最近在「音乐」里放过这些歌（越靠前越新）：'+names+'。';
+  if(m==='list')return '她的「'+musicPlName(MUSIC.see.listId||'')+'」歌单里有：'+names+'。';
+  return '她的歌单里还有（按她自己排的顺序）：'+names+'。';
+}
 function musicFileUrl(s){
   if(!s)return Promise.reject(new Error('没有这首歌'));
   if(s.url)return Promise.resolve(s.url);
@@ -3986,10 +4074,14 @@ function musicPromptStatLine(s){
     return bits.length?(bits.join('；')+'。'):'';
   }catch(e){return ''}
 }
-/* 开始放一首歌：次数 +1 */
+/* 开始放一首歌：次数 +1，并记进「最近播放」 */
 function musicCountPlay(s){
   const p=musicStatGet(s);if(!p)return;
   p.n++;p.dn++;
+  if(s&&s.id){                                          /* 【新】最近播放：最新的一首排最前面 */
+    if(!Array.isArray(MUSIC.recent))MUSIC.recent=[];
+    MUSIC.recent=[s.id].concat(MUSIC.recent.filter(x=>x!==s.id)).slice(0,30);
+  }
   musicSave();
 }
 /* 正在放的时候按真实时间累计（定时器被手机挂起也不会虚增） */
@@ -4020,9 +4112,10 @@ function musicSave(){
   musicStatRoll();
   /* 本机文件的地址（blob:…）关掉页面就失效，所以只存歌的信息；音频本身存在浏览器本地库里 */
   const list=MUSIC.list.map(s=>s.kind==='file'
-    ?{id:s.id,title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId}
-    :{id:s.id,title:s.title,artist:s.artist||'',kind:'url',url:s.url});
-  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,mode:MUSIC.mode,manual:MUSIC.manual,stat:MUSIC.stat})}
+    ?{id:s.id,title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId,pl:s.pl||''}
+    :{id:s.id,title:s.title,artist:s.artist||'',kind:'url',url:s.url,pl:s.pl||''});
+  try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,mode:MUSIC.mode,manual:MUSIC.manual,stat:MUSIC.stat,
+    lists:MUSIC.lists,pl:MUSIC.pl,see:MUSIC.see,recent:MUSIC.recent})}
   catch(e){try{toast('歌单存不下了：'+((e&&e.message)||e))}catch(_){}}
 }
 function musicAudio(){
@@ -4063,6 +4156,8 @@ const MICO={
   folder:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.6a2 2 0 0 1 2-2h3.2l2 2.3h7.6a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2z"/></svg>',
   cross:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.6l10.8 10.8M17.4 6.6 6.6 17.4"/></svg>',
   plus:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.6v12.8M5.6 12h12.8"/></svg>',
+  /* 拖动排序的抓手（三条横线） */
+  grab:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.6 8.4h8.8M7.6 12h8.8M7.6 15.6h8.8"/></svg>',
   heart:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19.4s-6.9-4.3-6.9-8.6A3.9 3.9 0 0 1 12 8.1a3.9 3.9 0 0 1 6.9 2.7c0 4.3-6.9 8.6-6.9 8.6Z"/></svg>',
   comment:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 11.6c0 4-3.7 7.2-8.2 7.2-1 0-2-.2-2.9-.5l-4.3 1.5 1.2-3.5a6.9 6.9 0 0 1-2-4.7C4 7.6 7.7 4.4 12 4.4s8.2 3.2 8.2 7.2Z"/></svg>',
   moments:'<svg class="msvg ln" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>',
@@ -4081,13 +4176,27 @@ function musicNowHTML(){
     '<div class="mstat" id="mStatLine">'+esc(musicStatText(s))+'</div>';
 }
 function musicListHTML(){
-  if(!MUSIC.list.length)return '<p class="dim" style="font-size:12px;margin:0">歌单还是空的，在下面加一首吧。</p>';
-  return MUSIC.list.map((s,i)=>{
+  if(!MUSIC.list.length)return '<p class="dim" style="font-size:12px;margin:0">还没有歌，在下面加一首吧。</p>';
+  const idx=musicShownIdx();
+  if(!idx.length)return '<p class="dim" style="font-size:12px;margin:0">这个歌单还是空的，在下面加一首歌吧。</p>';
+  /* 【新】排序模式：每行只留一个 ☰ 抓手，按住它上下拖就能换顺序（手机上也能拖） */
+  if(MUSIC.sorting){
+    return idx.map(i=>{
+      const s=MUSIC.list[i];
+      return '<div class="mrow sorting" data-i="'+i+'">'+
+        '<button class="mgrab" title="按住拖动排序" aria-label="按住拖动排序" onpointerdown="musicDragDown(event,'+i+')">'+MICO.grab+'</button>'+
+        '<span class="mt">'+esc(musicName(s))+'</span></div>';
+    }).join('');
+  }
+  return idx.map(i=>{
+    const s=MUSIC.list[i];
     const on=(i===MUSIC.cur);
     const src=(s.kind==='file')?(s.bad?'手机文件（放不了）':(s.missing?'手机文件（找不到了）':'手机文件')):(s.failed?'链接（放不出来）':'链接');
     return '<div class="mrow'+(on?' on':'')+'" onclick="musicPlayAt('+i+')">'+
       '<span class="mi">'+(on?(MUSIC.playing?MICO.pause:MICO.play):MICO.note)+'</span>'+
       '<span class="mt">'+esc(musicName(s))+'<span class="dim"> · '+src+'</span></span>'+
+      /* 在「全部歌曲」里才显示它属于哪个歌单，方便找歌 */
+      ((MUSIC.pl==='all'&&(MUSIC.lists.length))?('<span class="mpl">'+esc(musicPlName(musicSongPl(s)))+'</span>'):'')+
       '<button class="ghost mbtn" title="编辑歌名" aria-label="编辑歌名" onclick="event.stopPropagation();musicRename('+i+')">'+MICO.pencil+'</button>'+
       '<button class="ghost mbtn" title="删除" aria-label="删除" onclick="event.stopPropagation();musicDelAsk('+i+')">'+MICO.cross+'</button></div>';
   }).join('');
@@ -4098,6 +4207,7 @@ function musicRename(i){
   showSheet('<div class="ttl">'+MICO.pencil+' 编辑这首歌</div>'+
     '<label class="f">歌名</label><input id="mrT" value="'+esc(s.title||'')+'" placeholder="歌名">'+
     '<label class="f">歌手</label><input id="mrA" value="'+esc(s.artist||'')+'" placeholder="歌手（可不填）">'+
+    '<label class="f">放在哪个歌单</label><select id="mrPl">'+musicPlOptsHTML(musicSongPl(s))+'</select>'+
     (s.kind==='url'?('<label class="f">歌曲链接</label><input id="mrU" value="'+esc(s.url||'')+'" placeholder="要以 .mp3 / .m4a 这种结尾" autocapitalize="off" autocorrect="off">'):'')+
     '<div class="row" style="margin-top:12px"><button class="pri col" onclick="musicRenameSave('+i+')">保存</button>'+
     '<button class="ghost col" onclick="closeSheet()">取消</button></div>'+
@@ -4110,6 +4220,11 @@ function musicRenameSave(i){
   const nt=String((t&&t.value)||'').trim();
   if(!nt)return toast('歌名不能是空的');
   s.title=nt;s.artist=String((a&&a.value)||'').trim();
+  const plEl=document.getElementById('mrPl');                     /* 【新】这首歌要放进哪个歌单 */
+  if(plEl){
+    const np=String(plEl.value||'');
+    if(np===''||MUSIC.lists.some(x=>x.id===np))s.pl=np;
+  }
   if(s.kind==='url'){
     const u=document.getElementById('mrU');
     const nu=String((u&&u.value)||'').trim();
@@ -4133,6 +4248,208 @@ function musicManualStop(){
   musicSave();musicSync();
   toast('好，不记了');
 }
+/* ---------- 【新】歌单：页面上的那一排 + 操作 ---------- */
+function musicPlBarHTML(){
+  const chip=(id,label)=>'<button type="button" class="'+(MUSIC.pl===id?'on':'')+'" onclick="musicPlPick(\''+id+'\')">'+esc(label)+'</button>';
+  return chip('all','全部')+chip('','默认')+MUSIC.lists.map(x=>chip(x.id,x.name)).join('');
+}
+function musicPlOpsHTML(){
+  /* 【新】排序模式：换个说明和一个「完成」按钮 */
+  if(MUSIC.sorting)return '<p class="dim" style="font-size:11.5px;margin:8px 0 0">排序中：按住每首歌左边的 ☰ 上下拖动就能换顺序，排好后点「完成」。最上面的那几首，就是角色默认会看到的那几首。</p>'+
+    '<div class="row" style="margin-top:8px"><button class="pri col" onclick="musicSortToggle()">'+MICO.grab+' 完成</button></div>';
+  const sortBtn='<button class="ghost col" onclick="musicSortToggle()">'+MICO.grab+' 排序</button>';
+  const newBtn='<button class="ghost col" onclick="musicPlNew()">'+MICO.plus+' 新歌单</button>';
+  if(MUSIC.pl==='all')return '<p class="dim" style="font-size:11.5px;margin:8px 0 0">「全部」= 所有歌单的歌放在一起。想分类就点下面的「新歌单」。</p>'+
+    '<div class="row" style="margin-top:8px">'+sortBtn+newBtn+'</div>';
+  if(MUSIC.pl==='')return '<p class="dim" style="font-size:11.5px;margin:8px 0 0">默认歌单：没特别指定歌单的歌都在这里。</p>'+
+    '<div class="row" style="margin-top:8px">'+sortBtn+newBtn+'</div>';
+  return '<div class="row" style="margin-top:8px">'+
+    '<button class="ghost col" onclick="musicPlRenameSheet()">'+MICO.pencil+' 改名</button>'+
+    sortBtn+
+    '<button class="warn col" onclick="musicPlDelAsk()">删除歌单</button></div>'+
+    '<div class="row" style="margin-top:8px">'+newBtn+'</div>';
+}
+/* 现在加歌会加到哪个歌单 */
+function musicAddHint(){
+  return '加到这里：'+esc(musicPlName(musicAddPl()))+'。想加到别的歌单，先在上面选中它。';
+}
+/* 「上一首/下一首」会怎么走：就在现在这个歌单里循环 */
+function musicQueueHint(){
+  if(!MUSIC.list.length)return '还没有歌，先在下面加一首吧。';
+  const n=musicShownIdx().length,nm=musicPlName(MUSIC.pl),m=MUSIC.mode||'order';
+  if(!n)return '「'+nm+'」还是空的，先把歌加进来（现在会按「全部」循环）。';
+  return '上一首 / 下一首 / 放完自动接，都在「'+nm+'」里走'+
+    (m==='one'?'（现在是单曲循环）':(m==='shuffle'?'（现在是随机播放）':'（放完会回到开头，就是循环这个歌单）'))+'。';
+}
+/* 切到某个歌单看 */
+function musicPlPick(id){
+  MUSIC.sorting=false;MUSIC.drag=null;              /* 换歌单就退出排序，免得拖到一半懵 */
+  MUSIC.pl=id;
+  try{musicSave()}catch(e){}
+  musicSeeRebuild();
+  try{musicSync()}catch(e){}
+}
+/* ---------- 【新】拖动排序：按住 ☰ 上下拖，松手就排好 ---------- */
+function musicSortToggle(){
+  MUSIC.sorting=!MUSIC.sorting;
+  MUSIC.drag=null;
+  musicSync();
+  toast(MUSIC.sorting?'排序：按住每首歌左边的 ☰ 上下拖动，排好点「完成」':('排好了：'+musicPlName(MUSIC.pl)));
+}
+/* 现在列表里那一行一行的元素（顺序和显示顺序一样） */
+function musicRowEls(){
+  const box=document.getElementById('mList');
+  return (box&&box.querySelectorAll)?Array.prototype.slice.call(box.querySelectorAll('.mrow')):[];
+}
+function musicDragDown(e,i){
+  if(!MUSIC.sorting)return;                       /* 不在排序模式：抓手不该出现，保险起见不管 */
+  const from=musicShownIdx().indexOf(i);
+  if(from<0)return;
+  try{e.preventDefault()}catch(_){}
+  MUSIC.drag={from:from,to:from};
+  const rows=musicRowEls();
+  if(rows[from])rows[from].classList.add('dragging');
+  document.addEventListener('pointermove',musicDragMove);
+  document.addEventListener('pointerup',musicDragEnd);
+  document.addEventListener('pointercancel',musicDragEnd);
+}
+function musicDragMove(e){
+  const d=MUSIC.drag;if(!d)return;
+  const rows=musicRowEls();
+  if(!rows.length)return;
+  let to=rows.length-1;                           /* 手指比最后一行还低 → 放最后 */
+  for(let k=0;k<rows.length;k++){
+    if(e.clientY<rows[k].getBoundingClientRect().bottom){to=k;break}
+  }
+  if(to===d.to)return;
+  d.to=to;
+  rows.forEach((el,k)=>el.classList.toggle('dragover',k===to&&k!==d.from));
+}
+function musicDragEnd(){
+  document.removeEventListener('pointermove',musicDragMove);
+  document.removeEventListener('pointerup',musicDragEnd);
+  document.removeEventListener('pointercancel',musicDragEnd);
+  const d=MUSIC.drag;MUSIC.drag=null;
+  musicRowEls().forEach(el=>{el.classList.remove('dragging');el.classList.remove('dragover')});
+  if(!d||d.from===d.to)return;
+  musicReorder(d.from,d.to);
+}
+/* 真的把顺序写进数据：只重排「现在看得见的这些歌」的位置，别的歌不动 */
+function musicReorder(from,to){
+  const vis=musicShownIdx();
+  if(from<0||from>=vis.length||to<0||to>=vis.length||from===to)return;
+  const playing=musicNow();                        /* 正在放的那首：排完要按 id 找回它，不然会指到别的歌 */
+  const songs=vis.map(i=>MUSIC.list[i]);
+  const moved=songs.splice(from,1)[0];
+  songs.splice(to,0,moved);
+  vis.forEach((gi,k)=>{MUSIC.list[gi]=songs[k]});
+  if(playing)MUSIC.cur=MUSIC.list.findIndex(s=>s.id===playing.id);
+  musicSave();
+  musicSync();
+}
+/* 新建歌单 */
+function musicPlNew(){
+  showSheet('<div class="ttl">'+MICO.plus+' 新建歌单</div>'+
+    '<label class="f">歌单名字</label><input id="mplN" placeholder="比如：睡前、通勤、最近喜欢" autocapitalize="off">'+
+    '<p class="dim" style="font-size:11.5px;margin:8px 0 0">建好以后，先选中它，再加歌；也可以点歌名右边的铅笔按钮把歌换到这个歌单里。</p>'+
+    '<div class="row" style="margin-top:12px"><button class="pri col" onclick="musicPlCreate()">建好了</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(()=>{const el=document.getElementById('mplN');if(el)el.focus()},80);
+}
+function musicPlCreate(){
+  const el=document.getElementById('mplN');
+  const n=String((el&&el.value)||'').trim().slice(0,20);
+  if(!n)return toast('先给歌单起个名字');
+  if(MUSIC.lists.some(x=>x.name===n))return toast('已经有一个叫「'+n+'」的歌单了');
+  const id='pl'+Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36);
+  MUSIC.lists.push({id:id,name:n});
+  MUSIC.pl=id;                        /* 新建完就切到这个歌单，接着加歌就会加进来 */
+  musicSave();
+  try{closeSheet()}catch(e){}
+  musicSeeRebuild();
+  musicSync();
+  toast('建好了：「'+n+'」。现在加歌就会加进这个歌单。');
+}
+/* 给歌单改名 */
+function musicPlRenameSheet(){
+  const id=MUSIC.pl;
+  const p=(id==='all'||id==='')?null:MUSIC.lists.find(x=>x.id===id);
+  if(!p)return toast('先选中一个自己建的歌单');
+  showSheet('<div class="ttl">'+MICO.pencil+' 给歌单改名</div>'+
+    '<label class="f">歌单名字</label><input id="mplN" value="'+esc(p.name)+'">'+
+    '<div class="row" style="margin-top:12px"><button class="pri col" onclick="musicPlRename()">保存</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+  setTimeout(()=>{const el=document.getElementById('mplN');if(el){el.focus();el.select()}},80);
+}
+function musicPlRename(){
+  const p=(MUSIC.pl==='all'||MUSIC.pl==='')?null:MUSIC.lists.find(x=>x.id===MUSIC.pl);
+  if(!p)return;
+  const el=document.getElementById('mplN');
+  const n=String((el&&el.value)||'').trim().slice(0,20);
+  if(!n)return toast('名字不能是空的');
+  p.name=n;
+  musicSave();
+  try{closeSheet()}catch(e){}
+  musicSeeRebuild();
+  musicSync();
+  toast('改好了');
+}
+/* 删歌单：里面的歌回到「默认歌单」，一首都不删 */
+function musicPlDelAsk(){
+  const p=(MUSIC.pl==='all'||MUSIC.pl==='')?null:MUSIC.lists.find(x=>x.id===MUSIC.pl);
+  if(!p)return toast('「全部」和「默认」这两个删不了');
+  const id=p.id;
+  const n=MUSIC.list.filter(s=>musicSongPl(s)===id).length;
+  if(!confirm('删掉歌单「'+p.name+'」吗？\n里面的 '+n+' 首歌会回到「默认歌单」，不会删歌。'))return;
+  MUSIC.list.forEach(s=>{if(musicSongPl(s)===id)s.pl=''});
+  MUSIC.lists=MUSIC.lists.filter(x=>x.id!==id);
+  if(MUSIC.see.listId===id)MUSIC.see.listId='';
+  MUSIC.pl='all';
+  MUSIC.sorting=false;MUSIC.drag=null;
+  musicSave();
+  musicSeeRebuild();
+  musicSync();
+  toast('歌单删掉了，歌还在「默认歌单」里');
+}
+/* ---------- 【新】角色能看到什么 ---------- */
+function musicSeeHTML(){
+  const m=(MUSIC.see&&MUSIC.see.mode)||'added';
+  const opt=(v,t)=>'<option value="'+v+'"'+(m===v?' selected':'')+'>'+t+'</option>';
+  return '<label class="f">给它看</label>'+
+    '<select id="mSee" onchange="musicSeeSet(this.value)">'+
+      opt('added','歌单里最前面的几首（默认）')+opt('list','某个歌单里的歌')+opt('recent','我最近播放的几首')+
+    '</select>'+
+    (m==='list'?('<label class="f">哪个歌单</label><select id="mSeeList" onchange="musicSeeListSet(this.value)">'+
+      '<option value=""'+((MUSIC.see.listId||'')===''?' selected':'')+'>默认歌单</option>'+
+      MUSIC.lists.map(x=>'<option value="'+esc(x.id)+'"'+((MUSIC.see.listId||'')===x.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+
+      '</select>'):'')+
+    '<p class="dim" id="mSeeHint" style="font-size:11.5px;margin:8px 0 0">'+musicSeeHintText()+'</p>';
+}
+function musicSeeHintText(){
+  const m=(MUSIC.see&&MUSIC.see.mode)||'added';
+  const arr=musicSeeSongs().slice(0,6);
+  if(!arr.length){
+    if(m==='recent')return '还没放过歌。「最近播放」要等你在上面放过歌以后才有。';
+    if(m==='list')return '这个歌单里还没有歌。';
+    return '还没有歌可以给它看。';
+  }
+  return '会告诉它的歌：'+arr.map(s=>'《'+(s.title||'')+'》').join('、')+'。（正在放的那首本来就会说）';
+}
+function musicSeeRebuild(){const b=$('#mSeeBox');if(b)b.innerHTML=musicSeeHTML()}
+function musicSeeSet(v){
+  MUSIC.see.mode=(v==='list'||v==='recent')?v:'added';
+  if(MUSIC.see.mode==='list'&&!MUSIC.see.listId&&MUSIC.lists.length)MUSIC.see.listId=MUSIC.lists[0].id;
+  musicSave();
+  musicSeeRebuild();
+  const t=(MUSIC.see.mode==='recent')?'你最近播放的几首':(MUSIC.see.mode==='list'?('「'+musicPlName(MUSIC.see.listId||'')+'」里的歌'):'歌单里最前面的几首');
+  toast('好了，角色能看到：'+t);
+}
+function musicSeeListSet(v){
+  MUSIC.see.listId=String(v||'');
+  musicSave();
+  const h=$('#mSeeHint');if(h)h.innerHTML=musicSeeHintText();
+  toast('好了，角色能看到「'+musicPlName(MUSIC.see.listId)+'」里的歌');
+}
 function musicHTML(){
   musicEnsure();
   if(!MUSIC.tick)MUSIC.tick=setInterval(musicTick,500);
@@ -4145,6 +4462,7 @@ function musicHTML(){
       '<button class="col" onclick="musicNext()">下一首 '+MICO.next+'</button>'+
     '</div>'+
     '<div class="seg mmodes" id="mModes">'+musicModesHTML()+'</div>'+
+    '<p class="dim" id="mQLine" style="font-size:11.5px;margin:8px 0 0">'+musicQueueHint()+'</p>'+
     '<input id="mProg" type="range" min="0" max="1000" value="0" oninput="musicSeek(this.value)" onchange="musicSeek(this.value)" style="margin-top:10px">'+
     '<div class="dim" style="font-size:11.5px;display:flex;align-items:center;justify-content:space-between;gap:10px">'+
       '<span id="mTime">0:00 / 0:00</span>'+
@@ -4157,8 +4475,13 @@ function musicHTML(){
     '<div class="row" style="margin-top:8px"><button class="col pri" onclick="musicManualSet()">告诉ta我在听这首</button></div>'+
     '<div class="dim" id="mmState" style="font-size:11.5px;margin-top:8px"></div>'+
   '</div>'+
-  '<div class="card"><div class="ttl" id="mCount">我的歌单（'+MUSIC.list.length+' 首）</div><div id="mList">'+musicListHTML()+'</div></div>'+
+  /* 【新】歌单：上面一排是可以切的歌单，下面是这个歌单里的歌 */
+  '<div class="card"><div class="ttl" id="mCount">'+esc(musicPlName(MUSIC.pl))+'（'+musicShownIdx().length+' 首）</div>'+
+    '<div class="mplbar" id="mPlBar">'+musicPlBarHTML()+'</div>'+
+    '<div id="mPlOps">'+musicPlOpsHTML()+'</div>'+
+    '<div id="mList">'+musicListHTML()+'</div></div>'+
   '<div class="card"><div class="ttl">加歌</div>'+
+    '<p class="dim" id="mAddTo" style="font-size:11.5px;margin:0 0 8px">'+musicAddHint()+'</p>'+
     '<input id="mUrl" placeholder="歌曲链接（http 开头，mp3 / m4a / ogg …）">'+
     '<div class="row" style="margin-top:8px"><input id="mTitle" class="col" placeholder="歌名"><input id="mArtist" class="col" placeholder="歌手（可不填）"></div>'+
     '<div class="row" style="margin-top:8px"><button class="col pri" onclick="musicAddUrl()">加进歌单</button></div>'+
@@ -4169,14 +4492,24 @@ function musicHTML(){
     '<p class="dim" style="font-size:11.5px;margin:8px 0 0">批量加：每行一条「链接|歌名|歌手」，贴在链接框里再点添加。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:6px 0 0">手机里的歌会存在这个浏览器里，刷新、关掉再开都还在（清理浏览器数据才会丢）；点歌名右边的铅笔按钮可以改歌名。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:4px 0 0">注意：音乐App里「下载」的歌是加密的（名字常带 [mqms2]），网页放不了，要用没加密的 mp3 / flac。</p>'+
+  '</div>'+
+  /* 【新】让角色看到哪些歌：最前面加的 / 某个歌单 / 最近播放 */
+  '<div class="card"><div class="ttl">'+MICO.headset+' 角色能看到什么</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">除了「正在放的那首」，还能让它看到你歌单里（或最近听）的几首歌，方便它跟你聊音乐。</p>'+
+    '<div id="mSeeBox">'+musicSeeHTML()+'</div>'+
   '</div>';
 }
 function musicSync(){
   const n=$('#mNow');if(n)n.innerHTML=musicNowHTML();
   const mr=$('#mModes');if(mr)mr.innerHTML=musicModesHTML();
+  const ql=$('#mQLine');if(ql)ql.textContent=musicQueueHint();
   const b=$('#mPlayBtn');if(b)b.innerHTML=MUSIC.playing?(MICO.pause+' 暂停'):(MICO.play+' 播放');
+  const bar=$('#mPlBar');if(bar)bar.innerHTML=musicPlBarHTML();
+  const ops=$('#mPlOps');if(ops)ops.innerHTML=musicPlOpsHTML();
+  const ad=$('#mAddTo');if(ad)ad.innerHTML=musicAddHint();
   const l=$('#mList');if(l)l.innerHTML=musicListHTML();
-  const c=$('#mCount');if(c)c.textContent='我的歌单（'+MUSIC.list.length+' 首）';
+  const c=$('#mCount');if(c)c.textContent=musicPlName(MUSIC.pl)+'（'+musicShownIdx().length+' 首）';
+  const sh=$('#mSeeHint');if(sh)sh.innerHTML=musicSeeHintText();     /* 歌单变了，这里也跟着更新 */
   const st=$('#mmState');
   if(st){
     st.innerHTML=(MUSIC.manual&&MUSIC.manual.title)
@@ -4278,7 +4611,11 @@ function musicPlayAt(i){
 }
 function musicToggle(){
   const a=musicAudio();
-  if(!musicNow()){if(MUSIC.list.length)return musicPlayAt(0);return toast('歌单是空的，先加一首吧')}
+  if(!musicNow()){
+    const q=musicQIdx();                              /* 【新】没在放歌时，从当前歌单的第一首开始 */
+    if(q.length)return musicPlayAt(q[0]);
+    return toast('歌单是空的，先加一首吧');
+  }
   if(MUSIC.playing){
     a.pause();MUSIC.playing=false;musicSync();
   }else{
@@ -4287,33 +4624,36 @@ function musicToggle(){
     else{MUSIC.playing=true;musicSync()}
   }
 }
-/* ---------- 播放方式：顺序 / 单曲循环 / 随机 ---------- */
+/* ---------- 播放方式：列表循环 / 单曲循环 / 随机 ---------- */
 function musicModesHTML(){
   const m=MUSIC.mode||'order';
   const b=(k,n,ic)=>'<button type="button" class="'+(m===k?'on':'')+'" onclick="musicMode(\''+k+'\')">'+ic+'<span>'+n+'</span></button>';
-  return b('order','顺序',MICO.mode_order)+b('one','单曲循环',MICO.mode_one)+b('shuffle','随机',MICO.mode_shuffle);
+  return b('order','列表循环',MICO.mode_order)+b('one','单曲循环',MICO.mode_one)+b('shuffle','随机',MICO.mode_shuffle);
 }
 function musicMode(m){
   m=(m==='one'||m==='shuffle')?m:'order';
   MUSIC.mode=m;
   try{musicSave()}catch(e){}
   try{musicSync()}catch(e){}
-  toast('播放方式：'+(m==='one'?'单曲循环':(m==='shuffle'?'随机播放':'顺序播放')));
+  toast('播放方式：'+(m==='one'?'单曲循环（一直重放这一首）':(m==='shuffle'?'随机播放':'列表循环（当前歌单放完再从头）')));
 }
-/* 随机挑一首（尽量别挑到正在放的这首） */
+/* 随机挑一首（尽量别挑到正在放的这首，只在自己这个歌单里挑） */
 function musicRandIdx(){
-  const n=MUSIC.list.length;
-  if(n<=1)return 0;
+  const q=musicQIdx();
+  if(!q.length)return -1;
+  if(q.length<2)return q[0];
   let k=MUSIC.cur,i=0;
-  do{k=Math.floor(Math.random()*n);i++}while(k===MUSIC.cur&&i<40);
+  do{k=q[Math.floor(Math.random()*q.length)];i++}while(k===MUSIC.cur&&i<40);
   return k;
 }
-/* 手动点「下一首」要去哪一首：随机模式就随机，其它按顺序 */
+/* 手动点「下一首」要去哪一首：随机模式就随机，其它按顺序（当前歌单里，放完回到开头） */
 function musicNextIdx(){
-  const n=MUSIC.list.length;
-  if(n<2)return (MUSIC.cur<0?0:MUSIC.cur);
+  const q=musicQIdx();
+  if(!q.length)return -1;
+  if(q.length<2)return q[0];
   if((MUSIC.mode||'order')==='shuffle')return musicRandIdx();
-  return (MUSIC.cur+1+n)%n;
+  const at=q.indexOf(MUSIC.cur);
+  return q[(at<0?0:at+1)%q.length];
 }
 /* 一首放完了自动接：单曲循环就重放这一首，随机就随机下一首，否则顺序下一首 */
 function musicEnded(){
@@ -4333,10 +4673,12 @@ function musicEnded(){
 }
 function musicNext(){if(!MUSIC.list.length)return;musicPlayAt(musicNextIdx())}
 function musicPrev(){
-  if(!MUSIC.list.length)return;
+  const q=musicQIdx();
+  if(!q.length)return;
   const a=MUSIC.audio;
   if(a&&a.currentTime>4){a.currentTime=0;return}
-  musicPlayAt((MUSIC.cur-1+MUSIC.list.length)%MUSIC.list.length);
+  const at=q.indexOf(MUSIC.cur);
+  musicPlayAt(q[(at<=0?q.length:at)-1]);
 }
 /* ---------- 【新增】角色可以控制音乐：播放 / 暂停 / 下一首 ----------
    它只有在角色设置里「能控制我的音乐」打开时才能拿到这个工具，
@@ -4364,7 +4706,7 @@ function musicCtlRun(action){
       say:'⏸ 暂停了《'+musicName(cur)+'》',act:'pause',name:musicName(cur)};
   }
   if(action==='next'){
-    if(MUSIC.list.length<2)return {ok:false,msg:'她的歌单里只有这一首歌，没有下一首可以切。'};
+    if(musicQIdx().length<2)return {ok:false,msg:'她现在这个歌单里只有这一首歌，没有下一首可以切。'};
     const idx=musicNextIdx();                 /* 随机模式下，角色喊「下一首」也跟着随机 */
     const nx=MUSIC.list[idx];
     musicPlayAt(idx);
@@ -4374,7 +4716,10 @@ function musicCtlRun(action){
   if(action!=='play')return {ok:false,msg:'看不懂这个操作，只能用 play / pause / next。'};
   if(MUSIC.playing)return {ok:false,msg:'音乐已经在放了（'+musicName(cur)+'），不用再点播放。'};
   if(musicHasSrc()&&MUSIC.cur>=0){try{musicToggle()}catch(e){}}
-  else musicPlayAt(MUSIC.cur>=0?MUSIC.cur:0);
+  else{
+    const q=musicQIdx();
+    musicPlayAt(MUSIC.cur>=0?MUSIC.cur:(q.length?q[0]:0));
+  }
   return {ok:true,msg:'正在帮她放《'+musicName(cur)+'》。如果手机不让网页自动出声，她会看到提示、自己点一下播放。',
     say:'▶ 播放《'+musicName(cur)+'》',act:'play',name:musicName(cur)};
 }
@@ -4402,6 +4747,7 @@ function musicDel(i){
     if(s.url&&String(s.url).indexOf('blob:')===0){try{URL.revokeObjectURL(s.url)}catch(e){}}
   }
   MUSIC.list.splice(i,1);
+  MUSIC.recent=(MUSIC.recent||[]).filter(x=>x!==s.id);      /* 【新】删掉的歌也别留在「最近播放」里 */
   if(wasCur){
     MUSIC.cur=-1;MUSIC.playing=false;
     if(MUSIC.audio){try{MUSIC.audio.pause();MUSIC.audio.removeAttribute('src')}catch(e){}}
@@ -4421,19 +4767,20 @@ function musicAddUrl(){
   if(!raw)return toast('先把歌曲链接贴进来');
   const lines=raw.split('\n').map(s=>s.trim()).filter(Boolean);
   const t0=String((t&&t.value)||'').trim(),a0=String((ar&&ar.value)||'').trim();
+  const to=musicAddPl();                                     /* 【新】加到当前选中的歌单里 */
   let added=0,odd=0;
   lines.forEach(line=>{
     const p=line.split('|').map(s=>s.trim());
     const url=p[0];
     if(!/^https?:\/\//i.test(url))return;
     if(!/\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac|weba|webm|mp4)([?#]|$)/i.test(url))odd++;
-    MUSIC.list.push({id:uid(),title:p[1]||(lines.length===1&&t0?t0:('第 '+(MUSIC.list.length+1)+' 首')),artist:p[2]||(lines.length===1?a0:''),url:url,kind:'url'});
+    MUSIC.list.push({id:uid(),title:p[1]||(lines.length===1&&t0?t0:('第 '+(MUSIC.list.length+1)+' 首')),artist:p[2]||(lines.length===1?a0:''),url:url,kind:'url',pl:to});
     added++;
   });
   if(!added)return toast('没认出链接：要用 http 开头的那串网址');
   if(u)u.value='';if(t)t.value='';if(ar)ar.value='';
   musicSave();musicSync();
-  toast(odd?('加好了（'+added+' 首），但 '+odd+' 个链接不像音频文件，可能会放不出来。要放歌最稳的是用「从手机里选一首」。'):('已加进歌单（'+added+' 首）'));
+  toast(odd?('加好了（'+added+' 首），但 '+odd+' 个链接不像音频文件，可能会放不出来。要放歌最稳的是用「从手机里选一首」。'):('已加进「'+musicPlName(to)+'」（'+added+' 首）'));
 }
 function musicPickFile(){const el=$('#mFile');if(el)el.click()}
 /* 看文件开头几个字节，判断它是不是普通音频。
@@ -4464,7 +4811,7 @@ function musicFileChosen(inp){
     }
     /* 明确写上格式，浏览器才知道怎么放（有些文件选进来是没有格式信息的） */
     const blob=info.type?new Blob([f],{type:info.type}):f;
-    MUSIC.list.push({id:id,title:nm||'本机音频',artist:'',kind:'file',blobId:id,url:URL.createObjectURL(blob),fmt:info.kind});
+    MUSIC.list.push({id:id,title:nm||'本机音频',artist:'',kind:'file',blobId:id,url:URL.createObjectURL(blob),fmt:info.kind,pl:musicAddPl()});
     musicSave();musicSync();
     /* 音频文件本身也存进浏览器本地库，刷新/关掉再开都还在 */
     if(typeof idbPutRaw==='function'){try{idbPutRaw(id,blob,'music').catch(()=>{})}catch(e){}}
@@ -9358,7 +9705,7 @@ var CSS=[
 '.atok{font-size:10.5px;color:var(--dim);opacity:.85;margin-top:4px;padding:0 2px}',
 '.abub.me .atok{text-align:right}',
 '#msgs.p6sel .bub{cursor:pointer;transition:box-shadow .15s ease}',
-'#msgs.p6sel .bub.p6on{box-shadow:0 0 0 2px var(--acc),0 0 0 7px rgba(63,169,216,.16)}',
+'#msgs.p6sel .bub.p6on{box-shadow:0 0 0 2px var(--acc),0 0 0 7px var(--p8accSh,rgba(63,169,216,.16))}',
 '.p6prev{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;color:var(--dim);max-height:26vh;overflow:auto;white-space:pre-wrap;margin-bottom:10px}',
 '.p6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
 '.p6grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 4px;font-size:12.5px;line-height:1.2;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;border-radius:14px}',
