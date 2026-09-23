@@ -467,6 +467,19 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .momcmt .cmtdel .msvg{width:12px;height:12px;vertical-align:0}
 #main input[type=range],.sheet input[type=range]{padding:0;border:0;background:transparent;box-shadow:none;height:22px;accent-color:var(--acc)}
 
+/* 角色帮你操作音乐后，聊天里留一行简约的小胶囊提示 */
+.mctl{display:inline-flex;align-items:center;gap:8px;width:fit-content;max-width:calc(92% - 38px);margin:7px 0 0 38px;padding:5px 12px 5px 5px;font-size:11.5px;line-height:1.5;letter-spacing:.2px;color:var(--meta);background:var(--bg2);border:1px solid var(--line);border-radius:999px;animation:mctlIn .22s ease both}
+.mctl.me{margin-left:auto;margin-right:38px}
+.mctl i{width:20px;height:20px;flex:0 0 20px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--accdim);color:var(--acc)}
+.mctl i svg{width:11px;height:11px;display:block;fill:currentColor;stroke:none}
+.mctl b{color:var(--txt);font-weight:600}
+.mctl em{font-style:normal;color:var(--acc);display:inline-block;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:baseline}
+.mctl.tap{cursor:pointer}
+.mctl.tap:active{filter:brightness(1.08)}
+.mctl[data-act="play"] i{animation:mctlPulse 1.9s ease-in-out infinite}
+@keyframes mctlIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes mctlPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}50%{box-shadow:0 0 0 4px var(--accdim)}}
+
 </style>
 </head>
 <body>
@@ -1774,6 +1787,33 @@ function appendChatMessage(box,x,i){
   appendMessageMeta(box,x,isMe);
   if(i===msgs.length-1&&!busy)appendMessageOps(box,x);
 }
+/* ---------- 角色操作音乐后，聊天里那行小提示（播放 / 暂停 / 下一首） ---------- */
+const MCTL_IC={
+  play:'<svg viewBox="0 0 24 24"><path d="M8.6 5.6v12.8L18.6 12z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24"><rect x="7.4" y="5.2" width="3.4" height="13.6" rx="1.7"/><rect x="13.2" y="5.2" width="3.4" height="13.6" rx="1.7"/></svg>',
+  next:'<svg viewBox="0 0 24 24"><rect x="16" y="6.2" width="2.6" height="11.6" rx="1.3"/><path d="M5.4 6.8v10.4L13.8 12z"/></svg>'
+};
+function mctlAct(a){return (a==='pause'||a==='next')?a:'play'}
+function mctlVerb(a){a=mctlAct(a);return a==='pause'?'暂停了':(a==='next'?'下一首':'继续播放')}
+function musicChipHTML(mu){
+  const a=mctlAct(mu&&mu.act),nm=String((mu&&mu.name)||'');
+  return '<i>'+MCTL_IC[a]+'</i><span><b>'+mctlVerb(a)+'</b>'+(nm?(' <em>'+esc(nm)+'</em>'):'')+'</span>';
+}
+function musicChipEl(mu,isMe){
+  const d=document.createElement('div');
+  d.className='mctl tap'+(isMe?' me':'');
+  d.innerHTML=musicChipHTML(mu);
+  return musicChipBind(d,mu);
+}
+/* 让这条提示可以点：点一下直接去「音乐」小应用 */
+function musicChipBind(el,mu){
+  if(!el)return el;
+  el.setAttribute('data-music','1');
+  el.setAttribute('data-act',mctlAct(mu&&mu.act));
+  el.title='点一下去「音乐」看看';
+  el.onclick=function(){try{P14.open('music')}catch(e){}};
+  return el;
+}
 function renderChatCore(){
   const c=curChar(),m=$('#main');
   if(!c){m.innerHTML='<div class="hint">还没有角色<br><br><button class="pri" onclick="newChar()">＋ 新建角色</button></div>';return}
@@ -1877,6 +1917,23 @@ function renderChat(){
             cp.style.cssText='font-size:11.5px;color:var(--dim);margin:0 0 5px';
             cp.textContent='🖼 '+x.art.caption;
             b.insertBefore(cp,im.nextSibling);
+          }
+        });
+      }
+    }
+  }catch(e){}
+  /* ↓ 新增：角色操作过音乐的那条回复下面，补一行「播放 / 暂停 / 下一首」小提示 */
+  try{
+    var boxM=document.getElementById('msgs');
+    if(boxM){
+      var bubsM=Array.prototype.slice.call(boxM.querySelectorAll('.bub'));
+      if(bubsM.length===msgs.length){
+        msgs.forEach(function(x,i){
+          var list=x.music;if(!list||!list.length)return;
+          var b=bubsM[i];if(!b)return;
+          for(var k=list.length-1;k>=0;k--){
+            var el=musicChipEl(list[k],x.role==='user');
+            if(b.nextSibling)b.parentNode.insertBefore(el,b.nextSibling);else b.parentNode.appendChild(el);
           }
         });
       }
@@ -2003,17 +2060,32 @@ function buildCtxSystem(c,extra){
   try{
     musicEnsure();
     const song=musicNow();
+    /* 【新增】听歌数据（今天听了多久 / 这首听了几遍）受角色设置里的开关控制 */
+    const statOn=!(c.listenPerm&&c.listenPerm.on===false);
+    const statLine=statOn?musicPromptStatLine(song):'';
     if(song&&sys&&sys.push){
       const others=MUSIC.list.filter(s=>s!==song).slice(0,6).map(s=>s.title).filter(Boolean);
       sys.push('【她正在听什么】她这会儿在用手机听《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):'')+
         (MUSIC.playing?'，还在放着。':'，现在是暂停的。')+
         '这是她和你在「音乐」小应用里放的歌。'+
         (others.length?('\n她最近的歌单里还有：'+others.join('、')+'。'):'')+
+        (statLine?('\n她今天的听歌情况：'+statLine):'')+
         '\n聊天时可以自然地带上（比如问问这首歌好不好听、她最近喜欢听什么、你也在听什么），但不要每句话都提，也别装作你能真的听到声音、不要报歌单流水账。');
     }else if(MUSIC.manual&&MUSIC.manual.on&&MUSIC.manual.title&&sys&&sys.push){
       sys.push('【她正在听什么】她这会儿在别的音乐App里听《'+MUSIC.manual.title+'》'+(MUSIC.manual.artist?('（'+MUSIC.manual.artist+'）'):'')+
         '。这个网页只是在旁边记着歌名，所以你只知道她在听什么歌，不知道播到哪一句、也听不到声音。'+
+        (statLine?('\n她今天的听歌情况：'+statLine):'')+
         '\n聊天时可以自然带上（问问这首歌、说你也喜欢、或聊聊她的品味），但不要每句话都提。');
+    }else if(statLine&&sys&&sys.push){
+      sys.push('【她今天的听歌情况】'+statLine+'聊天时可以自然提一句（比如她今天听歌是不是特别多），但不要每句话都提、也不要报流水账。');
+    }
+  }catch(e){}
+  /* ↓ 新增：把「她手机还剩多少电」告诉角色（角色设置里可以关掉这个开关） */
+  try{
+    const bs=(window&&window.BATSTATE&&typeof window.BATSTATE.level==='number')?window.BATSTATE:null;
+    if(bs&&typeof bs.level==='number'&&!(c.batPerm&&c.batPerm.on===false)&&sys&&sys.push){
+      sys.push('【她的手机电量】她手机现在大概剩 '+Math.round(Math.max(0,Math.min(1,bs.level))*100)+'%'+(bs.charging?'，正在充电。':'，没在充电。')+
+        '\n这是浏览器从她手机上读到的真实电量。聊天时可以自然地关心一下（比如电量低了提醒她充电、插着电时顺口说一句），但不要每句话都提、也不要反复念叨这个数字。');
     }
   }catch(e){}
   /* ↓ 新增：把「朋友圈」最近的事告诉角色（它自己也能发） */
@@ -2779,7 +2851,19 @@ function charPermissionCardsHTML(c){
   '<input type="checkbox" id="e_actmem" '+((c.actMem&&c.actMem.on)?'checked':'')+'></div>'+
   '<div class="setrow" style="margin-top:10px"><span class="lbl">每场演绎带最近几条</span>'+
   '<input id="e_actn" type="number" value="'+((c.actMem&&c.actMem.n)||12)+'">'+
-  '<span class="unit">条（最多 4 场）</span></div></div>';
+  '<span class="unit">条（最多 4 场）</span></div></div>'+
+  /* 【新增】电量可见：它能不能知道你手机还剩多少电 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>能看见我的手机电量</b><div class="dim" style="font-size:12px">打开后，它就知道你手机大概还剩多少电、在不在充电（手机不给读电量时会自动不提这件事）</div></div>'+
+  '<input type="checkbox" id="e_batperm" '+((c.batPerm&&c.batPerm.on===false)?'':'checked')+'></div></div>'+
+  /* 【新增】听歌数据可见：它能不能知道你今天听了多久、这首听了几遍 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>能看见我的听歌数据</b><div class="dim" style="font-size:12px">打开后，它就知道你今天在「音乐」里听了多久、这一首你一共听了几遍（「正在听哪首歌」本来就会告诉它，不受这个开关影响）</div></div>'+
+  '<input type="checkbox" id="e_listenperm" '+((c.listenPerm&&c.listenPerm.on===false)?'':'checked')+'></div></div>'+
+  /* 【新增】音乐控制权限：它能不能帮你放歌 / 暂停 / 切下一首 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>能控制我的音乐</b><div class="dim" style="font-size:12px">打开后，它聊天时可以帮你「继续播放 / 暂停 / 下一首」（前提是「音乐」里已经加过歌）。不想让某个角色动手，就把这个关掉</div></div>'+
+  '<input type="checkbox" id="e_musicperm" '+((c.musicPerm&&c.musicPerm.on===false)?'':'checked')+'></div></div>';
 }
 function editChar(id,tema){
   const c=chars.find(x=>x.id===id);if(!c)return;
@@ -2931,6 +3015,16 @@ function applyCharInputs(id){
   /* ↓ 补丁5-B：画图开关 */
   const elImg=document.getElementById('e_imgperm');
   if(elImg)c.imgPerm={on:!!elImg.checked};
+  /* ↓ 新增：电量可见 / 听歌数据可见 / 音乐控制（没有这个开关的旧数据就当默认开着） */
+  const elBatP=document.getElementById('e_batperm');
+  if(elBatP)c.batPerm={on:!!elBatP.checked};
+  else if(!c.batPerm)c.batPerm={on:true};
+  const elLisP=document.getElementById('e_listenperm');
+  if(elLisP)c.listenPerm={on:!!elLisP.checked};
+  else if(!c.listenPerm)c.listenPerm={on:true};
+  const elMusP=document.getElementById('e_musicperm');
+  if(elMusP)c.musicPerm={on:!!elMusP.checked};
+  else if(!c.musicPerm)c.musicPerm={on:true};
   return c;
 }
 function saveChar(id){
@@ -3690,6 +3784,17 @@ function musicStatText(s){
   if(p)t+=' · 这首听过 '+p.n+' 次'+(p.dn?('（今天 '+p.dn+' 次）'):'');
   return t;
 }
+/* 【新增】给角色看的那句「今天的听歌情况」：没有数据就返回空字符串（那样就什么都不说） */
+function musicPromptStatLine(s){
+  try{
+    musicStatRoll();
+    const bits=[];
+    if((MUSIC.stat.sec||0)>0)bits.push('她今天在「音乐」里已经听了 '+musicHuman(MUSIC.stat.sec));
+    const p=s?musicStatGet(s):null;
+    if(p&&p.n>0)bits.push('《'+(s.title||'')+'》这首歌她一共听过 '+p.n+' 次'+(p.dn?('（今天 '+p.dn+' 次）'):''));
+    return bits.length?(bits.join('；')+'。'):'';
+  }catch(e){return ''}
+}
 /* 开始放一首歌：次数 +1 */
 function musicCountPlay(s){
   const p=musicStatGet(s);if(!p)return;
@@ -3992,6 +4097,51 @@ function musicPrev(){
   if(a&&a.currentTime>4){a.currentTime=0;return}
   musicPlayAt((MUSIC.cur-1+MUSIC.list.length)%MUSIC.list.length);
 }
+/* ---------- 【新增】角色可以控制音乐：播放 / 暂停 / 下一首 ----------
+   它只有在角色设置里「能控制我的音乐」打开时才能拿到这个工具，
+   而且由它自己看着聊天内容决定要不要用（工具说明里写了「别每轮都调」）。 */
+window.MUSIC_TOOL={type:'function',function:{
+  name:'music_control',
+  description:'控制她手机上的音乐播放器（就是「音乐」小应用里正在放的那首）。action 只能选 play（继续播放）/ pause（暂停）/ next（切到下一首）。只在她明确希望你帮忙、或者聊天聊到音乐很自然的时候用，不要每轮都调；她的歌单是空的时候会失败。',
+  parameters:{type:'object',properties:{
+    action:{type:'string',enum:['play','pause','next'],description:'要做的操作'},
+    reason:{type:'string',description:'一句话说明为什么这么做（可留空）'}
+  },required:['action']}
+}};
+function musicHasSrc(){
+  try{const a=MUSIC.audio;return !!(a&&a.getAttribute&&a.getAttribute('src'))}catch(e){return false}
+}
+function musicCtlRun(action){
+  if(!MUSIC.list.length)return {ok:false,msg:'她的歌单里一首歌都没有，现在放不了也切不了。可以问问她想听什么，让她自己在「音乐」里加一首。'};
+  const cur=musicNow()||MUSIC.list[0];
+  if(action==='pause'){
+    if(!MUSIC.playing&&!musicHasSrc())return {ok:false,msg:'现在本来就没在放歌，什么都不用做。'};
+    try{if(MUSIC.audio)MUSIC.audio.pause()}catch(e){}
+    MUSIC.playing=false;
+    try{musicSync()}catch(e){}
+    return {ok:true,msg:'已经帮她暂停了音乐（'+musicName(cur)+'）。接着正常聊天就行，不用再复述这件事。',
+      say:'⏸ 暂停了《'+musicName(cur)+'》',act:'pause',name:musicName(cur)};
+  }
+  if(action==='next'){
+    if(MUSIC.list.length<2)return {ok:false,msg:'她的歌单里只有这一首歌，没有下一首可以切。'};
+    const idx=(MUSIC.cur+1+MUSIC.list.length)%MUSIC.list.length;
+    const nx=MUSIC.list[idx];
+    musicPlayAt(idx);
+    return {ok:true,msg:'已经帮她切到《'+musicName(nx)+'》了。接着正常聊天就行。',
+      say:'⏭ 下一首《'+musicName(nx)+'》',act:'next',name:musicName(nx)};
+  }
+  if(action!=='play')return {ok:false,msg:'看不懂这个操作，只能用 play / pause / next。'};
+  if(MUSIC.playing)return {ok:false,msg:'音乐已经在放了（'+musicName(cur)+'），不用再点播放。'};
+  if(musicHasSrc()&&MUSIC.cur>=0){try{musicToggle()}catch(e){}}
+  else musicPlayAt(MUSIC.cur>=0?MUSIC.cur:0);
+  return {ok:true,msg:'正在帮她放《'+musicName(cur)+'》。如果手机不让网页自动出声，她会看到提示、自己点一下播放。',
+    say:'▶ 播放《'+musicName(cur)+'》',act:'play',name:musicName(cur)};
+}
+window.execMusicTool=function(name,args){
+  if(name!=='music_control')return {ok:false,msg:'未知的音乐操作'};
+  try{musicEnsure()}catch(e){}
+  return musicCtlRun(String((args&&args.action)||'').toLowerCase().trim());
+};
 function musicSeek(v){
   const a=MUSIC.audio;if(!a||!isFinite(a.duration)||!a.duration)return;
   MUSIC.seeking=true;
@@ -6770,6 +6920,22 @@ execCharTool=function(name,args,cid){
     try{return window.execMoment(args,cid)}
     catch(e){return {ok:false,msg:'发不了朋友圈：'+((e&&e.message)||e)}}
   }
+  /* ↓ 新增：控制音乐（播放 / 暂停 / 下一首），做完了在聊天里留一行小提示 */
+  if(name==='music_control'){
+    var rm=null;
+    try{rm=window.execMusicTool(name,args)}
+    catch(e){rm={ok:false,msg:'音乐操作没成功：'+((e&&e.message)||e)}}
+    try{
+      if(rm&&rm.ok){
+        /* 记下来：等这条回复发出去，挂到它下面（重画、刷新后都还在） */
+        window.P5MUSIC=window.P5MUSIC||[];
+        window.P5MUSIC.push({act:rm.act||'play',name:rm.name||'',t:Date.now()});
+        /* 先马上显示一条，不用等它把话说完整 */
+        if(view==='chat')musicChipBind(chatLine(musicChipHTML(rm),'mctl tap'),rm);
+      }
+    }catch(e){}
+    return {ok:!!(rm&&rm.ok),msg:(rm&&rm.msg)||'音乐操作没成功'};
+  }
   /* ↓ 补丁5-B：画一张图 */
   if(name==='draw_image')return P5.drawStep(args,cid);
   var c=p5Char(cid);
@@ -7144,6 +7310,8 @@ askAndAppend=async function(){
   /* ---- 补丁5-B：画图 ---- */
   P5.arts=[];
   var before5=msgs.length;
+  /* ---- 新增：这一轮角色操作过音乐的记录 ---- */
+  window.P5MUSIC=[];
   /* ---- 补丁6-A：生成完要不要重画 ---- */
   var before6=(msgs||[]).length;
   try{
@@ -7218,6 +7386,18 @@ askAndAppend=async function(){
       }
     }catch(e){}
     P5.arts=[];
+    /* ---- 新增：角色这一轮操作过音乐，把那行小提示挂到这条回复上 ---- */
+    try{
+      var arrM=window.P5MUSIC||[];window.P5MUSIC=[];
+      if(arrM.length&&msgs.length){
+        var m6=msgs[msgs.length-1];
+        if(m6&&m6.role==='assistant'){
+          m6.music=(m6.music||[]).concat(arrM);
+          try{persist()}catch(e){}
+          try{renderChat()}catch(e){}
+        }
+      }
+    }catch(e){}
     /* ---- 补丁13-A：角色挑的表情挂到这条回复上 ---- */
     W.P13.armed=false;
     try{
@@ -11138,6 +11318,10 @@ toolsFor=function(c){
   window.toysFor(c).forEach(function(x){t.push(x)});
   /* ↓ 补丁5-B：加上「画一张图」 */
   if(window.imgOn()&&c&&!(c.imgPerm&&c.imgPerm.on===false))t.push(window.DRAW_TOOL);
+  /* ↓ 新增：加上「控制音乐」（播放 / 暂停 / 下一首，角色设置里可以关掉） */
+  try{
+    if(c&&c.musicPerm&&c.musicPerm.on&&W.MUSIC_TOOL)t.push(W.MUSIC_TOOL);
+  }catch(e){}
   /* ↓ 补丁13-A：加上「发表情包」 */
   try{
     if(W.P13.armed&&sendOn()&&all().length&&t&&t.push)t.push(SEND_STICKER_TOOL);
@@ -11448,6 +11632,8 @@ W.updateDots=function(){
 function batPaint(b){
   var lv=Math.max(0,Math.min(1,(b&&typeof b.level==='number')?b.level:0));
   var ch=!!(b&&b.charging);
+  /* 【新增】把这会儿读到的电量记在全局里，聊天时角色才能知道（角色设置里可以关掉） */
+  try{window.BATSTATE={level:lv,charging:ch,at:Date.now()}}catch(e){}
   var low=(lv<=.2&&!ch);
   var fill=D.getElementById('batFill');
   if(fill)fill.setAttribute('width',(0.9+11.5*lv).toFixed(2));
