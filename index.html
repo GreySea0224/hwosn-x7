@@ -2508,7 +2508,7 @@ function buildCtxSystem(c,extra){
   try{
     musicEnsure();
     const song=musicNow();
-    /* 【新增】听歌数据（今天听了多久 / 这首听了几遍）受角色设置里的开关控制 */
+    /* 【新增】听歌数据（今天听了多久 / 这首一共听了几遍，两个数字分开写清楚）受角色设置里的开关控制 */
     const statOn=!(c.listenPerm&&c.listenPerm.on===false);
     const statLine=statOn?musicPromptStatLine(song):'';
     /* 【新增】除了正在放的那首，还让它看哪些歌：由「音乐」页里的「角色能看到什么」决定 */
@@ -2518,20 +2518,20 @@ function buildCtxSystem(c,extra){
         (MUSIC.playing?'，还在放着。':'，现在是暂停的。')+
         '这是她和你在「音乐」小应用里放的歌。'+
         (seeLine?('\n'+seeLine):'')+
-        (statLine?('\n她今天的听歌情况：'+statLine):'')+
+        (statLine?('\n'+statLine):'')+
         '\n聊天时可以自然地带上（比如问问这首歌好不好听、她最近喜欢听什么、你也在听什么），但不要每句话都提，也别装作你能真的听到声音、不要报歌单流水账。');
     }else if(MUSIC.manual&&MUSIC.manual.on&&MUSIC.manual.title&&sys&&sys.push){
       sys.push('【她正在听什么】她这会儿在别的音乐App里听《'+MUSIC.manual.title+'》'+(MUSIC.manual.artist?('（'+MUSIC.manual.artist+'）'):'')+
         '。这个网页只是在旁边记着歌名，所以你只知道她在听什么歌，不知道播到哪一句、也听不到声音。'+
         (seeLine?('\n'+seeLine):'')+
-        (statLine?('\n她今天的听歌情况：'+statLine):'')+
+        (statLine?('\n'+statLine):'')+
         '\n聊天时可以自然带上（问问这首歌、说你也喜欢、或聊聊她的品味），但不要每句话都提。');
     }else if(sys&&sys.push){
       /* 现在没在放歌：只有她自己选了「某个歌单」或「最近播放」，才把歌单里的歌告诉角色 */
       const bits=[];
       if(seeLine&&MUSIC.see&&MUSIC.see.mode!=='added')bits.push('【她的歌单】'+seeLine);
-      if(statLine)bits.push('【她今天的听歌情况】'+statLine);
-      if(bits.length)sys.push(bits.join('\n')+'聊天时可以自然地提一句（比如这个歌单是干什么的、她今天听歌是不是特别多），但不要每句话都提、也不要报流水账。');
+      if(statLine)bits.push(statLine);
+      if(bits.length)sys.push(bits.join('\n')+'\n聊天时可以自然地提一句（比如这个歌单是干什么的、她今天听歌是不是特别多），但不要每句话都提、也不要报流水账。说听歌次数时要看清「今天」和「累计」这两行，别把累计总数说成今天听的。');
     }
   }catch(e){}
   /* ↓ 新增：把「她手机还剩多少电」告诉角色（角色设置里可以关掉这个开关） */
@@ -3433,7 +3433,7 @@ function charPermissionCardsHTML(c){
   '<input type="checkbox" id="e_batperm" '+((c.batPerm&&c.batPerm.on===false)?'':'checked')+'></div></div>'+
   /* 【新增】听歌数据可见：它能不能知道你今天听了多久、这首听了几遍 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>能看见我的听歌数据</b><div class="dim" style="font-size:12px">打开后，它就知道你今天在「音乐」里听了多久、这一首你一共听了几遍（「正在听哪首歌」本来就会告诉它，不受这个开关影响；还能看到歌单里的哪些歌，去「音乐」页最下面的「角色能看到什么」里选）</div></div>'+
+  '<div class="col"><b>能看见我的听歌数据</b><div class="dim" style="font-size:12px">打开后，它就知道你今天在「音乐」里听了多久、这一首一共听了几遍（这两件事它会分开算：一共是累计的，不是今天的；「正在听哪首歌」本来就会告诉它，不受这个开关影响；还能看到歌单里的哪些歌，去「音乐」页最下面的「角色能看到什么」里选）</div></div>'+
   '<input type="checkbox" id="e_listenperm" '+((c.listenPerm&&c.listenPerm.on===false)?'':'checked')+'></div></div>'+
   /* 【新增】音乐控制权限：它能不能帮你放歌 / 暂停 / 切下一首 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
@@ -4599,18 +4599,28 @@ function musicHuman(sec){
 function musicStatText(s){
   const p=s?musicStatGet(s):null;
   let t='今日已听 '+musicHuman(MUSIC.stat.sec);
-  if(p)t+=' · 这首听过 '+p.n+' 次'+(p.dn?('（今天 '+p.dn+' 次）'):'');
+  if(p)t+=' · 这首一共 '+p.n+' 次（今天 '+p.dn+' 次）';
   return t;
 }
-/* 【新增】给角色看的那句「今天的听歌情况」：没有数据就返回空字符串（那样就什么都不说） */
+/* 【新增】给角色看的那句听歌情况。关键：别让它把「一共听了几次」当成「今天听了几次」，
+   所以「今天」和「累计」分开成两行，每个数字后面都写明白是哪一个。
+   没有数据就返回空字符串（那样就什么都不说） */
 function musicPromptStatLine(s){
   try{
     musicStatRoll();
-    const bits=[];
-    if((MUSIC.stat.sec||0)>0)bits.push('她今天在「音乐」里已经听了 '+musicHuman(MUSIC.stat.sec));
+    const today=[],all=[];
+    if((MUSIC.stat.sec||0)>0)today.push('她今天在「音乐」里已经放了 '+musicHuman(MUSIC.stat.sec));
     const p=s?musicStatGet(s):null;
-    if(p&&p.n>0)bits.push('《'+(s.title||'')+'》这首歌她一共听过 '+p.n+' 次'+(p.dn?('（今天 '+p.dn+' 次）'):''));
-    return bits.length?(bits.join('；')+'。'):'';
+    const nm=s?('《'+(s.title||'')+'》'):'这首歌';
+    if(p&&p.n>0){
+      all.push(nm+'她一共放过 '+p.n+' 次（这是从她开始用这个网页算起的累计总数，不是今天的次数）');
+      if(p.dn>0)today.push(nm+'今天放了 '+p.dn+' 次');
+      else today.push(nm+'今天还没放过');
+    }
+    const out=[];
+    out.push('【今天】'+(today.length?(today.join('；')+'。'):'她今天还没在「音乐」里听歌。'));
+    if(all.length)out.push('【累计】'+all.join('；')+'。');
+    return out.join('\n');
   }catch(e){return ''}
 }
 /* 开始放一首歌：次数 +1，并记进「最近播放」 */
