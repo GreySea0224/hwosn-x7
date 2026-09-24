@@ -1820,9 +1820,38 @@ function mtagCount(){                 /* 标签 → 打了多少条 */
   return m;
 }
 function mtagByCat(cat){              /* 某个分类下用过的标签（按用得多排前面） */
-  const m=mtagCount(),out=[];
+  return mtagByCatMap(cat,mtagCount());
+}
+function mtagByCatMap(cat,m){
+  const out=[];
   for(const t in m){if(tagSplit(t).cat===cat)out.push({tag:t,name:tagSplit(t).name,n:m[t]})}
   return out.sort((a,b)=>b.n-a.n);
+}
+/* 只统计「这个角色看得见」的标签：它自己看得到的档案 + 它自己的聊天记录。
+   （不然 A 角色的提示词里会冒出 B 角色的标签名） */
+function mtagCountFor(who){
+  const all=mtagAll(),m=Object.create(null);
+  const ok=Object.create(null);
+  (load(LS.arcs,[])||[]).forEach(a=>{if(!who||archiveAllowed(a,who))ok[a.id]=1});
+  for(const id in all){
+    const isChat=(id.indexOf('chat:')===0);
+    const use=who?(isChat?(id==='chat:'+who):!!ok[id]):true;
+    if(!use)continue;
+    const a=all[id]||{};
+    for(const k in a){
+      const ts=a[k]||[];
+      for(let i=0;i<ts.length;i++)m[ts[i]]=(m[ts[i]]||0)+1;
+    }
+  }
+  return m;
+}
+/* 一份档案「谁能看见」的人话说明 */
+function arcVisText(a){
+  if(!Array.isArray(a.chars))return '所有角色都能看';
+  if(!a.chars.length)return '⚠️ 谁都看不见（不会被检索）';
+  const names=a.chars.map(id=>{const c=chars.find(x=>x.id===id);return c?(c.name||'未命名'):'（已删除的角色）'});
+  if(names.length>3)return '只给 '+names.slice(0,3).join('、')+' 等 '+names.length+' 个角色看';
+  return '只给 '+names.join('、')+' 看';
 }
 /* 一条记忆的标签，按分类拼成一行字给界面看 */
 function tagLineText(tags){
@@ -3406,11 +3435,11 @@ function buildCtxSystem(c,extra){
   /* ↓ 记忆标签：她亲手打的标签，角色知道有哪些、也能按标签去查 */
   if(palaceOn()){
     try{
-      const cnt=mtagCount();
+      const cnt=mtagCountFor(c.id);       /* 只给这个角色看得到的标签 */
       if(Object.keys(cnt).length){
         const groups=[];
         MTAG_CATS.forEach(cat=>{
-          const arr=mtagByCat(cat).slice(0,25);
+          const arr=mtagByCatMap(cat,cnt).slice(0,25);
           if(arr.length)groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'));
         });
         sys.push('【记忆标签】她给记忆打的标签（按分类）：\n'+groups.join('\n')+
@@ -4784,14 +4813,61 @@ function showPalaceLast(){
 }
 
 /* ================= 记忆宫殿浏览器（人工翻、搜、打标签） ================= */
-const MPAL={mode:'vols',arcId:null,page:0,q:'',tag:''};
+const MPAL={mode:'vols',arcId:null,page:0,q:'',tag:'',view:[],tlist:[],ti:0,tcat:'事件',who:'',backMode:'',prevPage:0};
 const MPAL_PER=30;                       /* 一页显示多少条 */
 function palaceBrowse(){
   MPAL.mode='vols';MPAL.arcId=null;MPAL.page=0;MPAL.q='';MPAL.tag='';
+  MPAL.view=[];MPAL.tlist=[];MPAL.ti=0;
+  try{ MPAL.who=(getMemChar()||curChar()||{}).id||''; }catch(e){ MPAL.who=''; }
   showSheet('<div class="ttl">🏛 记忆宫殿</div><div id="mpalBody"></div>'+
     '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
   sheetFull(true);                     /* 铺满整屏，像个小应用 */
   mpalRender();
+}
+/* 切换「我正在看谁的记忆」：列表只显示这个角色能看见的卷 */
+function mpalWhoSet(id){
+  MPAL.who=id||'';
+  MPAL.arcId=null;MPAL.tag='';MPAL.page=0;MPAL.view=[];
+  mpalRender();
+}
+/* ---------- 这一卷「谁能看见」 ---------- */
+function mpalVisSheet(arcId){
+  const a=(load(LS.arcs,[])||[]).find(x=>x.id===arcId);
+  if(!a)return;
+  const on=cid=>!Array.isArray(a.chars)?true:(a.chars.indexOf(cid)>=0);
+  const rows=chars.map(ch=>'<label class="li" style="border:0;padding:7px 0"><input type="checkbox" id="pvis_'+esc(ch.id)+'" '+(on(ch.id)?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>'+esc((ch.emoji||'')+' '+(ch.name||'未命名'))+'</span></label>').join('');
+  showSheet('<div class="ttl">👀 谁能看见《'+esc(a.name||'未命名')+'》</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">勾上的角色，聊天时才能检索到这一卷（连里面的标签一起）。没勾的角色完全看不到它。<br>现在：'+esc(arcVisText(a))+'</p>'+
+    '<div class="row" style="margin-bottom:6px"><button class="ghost col" onclick="mpalVisAll(\''+esc(arcId)+'\',true)">全选</button>'+
+    '<button class="ghost col" onclick="mpalVisAll(\''+esc(arcId)+'\',false)">全不选</button></div>'+
+    rows+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="mpalVisSave(\''+esc(arcId)+'\')">保存</button>'+
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+}
+function mpalVisAll(arcId,on){chars.forEach(ch=>{const el=document.getElementById('pvis_'+ch.id);if(el)el.checked=!!on})}
+/* 一键：这一卷只给当前选的角色看 */
+function mpalVisOnly(arcId){
+  const list=load(LS.arcs,[])||[];
+  const a=list.find(x=>x.id===arcId);
+  if(!a||!MPAL.who)return;
+  const ch=chars.find(x=>x.id===MPAL.who)||{};
+  const name=ch.name||'这个角色';
+  if(!confirm('把《'+(a.name||'')+'》改成「只给 '+name+' 看」？\n\n改完之后，别的角色就检索不到这一卷了（内容不会丢）。'))return;
+  a.chars=[MPAL.who];
+  save(LS.arcs,list);
+  mpalRender();refreshMem();
+  toast('已改成「只给 '+name+' 看」');
+}
+function mpalVisSave(arcId){
+  const list=load(LS.arcs,[])||[];
+  const a=list.find(x=>x.id===arcId);
+  if(!a)return;
+  const sel=chars.filter(ch=>{const el=document.getElementById('pvis_'+ch.id);return el&&el.checked}).map(ch=>ch.id);
+  a.chars=sel;
+  save(LS.arcs,list);
+  closeSheet();
+  mpalRender();refreshMem();
+  toast(sel.length?('已保存：《'+(a.name||'')+'》只给 '+sel.length+' 个角色看'):('已保存：《'+(a.name||'')+'》谁都看不见'));
 }
 function mpalRender(){const el=document.getElementById('mpalBody');if(el)el.innerHTML=mpalHTML()}
 function mpalOpen(arcId){MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
@@ -4916,9 +4992,11 @@ function mpalTagVolTime(arcId){
 }
 function mpalEntries(c){
   const TAG=mtagAll(),list=load(LS.arcs,[])||[],out=[];
+  const who=MPAL.who;                     /* '' ＝「全部档案」模式，不按角色过滤 */
+  const whoC=who||(c&&c.id);              /* 聊天记录：全部模式下用当前角色 */
   for(const a of list){
     if(MPAL.arcId){if(a.id!==MPAL.arcId)continue}
-    else if(a.off||!archiveAllowed(a,c.id))continue;
+    else if(a.off||(who&&!archiveAllowed(a,who)))continue;
     const am=getArc(a.id);
     for(let i=0;i<am.length;i++){
       if(MPAL.tag){
@@ -4930,12 +5008,12 @@ function mpalEntries(c){
     }
   }
   /* 按标签查的时候，把聊天记录里打了这个标签的也一起列出来 */
-  if(!MPAL.arcId&&MPAL.tag&&c){
-    const ms2=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
+  if(!MPAL.arcId&&MPAL.tag&&whoC){
+    const ms2=(whoC===curId)?msgs:(load(LS.msg(whoC),[])||[]);
     for(let i=0;i<ms2.length;i++){
-      const tags=mtagChunk(TAG,'chat:'+c.id,chatKey(ms2[i],i));
+      const tags=mtagChunk(TAG,'chat:'+whoC,chatKey(ms2[i],i));
       if(!tags||!tags.some(t=>tagSplit(t).name===MPAL.tag))continue;
-      out.push(mpalChatRef(c.id,ms2[i],i));
+      out.push(mpalChatRef(whoC,ms2[i],i));
       if(out.length>=3000)break;
     }
   }
@@ -5012,17 +5090,29 @@ function mpalHTML(){
     '<button class="pri" onclick="mpalSearchDo()">搜</button></div>'+
     '<p class="dim" style="font-size:12px;margin:8px 0 0">搜出来的是关键词＋本机向量＋标签三条路一起算的结果（和角色那一轮看到的是同一套）。这里都搜不到，说明记忆里确实没有这段话；能搜到但角色没想起来，就给它打个标签最稳。</p></div>';
   if(MPAL.mode==='vols'){
+    const whoChar=MPAL.who?(chars.find(x=>x.id===MPAL.who)||null):null;
+    const visList=MPAL.who?list.filter(a=>archiveAllowed(a,MPAL.who)):list;
+    const whoCard='<div class="card"><div class="ttl">我正在看谁的记忆</div>'+
+      '<p class="dim" style="font-size:12px;margin:0 0 8px">'+
+      (whoChar?('现在看的是《<b>'+esc(whoChar.name||'')+'</b>》能看见的记忆。这一页下面只列出它看得见的卷；它聊天时也只检索这些。'):'全部档案（管理用）：下面不按角色过滤，所有卷都列出来。')+'</p>'+
+      '<div class="row" style="flex-wrap:wrap;gap:6px">'+
+      chars.map(ch=>'<button class="'+((MPAL.who===ch.id)?'pri':'ghost')+'" data-id="'+esc(ch.id)+'" onclick="mpalWhoSet(this.dataset.id)">'+esc((ch.emoji||'')+' '+(ch.name||'未命名'))+'</button>').join('')+
+      '<button class="'+(MPAL.who?'ghost':'pri')+'" onclick="mpalWhoSet(\'\')">全部档案</button>'+
+      '</div></div>';
     const idxSet=Object.create(null);
     if(palaceArc)for(const ch of palaceArc.chunks)idxSet[ch.a]=1;
-    const empty=list.filter(a=>!a.off&&getArc(a.id).length&&!idxSet[a.id]);
+    const empty=visList.filter(a=>!a.off&&getArc(a.id).length&&!idxSet[a.id]);
     const stat='<div class="card"><div class="ttl">状态</div><p class="dim" style="font-size:12px;margin:0">'+
       (palaceArc?('📚 档案索引：<b>'+palaceArc.chunks.length+'</b> 段，'+new Date(palaceArc.builtAt||Date.now()).toLocaleString('zh-CN')+' 建好'):'📚 还没有建索引（点记忆页的「建索引」）')+
-      '<br>🏷 标签：<b>'+names.length+'</b> 个　📌 一直记得：<b>'+mpinCount()+'</b> 条'+
+      '<br>🏷 标签：<b>'+Object.keys(mtagCountFor(MPAL.who)).length+'</b> 个　📌 一直记得：<b>'+mpinCount()+'</b> 条'+
+      '<br>📚 这个角色看得见：<b>'+visList.length+'</b> 卷'+
       (empty.length?('<br><span style="color:var(--warn)">⚠️ 有 '+empty.length+' 卷一条文字都没读出来，检索不到：「'+esc(empty.map(a=>a.name||'未命名').join('、'))+'」</span>'):'')+
       '</p></div>';
-    const cloud=names.length?('<div class="card"><div class="ttl">标签（点一下看这类记忆）</div>'+
+    const myTags=mtagCountFor(MPAL.who);
+    const myTagN=Object.keys(myTags).length;
+    const cloud=myTagN?('<div class="card"><div class="ttl">标签（点一下看这类记忆）</div>'+
       MTAG_CATS.map(cat2=>{
-        const arr=mtagByCat(cat2);
+        const arr=mtagByCatMap(cat2,myTags);
         if(!arr.length)return '';
         return '<div style="margin-top:8px"><div class="dim" style="font-size:12px;margin-bottom:4px">'+MTAG_ICON[cat2]+cat2+'</div>'+
           '<div class="row" style="flex-wrap:wrap;gap:6px">'+
@@ -5033,22 +5123,29 @@ function mpalHTML(){
       '<p class="dim" style="font-size:12px;margin:0 0 6px">用每条记忆原本带的时间，自动加上「时间」标签（认不出时间的，会借前后最近那条的时间）。已经手动打过时间标签的不会动。</p>'+
       '<button class="col" onclick="palaceAutoTimeTags()">开始自动补时间</button></div>';
     let chatN2=0;
-    try{const msa=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);chatN2=msa.length}catch(e){}
+    try{const cw=MPAL.who||c.id;const msa=(cw===curId)?msgs:(load(LS.msg(cw),[])||[]);chatN2=msa.length}catch(e){}
     const chatCard='<div class="card" style="margin-top:10px"><div class="ttl">💬 聊天记录（打字聊出来的）</div>'+
-      '<p class="dim" style="font-size:12px;margin:0 0 6px">共 '+chatN2+' 条，和档案一样能打标签、能设「一直记得」。从最近的往前翻。</p>'+
+      '<p class="dim" style="font-size:12px;margin:0 0 6px">'+(whoChar?esc((whoChar.name||'')+'的聊天，'):'')+'共 '+chatN2+' 条，和档案一样能打标签、能设「一直记得」。从最近的往前翻。</p>'+
       '<button class="col" onclick="mpalOpenChat()">看聊天记录</button></div>';
-    const vols=list.map(a=>{
+    const vols=visList.map(a=>{
       const am=getArc(a.id);
       const segs=palaceArc?palaceArc.chunks.filter(ch=>ch.a===a.id).length:0;
       const tags=mtagOf(a.id,'vol');
       return '<div class="card" style="margin-top:10px"><div class="ttl">'+esc(a.name||'未命名')+'</div>'+
         '<p class="dim" style="font-size:12px;margin:0 0 6px">'+am.length+' 条 · 已索引 '+segs+' 段'+(a.off?' · ⛔已归档（不检索）':'')+
+        '<br>👀 '+esc(arcVisText(a))+
         (tags.length?('　🏷 '+esc(tags.join('、'))):'')+'</p>'+
         '<div class="row"><button class="col" data-a="'+esc(a.id)+'" onclick="mpalOpen(this.dataset.a)">看条目</button>'+
-        '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVol(this.dataset.a)">整卷标签</button></div>'+
-        '<div class="row" style="margin-top:6px"><button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVolTime(this.dataset.a)">🕒 整卷时间标签</button></div></div>';
+        '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalVisSheet(this.dataset.a)">👀 谁能看见</button></div>'+
+        '<div class="row" style="margin-top:6px">'+
+        '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVol(this.dataset.a)">整卷标签</button>'+
+        '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVolTime(this.dataset.a)">🕒 整卷时间</button></div>'+
+        (whoChar?('<div class="row" style="margin-top:6px"><button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalVisOnly(this.dataset.a)">🔒 只给《'+esc(whoChar.name||'')+'》看</button></div>'):'')+
+        '</div>';
     }).join('');
-    return stat+searchBox+cloud+timeCard+chatCard+'<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+list.length+' 卷档案。点开一卷，可以一条条看全文打标签。</p>'+vols;
+    return whoCard+stat+searchBox+cloud+timeCard+chatCard+
+      '<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+visList.length+' 卷档案。点开一卷，可以一条条看全文打标签；点「👀 谁能看见」决定哪些角色能看到这一卷。</p>'+
+      (visList.length?'':('<div class="card"><div class="ttl">这里还没有卷</div><p class="dim" style="font-size:12px;margin:0">'+(whoChar?('《'+esc(whoChar.name||'')+'》现在看不到任何档案。切到「全部档案」，把某卷改成只给它看，或者新建/导入一份。'):'还没有导入过档案。')+'</p></div>'));
   }
   if(MPAL.mode==='list'){
     const all=mpalEntries(c);
