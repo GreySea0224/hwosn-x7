@@ -137,6 +137,11 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* 全屏弹层：记忆宫殿从桌面图标直接打开时铺满整屏，像个小应用 */
 .modal.full{align-items:stretch}
 .sheet.full{max-height:100vh;height:100vh;border-radius:0;padding-top:calc(env(safe-area-inset-top) + 16px)}
+/* ---------- 全屏按钮：只在「退出了全屏」时出现 ---------- */
+#fsBtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 108px);z-index:50;width:42px;height:42px;border-radius:50%;display:none;align-items:center;justify-content:center;background:var(--scbg,rgba(10,22,32,.82));border:1px solid var(--line);color:var(--scfg,#eaf3f8);box-shadow:0 6px 18px rgba(0,0,0,.28);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:0;transition:transform .12s ease,opacity .15s ease}
+#fsBtn.on{display:flex}
+#fsBtn:active{transform:scale(.92)}
+#fsBtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .sheetclose:active{transform:scale(.92)}
 @keyframes up{from{transform:translateY(30px);opacity:.4}}
 #lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
@@ -1255,6 +1260,75 @@ function sheetFull(on){
     $('#sheet').classList.toggle('full',!!on);
     $('#modal').classList.toggle('full',!!on);
   }catch(e){}
+}
+/* ================= 全屏（把浏览器地址栏藏起来） =================
+   浏览器规定：必须由用户「手指点一下」才能进全屏。
+   所以做法是：打开应用后，她第一次点屏幕时自动进全屏；
+   如果她退出全屏，右下角会出现一个 ⛶ 按钮，点一下回到全屏。
+   开关在「设置 → 外观与交互 → 自动全屏」，默认开着。 */
+function fullSupported(){
+  try{
+    const el=document.documentElement;
+    return !!(el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen);
+  }catch(e){return false}
+}
+function isFull(){
+  try{return !!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement||document.msFullscreenElement)}catch(e){return false}
+}
+function fullOn(){return !cfg||cfg.full!==false}
+function enterFull(){
+  try{
+    const el=document.documentElement;
+    const fn=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+    if(!fn)return false;
+    const p=fn.call(el,{navigationUI:'hide'});
+    if(p&&p.catch)p.catch(function(){});
+    return true;
+  }catch(e){return false}
+}
+function exitFullNow(){try{if(isFull()){const f=document.exitFullscreen||document.webkitExitFullscreen;if(f)f.call(document)}}catch(e){}}
+function fsBtnShow(on){
+  try{
+    let b=document.getElementById('fsBtn');
+    if(!b){
+      b=document.createElement('button');
+      b.id='fsBtn';b.type='button';b.title='全屏';
+      b.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg>';
+      b.onclick=function(){
+        cfg.full=true;save(LS.cfg,cfg);
+        enterFull();
+        setTimeout(fsShowSoft,300);
+      };
+      document.body.appendChild(b);
+    }
+    b.classList.toggle('on',!!on);
+  }catch(e){}
+}
+function fsShowSoft(){fsBtnShow(!isFull()&&fullSupported())}
+/* 打开应用后，第一次点屏幕时自动进全屏（只自动一次，之后靠按钮） */
+function fullArm(){
+  if(!fullOn()||!fullSupported()||isFull())return;
+  const go=function(){if(fullOn()&&!isFull())enterFull()};
+  window.addEventListener('touchend',go,{once:true,passive:true});
+  window.addEventListener('click',go,{once:true});
+}
+function fsWatch(){
+  const h=function(){
+    const on=isFull();
+    try{document.body.classList.toggle('fs',on)}catch(e){}
+    fsShowSoft();
+    try{toast(on?'已进入全屏（滑动或返回键可退出）':'已退出全屏，点右下角 ⛶ 可以回去')}catch(e){}
+  };
+  try{document.addEventListener('fullscreenchange',h)}catch(e){}
+  try{document.addEventListener('webkitfullscreenchange',h)}catch(e){}
+}
+/* 设置里的开关 */
+function setFullOpt(on){
+  cfg.full=!!on;save(LS.cfg,cfg);
+  if(cfg.full){enterFull();toast('已开启自动全屏')}
+  else{exitFullNow();toast('已关闭自动全屏')}
+  setTimeout(fsShowSoft,300);
+  try{renderCfg()}catch(e){}
 }
 $('#modal').onclick=e=>{if(e.target.id==='modal')closeSheet()};
 
@@ -7209,7 +7283,10 @@ function cfgLookCardHTML(){
   '<input type="checkbox" id="c_auto" '+(cfg.autoOn?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>系统通知</b><div class="dim" style="font-size:12px">页面在后台时弹通知（需授权）</div></div>'+
-  '<input type="checkbox" id="c_notify" '+(cfg.notify?'checked':'')+'></div></div>';
+  '<input type="checkbox" id="c_notify" '+(cfg.notify?'checked':'')+'></div>'+
+  '<div class="row" style="align-items:center;margin-top:12px">'+
+  '<div class="col"><b>自动全屏</b><div class="dim" style="font-size:12px">打开后，进应用时点一下屏幕就进全屏、藏掉浏览器地址栏。退出全屏后右下角会出现 ⛶ 按钮，点一下回去</div></div>'+
+  '<input type="checkbox" id="c_full" '+(fullOn()?'checked':'')+' onchange="setFullOpt(this.checked)"></div></div>';
 }
 /* 设置页：待办提醒卡片（提示音 / 振动 / 试一下）。 */
 function cfgRemindCardHTML(){
@@ -7769,6 +7846,8 @@ function fixCfg(){
   if(cfg.palaceTop==null)cfg.palaceTop=6;   /* 每轮最多给几段旧记忆 */
   if(cfg.palaceChars==null)cfg.palaceChars=1500; /* 每轮旧记忆最多多少字 */
   if(cfg.palaceWVec==null)cfg.palaceWVec=.5;/* 向量在总分里的比重（其余是关键词） */
+  /* ↓ 自动全屏（藏掉浏览器地址栏）：默认开着 */
+  if(cfg.full==null)cfg.full=true;
   /* ↓ 新增：待办提醒的提示音/振动开关，以及自定义背景图（桌面 / 聊天） */
   if(cfg.alarmOff==null)cfg.alarmOff=false;
   if(cfg.vibrateOff==null)cfg.vibrateOff=false;
@@ -7860,6 +7939,9 @@ function finishAppStart(){
   /* ↓ 从桌面图标直接打开「记忆宫殿」（地址带 #palace） */
   openDeepLink();
   window.addEventListener('hashchange',openDeepLink);
+  /* ↓ 全屏：打开后点一下屏幕就进全屏（浏览器规定必须有手指点一下） */
+  fsWatch();
+  fullArm();
 }
 /* 地址栏里带 palace 就自动打开记忆宫殿：index.HTML#palace */
 function openDeepLink(){
