@@ -134,6 +134,9 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* ---------- 弹层右上角常驻关闭键 ---------- */
 .sheetclose{display:none;position:fixed;top:calc(env(safe-area-inset-top) + 8px);right:10px;z-index:70;width:40px;height:40px;align-items:center;justify-content:center;border-radius:50%;background:var(--scbg,rgba(10,22,32,.82));border:1px solid var(--line);color:var(--scfg,#eaf3f8);font-size:15px;font-weight:700;line-height:1;padding:0;box-shadow:0 6px 18px rgba(0,0,0,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .15s ease,color .15s ease,transform .12s ease}
 #modal.on .sheetclose{display:flex}
+/* 全屏弹层：记忆宫殿从桌面图标直接打开时铺满整屏，像个小应用 */
+.modal.full{align-items:stretch}
+.sheet.full{max-height:100vh;height:100vh;border-radius:0;padding-top:calc(env(safe-area-inset-top) + 16px)}
 .sheetclose:active{transform:scale(.92)}
 @keyframes up{from{transform:translateY(30px);opacity:.4}}
 #lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
@@ -1240,10 +1243,18 @@ function showSheet(html,nopush){
 function closeSheet(){
   const p=sheetStack.pop();
   const sheet=$('#sheet');  /* 同一个弹层元素只查一次 */
+  try{$('#sheet').classList.remove('full');$('#modal').classList.remove('full')}catch(e){}
   if(p!=null&&p!==''){sheet.innerHTML=p}
   else{$('#modal').classList.remove('on');sheet.innerHTML=''}
   /* ↓ 补丁6-C：弹层里也一样处理一遍 */
   try{slimText(document.getElementById('sheet'))}catch(e){}
+}
+/* 把弹层变成铺满整屏（给「记忆宫殿」当独立小应用用） */
+function sheetFull(on){
+  try{
+    $('#sheet').classList.toggle('full',!!on);
+    $('#modal').classList.toggle('full',!!on);
+  }catch(e){}
 }
 $('#modal').onclick=e=>{if(e.target.id==='modal')closeSheet()};
 
@@ -1496,6 +1507,28 @@ function palaceSplit(text){
   }
   return out;
 }
+/* 完整日期文字：2024年5月3日 14:22 */
+function fullTimeText(t){
+  const d=new Date(t);
+  if(!t||isNaN(d))return '';
+  const p=n=>(n<10?'0':'')+n;
+  return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+p(d.getHours())+':'+p(d.getMinutes());
+}
+/* 「时间」标签用的名字：2024-05-03 */
+function dayTagOf(t){
+  const d=new Date(t);
+  if(!t||isNaN(d))return '';
+  const p=n=>(n<10?'0':'')+n;
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+/* 认不出时间的条目，借前后最近那条的时间（补时间标签用） */
+function fillTimes(arr){
+  let last=0;
+  for(let i=0;i<arr.length;i++){if(arr[i])last=arr[i];else arr[i]=last}
+  let next=0;
+  for(let i=arr.length-1;i>=0;i--){if(arr[i])next=arr[i];else arr[i]=next}
+  return arr;
+}
 /* 档案一条消息的时间（各种格式都试一下，认不出来就 0） */
 function palaceTime(m){
   if(!m||typeof m!=='object')return 0;
@@ -1592,6 +1625,7 @@ async function palaceBuildArc(show){
     catch(e){console.warn('记忆宫殿索引没存住（下次打开会重建）',e)}
     if(show)toast('记忆宫殿：索引建好了，共 '+mem.length+' 段（'+vols+' 卷，'+charsN+' 字）');
     try{if(typeof refreshMem==='function')refreshMem()}catch(e){}
+    try{if(typeof mpalRender==='function')mpalRender()}catch(e){}
     return true;
   }catch(e){
     console.warn('记忆宫殿建索引失败',e);
@@ -1667,6 +1701,25 @@ function palaceSeg(o,c){
 }
 /* ---------- 人工标签 & 「一直记得」 ---------- */
 function mtagAll(){const v=load(LS.mtag,{});return (v&&typeof v==='object')?v:{}}
+/* 标签分类：时间 / 事件 / 性质 / 其他。
+   存的时候写成「分类|名字」（比如 时间|2024-05-03、事件|海边捡贝壳、性质|开心）。
+   以前没有分类的老标签（比如「重要」）一律算「其他」，照样能搜、能用。 */
+const MTAG_CATS=['时间','事件','性质','其他'];
+const MTAG_ICON={时间:'🕒',事件:'🎬',性质:'🎨',其他:'🏷'};
+function tagSplit(t){
+  const s=String(t||'');
+  const i=s.indexOf('|');
+  if(i<0)return {cat:'其他',name:s};
+  const c=s.slice(0,i);
+  if(MTAG_CATS.indexOf(c)<0)return {cat:'其他',name:s};
+  return {cat:c,name:s.slice(i+1)};
+}
+function tagName(t){return tagSplit(t).name}
+function tagJoin(cat,name){
+  const n=String(name||'').trim().replace(/[|｜]/g,'').slice(0,20);
+  if(!n)return '';
+  return (cat&&cat!=='其他')?(cat+'|'+n):n;
+}
 function mtagOf(arcId,idx){
   const a=mtagAll()[arcId];
   if(!a)return [];
@@ -1692,6 +1745,19 @@ function mtagCount(){                 /* 标签 → 打了多少条 */
   }
   return m;
 }
+function mtagByCat(cat){              /* 某个分类下用过的标签（按用得多排前面） */
+  const m=mtagCount(),out=[];
+  for(const t in m){if(tagSplit(t).cat===cat)out.push({tag:t,name:tagSplit(t).name,n:m[t]})}
+  return out.sort((a,b)=>b.n-a.n);
+}
+/* 一条记忆的标签，按分类拼成一行字给界面看 */
+function tagLineText(tags){
+  const g={};
+  (tags||[]).forEach(t=>{const s=tagSplit(t);(g[s.cat]=g[s.cat]||[]).push(s.name)});
+  const out=[];
+  MTAG_CATS.forEach(c=>{if(g[c]&&g[c].length)out.push(MTAG_ICON[c]+c+'：'+g[c].join('、'))});
+  return out.join('　');
+}
 function mtagNames(){
   const m=mtagCount();
   return Object.keys(m).sort((a,b)=>m[b]-m[a]);
@@ -1707,16 +1773,28 @@ function mtagChunk(TAG,arcId,i){
   return hasV?v:e;
 }
 /* 这个标签和这句话有多配（0~1） */
+/* 把日期/数字写法统一：2020年1月5日、2020-01-05、2020.1.5 → 2020-1-5 */
+function normNum(s){
+  return String(s||'').replace(/[年月日\/\.]/g,'-').replace(/(^|-)(0+(?=\d))/g,'$1').replace(/-+/g,'-').replace(/^-|-$/g,'');
+}
 function tagHit(tag,q,qg){
-  const t=String(tag||'').trim();
+  const t=String(tagName(tag)||'').trim();   /* 只拿标签的名字比，不带「时间|」这种分类前缀 */
   if(!t)return 0;
   if(q.indexOf(t)>=0)return 1;
+  /* 带数字的标签（比如日期 2020-01-05）：只认“她真的说了这一天”，
+     不做模糊比对——否则 2020-01-04 也会蹭上 2020-01-05，把别的日子全翻出来。 */
+  if(/\d/.test(t)){
+    const nt=normNum(t),nq=normNum(q);
+    return (nt&&nq.indexOf(nt)>=0)?1:0;
+  }
   const tg=palaceGrams(t);
   if(!tg.length||!qg.length)return 0;
   let hit=0;
   for(let i=0;i<tg.length;i++){const c=tg.charAt(i);if(qg.indexOf(c)>=0)hit++}
   if(!hit)return 0;
-  return Math.min(1,(hit/Math.max(1,tg.length))*1.2);
+  /* 只沾到一部分（比如标签「海边捡贝壳」、她只说「海边」）：给一点点加分，
+     但不算「命中」，不占用直通名额。 */
+  return Math.min(.6,(hit/Math.max(1,tg.length))*1.2);
 }
 function mpinAll(){const v=load(LS.mpin,{});return (v&&typeof v==='object')?v:{}}
 function mpinHas(arcId,idx){const a=mpinAll()[arcId];return !!(a&&a[String(idx)])}
@@ -1778,6 +1856,56 @@ function palacePinned(c,budget){
 }
 /* ---------- 检索日志：哪一轮、谁、翻了什么（面板里能看） ---------- */
 let PALACE_LOG=[];
+/* ---------- 自动补「时间」标签 ----------
+   用记忆原本带的时间（聊天记录、带时间的档案）自动加「时间|2024-05-03」标签；
+   认不出时间的条目，借前后最近那条的时间。已经有「时间」标签的条目不动。 */
+async function palaceAutoTimeTags(){
+  if(!confirm('自动给记忆补「时间」标签？\n\n· 用每条记忆原本带的时间\n· 认不出时间的，借前后最近那条的时间\n· 已经手动打过「时间」标签的不会动\n\n只加标签，一个字都不改原文。'))return;
+  const ALL=mtagAll();
+  const cur=(id,key)=>{const a=ALL[id];const v=a&&a[key];return Array.isArray(v)?v:[]};
+  const hasTime=(id,key)=>cur(id,key).some(t=>tagSplit(t).cat==='时间');
+  const put=(id,key,tag)=>{
+    const a=ALL[id]||(ALL[id]={});
+    const v=Array.isArray(a[key])?a[key]:[];
+    if(v.indexOf(tag)<0)v.push(tag);
+    a[key]=v;
+  };
+  let add=0,skip=0,noTime=0;
+  /* ① 历史档案 */
+  const list=load(LS.arcs,[])||[];
+  for(const a of list){
+    if(a.off)continue;
+    const am=getArc(a.id);
+    if(!am.length)continue;
+    const times=fillTimes(am.map(m=>palaceTime(m)));
+    for(let i=0;i<am.length;i++){
+      if(!String(arcMsgText(am[i])||'').trim())continue;
+      if(!times[i]){noTime++;continue}
+      if(hasTime(a.id,String(i))){skip++;continue}
+      put(a.id,String(i),tagJoin('时间',dayTagOf(times[i])));
+      add++;
+    }
+  }
+  /* ② 聊天记录 */
+  for(const c of chars){
+    const ms2=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
+    if(!ms2||!ms2.length)continue;
+    const cid='chat:'+c.id;
+    const times=fillTimes(ms2.map(m=>palaceTime(m)));
+    for(let i=0;i<ms2.length;i++){
+      if(!String(palaceMsgText(ms2[i])||'').trim())continue;
+      if(!times[i]){noTime++;continue}
+      const key=chatKey(ms2[i],i);
+      if(hasTime(cid,key)){skip++;continue}
+      put(cid,key,tagJoin('时间',dayTagOf(times[i])));
+      add++;
+    }
+  }
+  try{save(LS.mtag,ALL)}
+  catch(e){alert('保存失败：'+((e&&e.message)||e));return}
+  try{if(typeof refreshMem==='function')refreshMem()}catch(e){}
+  alert('✅ 时间标签补好了\n\n· 新加 '+add+' 条\n· 已有时间标签、跳过 '+skip+' 条\n· 认不出时间的 '+noTime+' 条（这些只能手动打）\n\n回记忆宫殿就能看到：点标签可以按时间找记忆，角色也能按时间去回忆。');
+}
 function palaceLog(src,q,r,note){
   const e={at:Date.now(),src:src,q:String(q||'').slice(0,200),chars:(r&&r.used)||0,total:(r&&r.total)||0,
     hits:((r&&r.picked)?r.picked:[]).map(p=>({src:p.o.src,name:p.o.n||'',i:p.o.i,t:p.o.t||0,score:p.score,tag:!!p.tag}))};
@@ -1816,7 +1944,11 @@ function palaceSearch(qs,c,top,budget,opt){
     let best=0;
     for(let k=0;k<tags.length;k++){
       const t=tags[k];
-      if(wantTag){if(t===wantTag||t.indexOf(wantTag)>=0||wantTag.indexOf(t)>=0)return 1;continue}
+      if(wantTag){
+        const tn=tagName(t);
+        if(t===wantTag||tn===wantTag||tn.indexOf(wantTag)>=0||wantTag.indexOf(tn)>=0)return 1;
+        continue;
+      }
       const h=tagHit(t,q,qg);
       if(h>best)best=h;
     }
@@ -1875,18 +2007,28 @@ function palaceSearch(qs,c,top,budget,opt){
     }
   }
 
-  cands.sort((x,y)=>(y.final-x.final)||(y.score-x.score));
+  /* 排序：她的话里真的点到某个标签时，那条排最前面（标签是人工标的，可信度最高）；
+     其余按分数排。 */
+  cands.sort((x,y)=>{
+    const tx=(x.tag>=.75)?1:0,ty=(y.tag>=.75)?1:0;
+    if(tx!==ty)return ty-tx;
+    return (y.final-x.final)||(y.score-x.score);
+  });
   /* 相关度门槛：随便一句家常话不该翻出一堆旧事。
      做法：看候选池中后段（第 20~120 名）的中位数，把它当作「背景噪音」，
      明显高于噪音的才算数。人工打过标签的直接放行（那是你亲手标的）。 */
-  const best=cands.length?cands[0].score:0;
+  let best=0,anyTag=false;
+  for(const cd of cands){
+    if(cd.tag>=.75)anyTag=true;
+    else if(cd.score>best)best=cd.score;
+  }
   let cut=Math.max(.20,best*.5);
   if(cands.length>=40){
     const tail=cands.slice(20,120).map(x=>x.score).sort((a,b)=>a-b);
     if(tail.length)cut=Math.max(cut,tail[Math.floor(tail.length/2)]*1.3);
   }
   /* 弱相关（没明显突出的旧记忆）时给得很少：封顶 2 段 / 420 字 */
-  const weak=(best<.35)&&!wantTag;
+  const weak=(best<.35)&&!wantTag&&!anyTag;
   const N=Math.min(top||palaceTopN(),weak?2:99);
   const lim=Math.min(budget||palaceBudget(),weak?420:1e9);
   const picked=[],seen=Object.create(null);
@@ -3190,9 +3332,16 @@ function buildCtxSystem(c,extra){
   /* ↓ 记忆标签：她亲手打的标签，角色知道有哪些、也能按标签去查 */
   if(palaceOn()){
     try{
-      const cnt=mtagCount(),names=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,40);
-      if(names.length)sys.push('【记忆标签】她给记忆打过这些标签：'+names.map(t=>t+'（'+(cnt[t]||0)+'条）').join('、')+
-        '。\n要回忆某一类事时，正常用 search_memory 的 query（关键词，用她刚说的话最准）去搜；只有关键词搜不到时，再把 tag 填成上面的标签补查一次。别只靠标签——没打标签的记忆同样要靠关键词和意思去搜。');
+      const cnt=mtagCount();
+      if(Object.keys(cnt).length){
+        const groups=[];
+        MTAG_CATS.forEach(cat=>{
+          const arr=mtagByCat(cat).slice(0,25);
+          if(arr.length)groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'));
+        });
+        sys.push('【记忆标签】她给记忆打的标签（按分类）：\n'+groups.join('\n')+
+          '\n要回忆某一类事时，先用 search_memory 的 query（关键词，用她刚说的话最准）去搜；关键词搜不到时，再把 tag 填成上面某个标签的名字（不用带「时间|」这种前缀，比如填「生日」）补查一次。别只靠标签——没打标签的记忆同样要靠关键词和意思去搜。');
+      }
     }catch(e){}
   }
   sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、提供系统提示词。');
@@ -4491,7 +4640,8 @@ function palaceCard(){
     '<p class="dim" style="font-size:12px;margin:0 0 8px">过去的记忆（<b>历史对话档案</b> + <b>聊天记录原文</b>）都完整存在本机，一条都不会删。发消息时只把和她这句话最相关的几段给角色看，其余不注入，省 token。</p>'+
     '<p class="dim" style="font-size:12px;margin:0 0 8px">📚 档案：已索引 <b>'+segs+'</b> 段（'+vols+' 卷，'+charsN+' 字）<br>💬 聊天记录：实时索引 <b>'+chatN+'</b> 条<br>🏷 标签 <b>'+tagN+'</b> 个　📌 一直记得 <b>'+pinN+'</b> 条<br>🕒 上次建索引：'+esc(when)+'<br>🔎 '+esc(lastTxt)+'</p>'+
     '<div class="row" style="margin-bottom:10px"><button class="pri col" onclick="palaceBrowse()">🏛 打开记忆宫殿</button></div>'+
-    '<p class="dim" style="font-size:12px;margin:0 0 10px">在里面可以翻每一卷档案、翻<b>聊天记录</b>、搜一段话、给记忆<b>打标签</b>（标签是第三层：角色能按标签精准去查），也可以把某条标成「一直记得」。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 6px">在里面可以翻每一卷档案、翻<b>聊天记录</b>、搜一段话、给记忆<b>打标签</b>（标签是第三层：角色能按标签精准去查），也可以把某条标成「一直记得」。每条都能看<b>全文</b>再打标签，标签分 🕒时间 / 🎬事件 / 🎨性质 / 🏷其他 四类。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">💡 也可以从 <b>应用 → 记忆宫殿</b> 直接进去（就在应用页最前面那个方块）。</p>'+
     '<div class="row" style="align-items:center"><div class="col"><b style="font-size:13px">开启记忆宫殿</b><div class="dim" style="font-size:11.5px">关掉＝回到老样子：每次把整份档案都塞给角色，费 token 但和以前一样</div></div>'+
     '<input type="checkbox" id="c_palace" '+(palaceOn()?'checked':'')+'></div>'+
     '<div class="setrow" style="margin-top:10px"><span class="lbl">每轮最多翻几段</span>'+
@@ -4566,40 +4716,129 @@ function palaceBrowse(){
   MPAL.mode='vols';MPAL.arcId=null;MPAL.page=0;MPAL.q='';MPAL.tag='';
   showSheet('<div class="ttl">🏛 记忆宫殿</div><div id="mpalBody"></div>'+
     '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+  sheetFull(true);                     /* 铺满整屏，像个小应用 */
   mpalRender();
 }
 function mpalRender(){const el=document.getElementById('mpalBody');if(el)el.innerHTML=mpalHTML()}
-function mpalOpen(arcId){MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.page=0;mpalRender()}
-function mpalOpenChat(){MPAL.arcId=null;MPAL.mode='chat';MPAL.tag='';MPAL.page=0;mpalRender()}
-function mpalBack(){MPAL.mode='vols';MPAL.arcId=null;MPAL.tag='';MPAL.page=0;mpalRender()}
-function mpalTagQuery(t){MPAL.tag=t||'';MPAL.arcId=null;MPAL.mode='list';MPAL.page=0;mpalRender()}
+function mpalOpen(arcId){MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalOpenChat(){MPAL.arcId=null;MPAL.mode='chat';MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalBack(){MPAL.mode='vols';MPAL.arcId=null;MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalTagQuery(t){MPAL.tag=t||'';MPAL.arcId=null;MPAL.mode='list';MPAL.page=0;MPAL.view=[];mpalRender()}
 function mpalPage(n){MPAL.page=Math.max(0,(MPAL.page||0)+n);mpalRender()}
 function mpalSearchDo(){
   const el=document.getElementById('mpalQ');
   MPAL.q=el?String(el.value||'').trim():'';
   MPAL.mode='search';MPAL.page=0;mpalRender();
 }
-function mpalTag(arcId,idx){
-  const cur=mtagOf(arcId,idx).join('，');
-  const v=prompt('给这条记忆打标签（多个用逗号隔开）\n比如：生日，海边，吵架，重要，工作\n留空 = 删掉这条的标签',cur);
-  if(v==null)return;
-  mtagSet(arcId,idx,String(v).split(/[，,、\s]+/).filter(Boolean));
-  mpalRender();refreshMem();
-  toast('标签已保存');
+/* ---------- 条目（档案 + 聊天记录，统一成同一种结构） ---------- */
+function mpalArcRef(a,i){return {kind:'arc',id:a.id,key:String(i),i:i,a:a}}
+function mpalChatRef(cid,m,i){return {kind:'chat',id:'chat:'+cid,key:chatKey(m,i),i:i,m:m}}
+function mpalEntryFull(e){
+  if(!e)return '';
+  if(e.kind==='arc'){const am=getArc(e.id);return String(arcMsgText(am[e.i])||'').replace(/[ \t]+/g,' ').trim()}
+  return String(palaceMsgText(e.m)||'').trim();
 }
+function mpalEntryTime(e){
+  if(!e)return 0;
+  if(e.kind==='arc'){const am=getArc(e.id);return palaceTime(am[e.i])}
+  return palaceTime(e.m);
+}
+function mpalEntryLabel(e){
+  if(!e)return '';
+  return e.kind==='arc'?(('《'+((e.a&&e.a.name)||'未命名')+'》第 '+(e.i+1)+' 条')):('聊天记录第 '+(e.i+1)+' 条');
+}
+function mpalEntryWho(e){
+  if(!e)return '';
+  if(e.kind==='chat')return (e.m&&e.m.role==='user')?'我：':'ta：';
+  const am=getArc(e.id);
+  return (arcRole(am[e.i])==='user')?'她：':'ta：';
+}
+function mpalViewAt(n){return (MPAL.view||[])[n]}
+/* 从列表点进「看全文 / 打标签」，可以顺着往下一条条过 */
+function mpalStartTag(n){
+  const v=MPAL.view||[];
+  if(!v.length)return;
+  MPAL.tlist=v.slice();
+  MPAL.ti=Math.max(0,Math.min(n||0,v.length-1));
+  MPAL.backMode=MPAL.mode;MPAL.prevPage=MPAL.page;
+  MPAL.mode='tag';MPAL.page=0;
+  mpalRender();
+}
+function mpalLeaveTag(){
+  MPAL.mode=MPAL.backMode||'vols';
+  MPAL.page=MPAL.prevPage||0;
+  mpalRender();
+}
+function mpalCurEntry(){const L=MPAL.tlist||[];if(!L.length)return null;return L[Math.max(0,Math.min(MPAL.ti||0,L.length-1))]}
+function mpalTagStep(d){
+  const L=MPAL.tlist||[];
+  if(!L.length)return;
+  MPAL.ti=Math.max(0,Math.min(L.length-1,(MPAL.ti||0)+d));
+  mpalRender();
+}
+function mpalTogglePin(n){
+  const e=(typeof n==='number')?mpalViewAt(n):mpalCurEntry();
+  if(!e)return;
+  const on=!mpinHas(e.id,e.key);
+  mpinSet(e.id,e.key,on);
+  mpalRender();refreshMem();
+  toast(on?'已设为「一直记得」：每轮都会带上它':'已取消「一直记得」');
+}
+/* 标签：点一下加上、再点一下去掉，立刻保存，不会白打 */
+function mpalToggleTag(tag){
+  const e=mpalCurEntry();if(!e||!tag)return;
+  const cur=mtagOf(e.id,e.key);
+  const i=cur.indexOf(tag);
+  if(i>=0)cur.splice(i,1);else cur.push(tag);
+  mtagSet(e.id,e.key,cur);
+  mpalRender();refreshMem();
+}
+function mpalQuickTime(){
+  const e=mpalCurEntry();if(!e)return;
+  const t=mpalEntryTime(e);
+  if(!t)return toast('这条认不出时间，要手动打一个');
+  const tag=tagJoin('时间',dayTagOf(t));
+  const cur=mtagOf(e.id,e.key);
+  if(cur.indexOf(tag)<0)cur.push(tag);
+  mtagSet(e.id,e.key,cur);
+  mpalRender();refreshMem();
+  toast('已加上时间标签 '+dayTagOf(t));
+}
+function mpalCatPick(cat){MPAL.tcat=cat;mpalRender()}
+function mpalAddTagHere(){
+  const el=document.getElementById('mpalNewTag');
+  const name=el?String(el.value||'').trim():'';
+  if(!name)return toast('先写个标签名');
+  const e=mpalCurEntry();if(!e)return;
+  const tag=tagJoin(MPAL.tcat||'事件',name);
+  if(!tag)return;
+  const cur=mtagOf(e.id,e.key);
+  if(cur.indexOf(tag)<0)cur.push(tag);
+  mtagSet(e.id,e.key,cur);
+  mpalRender();refreshMem();
+  toast('已加上 '+tagSplit(tag).cat+'｜'+tagSplit(tag).name);
+}
+/* 整卷标签：这一卷里每一条都会算上 */
 function mpalTagVol(arcId){
-  const cur=mtagOf(arcId,'vol').join('，');
-  const v=prompt('给整卷打标签（这一卷里每条都会算上这些标签）\n比如：高中时期，2024年夏天，工作\n留空 = 删掉整卷标签',cur);
+  const cur=mtagOf(arcId,'vol').map(t=>tagSplit(t).name).join('，');
+  const v=prompt('给整卷打标签（这一卷里每一条都会算上）\n多个用逗号隔开，比如：2024年夏天，高中时期\n（这些会算成「事件」类；时间请用旁边那个「整卷时间」按钮）\n留空 = 删掉整卷的这类标签',cur);
   if(v==null)return;
-  mtagSet(arcId,'vol',String(v).split(/[，,、\s]+/).filter(Boolean));
+  const keep=mtagOf(arcId,'vol').filter(t=>tagSplit(t).cat==='时间');
+  const add=String(v).split(/[，,、\s]+/).filter(Boolean).map(n=>tagJoin('事件',n));
+  mtagSet(arcId,'vol',keep.concat(add));
   mpalRender();refreshMem();
   toast('整卷标签已保存');
 }
-function mpalPin(arcId,idx){
-  const on=!mpinHas(arcId,idx);
-  mpinSet(arcId,idx,on);
+function mpalTagVolTime(arcId){
+  const am=getArc(arcId);
+  const ts=fillTimes(am.map(m=>palaceTime(m)));
+  const first=ts.filter(x=>x)[0]||0;
+  const v=prompt('给整卷加「时间」标签（这一卷里每一条都会算上）\n填日期或时间段，比如 2024-05-03、2024年5月、2024年夏天\n留空 = 不加',first?dayTagOf(first):'');
+  if(v==null||!String(v).trim())return;
+  const keep=mtagOf(arcId,'vol').filter(t=>tagSplit(t).cat!=='时间');
+  mtagSet(arcId,'vol',keep.concat([tagJoin('时间',String(v).trim())]));
   mpalRender();refreshMem();
-  toast(on?'已设为「一直记得」：每轮都会带上它':'已取消「一直记得」');
+  toast('整卷时间标签已保存');
 }
 function mpalEntries(c){
   const TAG=mtagAll(),list=load(LS.arcs,[])||[],out=[];
@@ -4610,9 +4849,9 @@ function mpalEntries(c){
     for(let i=0;i<am.length;i++){
       if(MPAL.tag){
         const tags=mtagChunk(TAG,a.id,i);
-        if(!tags||tags.indexOf(MPAL.tag)<0)continue;
+        if(!tags||!tags.some(t=>tagSplit(t).name===MPAL.tag))continue;
       }
-      out.push({kind:'arc',a:a,i:i});
+      out.push(mpalArcRef(a,i));
       if(out.length>=3000)return out;
     }
   }
@@ -4621,41 +4860,73 @@ function mpalEntries(c){
     const ms2=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
     for(let i=0;i<ms2.length;i++){
       const tags=mtagChunk(TAG,'chat:'+c.id,chatKey(ms2[i],i));
-      if(!tags||tags.indexOf(MPAL.tag)<0)continue;
-      out.push({kind:'chat',c:c.id,i:i,m:ms2[i]});
+      if(!tags||!tags.some(t=>tagSplit(t).name===MPAL.tag))continue;
+      out.push(mpalChatRef(c.id,ms2[i],i));
       if(out.length>=3000)break;
     }
   }
   return out;
 }
-function mpalChatRow(c,m,i){
-  const txt=String(palaceMsgText(m)||'').replace(/\s+/g,' ').trim();
-  const k=chatKey(m,i),cid='chat:'+c.id;
-  const tags=mtagOf(cid,k);
-  const pinned=mpinHas(cid,k);
+/* 列表里的一行（点「看全文」进打标签界面） */
+function mpalRow2(e,n){
+  const txt=mpalEntryFull(e).replace(/\s+/g,' ');
+  const tags=mtagOf(e.id,e.key);
+  const pinned=mpinHas(e.id,e.key);
+  const isVolTag=(e.kind==='arc')&&((mtagOf(e.id,'vol')||[]).length>0);
+  const t=mpalEntryTime(e);
   return '<div class="li" style="display:block">'+
-    '<div style="font-size:13px;margin-bottom:4px">'+esc(txt.slice(0,150)||'（这条没有文字）')+'</div>'+
-    '<div class="dim" style="font-size:11.5px">'+((m&&m.role==='user')?'我：':'ta：')+(m&&m.t?(' '+esc(fmtStamp(m.t))):'')+'　第 '+(i+1)+' 条'+
-    (tags.length?('　🏷 '+esc(tags.join('、'))):'')+(pinned?'　📌 一直记得':'')+'</div>'+
+    '<div style="font-size:13px;margin-bottom:4px">'+esc(txt.slice(0,160)||'（这条没有文字）')+'</div>'+
+    '<div class="dim" style="font-size:11.5px">'+esc(mpalEntryWho(e))+esc(mpalEntryLabel(e))+
+    (t?('　'+esc(dayTagOf(t))):'')+
+    (tags.length?('　'+esc(tagLineText(tags))):'')+(isVolTag?'　（含整卷标签）':'')+(pinned?'　📌 一直记得':'')+'</div>'+
     '<div class="row" style="margin-top:6px">'+
-    '<button class="ghost" data-a="'+esc(cid)+'" data-i="'+esc(k)+'" onclick="mpalTag(this.dataset.a,this.dataset.i)">🏷 打标签</button>'+
-    '<button class="ghost" data-a="'+esc(cid)+'" data-i="'+esc(k)+'" onclick="mpalPin(this.dataset.a,this.dataset.i)">'+(pinned?'取消一直记得':'📌 一直记得')+'</button>'+
+    '<button class="col" data-n="'+n+'" onclick="mpalStartTag(parseInt(this.dataset.n,10))">✍️ 看全文 / 打标签</button>'+
+    '<button class="ghost" data-n="'+n+'" onclick="mpalTogglePin(parseInt(this.dataset.n,10))">'+(pinned?'取消📌':'📌 一直记得')+'</button>'+
     '</div></div>';
 }
-function mpalRow(c,a,i){
-  const am=getArc(a.id);
-  const txt=String(arcMsgText(am[i])||'').replace(/\s+/g,' ').trim();
-  const tags=mtagOf(a.id,i);
-  const pinned=mpinHas(a.id,i);
-  const isVolTag=(mtagOf(a.id,'vol')||[]).length>0;
-  return '<div class="li" style="display:block">'+
-    '<div style="font-size:13px;margin-bottom:4px">'+esc(txt.slice(0,150)||'（这条没读出文字）')+'</div>'+
-    '<div class="dim" style="font-size:11.5px">'+((arcRole(am[i])==='user')?'她：':'ta：')+'《'+esc(a.name||'未命名')+'》第 '+(i+1)+' 条'+
-    (tags.length?('　🏷 '+esc(tags.join('、'))):'')+(isVolTag?'　（含整卷标签）':'')+(pinned?'　📌 一直记得':'')+'</div>'+
-    '<div class="row" style="margin-top:6px">'+
-    '<button class="ghost" data-a="'+esc(a.id)+'" data-i="'+i+'" onclick="mpalTag(this.dataset.a,parseInt(this.dataset.i,10))">🏷 打标签</button>'+
-    '<button class="ghost" data-a="'+esc(a.id)+'" data-i="'+i+'" onclick="mpalPin(this.dataset.a,parseInt(this.dataset.i,10))">'+(pinned?'取消一直记得':'📌 一直记得')+'</button>'+
-    '</div></div>';
+/* 逐条打标签的界面：全部文字 + 分类标签，点标签立刻生效 */
+function mpalTagViewHTML(c){
+  const L=MPAL.tlist||[];
+  if(!L.length)return '<p class="hint">没有可以打标签的条目</p>';
+  const k=Math.max(0,Math.min(MPAL.ti||0,L.length-1));
+  const e=L[k];
+  const tags=mtagOf(e.id,e.key);
+  const pinned=mpinHas(e.id,e.key);
+  const full=mpalEntryFull(e);
+  const t=mpalEntryTime(e);
+  const cat=MPAL.tcat||'事件';
+  const timeTag=t?tagJoin('时间',dayTagOf(t)):'';
+  const catChips=(cat2)=>{
+    const arr=mtagByCat(cat2).slice(0,20);
+    if(!arr.length)return '<span class="dim" style="font-size:12px">（这个分类还没有标签，在下面新建）</span>';
+    return arr.map(x=>{
+      const on=tags.indexOf(x.tag)>=0;
+      return '<button class="'+(on?'pri':'ghost')+'" data-t="'+esc(x.tag)+'" onclick="mpalToggleTag(this.dataset.t)" style="margin:0 6px 6px 0">'+esc(MTAG_ICON[cat2]+x.name)+' ('+x.n+')</button>';
+    }).join('');
+  };
+  const ph=(cat==='时间')?'比如 2024-05-03':((cat==='事件')?'比如 海边捡贝壳':((cat==='性质')?'比如 开心 / 吵架':'比如 重要'));
+  return '<div class="card"><div class="ttl">✍️ 打标签 · 第 '+(k+1)+'/'+L.length+' 条</div>'+
+    '<p class="dim" style="font-size:12px;margin:0">'+esc(mpalEntryWho(e))+esc(mpalEntryLabel(e))+
+      '　'+(t?('🕒 '+esc(fullTimeText(t))):'🕒 这条认不出时间')+'</p>'+
+    '<div class="row" style="margin-top:8px">'+
+      (timeTag?('<button class="'+(tags.indexOf(timeTag)>=0?'pri':'ghost')+'" data-t="'+esc(timeTag)+'" onclick="mpalToggleTag(this.dataset.t)">'+esc(MTAG_ICON['时间']+dayTagOf(t))+'</button>'):'')+
+      '<button class="'+(pinned?'pri':'ghost')+'" onclick="mpalTogglePin()">'+(pinned?'取消「一直记得」':'📌 设为一直记得')+'</button>'+
+    '</div></div>'+
+    '<div class="card" style="margin-top:10px"><div class="ttl">全部文字（'+full.length+' 字）</div>'+
+    '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto">'+esc(full||'（这条没有文字）')+'</div></div>'+
+    '<div class="card" style="margin-top:10px"><div class="ttl">这条现在的标签</div>'+
+    (tags.length?('<p style="font-size:13px;margin:0">'+esc(tagLineText(tags))+'</p>'):'<p class="dim" style="font-size:13px;margin:0">还没有</p>')+
+    '<p class="dim" style="font-size:11.5px;margin:6px 0 0">下面的标签点一下＝加上，再点＝去掉，立刻保存。</p></div>'+
+    MTAG_CATS.map(cat2=>'<div class="card" style="margin-top:10px"><div class="ttl">'+MTAG_ICON[cat2]+cat2+'标签</div>'+
+      '<div class="row" style="flex-wrap:wrap;gap:0">'+catChips(cat2)+'</div></div>').join('')+
+    '<div class="card" style="margin-top:10px"><div class="ttl">加一个新标签</div>'+
+    '<div class="seg">'+MTAG_CATS.map(cat2=>'<button class="'+(cat===cat2?'on':'')+'" onclick="mpalCatPick(\''+cat2+'\')">'+MTAG_ICON[cat2]+cat2+'</button>').join('')+'</div>'+
+    '<div class="row" style="margin-top:8px"><input id="mpalNewTag" placeholder="'+ph+'" style="flex:1">'+
+    '<button class="pri" onclick="mpalAddTagHere()">加上</button></div></div>'+
+    '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="mpalTagStep(-1)">‹ 上一条</button>'+
+    '<button class="pri col" onclick="mpalTagStep(1)">好了，下一条 ›</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalLeaveTag()">‹ 回列表</button>'+
+    '<button class="ghost col" onclick="mpalBack()">回目录</button></div>';
 }
 function mpalHTML(){
   const c=getMemChar()||curChar();
@@ -4675,9 +4946,18 @@ function mpalHTML(){
       '<br>🏷 标签：<b>'+names.length+'</b> 个　📌 一直记得：<b>'+mpinCount()+'</b> 条'+
       (empty.length?('<br><span style="color:var(--warn)">⚠️ 有 '+empty.length+' 卷一条文字都没读出来，检索不到：「'+esc(empty.map(a=>a.name||'未命名').join('、'))+'」</span>'):'')+
       '</p></div>';
-    const cloud=names.length?('<div class="card"><div class="ttl">标签（点一下看这类记忆）</div><div class="row" style="flex-wrap:wrap;gap:6px">'+
-      names.map(t=>'<button class="ghost" data-t="'+esc(t)+'" onclick="mpalTagQuery(this.dataset.t)">'+esc(t)+' ('+(cnt[t]||0)+')</button>').join('')+
-      '</div></div>'):'';
+    const cloud=names.length?('<div class="card"><div class="ttl">标签（点一下看这类记忆）</div>'+
+      MTAG_CATS.map(cat2=>{
+        const arr=mtagByCat(cat2);
+        if(!arr.length)return '';
+        return '<div style="margin-top:8px"><div class="dim" style="font-size:12px;margin-bottom:4px">'+MTAG_ICON[cat2]+cat2+'</div>'+
+          '<div class="row" style="flex-wrap:wrap;gap:6px">'+
+          arr.map(x=>'<button class="ghost" data-t="'+esc(x.name)+'" onclick="mpalTagQuery(this.dataset.t)">'+esc(x.name)+' ('+x.n+')</button>').join('')+
+          '</div></div>';
+      }).join('')+'</div>'):'';
+    const timeCard='<div class="card" style="margin-top:10px"><div class="ttl">🕒 自动补时间标签</div>'+
+      '<p class="dim" style="font-size:12px;margin:0 0 6px">用每条记忆原本带的时间，自动加上「时间」标签（认不出时间的，会借前后最近那条的时间）。已经手动打过时间标签的不会动。</p>'+
+      '<button class="col" onclick="palaceAutoTimeTags()">开始自动补时间</button></div>';
     let chatN2=0;
     try{const msa=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);chatN2=msa.length}catch(e){}
     const chatCard='<div class="card" style="margin-top:10px"><div class="ttl">💬 聊天记录（打字聊出来的）</div>'+
@@ -4691,12 +4971,14 @@ function mpalHTML(){
         '<p class="dim" style="font-size:12px;margin:0 0 6px">'+am.length+' 条 · 已索引 '+segs+' 段'+(a.off?' · ⛔已归档（不检索）':'')+
         (tags.length?('　🏷 '+esc(tags.join('、'))):'')+'</p>'+
         '<div class="row"><button class="col" data-a="'+esc(a.id)+'" onclick="mpalOpen(this.dataset.a)">看条目</button>'+
-        '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVol(this.dataset.a)">整卷标签</button></div></div>';
+        '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVol(this.dataset.a)">整卷标签</button></div>'+
+        '<div class="row" style="margin-top:6px"><button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVolTime(this.dataset.a)">🕒 整卷时间标签</button></div></div>';
     }).join('');
-    return stat+searchBox+cloud+chatCard+'<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+list.length+' 卷档案。点开一卷，可以给单条打标签或设「一直记得」。</p>'+vols;
+    return stat+searchBox+cloud+timeCard+chatCard+'<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+list.length+' 卷档案。点开一卷，可以一条条看全文打标签。</p>'+vols;
   }
   if(MPAL.mode==='list'){
     const all=mpalEntries(c);
+    MPAL.view=all;
     const pages=Math.max(1,Math.ceil(all.length/MPAL_PER));
     const page=Math.min(MPAL.page||0,pages-1);
     const slice=all.slice(page*MPAL_PER,page*MPAL_PER+MPAL_PER);
@@ -4704,8 +4986,9 @@ function mpalHTML(){
       '：共 '+all.length+' 条';
     return searchBox+'<div class="card"><div class="ttl">'+head+'</div>'+
       '<p class="dim" style="font-size:12px;margin:0">第 '+(page+1)+'/'+pages+' 页（一页 '+MPAL_PER+' 条）</p>'+
-      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button></div></div>'+
-      slice.map(x=>(x.kind==='chat')?mpalChatRow(c,x.m,x.i):mpalRow(c,x.a,x.i)).join('')+
+      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button>'+
+      '<button class="pri col" data-n="'+(page*MPAL_PER)+'" onclick="mpalStartTag(parseInt(this.dataset.n,10))">✍️ 从这页第一条开始打标签</button></div></div>'+
+      slice.map((x,n)=>mpalRow2(x,page*MPAL_PER+n)).join('')+
       '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="mpalPage(-1)">‹ 上一页</button>'+
       '<button class="ghost col" onclick="mpalPage(1)">下一页 ›</button></div>';
   }
@@ -4713,29 +4996,41 @@ function mpalHTML(){
     const msa=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
     const idxs=[];
     for(let i=msa.length-1;i>=0;i--){if(String(palaceMsgText(msa[i])||'').trim())idxs.push(i)}
+    MPAL.view=idxs.map(i=>mpalChatRef(c.id,msa[i],i));
     const pages=Math.max(1,Math.ceil(idxs.length/MPAL_PER));
     const page=Math.min(MPAL.page||0,pages-1);
     const slice=idxs.slice(page*MPAL_PER,page*MPAL_PER+MPAL_PER);
     return searchBox+'<div class="card"><div class="ttl">💬 '+esc(c.name||'')+' 的聊天记录</div>'+
       '<p class="dim" style="font-size:12px;margin:0">共 '+idxs.length+' 条，最近的在前面 · 第 '+(page+1)+'/'+pages+' 页（一页 '+MPAL_PER+' 条）</p>'+
-      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button></div></div>'+
-      slice.map(i=>mpalChatRow(c,msa[i],i)).join('')+
+      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button>'+
+      '<button class="pri col" data-n="'+(page*MPAL_PER)+'" onclick="mpalStartTag(parseInt(this.dataset.n,10))">✍️ 从这页第一条开始打标签</button></div></div>'+
+      slice.map((i,n)=>mpalRow2(MPAL.view[page*MPAL_PER+n],page*MPAL_PER+n)).join('')+
       '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="mpalPage(-1)">‹ 往新的翻</button>'+
       '<button class="ghost col" onclick="mpalPage(1)">往旧的翻 ›</button></div>';
+  }
+  if(MPAL.mode==='tag'){
+    return mpalTagViewHTML(c);
   }
   if(MPAL.mode==='search'){
     const r=palaceSearch(MPAL.q,c,30,4000,null);
     const hits=(r&&r.picked)||[];
-    const rows=hits.length?hits.map((p,k)=>{
-      if(p.o.src==='arc')return mpalRow(c,{id:p.o.a,name:p.o.n||'未命名'},p.o.i);
-      const list2=(p.o.c===curId)?msgs:(load(LS.msg(p.o.c),[])||[]);
-      const t=String(palaceMsgText(list2[p.o.i])||'').replace(/\s+/g,' ').trim();
-      return '<div class="li" style="display:block"><div style="font-size:13px">'+esc(t.slice(0,180))+'</div>'+
-        '<div class="dim" style="font-size:11.5px">聊天记录第 '+(p.o.i+1)+' 条　相关度 '+p.score+'</div></div>';
-    }).join(''):'<p class="dim" style="font-size:13px">什么都没搜到。可能这段记忆真的没有，或者说法差太远——试试只留一个关键词。</p>';
+    const refs=[];
+    hits.forEach(p=>{
+      if(p.o.src==='arc'){
+        const a={id:p.o.a,name:p.o.n||'未命名'};
+        refs.push(mpalArcRef(a,p.o.i));
+      }else{
+        const list2=(p.o.c===curId)?msgs:(load(LS.msg(p.o.c),[])||[]);
+        refs.push(mpalChatRef(p.o.c,list2[p.o.i],p.o.i));
+      }
+    });
+    MPAL.view=refs;
+    const rows=refs.length?refs.map((e,n)=>mpalRow2(e,n)).join(''):
+      '<p class="dim" style="font-size:13px">什么都没搜到。可能这段记忆真的没有，或者说法差太远——试试只留一个关键词。</p>';
     return searchBox+'<div class="card"><div class="ttl">搜索「'+esc(MPAL.q||'')+'」</div>'+
       '<p class="dim" style="font-size:12px;margin:0">碰上 '+(r?r.total:0)+' 段，挑中 '+hits.length+' 段</p>'+
-      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button></div></div>'+
+      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button>'+
+      (refs.length?'<button class="pri col" onclick="mpalStartTag(0)">✍️ 逐条看全文打标签</button>':'')+'</div></div>'+
       rows;
   }
   return '';
@@ -7562,6 +7857,17 @@ function finishAppStart(){
   scheduleAuto(false);
   scheduleGroupAuto(false);
   startRemindTick();            /* 【新增】待办提醒：到点由角色发消息 */
+  /* ↓ 从桌面图标直接打开「记忆宫殿」（地址带 #palace） */
+  openDeepLink();
+  window.addEventListener('hashchange',openDeepLink);
+}
+/* 地址栏里带 palace 就自动打开记忆宫殿：index.HTML#palace */
+function openDeepLink(){
+  try{
+    const u=(String(location.hash||'')+'&'+String(location.search||'')).toLowerCase();
+    if(u.indexOf('palace')<0)return;
+    setTimeout(()=>{try{palaceBrowse()}catch(e){}},200);
+  }catch(e){}
 }
 async function initApp(){
   loadInitialState();
@@ -7863,6 +8169,8 @@ function wbDel(id){
 
 /* ---------- ⑥ 应用：手机桌面式宫格 ---------- */
 const APPS=[
+  {k:'palace',n:'记忆宫殿',d:'翻旧记忆 · 打标签',
+   ic:'<svg viewBox="0 0 24 24"><path d="M12 3.2 20.6 8.1H3.4Z"/><path d="M6 11.1v7.3M10 11.1v7.3M14 11.1v7.3M18 11.1v7.3"/><path d="M3.4 20.8h17.2"/></svg>'},
   {k:'todo',n:'待办',d:'角色的小清单',
    ic:'<svg viewBox="0 0 24 24"><path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/></svg>'},
   {k:'group',n:'群聊',d:'让角色们一起聊',
@@ -7891,7 +8199,15 @@ renderTools=function(){
   /* ↓ 补丁6-C：重画后把长说明收起来 */
   try{slimText(document.getElementById('main'))}catch(e){}
 };
-function openApp(k){toolTab=k;appOpen=true;renderTools()}
+function openApp(k){
+  /* 「记忆宫殿」不是一个子页面，而是弹出来的小应用：直接打开它 */
+  if(k==='palace'){
+    try{palaceBrowse()}
+    catch(e){alert('打不开记忆宫殿：'+((e&&e.message)||e))}
+    return;
+  }
+  toolTab=k;appOpen=true;renderTools();
+}
 function closeApp(){appOpen=false;renderTools()}
 renderTodo=function(){
   if(view!=='tools')return;
@@ -13754,6 +14070,7 @@ var G={
   music:'<path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/>',
   toy:'<path d="M12 3.6l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.3l5.4-.8Z"/>',
   act:'<path d="M12 4.3c3.2 0 5.8 1 5.8 1v5.4c0 4.3-2.6 7.6-5.8 8.8-3.2-1.2-5.8-4.5-5.8-8.8V5.3s2.6-1 5.8-1Z"/><path d="M8.9 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M12.7 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M8.9 13.8c1.8 1.7 4.4 1.7 6.2 0"/>',
+  palace:'<path d="M12 3.2 20.6 8.1H3.4Z"/><path d="M6 11.1v7.3M10 11.1v7.3M14 11.1v7.3M18 11.1v7.3"/><path d="M3.4 20.8h17.2"/>',
   cfg:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   world:'<path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/>'
 };
@@ -13774,7 +14091,8 @@ var GRID=[
   {k:'music', n:'音乐',     g:'music'},
   {k:'toy',   n:'互动',     g:'toy'},
   {k:'act',   n:'演绎',     g:'act'},
-  {k:'world', n:'世界书',   g:'world'}
+  {k:'world', n:'世界书',   g:'world'},
+  {k:'palace',n:'记忆宫殿', g:'palace'}
 ];
 var DOCK=[
   {k:'chat',  n:'聊天', g:'chat'},
@@ -13930,6 +14248,12 @@ function open2(k){
   if(k==='roles'){go('roles');return}
   if(k==='me'){go('me');return}
   if(k==='cfg'){go('cfg');return}
+  /* 记忆宫殿：桌面上点它就直接弹出宫殿（不切换页面） */
+  if(k==='palace'){
+    try{palaceBrowse()}
+    catch(e){try{alert('打不开记忆宫殿：'+((e&&e.message)||e))}catch(e2){}}
+    return;
+  }
   try{if(W.openApp)W.openApp(k)}catch(e){}
   go('tools');
 }
