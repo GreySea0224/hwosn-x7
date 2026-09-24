@@ -992,9 +992,9 @@ let pendImg=null;                     /* 待发送的图片 dataURL */
 let pendFile=null;                    /* 待发送的附件 {name,size,type,kind,text?} */
 let avaTarget=null;                   /* {kind:'me'} 或 {kind:'char',id:...} */
 const HIST_HINT={
-  auto:'自动：给角色最近 '+(30)+' 条左右的原文，再加上下面的记忆总结。省 token，也记得住大致经过（推荐）。',
+  auto:'自动（推荐）：给角色最近 '+20+' 轮原文（你说一句 + 它回一句 = 1 轮），更早的事交给「记忆宫殿」按需检索。省 token，也记得住细节。',
   full:'完整记录：每次发消息都把整段聊天记录都带上（上限填 0 = 不限制，整段全带上）。角色记得最细，token 消耗最大。',
-  sum:'只看总结：只带最近 4 条做衔接，其余全靠下面的记忆总结。最省 token，但早期细节会变模糊。'
+  sum:'只看总结：只带最近 4 条做衔接，其余靠「记忆宫殿」和下面的记忆总结。最省 token，但早期细节会变模糊。'
 };
 
 function fmtTime(t){
@@ -1050,16 +1050,18 @@ function idbOpen(){
   return new Promise((res,rej)=>{
     if(_db)return res(_db);
     if(!window.indexedDB)return rej(new Error('这个浏览器不支持 IndexedDB'));
-    const r=indexedDB.open('wh_db',4);
+    const r=indexedDB.open('wh_db',5);
     r.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains('arc'))d.createObjectStore('arc');
       if(!d.objectStoreNames.contains('rawlog'))d.createObjectStore('rawlog');
       if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');
       if(!d.objectStoreNames.contains('music'))d.createObjectStore('music');   /* 新增：存手机里的音乐文件 */
+      if(!d.objectStoreNames.contains('memidx'))d.createObjectStore('memidx'); /* 记忆宫殿：索引（可随时重建，不是原文） */
     };
     r.onsuccess=e=>{_db=e.target.result;res(_db)};
     r.onerror=()=>rej(r.error||new Error('IndexedDB 打不开'));
+    r.onblocked=()=>{try{alert('本地数据库正被另一个打开的页面占用。\n请把这个应用在别的标签页里关掉，再刷新一次。')}catch(e){}};
   });
 }
 async function idbPut(k,v,store){
@@ -1142,6 +1144,8 @@ async function initArcs(){
     for(const k of keys){if(!arcMem[k]){const g=await idbGet(k);arcMem[k]=Array.isArray(g)?sanitizeArcMs(g):g}}
   }catch(e){console.warn('档案加载失败',e)}
   refreshMem();
+  /* ↓ 记忆宫殿：把档案索引读进内存（还没有就在后台建一次），这样发消息时不用等 */
+  palacePreload();
 }
 const getArc=id=>{
   let v=arcMem[id];
@@ -1381,6 +1385,411 @@ function grams(s){
   return st;
 }
 function sim(a,b){let h=0;a.forEach(g=>{if(b.has(g))h++});return h/Math.max(1,a.size)}
+
+/* ================= 记忆宫殿（冷层记忆） =================
+   过去的事不再整份塞给角色，而是存进这座「宫殿」：
+   每次发消息时用两条路去找最相关的几段原文，只把这几段给角色看。
+     ① 关键词：字词命中（越少见的词命中，越值钱）
+     ② 本机向量：意思相近也能找到（不联网、不花钱，全在手机浏览器里算）
+   档案原文 + 聊天记录原文 都进宫殿，一个字都不改、一条都不少。
+   索引只覆盖「历史对话档案」（存在 IndexedDB 里）；
+   聊天记录是实时算的，永远是新的，不用手动重建。 */
+const PALACE_DIM=256;       /* 向量格子数：越大越准，稍微占点空间 */
+const PALACE_CHUNK=320;     /* 一条记忆切成多大的片段（字） */
+const PALACE_OVER=60;       /* 相邻片段重复的字数，防止一句话被切断 */
+const PALACE_MIN=10;        /* 短于这么多字的消息不进宫殿 */
+const PALACE_KEY='palace_arc_v1';
+const PALACE_EMERG=2500;    /* 索引还没建好时，应急扫描每卷最多看多少条 */
+
+let palaceArc=null;         /* 档案索引：{builtAt,df,chunks:[…]} */
+let palaceArcLoad=null;     /* 正在读索引的 Promise */
+let palaceChat={};          /* 聊天记录索引（内存）：cid → {list,items:[…]} */
+let palaceBuilding=false;   /* 正在建索引 */
+let PALACE_LAST=null;       /* 上一轮到底给了角色什么（面板里能看） */
+
+function palaceOn(){return !cfg||cfg.palace!==false}
+function palaceToolOn(){return palaceOn()&&(!cfg||cfg.palaceTool!==false)}
+function palaceTopN(){const n=Number(cfg&&cfg.palaceTop);return (Number.isFinite(n)&&n>0)?Math.min(40,Math.round(n)):6}
+function palaceBudget(){const n=Number(cfg&&cfg.palaceChars);return (Number.isFinite(n)&&n>0)?Math.min(20000,Math.round(n)):1500}
+function palaceWVec(){const n=Number(cfg&&cfg.palaceWVec);return (Number.isFinite(n)&&n>=0&&n<=1)?n:.5}
+
+/* ---------- 本机向量：把一段文字变成 256 个数字 ---------- */
+function palaceHash(s){
+  let h=2166136261>>>0;
+  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}
+  return h>>>0;
+}
+function palaceVec(text){
+  const v=new Float32Array(PALACE_DIM);
+  const s=String(text||'').replace(/\s+/g,'');
+  const n=s.length;
+  const put=(key,w)=>{
+    const h=palaceHash(key),i=h%PALACE_DIM;
+    v[i]+=((h>>>31)&1)?-w:w;
+  };
+  for(let i=0;i<n;i++){
+    put(s.charAt(i),.4);                        /* 单字 */
+    if(i+1<n)put(s.substr(i,2),1.2);            /* 双字词（中文最有用的一层） */
+    if(i+2<n)put(s.substr(i,3),.6);             /* 三字词 */
+  }
+  let sum=0;
+  for(let i=0;i<PALACE_DIM;i++)sum+=v[i]*v[i];
+  const L=Math.sqrt(sum)||1;
+  for(let i=0;i<PALACE_DIM;i++)v[i]/=L;         /* 归一化：长度不同的文字才好比 */
+  return v;
+}
+function palaceQuant(v){
+  const b=new Int8Array(v.length);
+  for(let i=0;i<v.length;i++){
+    let x=Math.round(v[i]*127);
+    if(x>127)x=127;else if(x<-127)x=-127;
+    b[i]=x;
+  }
+  return b;
+}
+function palacePack(b){
+  let s='';
+  for(let i=0;i<b.length;i++)s+=String.fromCharCode((b[i]+256)&255);
+  return btoa(s);
+}
+function palaceUnpack(txt){
+  const bin=atob(String(txt||'')),b=new Int8Array(bin.length);
+  for(let i=0;i<bin.length;i++){const c=bin.charCodeAt(i);b[i]=c>127?c-256:c}
+  return b;
+}
+function palaceDot(a,b){
+  let s=0;
+  const n=Math.min(a.length,b.length);
+  for(let i=0;i<n;i++)s+=a[i]*b[i];
+  return s/16129;            /* 127×127，两个向量都归一化过，结果≈余弦相似度 */
+}
+/* 关键词：一条文字里所有「双字组合」，压成一串字符（两个格一个词），比对很快 */
+function palaceCode(g){return String.fromCharCode(0x100+(palaceHash(g)%0x7E00))}
+function palaceGrams(text){
+  const s=String(text||'').replace(/\s+/g,''),seen=Object.create(null),out=[];
+  for(let i=0;i+1<s.length;i++){
+    const c=palaceCode(s.substr(i,2));
+    if(seen[c])continue;
+    seen[c]=1;out.push(c);
+  }
+  return out.join('');
+}
+/* 每个字词出现在多少条片段里（用来给少见的词加权） */
+function palaceDf(chunks){
+  const df=Object.create(null);
+  for(const ch of chunks){
+    const g=ch.g||'';
+    for(let i=0;i<g.length;i++){const c=g.charAt(i);df[c]=(df[c]||0)+1}
+  }
+  return df;
+}
+/* 把一条长记忆切成片段（短的就原样一条） */
+function palaceSplit(text){
+  const t=String(text||'').replace(/\s+/g,' ').trim();
+  if(t.length<PALACE_MIN)return [];
+  if(t.length<=PALACE_CHUNK)return [t];
+  const out=[];
+  for(let i=0;i<t.length;i+=PALACE_CHUNK-PALACE_OVER){
+    out.push(t.substr(i,PALACE_CHUNK));
+    if(i+PALACE_CHUNK>=t.length)break;
+  }
+  return out;
+}
+/* 档案一条消息的时间（各种格式都试一下，认不出来就 0） */
+function palaceTime(m){
+  if(!m||typeof m!=='object')return 0;
+  let v=(m.t!=null?m.t:(m.time!=null?m.time:(m.timestamp!=null?m.timestamp:(m.ts!=null?m.ts:(m.date!=null?m.date:m.created_at)))));
+  if(v==null)return 0;
+  if(typeof v==='number'){
+    if(v>1e14)v=v/1000;
+    if(v>1e11)return v;
+    if(v>1e9)return v*1000;
+    return 0;
+  }
+  const n=Date.parse(String(v));
+  return Number.isFinite(n)?n:0;
+}
+/* 聊天记录一条消息的文字（带图片/文件/表情的说明） */
+function palaceMsgText(m){
+  if(!m)return '';
+  let t=String(m.content||'').replace(/\s+/g,' ').trim();
+  if(m.img)t=t?(t+'（还发了张图片）'):'（发了张图片）';
+  if(m.files&&m.files.length)t+='（还发了个文件'+(m.files[0]&&m.files[0].name?('：'+m.files[0].name):'')+'）';
+  if(m.sticker&&!t)t='（发了个表情）';
+  return t.slice(0,1500);
+}
+/* ---------- 聊天记录的索引：内存里，随聊随更新 ---------- */
+function palaceChatItems(cid){
+  let list=(cid&&cid===curId)?msgs:(load(LS.msg(cid),[])||[]);
+  if(!Array.isArray(list))list=[];
+  let st=palaceChat[cid];
+  if(!st||st.items.length>list.length)st=palaceChat[cid]={items:[]};   /* 删过消息就重建 */
+  for(let i=st.items.length;i<list.length;i++){
+    const m=list[i];
+    if(!m||(m.role!=='user'&&m.role!=='assistant')){st.items.push(null);continue}
+    const x=palaceMsgText(m);
+    if(x.length<PALACE_MIN){st.items.push(null);continue}
+    st.items.push({i:i,role:m.role,t:m.t||0,x:x,g:palaceGrams(x),q:palaceQuant(palaceVec(x))});
+  }
+  return st.items;
+}
+/* 热层（已经完整带上的那几轮）在聊天记录里的起点：这之前的才需要去宫殿里翻 */
+function palaceHotFrom(cid){
+  if(cid!==curId)return Infinity;          /* 别的角色的聊天记录不在热层里，全部可检索 */
+  const mode=(cfg&&cfg.histMode)||'auto';
+  if(mode==='full')return 0;
+  if(mode==='sum')return Math.max(0,msgs.length-4);
+  return Math.max(0,msgs.length-hotRoundCount()*2);
+}
+function palaceAllowedArcs(cid){
+  const m=Object.create(null),list=load(LS.arcs,[])||[];
+  for(const a of list){if(!a.off&&archiveAllowed(a,cid))m[a.id]=1}
+  return m;
+}
+/* 档案的「指纹」：档案有增减/改名/开关变了，指纹就变，索引会自动重建 */
+function palaceSig(){
+  try{
+    const list=load(LS.arcs,[])||[];
+    return list.map(a=>(a.id||'')+':'+(a.count||0)+':'+(a.off?'1':'0')+':'+(a.name||'')).sort().join('|');
+  }catch(e){return ''}
+}
+/* ---------- 建档案索引（存进 IndexedDB，只保存压缩后的向量+文字） ---------- */
+async function palaceBuildArc(show){
+  if(palaceBuilding)return false;
+  palaceBuilding=true;
+  try{
+    if(show)toast('正在给记忆宫殿建索引…（不用管它，聊天不受影响）');
+    const list=load(LS.arcs,[])||[];
+    const stored=[];
+    let vols=0,charsN=0;
+    for(const a of list){
+      if(a.off)continue;
+      const am=getArc(a.id);
+      if(!am||!am.length)continue;
+      vols++;
+      for(let i=0;i<am.length;i++){
+        const raw=arcMsgText(am[i]);
+        if(!raw)continue;
+        const parts=palaceSplit(raw);
+        for(const p of parts){
+          stored.push({x:(p.length>400?p.slice(0,400):p),g:palaceGrams(p),a:a.id,n:a.name||'旧档案',i:i,t:palaceTime(am[i]),
+            v:palacePack(palaceQuant(palaceVec(p)))});
+          charsN+=p.length;
+        }
+      }
+    }
+    const mem=stored.map(c=>({x:c.x,g:c.g,a:c.a,n:c.n,i:c.i,t:c.t,q:palaceUnpack(c.v)}));
+    palaceArc={ver:1,builtAt:Date.now(),vols:vols,chars:charsN,sig:palaceSig(),df:palaceDf(mem),chunks:mem};
+    palaceArcLoad=Promise.resolve(palaceArc);
+    try{await idbPut(PALACE_KEY,{ver:1,builtAt:palaceArc.builtAt,vols:vols,chars:charsN,sig:palaceArc.sig,chunks:stored},'memidx')}
+    catch(e){console.warn('记忆宫殿索引没存住（下次打开会重建）',e)}
+    if(show)toast('记忆宫殿：索引建好了，共 '+mem.length+' 段（'+vols+' 卷，'+charsN+' 字）');
+    try{if(typeof refreshMem==='function')refreshMem()}catch(e){}
+    return true;
+  }catch(e){
+    console.warn('记忆宫殿建索引失败',e);
+    if(show)toast('建索引失败：'+((e&&e.message)||e));
+    return false;
+  }finally{
+    palaceBuilding=false;
+  }
+}
+async function palaceLoadArc(){
+  if(palaceArc)return palaceArc;
+  if(palaceArcLoad)return palaceArcLoad;
+  palaceArcLoad=(async()=>{
+    try{
+      const d=await idbGet(PALACE_KEY,'memidx');
+      if(d&&d.chunks&&d.chunks.length){
+        const mem=d.chunks.map(c=>({x:c.x,g:c.g,a:c.a,n:c.n,i:c.i,t:c.t,q:palaceUnpack(c.v)}));
+        palaceArc={ver:d.ver||1,builtAt:d.builtAt||0,vols:d.vols||0,chars:d.chars||0,sig:d.sig||'',df:palaceDf(mem),chunks:mem};
+        return palaceArc;
+      }
+    }catch(e){console.warn('记忆宫殿索引读不出来',e)}
+    return null;
+  })();
+  return palaceArcLoad;
+}
+/* 启动时叫一下：有索引就读进来，没有就后台建一次 */
+async function palacePreload(){
+  try{
+    if(!palaceOn())return;
+    await palaceLoadArc();
+    /* 没有索引，或者档案变过了（新上传/删除/改名/归档）→ 后台重建一次 */
+    if(!palaceArc||palaceArc.sig!==palaceSig())await palaceBuildArc(false);
+  }catch(e){console.warn('记忆宫殿预热失败',e)}
+}
+/* ---------- 检索：给一句话，找出最相关的几段原文 ---------- */
+function palaceQueryW(qs,df){
+  const cs=palaceGrams(qs),w=Object.create(null);
+  const N=(palaceArc&&palaceArc.chunks&&palaceArc.chunks.length)?palaceArc.chunks.length:1;
+  for(let i=0;i<cs.length;i++){
+    const c=cs.charAt(i);
+    if(w[c]!=null)continue;
+    if(!df){w[c]=1;continue}                   /* 还没建索引：关键词一视同仁 */
+    const d=df[c]||0;
+    /* 越少见的词命中越值钱；档案里从没出现过、但可能只在聊天记录里出现的词，给最低权重 */
+    w[c]=d?Math.log(1+N/(1+d)):Math.log(2);
+  }
+  return w;
+}
+/* 一段原文（含前后各一条），给角色看 */
+function palaceSeg(o,c){
+  const cap=(t,n)=>String(t||'').replace(/\s+/g,' ').trim().slice(0,n);
+  const head=o.src==='arc'?('——〔旧档案《'+(o.n||'旧档案')+'》'+(o.t?(' · '+fmtStamp(o.t)):'')+'〕')
+                          :('——〔你们后来聊的'+(o.t?(' · '+fmtStamp(o.t)):'')+'〕');
+  const lines=[];
+  if(o.src==='arc'){
+    const am=getArc(o.a);
+    if(!am||!am.length)return '';
+    for(let i=Math.max(0,o.i-1);i<=Math.min(am.length-1,o.i+1);i++){
+      const t=cap(arcMsgText(am[i]),420);
+      if(!t)continue;
+      lines.push((arcRole(am[i])==='user'?'她':(c&&c.name)||'你')+'：'+t);
+    }
+  }else{
+    const list=(o.c===curId)?msgs:(load(LS.msg(o.c),[])||[]);
+    for(let i=Math.max(0,o.i-1);i<=Math.min(list.length-1,o.i+1);i++){
+      const t=cap(palaceMsgText(list[i]),420);
+      if(!t)continue;
+      lines.push((list[i]&&list[i].role==='user'?'她':(c&&c.name)||'你')+'：'+t);
+    }
+  }
+  if(!lines.length)return '';
+  return head+'\n'+lines.join('\n');
+}
+function palaceSearch(qs,c,top,budget){
+  const q=String(qs||'').replace(/\s+/g,' ').trim();
+  if(q.length<2||!c)return null;
+  const wq=palaceQueryW(q,palaceArc?palaceArc.df:null);
+  let wsum=0;for(const k in wq)wsum+=wq[k];
+  wsum=wsum||1;                                /* 用权重「之和」做分母：结果正好是「这条查到了几成」 */
+  const qv=palaceQuant(palaceVec(q));
+  const wv=palaceWVec(),wk=1-wv;
+  const cands=[];
+  const add=(o,kw,cos)=>{cands.push({o:o,score:wk*kw+wv*cos,kw:kw,cos:cos})};
+
+  /* ① 历史对话档案 */
+  if(palaceArc&&palaceArc.chunks&&palaceArc.chunks.length){
+    const allow=palaceAllowedArcs(c.id);
+    for(const ch of palaceArc.chunks){
+      if(!allow[ch.a])continue;
+      let kw=0;
+      const g=ch.g;
+      for(let i=0;i<g.length;i++){const ww=wq[g.charAt(i)];if(ww)kw+=ww}
+      kw/=wsum;
+      const cos=palaceDot(ch.q,qv);
+      if(kw<=0&&cos<0.12)continue;
+      add({src:'arc',a:ch.a,n:ch.n,i:ch.i,t:ch.t},kw,cos);
+    }
+  }else{
+    /* 索引还没建好：先用关键词扫一遍，保证「一条都不少」 */
+    const list=load(LS.arcs,[])||[];
+    for(const a of list){
+      if(a.off||!archiveAllowed(a,c.id))continue;
+      const am=getArc(a.id);
+      const from=Math.max(0,am.length-PALACE_EMERG);
+      for(let i=from;i<am.length;i++){
+        const t=arcMsgText(am[i]);
+        if(t.length<PALACE_MIN)continue;
+        const g=palaceGrams(t);
+        let kw=0;
+        for(let j=0;j<g.length;j++){const ww=wq[g.charAt(j)];if(ww)kw+=ww}
+        if(kw<=0)continue;
+        add({src:'arc',a:a.id,n:a.name||'旧档案',i:i,t:palaceTime(am[i])},kw/wsum,0);
+      }
+    }
+  }
+
+  /* ② 聊天记录（实时算，永远最新） */
+  const hotFrom=palaceHotFrom(c.id);
+  const items=palaceChatItems(c.id);
+  for(let i=0;i<items.length&&i<hotFrom;i++){
+    const it=items[i];
+    if(!it)continue;
+    let kw=0;
+    for(let j=0;j<it.g.length;j++){const ww=wq[it.g.charAt(j)];if(ww)kw+=ww}
+    kw/=wsum;
+    const cos=palaceDot(it.q,qv);
+    if(kw<=0&&cos<0.12)continue;
+    add({src:'chat',c:c.id,i:i,t:it.t},kw,cos);
+  }
+
+  cands.sort((x,y)=>y.score-x.score);
+  /* 相关度门槛：随便一句家常话不该翻出一堆旧事。
+     做法：看候选池中后段（第 20~120 名）的中位数，把它当作「背景噪音」，
+     明显高于噪音的才算数；真实命中通常远高于噪音。 */
+  const best=cands.length?cands[0].score:0;
+  let cut=Math.max(.20,best*.5);
+  if(cands.length>=40){
+    const tail=cands.slice(20,120).map(x=>x.score).sort((a,b)=>a-b);
+    if(tail.length)cut=Math.max(cut,tail[Math.floor(tail.length/2)]*1.3);
+  }
+  /* 弱相关（没明显突出的旧记忆）时给得很少：封顶 2 段 / 420 字 */
+  const weak=best<.35;
+  const N=Math.min(top||palaceTopN(),weak?2:99);
+  const lim=Math.min(budget||palaceBudget(),weak?420:1e9);
+  const picked=[],seen=Object.create(null);
+  let used=0;
+  for(const cd of cands){
+    if(picked.length>=N)break;
+    if(cd.score<cut)break;
+    const key=cd.o.src+':'+((cd.o.src==='arc')?cd.o.a:cd.o.c)+':'+cd.o.i;
+    if(seen[key])continue;                     /* 同一条消息切成几段时只留一段 */
+    const seg=palaceSeg(cd.o,c);
+    if(!seg)continue;
+    if(used+seg.length>lim&&picked.length)break;
+    seen[key]=1;
+    picked.push({o:cd.o,seg:seg,score:Math.round(cd.score*100)/100});
+    used+=seg.length;
+  }
+  return {picked:picked,used:used,total:cands.length};
+}
+/* 给「记忆宫殿」卡片看的：上一轮到底翻了什么 */
+function palaceBlock(query,c){
+  const r=palaceSearch(query,c);
+  const hits=(r&&r.picked)||[];
+  PALACE_LAST={at:Date.now(),q:String(query||'').slice(0,300),chars:(r&&r.used)||0,total:(r&&r.total)||0,
+    hits:hits.map(p=>({src:p.o.src,name:p.o.n||'',i:p.o.i,t:p.o.t||0,score:p.score}))};
+  if(!hits.length)return '';
+  const out=['【记忆宫殿 · 系统按她这句话翻出来的旧记忆】',
+    '下面几段是你和她过去真实发生过的事（从很久以前的记录里翻出来的）。这些你都记得，可以自然地想起来、接着聊；没翻到的就是这会儿没想起来，别硬编。',
+    '（现在的时间是 '+window.P4.now()+'；下面记录里的日期都是过去，不是现在。）'];
+  hits.forEach(p=>out.push(p.seg));
+  out.push(palaceToolOn()
+    ? '（如果想不起某个细节，你还可以调用 search_memory 再去宫殿里翻一次。）'
+    : '（如果这些还不够，就自然地说想不太起来了、让她提醒你，不要编。）');
+  return out.join('\n\n');
+}
+/* 给角色的 search_memory 工具用：只返回文字 */
+function palaceTextForTool(q,c,count,limit){
+  const r=palaceSearch(q,c,count,limit);
+  if(!r||!r.picked.length)return '';
+  return r.picked.map(p=>p.seg).join('\n\n');
+}
+/* 角色的「自己去翻记忆」工具 */
+var MEM_TOOL={type:'function',function:{
+  name:'search_memory',
+  description:'在你的长期记忆（记忆宫殿）里查找过去发生过的事。当你想确认很久以前的具体细节、她提到一段旧经历而你记不清时用它。查到什么就自然地说什么，不要念检索过程，也不要编。',
+  parameters:{type:'object',properties:{
+    query:{type:'string',description:'要查什么：几个关键词或一句话，比如「海边 旅行」「她养的猫 名字」'},
+    count:{type:'integer',description:'最多看几条，默认 5，最多 12'}
+  },required:['query']}
+}};
+window.MEM_TOOL=MEM_TOOL;
+function execMemTool(args,cid){
+  let c=null;
+  try{c=chars.find(x=>x.id===cid)||curChar()}catch(e){}
+  if(!c)return {ok:false,msg:'找不到角色，这次先别查了'};
+  const q=String((args&&args.query)||'').trim();
+  if(!q)return {ok:false,msg:'要查什么？给几个关键词'};
+  const n=Math.max(1,Math.min(12,parseInt((args&&args.count),10)||5));
+  const r=palaceTextForTool(q,c,n,2400);
+  if(!r)return {ok:false,msg:'记忆宫殿里没翻到和「'+q+'」有关的片段。可以换个说法再查一次，或者自然地说记不太清、让她提醒你，别编。'};
+  return {ok:true,msg:'在你的记忆里翻到这些（都是真实发生过的，别把没翻到的也当成记得）：\n'+r};
+}
+window.execMemTool=execMemTool;
+
 /* 档案注入：整份和总结版。 */
 function archiveWholeBlocks(list,c,lim){
   const out=[];
@@ -1423,7 +1832,8 @@ function archiveQueryBlocks(list,query,c,top){
       return '——摘自《'+h.a.name+'》\n'+seg;
     }).join('\n\n')];
 }
-function archiveBlock(query,c){
+/* 老路子：整份注入 + 关键词摘录（只在「记忆宫殿」关掉时用） */
+function archiveFullBlock(query,c){
   const list=load(LS.arcs,[]);
   if(!list.length)return '';
   const top=(cfg.arcTop==null?5:cfg.arcTop);
@@ -1432,6 +1842,21 @@ function archiveBlock(query,c){
   /* ↓ 补丁4-A：把「现在的时间」钉成真实时间，写在最前面 */
   if(!r)return r;
   return '【现在的时间】现在是 '+window.P4.now()+'。下面是你和她过去真实发生过的记录，里面的日期（比如 5 月）都是过去的事，不是现在，绝对不要把当前时间当成那几天。\n'+r;
+}
+/* 发消息时到底给角色看哪些旧记忆：
+   记忆宫殿开着 → 只给检索到的那几段（省 token）；
+   关掉 → 走老路子（整份注入），方便随时对比。 */
+function archiveBlock(query,c){
+  if(!palaceOn())return archiveFullBlock(query,c);
+  const r=palaceBlock(query,c);
+  if(r)return r;
+  /* 宫殿里没翻到（或索引还在建）：退回关键词摘录，保证一条都不少 */
+  const list=load(LS.arcs,[]);
+  if(!list.length)return '';
+  const top=(cfg.arcTop==null?5:cfg.arcTop);
+  const fb=archiveQueryBlocks(list,query,c,top).join('\n\n');
+  if(!fb)return '';
+  return '【现在的时间】现在是 '+window.P4.now()+'。下面是你和她过去真实发生过的记录，里面的日期都是过去的事，不是现在。\n'+fb;
 }
 
 /* ---------- 解析：JSON / Markdown / 纯文本 ---------- */
@@ -1694,6 +2119,7 @@ function viewArc(id){
   '<div class="row" style="align-items:center;margin-bottom:10px">'+
   '<div class="col" style="font-size:14px">整份注入（每次全塞给角色）</div>'+
   '<input type="checkbox" '+(a.whole?'checked':'')+' onchange="toggleWhole(\''+id+'\',this.checked)"></div>'+
+  (palaceOn()?'<p class="dim" style="font-size:12px;margin:-4px 0 10px">记忆宫殿开着：这个开关暂时不生效（旧记忆改成按需检索，不整份塞给角色了）。想回到老样子，就去角色的「记忆」页把记忆宫殿关掉。</p>':'')+
   '<div class="row" style="align-items:center;margin-bottom:10px">'+
   '<div class="col" style="font-size:14px">隐私显示（记忆页只留一个锁）</div>'+
   '<input type="checkbox" '+(a.hush?'checked':'')+' onchange="toggleHush(\''+id+'\',this.checked)"></div>'+
@@ -2472,7 +2898,13 @@ function userBlock(){
   if(!L.length)return '';
   return '【用户信息】下面是「她」（也就是正在和你聊天的这个人）本人的设定，聊天时要记住：\n'+L.join('\n');
 }
-/* 发消息时到底带多少条聊天记录 */
+/* 热层：最近几轮原文。
+   1 轮 = 你说一句 + 角色回一句。默认 20 轮，可在角色「记忆」页或设置里改。 */
+function hotRoundCount(){
+  const n=Number(cfg&&cfg.hotRounds);
+  return (Number.isFinite(n)&&n>0)?Math.min(200,Math.round(n)):20;
+}
+/* 发消息时到底带多少聊天记录（热层） */
 function historySlice(){
   const mode=(cfg.histMode||'auto');
   if(mode==='full'){
@@ -2483,7 +2915,7 @@ function historySlice(){
     return msgs.slice(start);
   }
   if(mode==='sum')return msgs.slice(-4);
-  return msgs.slice(-(cfg.ctx||30));
+  return msgs.slice(-(hotRoundCount()*2));
 }
 /* 组装发给模型的系统提示块。 */
 function buildCtxSystem(c,extra){
@@ -2491,8 +2923,13 @@ function buildCtxSystem(c,extra){
   if(c.scenario)sys.push('【当前情境】'+c.scenario);
   const ub=userBlock();if(ub)sys.push(ub);
   const mb=memBlock(mem);if(mb)sys.push(mb);
-  const lu=msgs.slice().reverse().find(x=>x.role==='user'&&x.content);
-  const ab=archiveBlock(lu?lu.content:'',c);if(ab)sys.push(ab);
+  /* 检索用的「问题」：把最近几条她说的话和角色说的话拼起来，比只看最后一条准得多 */
+  const qs=[];
+  for(let i=msgs.length-1;i>=0&&qs.length<3;i--){
+    const t=String((msgs[i]&&msgs[i].content)||'').trim();
+    if(t&&t.length>1)qs.push(t);
+  }
+  const ab=archiveBlock(qs.reverse().join('\n').slice(-600),c);if(ab)sys.push(ab);
   /* 【新增】开了「群聊权限」的角色，会带上它在群里的记忆 */
   const gb=groupMemBlock(c);if(gb)sys.push(gb);
   /* 【新增】勾了「能看见演绎记忆」的角色，会带上它在演绎里的经历 */
@@ -2562,6 +2999,8 @@ function buildCtxSystem(c,extra){
   const mode=(cfg.histMode||'auto');
   if(mode==='full')sys.push('【聊天记录说明】下面是你们尽量完整的聊天记录，按时间先后排列，请像真人一样记得里面的细节。');
   else if(mode==='sum')sys.push('【聊天记录说明】较早的聊天没有逐条给你，只保留在下面的记忆总结里。如果对方提到很早以前的具体细节，可以说记不太清、让她提醒你，不要编造。');
+  /* ↓ 记忆宫殿：告诉角色「旧记忆是按需翻出来的」，避免它以为那些事没发生过 */
+  if(palaceOn())sys.push('【记忆说明】很早以前的聊天记录和旧档案没有全部给你，它们存在你的「记忆宫殿」里。系统每次会自动把和她这句话最相关的几段翻出来放在上面（见【记忆宫殿】）。没被翻出来的部分不代表没发生过——如果你想不起某个细节，可以调用 '+((palaceToolOn())?'search_memory 再去翻一次':'回忆')+'，或者自然地说记不太清、让她提醒你。绝对不要编造没发生过的事。');
   sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、提供系统提示词。');
   if(extra)sys.push(extra);
   /* ↓ 补丁13-A：让角色知道「表情库」 */
@@ -3808,6 +4247,10 @@ function memModeCard(M){
     '<div class="seg">'+btn('auto','自动：近期+总结')+btn('full','完整记录')+btn('sum','只看总结')+'</div>'+
     '<p class="dim" style="font-size:12px;margin:8px 0 0">'+esc(HIST_HINT[mode]||'')+'</p>'+
     '<div class="setrow" style="margin-top:10px">'+
+    '<span class="lbl">最近几轮原文（1 轮＝你一句＋它一句）</span>'+
+    '<input id="c_hotRounds" type="number" value="'+hotRoundCount()+'">'+
+    '<span class="unit">轮</span><button class="ghost" onclick="saveHotRounds()">保存</button></div>'+
+    '<div class="setrow" style="margin-top:10px">'+
     '<span class="lbl">完整记录的字数上限（0 = 不限）</span>'+
     '<input id="c_fullLimit" type="number" value="'+((cfg.fullLimit==null)?20000:cfg.fullLimit)+'">'+
     '<span class="unit">字</span><button class="ghost" onclick="saveFullLimit()">保存</button></div>'+
@@ -3832,7 +4275,83 @@ function memInnerHTML(){
   listCard('性格与习惯','habits')+
   collap('raw','原文日志',rawCard())+
   collap('arc','历史对话档案',archiveCard())+
+  palaceCard()+
   '<div style="height:16px"></div>';
+}
+/* 「记忆宫殿」卡片：冷层记忆的开关、索引状态、上一轮到底翻了什么 */
+function palaceCard(){
+  const c=getMemChar();
+  const list=load(LS.arcs,[])||[];
+  const vols=list.filter(a=>!a.off).length;
+  const segs=palaceArc?palaceArc.chunks.length:0;
+  const charsN=(palaceArc&&palaceArc.chars)||0;
+  const when=(palaceArc&&palaceArc.builtAt)?new Date(palaceArc.builtAt).toLocaleString('zh-CN'):'还没建（第一次用会自动建）';
+  let chatN=0;
+  try{chatN=c?palaceChatItems(c.id).filter(x=>x).length:0}catch(e){}
+  const L=PALACE_LAST;
+  const lastTxt=L?('上一轮挑了 '+L.hits.length+' 段 · '+(L.chars||0)+' 字'+(L.hits.length?'':'（没翻到相关的旧记忆）')):'上一轮还没查过';
+  const wt=palaceWVec();
+  const opt=(v,t)=>'<option value="'+v+'"'+(Math.abs(wt-v)<.01?' selected':'')+'>'+t+'</option>';
+  return collap('palace','记忆宫殿（旧记忆按需取用）',
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">过去的记忆（<b>历史对话档案</b> + <b>聊天记录原文</b>）都完整存在本机，一条都不会删。发消息时只把和她这句话最相关的几段给角色看，其余不注入，省 token。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">📚 档案：已索引 <b>'+segs+'</b> 段（'+vols+' 卷，'+charsN+' 字）<br>💬 聊天记录：实时索引 <b>'+chatN+'</b> 条<br>🕒 上次建索引：'+esc(when)+'<br>🔎 '+esc(lastTxt)+'</p>'+
+    '<div class="row" style="align-items:center"><div class="col"><b style="font-size:13px">开启记忆宫殿</b><div class="dim" style="font-size:11.5px">关掉＝回到老样子：每次把整份档案都塞给角色，费 token 但和以前一样</div></div>'+
+    '<input type="checkbox" id="c_palace" '+(palaceOn()?'checked':'')+'></div>'+
+    '<div class="setrow" style="margin-top:10px"><span class="lbl">每轮最多翻几段</span>'+
+    '<input id="c_palaceTop" type="number" value="'+palaceTopN()+'"><span class="unit">段</span></div>'+
+    '<div class="setrow" style="margin-top:8px"><span class="lbl">每轮最多注入多少字</span>'+
+    '<input id="c_palaceChars" type="number" value="'+palaceBudget()+'"><span class="unit">字</span></div>'+
+    '<label class="f">两条检索路子的比重</label><select id="c_palaceW">'+
+      opt(0,'只用关键词')+opt(0.35,'关键词多一点')+opt(0.5,'各一半（推荐）')+opt(0.65,'向量多一点')+opt(1,'只用向量')+'</select>'+
+    '<div class="row" style="align-items:center;margin-top:8px"><div class="col"><b style="font-size:13px">角色可以自己去翻记忆</b><div class="dim" style="font-size:11.5px">给她 search_memory 工具：聊到旧事时它自己决定要不要去翻（会多花一次接口调用）</div></div>'+
+    '<input type="checkbox" id="c_palaceTool" '+(palaceToolOn()?'checked':'')+'></div>'+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="savePalace()">保存</button>'+
+    '<button class="col" onclick="rebuildPalace()">'+(palaceArc?'重建索引':'建索引')+'</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="showPalaceLast()">看上一轮翻了什么</button></div>',
+    true);
+}
+function saveHotRounds(){
+  const n=parseInt((document.getElementById('c_hotRounds')||{}).value,10);
+  if(!Number.isFinite(n)||n<1)return alert('轮数填一个 ≥1 的整数，比如 20');
+  cfg.hotRounds=Math.max(1,Math.min(200,Math.round(n)));
+  save(LS.cfg,cfg);
+  toast('热层已设为最近 '+cfg.hotRounds+' 轮');
+  refreshMem();
+}
+function savePalace(){
+  const cb=document.getElementById('c_palace');
+  const ct=document.getElementById('c_palaceTool');
+  const t=document.getElementById('c_palaceTop');
+  const ch=document.getElementById('c_palaceChars');
+  const w=document.getElementById('c_palaceW');
+  if(cb)cfg.palace=!!cb.checked;
+  if(ct)cfg.palaceTool=!!ct.checked;
+  if(t){const n=parseInt(t.value,10);if(Number.isFinite(n))cfg.palaceTop=Math.max(1,Math.min(40,Math.round(n)))}
+  if(ch){const n=parseInt(ch.value,10);if(Number.isFinite(n))cfg.palaceChars=Math.max(200,Math.min(20000,Math.round(n)))}
+  if(w){const n=Number(w.value);if(Number.isFinite(n))cfg.palaceWVec=Math.max(0,Math.min(1,n))}
+  save(LS.cfg,cfg);
+  if(cfg.palace!==false&&!palaceArc)palacePreload();
+  alert('✅ 记忆宫殿设置已保存\n· 记忆宫殿：'+(cfg.palace===false?'关（回到整份注入）':'开')+
+    '\n· 每轮最多 '+(cfg.palaceTop||6)+' 段 / '+(cfg.palaceChars||1500)+' 字'+
+    '\n· 角色主动检索：'+((cfg.palaceTool===false)?'关':'开'));
+  refreshMem();
+}
+async function rebuildPalace(){
+  if(!confirm('重新给记忆宫殿建索引？\n\n只重建索引，你的档案原文和聊天记录一个字都不会动。\n档案多的时候要等几秒。'))return;
+  palaceArc=null;palaceArcLoad=null;palaceChat={};
+  await palaceBuildArc(true);
+  refreshMem();
+}
+function showPalaceLast(){
+  const L=PALACE_LAST;
+  if(!L)return alert('还没有查过。\n随便发一条消息，角色就会去记忆宫殿里翻一次，翻完这里就能看到。');
+  const rows=L.hits.length?L.hits.map((h,i)=>{
+    const where=(h.src==='arc')?('旧档案《'+(h.name||'未命名')+'》第 '+(h.i+1)+' 条'):('聊天记录第 '+(h.i+1)+' 条');
+    return '<div class="li"><span>'+(i+1)+'. '+esc(where)+' <span class="dim">相关度 '+h.score+'</span></span></div>';
+  }).join(''):'<p class="dim" style="font-size:13px">这一轮没翻到相关的旧记忆（很正常，比如只是说了句早安）。</p>';
+  showSheet('<div class="ttl">上一轮记忆宫殿翻了什么</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">检索用的「问题」：'+esc(L.q||'')+'<br>共碰上 '+(L.total||0)+' 段，挑中 '+L.hits.length+' 段，'+(L.chars||0)+' 字。</p>'+rows+
+    '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
 }
 function listCard(title,key){
   const M=memCur();
@@ -3859,6 +4378,7 @@ function saveCore(){const M=memCur();M.core=$('#mcore').value.trim();saveMemCtx(
 function archiveCardMeta(a){
   let s=a.count+' 条';
   if(a.off)s+=' · 已归档（不注入）';
+  else if(palaceOn())s+=' · 🌙 记忆宫殿按需取用';
   else if(a.whole)s+=' · 整份注入';
   else if(a.summOn&&a.sum&&!sumRefusal(a.sum))s+=' · 总结版注入';
   else s+=' · 智能摘录';
@@ -5938,7 +6458,7 @@ function cfgApiCardHTML(){
   '<div class="row" style="margin-top:10px">'+
   '<div class="col"><label class="f">温度</label><input id="c_temp" type="number" step="0.05" value="'+cfg.temp+'"></div>'+
   '<div class="col"><label class="f">最长回复</label><input id="c_maxtok" type="number" value="'+cfg.maxtok+'"></div>'+
-  '<div class="col"><label class="f">上下文条数</label><input id="c_ctx" type="number" value="'+cfg.ctx+'"></div></div>'+
+  '<div class="col"><label class="f">热层轮数</label><input id="c_hotRounds3" type="number" value="'+hotRoundCount()+'"></div></div>'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="saveCfg()">保存</button>'+
   '<button class="col" onclick="testAPI()">测试连接</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">Key 只存在你本地（设密码后还会被加密）。想看图片的模型才支持「发图片」功能。</p></div>';
@@ -5950,7 +6470,11 @@ function cfgMemInjCardHTML(hm,hbtn){
   '<div class="seg">'+hbtn('auto','自动：近期+总结')+hbtn('full','完整记录')+hbtn('sum','只看总结')+'</div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">'+esc(HIST_HINT[hm]||'')+'</p>'+
   '<div class="setrow" style="margin-top:10px">'+
-  '<span class="lbl">每次对话自动摘录（旧档案）</span>'+
+  '<span class="lbl">最近几轮原文（1 轮＝你一句＋它一句）</span>'+
+  '<input id="c_hotRounds2" type="number" value="'+hotRoundCount()+'">'+
+  '<span class="unit">轮</span></div>'+
+  '<div class="setrow" style="margin-top:8px">'+
+  '<span class="lbl">宫殿没翻到时的备用摘录</span>'+
   '<input id="c_arcTop" type="number" value="'+((cfg.arcTop==null)?5:cfg.arcTop)+'">'+
   '<span class="unit">条</span></div>'+
   '<div class="setrow" style="margin-top:8px">'+
@@ -5962,7 +6486,7 @@ function cfgMemInjCardHTML(hm,hbtn){
   '<input id="c_fullLimit" type="number" value="'+((cfg.fullLimit==null)?20000:cfg.fullLimit)+'">'+
   '<span class="unit">字</span></div>'+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="saveMemInj()">保存记忆注入设置</button>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">提示：原始聊天记录永远保留在本机，总结只往记忆里「加」，不会删掉原文。上限填 0 就是不限制长度。</p></div>';
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">提示：原始聊天记录永远保留在本机，总结只往记忆里「加」，不会删掉原文。上限填 0 就是不限制长度。<br>旧记忆现在由「记忆宫殿」按需取用（角色页 → 编辑 → 记忆 里可以调条数、建索引、看每轮翻了什么）。</p></div>';
 }
 /* 设置页：记忆与自动总结卡片。 */
 function cfgAutoSumCardHTML(){
@@ -6556,6 +7080,13 @@ function fixCfg(){
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
   if(cfg.autoSum==null)cfg.autoSum=false;
   if(cfg.ctx==null)cfg.ctx=30;
+  /* ↓ 记忆宫殿（冷层记忆）：旧记忆不再整份注入，改成按需检索 */
+  if(cfg.palace==null)cfg.palace=true;      /* 总开关：关掉＝回到以前整份注入的老样子 */
+  if(cfg.palaceTool==null)cfg.palaceTool=true; /* 角色能不能自己调用 search_memory 去翻 */
+  if(cfg.hotRounds==null)cfg.hotRounds=20;  /* 热层：最近几轮原文 */
+  if(cfg.palaceTop==null)cfg.palaceTop=6;   /* 每轮最多给几段旧记忆 */
+  if(cfg.palaceChars==null)cfg.palaceChars=1500; /* 每轮旧记忆最多多少字 */
+  if(cfg.palaceWVec==null)cfg.palaceWVec=.5;/* 向量在总分里的比重（其余是关键词） */
   /* ↓ 新增：待办提醒的提示音/振动开关，以及自定义背景图（桌面 / 聊天） */
   if(cfg.alarmOff==null)cfg.alarmOff=false;
   if(cfg.vibrateOff==null)cfg.vibrateOff=false;
@@ -6735,6 +7266,10 @@ readCfgInputs=function(){
   const t=Number(v('c_temp'));cfg.temp=Number.isFinite(t)?t:.85;
   const mt=parseInt(v('c_maxtok'),10);cfg.maxtok=(Number.isFinite(mt)&&mt>0)?mt:900;
   const cx=parseInt(v('c_ctx'),10);cfg.ctx=Number.isFinite(cx)?cx:30;
+  const h3=parseInt(v('c_hotRounds3'),10);
+  if(Number.isFinite(h3))cfg.hotRounds=Math.max(1,Math.min(200,Math.round(h3)));
+  const hr=parseInt(v('c_hotRounds2'),10);
+  if(Number.isFinite(hr))cfg.hotRounds=Math.max(1,Math.min(200,Math.round(hr)));
   const se=parseInt(v('c_autoSumEvery'),10);
   if(Number.isFinite(se))cfg.autoSumEvery=Math.max(2,Math.min(2000,Math.round(se)));
   const ck=document.getElementById('c_autoSum');
@@ -6766,13 +7301,16 @@ saveMemInj=function(){
   const na=a?Number(a.value):NaN;
   const nw=w?Number(w.value):NaN;
   const nf=f?Number(f.value):NaN;
+  const hr=document.getElementById('c_hotRounds2');
+  const nh=hr?Number(hr.value):NaN;
+  if(Number.isFinite(nh))cfg.hotRounds=Math.max(1,Math.min(200,Math.round(nh)));
   cfg.arcTop=Number.isFinite(na)?Math.max(0,Math.round(na)):5;
   cfg.wholeLimit=Number.isFinite(nw)?Math.max(0,Math.round(nw)):20000;
   cfg.fullLimit=Number.isFinite(nf)?Math.max(0,Math.round(nf)):20000;
   if(se){const n=parseInt(se.value,10);if(Number.isFinite(n))cfg.autoSumEvery=Math.max(2,Math.min(2000,Math.round(n)));}
   if(sa)cfg.autoSum=!!sa.checked;
   save(LS.cfg,cfg);
-  alert('✅ 已保存\n· 自动摘录 '+(cfg.arcTop||'关')+' 条\n· 整份注入上限 '+(cfg.wholeLimit||'不限')+' 字\n· 完整记录上限 '+(cfg.fullLimit||'不限')+' 字\n· 自动总结：'+(cfg.autoSum?('开，每 '+cfg.autoSumEvery+' 条'):'关'));
+  alert('✅ 已保存\n· 最近几轮原文 '+hotRoundCount()+' 轮\n· 备用摘录 '+(cfg.arcTop||'关')+' 条\n· 整份注入上限 '+(cfg.wholeLimit||'不限')+' 字\n· 完整记录上限 '+(cfg.fullLimit||'不限')+' 字\n· 自动总结：'+(cfg.autoSum?('开，每 '+cfg.autoSumEvery+' 条'):'关'));
   renderCfg();
 };
 /* ================= 补丁2：修「条数改了没用」+ 让总结更精炼 ================= */
@@ -8324,6 +8862,8 @@ execCharTool=function(name,args,cid){
     /* ↓ 原来的工具分发：待办 / 群聊 / 未知 */
     else if(TODO_TOOLS.some(function(t){return t.function.name===name}))r=execTodoTool(name,args,cid);
     else if(GROUP_TOOLS.some(function(t){return t.function.name===name}))r=execGroupTool(name,args,cid);
+    /* ↓ 记忆宫殿：角色自己去翻旧记忆 */
+    else if(name==='search_memory')r=execMemTool(args,cid);
     else r={ok:false,msg:'未知工具'};
   }finally{ctx=prev}
   if(name==='favor_change'&&c&&before){
@@ -12750,6 +13290,10 @@ toolsFor=function(c){
   /* ↓ 新增：加上「发朋友圈」（默认开，角色设置里可以关掉） */
   try{
     if(c&&!(c.momentPerm&&c.momentPerm.on===false)&&window.MOMENT_TOOL)t.push(window.MOMENT_TOOL);
+  }catch(e){}
+  /* ↓ 记忆宫殿：让角色自己决定什么时候去翻旧记忆 */
+  try{
+    if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.MEM_TOOL)t.push(window.MEM_TOOL);
   }catch(e){}
   return t;
 };
