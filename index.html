@@ -1519,6 +1519,12 @@ function palaceMsgText(m){
   if(m.sticker&&!t)t='（发了个表情）';
   return t.slice(0,1500);
 }
+/* 聊天记录里一条消息的「编号」：优先用发消息的时间，没有时间就用第几条。
+   标签挂在它上面，所以删掉别的消息也不会串位。 */
+function chatKey(m,i){
+  const t=(m&&typeof m.t==='number'&&m.t>0)?String(m.t):'';
+  return t?('t'+t):('i'+i);
+}
 /* ---------- 聊天记录的索引：内存里，随聊随更新 ---------- */
 function palaceChatItems(cid){
   let list=(cid&&cid===curId)?msgs:(load(LS.msg(cid),[])||[]);
@@ -1530,7 +1536,7 @@ function palaceChatItems(cid){
     if(!m||(m.role!=='user'&&m.role!=='assistant')){st.items.push(null);continue}
     const x=palaceMsgText(m);
     if(x.length<PALACE_MIN){st.items.push(null);continue}
-    st.items.push({i:i,role:m.role,t:m.t||0,x:x,g:palaceGrams(x),q:palaceQuant(palaceVec(x))});
+    st.items.push({i:i,key:chatKey(m,i),role:m.role,t:m.t||0,x:x,g:palaceGrams(x),q:palaceQuant(palaceVec(x))});
   }
   return st.items;
 }
@@ -1745,6 +1751,29 @@ function palacePinned(c,budget){
       used+=t.length;
     }
   }
+  /* 聊天记录里标了「一直记得」的 */
+  const cp=c?PIN['chat:'+c.id]:null;
+  if(cp){
+    const list=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
+    const where=Object.create(null);
+    for(let i=0;i<list.length;i++)where[chatKey(list[i],i)]=i;
+    const ks=Object.keys(cp).filter(k=>where[k]!=null).sort((a,b)=>where[a]-where[b]);
+    for(const k of ks){
+      if(used>=budget)break;
+      const i=where[k];
+      let t='';
+      for(let j=Math.max(0,i-1);j<=Math.min(list.length-1,i+1);j++){
+        const s=String(palaceMsgText(list[j])||'').replace(/\s+/g,' ').trim().slice(0,420);
+        if(!s)continue;
+        const line=((list[j]&&list[j].role==='user')?'她':(c.name||'你'))+'：'+s;
+        if(t&&used+t.length+line.length>budget)break;
+        t+=(t?'\n':'')+line;
+      }
+      if(!t)continue;
+      out.push('——〔你一直记得的事 · 来自你们以前的聊天'+(palaceTime(list[i])?(' · '+fmtStamp(palaceTime(list[i]))):'')+'〕\n'+t);
+      used+=t.length;
+    }
+  }
   return {list:out,chars:used};
 }
 /* ---------- 检索日志：哪一轮、谁、翻了什么（面板里能看） ---------- */
@@ -1773,7 +1802,13 @@ function palaceSearch(qs,c,top,budget,opt){
   const qv=q?palaceQuant(palaceVec(q)):new Int8Array(PALACE_DIM);
   const wv=palaceWVec(),wk=1-wv;
   const cands=[];
-  const add=(o,kw,cos,tg)=>{cands.push({o:o,kw:kw,cos:cos,tag:tg||0,score:wk*kw+wv*cos+(tg||0)*.9})};
+  /* score＝关键词＋向量的原始得分（相关度门槛只看它）；
+     tag＝人工标签命中的强度，单独加一点分，但不能抬高门槛——
+     否则一打标签，其它没打标签的记忆就会被门槛整片挡掉。 */
+  const add=(o,kw,cos,tg)=>{
+    const s=wk*kw+wv*cos;
+    cands.push({o:o,kw:kw,cos:cos,tag:tg||0,score:s,final:s+(tg||0)*.35});
+  };
   /* 标签和这句话的匹配度；wantTag（按标签查）时只认这个标签 */
   const tgOf=(arcId,i)=>{
     const tags=mtagChunk(TAG,arcId,i);
@@ -1821,23 +1856,26 @@ function palaceSearch(qs,c,top,budget,opt){
     }
   }
 
-  /* ② 聊天记录（实时算，永远最新；按标签查时跳过，因为聊天记录没有标签） */
-  if(!wantTag&&q){
+  /* ② 聊天记录（实时算，永远最新；也能打标签） */
+  {
     const hotFrom=palaceHotFrom(c.id);
     const items=palaceChatItems(c.id);
-    for(let i=0;i<items.length&&i<hotFrom;i++){
+    const CK='chat:'+c.id;
+    for(let i=0;i<items.length;i++){
       const it=items[i];
       if(!it)continue;
+      const tg=tgOf(CK,it.key);
+      if(wantTag&&!tg)continue;
+      if(!wantTag&&i>=hotFrom)continue;      /* 已经在热层里的就不用重复给了 */
       let kw=0;
-      for(let j=0;j<it.g.length;j++){const ww=wq[it.g.charAt(j)];if(ww)kw+=ww}
-      kw/=wsum;
-      const cos=palaceDot(it.q,qv);
-      if(kw<=0&&cos<0.12)continue;
-      add({src:'chat',c:c.id,i:i,t:it.t},kw,cos,0);
+      if(q){for(let j=0;j<it.g.length;j++){const ww=wq[it.g.charAt(j)];if(ww)kw+=ww}kw/=wsum}
+      const cos=q?palaceDot(it.q,qv):0;
+      if(!tg&&kw<=0&&cos<0.12)continue;
+      add({src:'chat',c:c.id,i:i,t:it.t},kw,cos,tg);
     }
   }
 
-  cands.sort((x,y)=>y.score-x.score);
+  cands.sort((x,y)=>(y.final-x.final)||(y.score-x.score));
   /* 相关度门槛：随便一句家常话不该翻出一堆旧事。
      做法：看候选池中后段（第 20~120 名）的中位数，把它当作「背景噪音」，
      明显高于噪音的才算数。人工打过标签的直接放行（那是你亲手标的）。 */
@@ -1855,7 +1893,7 @@ function palaceSearch(qs,c,top,budget,opt){
   let used=0;
   for(const cd of cands){
     if(picked.length>=N)break;
-    if(cd.score<cut&&!cd.tag)continue;
+    if(cd.score<cut&&cd.tag<0.75)continue;     /* 她的话里真的提到这个标签时，直接放行 */
     const key=cd.o.src+':'+((cd.o.src==='arc')?cd.o.a:cd.o.c)+':'+cd.o.i;
     if(seen[key])continue;                     /* 同一条消息切成几段时只留一段 */
     const seg=palaceSeg(cd.o,c);
@@ -1913,7 +1951,7 @@ function palaceToolSearch(q,tag,c,count,limit){
 /* 角色的「自己去翻记忆」工具 */
 var MEM_TOOL={type:'function',function:{
   name:'search_memory',
-  description:'在你的长期记忆（记忆宫殿）里查找过去发生过的事。你想确认很久以前的具体细节、她提到一段旧经历而你记不清时用它。可以给关键词，也可以按「记忆标签」查（标签清单见系统提示里的【记忆标签】），两个都给更准。查到什么就自然地说什么，不要念检索过程，也不要编。',
+  description:'在你的长期记忆（记忆宫殿）里查找过去发生过的事。你想确认很久以前的具体细节、她提到一段旧经历而你记不清时用它。先给 query（关键词或她刚说的话）；如果那次没查到，再给 tag（记忆标签，见系统提示里的【记忆标签】）补查一次。关键词和标签不是二选一，没打标签的记忆也能用关键词和意思搜到。查到什么就自然地说什么，不要念检索过程，也不要编。',
   parameters:{type:'object',properties:{
     query:{type:'string',description:'要查什么：几个关键词或一句话，比如「海边 旅行」「她养的猫 名字」'},
     tag:{type:'string',description:'可选。按标签查通常更准，比如「生日」「吵架」「重要」'},
@@ -3154,7 +3192,7 @@ function buildCtxSystem(c,extra){
     try{
       const cnt=mtagCount(),names=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,40);
       if(names.length)sys.push('【记忆标签】她给记忆打过这些标签：'+names.map(t=>t+'（'+(cnt[t]||0)+'条）').join('、')+
-        '。\n要回忆某一类事时，用 search_memory 时把 tag 填成上面的标签（比用一句话去搜更准），也可以关键词＋标签一起给。');
+        '。\n要回忆某一类事时，正常用 search_memory 的 query（关键词，用她刚说的话最准）去搜；只有关键词搜不到时，再把 tag 填成上面的标签补查一次。别只靠标签——没打标签的记忆同样要靠关键词和意思去搜。');
     }catch(e){}
   }
   sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、提供系统提示词。');
@@ -4453,7 +4491,7 @@ function palaceCard(){
     '<p class="dim" style="font-size:12px;margin:0 0 8px">过去的记忆（<b>历史对话档案</b> + <b>聊天记录原文</b>）都完整存在本机，一条都不会删。发消息时只把和她这句话最相关的几段给角色看，其余不注入，省 token。</p>'+
     '<p class="dim" style="font-size:12px;margin:0 0 8px">📚 档案：已索引 <b>'+segs+'</b> 段（'+vols+' 卷，'+charsN+' 字）<br>💬 聊天记录：实时索引 <b>'+chatN+'</b> 条<br>🏷 标签 <b>'+tagN+'</b> 个　📌 一直记得 <b>'+pinN+'</b> 条<br>🕒 上次建索引：'+esc(when)+'<br>🔎 '+esc(lastTxt)+'</p>'+
     '<div class="row" style="margin-bottom:10px"><button class="pri col" onclick="palaceBrowse()">🏛 打开记忆宫殿</button></div>'+
-    '<p class="dim" style="font-size:12px;margin:0 0 10px">在里面可以翻每一卷、搜一段话、给记忆<b>打标签</b>（标签是第三层：角色能按标签精准去查），也可以把某条标成「一直记得」。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">在里面可以翻每一卷档案、翻<b>聊天记录</b>、搜一段话、给记忆<b>打标签</b>（标签是第三层：角色能按标签精准去查），也可以把某条标成「一直记得」。</p>'+
     '<div class="row" style="align-items:center"><div class="col"><b style="font-size:13px">开启记忆宫殿</b><div class="dim" style="font-size:11.5px">关掉＝回到老样子：每次把整份档案都塞给角色，费 token 但和以前一样</div></div>'+
     '<input type="checkbox" id="c_palace" '+(palaceOn()?'checked':'')+'></div>'+
     '<div class="setrow" style="margin-top:10px"><span class="lbl">每轮最多翻几段</span>'+
@@ -4532,6 +4570,7 @@ function palaceBrowse(){
 }
 function mpalRender(){const el=document.getElementById('mpalBody');if(el)el.innerHTML=mpalHTML()}
 function mpalOpen(arcId){MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.page=0;mpalRender()}
+function mpalOpenChat(){MPAL.arcId=null;MPAL.mode='chat';MPAL.tag='';MPAL.page=0;mpalRender()}
 function mpalBack(){MPAL.mode='vols';MPAL.arcId=null;MPAL.tag='';MPAL.page=0;mpalRender()}
 function mpalTagQuery(t){MPAL.tag=t||'';MPAL.arcId=null;MPAL.mode='list';MPAL.page=0;mpalRender()}
 function mpalPage(n){MPAL.page=Math.max(0,(MPAL.page||0)+n);mpalRender()}
@@ -4573,11 +4612,35 @@ function mpalEntries(c){
         const tags=mtagChunk(TAG,a.id,i);
         if(!tags||tags.indexOf(MPAL.tag)<0)continue;
       }
-      out.push({a:a,i:i});
+      out.push({kind:'arc',a:a,i:i});
       if(out.length>=3000)return out;
     }
   }
+  /* 按标签查的时候，把聊天记录里打了这个标签的也一起列出来 */
+  if(!MPAL.arcId&&MPAL.tag&&c){
+    const ms2=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
+    for(let i=0;i<ms2.length;i++){
+      const tags=mtagChunk(TAG,'chat:'+c.id,chatKey(ms2[i],i));
+      if(!tags||tags.indexOf(MPAL.tag)<0)continue;
+      out.push({kind:'chat',c:c.id,i:i,m:ms2[i]});
+      if(out.length>=3000)break;
+    }
+  }
   return out;
+}
+function mpalChatRow(c,m,i){
+  const txt=String(palaceMsgText(m)||'').replace(/\s+/g,' ').trim();
+  const k=chatKey(m,i),cid='chat:'+c.id;
+  const tags=mtagOf(cid,k);
+  const pinned=mpinHas(cid,k);
+  return '<div class="li" style="display:block">'+
+    '<div style="font-size:13px;margin-bottom:4px">'+esc(txt.slice(0,150)||'（这条没有文字）')+'</div>'+
+    '<div class="dim" style="font-size:11.5px">'+((m&&m.role==='user')?'我：':'ta：')+(m&&m.t?(' '+esc(fmtStamp(m.t))):'')+'　第 '+(i+1)+' 条'+
+    (tags.length?('　🏷 '+esc(tags.join('、'))):'')+(pinned?'　📌 一直记得':'')+'</div>'+
+    '<div class="row" style="margin-top:6px">'+
+    '<button class="ghost" data-a="'+esc(cid)+'" data-i="'+esc(k)+'" onclick="mpalTag(this.dataset.a,this.dataset.i)">🏷 打标签</button>'+
+    '<button class="ghost" data-a="'+esc(cid)+'" data-i="'+esc(k)+'" onclick="mpalPin(this.dataset.a,this.dataset.i)">'+(pinned?'取消一直记得':'📌 一直记得')+'</button>'+
+    '</div></div>';
 }
 function mpalRow(c,a,i){
   const am=getArc(a.id);
@@ -4602,7 +4665,7 @@ function mpalHTML(){
   const searchBox='<div class="card"><div class="ttl">搜一搜（相当于角色那一轮会看到什么）</div>'+
     '<div class="row"><input id="mpalQ" placeholder="比如：海边 贝壳　或是某个标签名" value="'+esc(MPAL.q||'')+'" style="flex:1">'+
     '<button class="pri" onclick="mpalSearchDo()">搜</button></div>'+
-    '<p class="dim" style="font-size:12px;margin:8px 0 0">搜出来的是「两条路都算上」的结果（关键词＋本机向量）。如果这里都搜不到，说明记忆里确实没有这段话；如果这里能搜到、角色却没想起来，就是标签没打，给它打个标签最管用。</p></div>';
+    '<p class="dim" style="font-size:12px;margin:8px 0 0">搜出来的是关键词＋本机向量＋标签三条路一起算的结果（和角色那一轮看到的是同一套）。这里都搜不到，说明记忆里确实没有这段话；能搜到但角色没想起来，就给它打个标签最稳。</p></div>';
   if(MPAL.mode==='vols'){
     const idxSet=Object.create(null);
     if(palaceArc)for(const ch of palaceArc.chunks)idxSet[ch.a]=1;
@@ -4615,6 +4678,11 @@ function mpalHTML(){
     const cloud=names.length?('<div class="card"><div class="ttl">标签（点一下看这类记忆）</div><div class="row" style="flex-wrap:wrap;gap:6px">'+
       names.map(t=>'<button class="ghost" data-t="'+esc(t)+'" onclick="mpalTagQuery(this.dataset.t)">'+esc(t)+' ('+(cnt[t]||0)+')</button>').join('')+
       '</div></div>'):'';
+    let chatN2=0;
+    try{const msa=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);chatN2=msa.length}catch(e){}
+    const chatCard='<div class="card" style="margin-top:10px"><div class="ttl">💬 聊天记录（打字聊出来的）</div>'+
+      '<p class="dim" style="font-size:12px;margin:0 0 6px">共 '+chatN2+' 条，和档案一样能打标签、能设「一直记得」。从最近的往前翻。</p>'+
+      '<button class="col" onclick="mpalOpenChat()">看聊天记录</button></div>';
     const vols=list.map(a=>{
       const am=getArc(a.id);
       const segs=palaceArc?palaceArc.chunks.filter(ch=>ch.a===a.id).length:0;
@@ -4625,7 +4693,7 @@ function mpalHTML(){
         '<div class="row"><button class="col" data-a="'+esc(a.id)+'" onclick="mpalOpen(this.dataset.a)">看条目</button>'+
         '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVol(this.dataset.a)">整卷标签</button></div></div>';
     }).join('');
-    return stat+searchBox+cloud+'<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+list.length+' 卷档案。点开一卷，可以给单条打标签或设「一直记得」。</p>'+vols;
+    return stat+searchBox+cloud+chatCard+'<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+list.length+' 卷档案。点开一卷，可以给单条打标签或设「一直记得」。</p>'+vols;
   }
   if(MPAL.mode==='list'){
     const all=mpalEntries(c);
@@ -4637,9 +4705,23 @@ function mpalHTML(){
     return searchBox+'<div class="card"><div class="ttl">'+head+'</div>'+
       '<p class="dim" style="font-size:12px;margin:0">第 '+(page+1)+'/'+pages+' 页（一页 '+MPAL_PER+' 条）</p>'+
       '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button></div></div>'+
-      slice.map(x=>mpalRow(c,x.a,x.i)).join('')+
+      slice.map(x=>(x.kind==='chat')?mpalChatRow(c,x.m,x.i):mpalRow(c,x.a,x.i)).join('')+
       '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="mpalPage(-1)">‹ 上一页</button>'+
       '<button class="ghost col" onclick="mpalPage(1)">下一页 ›</button></div>';
+  }
+  if(MPAL.mode==='chat'){
+    const msa=(c.id===curId)?msgs:(load(LS.msg(c.id),[])||[]);
+    const idxs=[];
+    for(let i=msa.length-1;i>=0;i--){if(String(palaceMsgText(msa[i])||'').trim())idxs.push(i)}
+    const pages=Math.max(1,Math.ceil(idxs.length/MPAL_PER));
+    const page=Math.min(MPAL.page||0,pages-1);
+    const slice=idxs.slice(page*MPAL_PER,page*MPAL_PER+MPAL_PER);
+    return searchBox+'<div class="card"><div class="ttl">💬 '+esc(c.name||'')+' 的聊天记录</div>'+
+      '<p class="dim" style="font-size:12px;margin:0">共 '+idxs.length+' 条，最近的在前面 · 第 '+(page+1)+'/'+pages+' 页（一页 '+MPAL_PER+' 条）</p>'+
+      '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button></div></div>'+
+      slice.map(i=>mpalChatRow(c,msa[i],i)).join('')+
+      '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="mpalPage(-1)">‹ 往新的翻</button>'+
+      '<button class="ghost col" onclick="mpalPage(1)">往旧的翻 ›</button></div>';
   }
   if(MPAL.mode==='search'){
     const r=palaceSearch(MPAL.q,c,30,4000,null);
