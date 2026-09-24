@@ -4465,6 +4465,7 @@ function funPick(){
    或者从手机里选一首音频文件。正在放的歌会写进角色的系统提示，
    角色就知道你在听什么了。 */
 const MUSIC={list:[],cur:-1,vol:.9,playing:false,audio:null,loaded:false,seeking:false,tick:null,lastErr:0,
+  srcId:'',                                    /* 播放器里现在装的是哪首歌的音频源（没装就是空） */
   mode:'order',                                /* 播放方式：order 顺序 / one 单曲循环 / shuffle 随机 */
   manual:{title:'',artist:'',on:false,at:0},   /* 手动记录「我在别的App里听这首」 */
   stat:{d:'',sec:0,plays:{}},                  /* 听歌账本：今天的时长 + 每首歌的次数 */
@@ -4683,6 +4684,10 @@ function musicAudio(){
 /* 放不出来：标在歌单里，并给一句人话的提示（同一个问题只弹一次） */
 function musicFail(msg){
   MUSIC.playing=false;
+  /* 【修】把放不出来的那个源清掉：这样再点「播放」会重新装一次源，网络临时抽风的情况能自己救回来。
+     以前播放器会一直卡在这个坏源上，就出现「歌单里点能放、最上面的播放键放不出来」。 */
+  try{if(MUSIC.audio)MUSIC.audio.removeAttribute('src')}catch(e){}
+  MUSIC.srcId='';
   const s=musicNow();
   if(s&&s.kind==='file')s.bad=true;
   else if(s)s.failed=true;
@@ -5138,13 +5143,14 @@ function musicStart(i){
   const a=musicAudio();
   MUSIC.cur=i;
   try{a.src=s.url}catch(e){}
+  MUSIC.srcId=s.id||'';                        /* 【修】记下播放器里现在装的是哪首歌 */
   a.volume=MUSIC.vol;
   const pr=a.play();
   if(pr&&pr.then){
     pr.then(()=>{MUSIC.playing=true;s.failed=false;musicCountPlay(s);musicSync();musicSave()})
       .catch(err=>{
         MUSIC.playing=false;
-        if(String((err&&err.name)||'')==='AbortError'){musicSync();return}   /* 自己按了暂停或换了歌，不算出错 */
+        if(isAbortErr(err)){musicSync();return}   /* 自己按了暂停 / 换了歌 / 被系统打断，不算「这首歌坏了」 */
         musicFail('这首歌放不出来');
       });
   }else{MUSIC.playing=true;s.failed=false;musicCountPlay(s);musicSync();musicSave()}
@@ -5158,20 +5164,48 @@ function musicPlayAt(i){
   }
   musicStart(i);
 }
+/* 【修】播放器里现在装的是不是这首歌的音频源 */
+function musicSrcReady(s){
+  try{const a=MUSIC.audio;return !!(s&&a&&a.getAttribute&&a.getAttribute('src')&&MUSIC.srcId===s.id)}catch(e){return false}
+}
+/* 【修】这次失败是不是「被打断」（自己按了暂停、换了歌、手机锁屏/别的App抢声音），
+   这种情况不是链接坏了，不该弹「放不出来」吓人 */
+function isAbortErr(err){
+  const n=String((err&&err.name)||''),m=String((err&&err.message)||'');
+  return n==='AbortError'||/interrupted by a call to/i.test(m)||/interrupted by a new load/i.test(m);
+}
+/* 【修】继续放（源已经装好了）。被系统打断的话，安静地再试一次。 */
+function musicPlayNow(tried){
+  const a=musicAudio();
+  const pr=a.play();
+  if(!(pr&&pr.then)){MUSIC.playing=true;musicSync();return}
+  pr.then(()=>{MUSIC.playing=true;musicSync()})
+    .catch(err=>{
+      if(isAbortErr(err)&&!tried){setTimeout(()=>{try{musicPlayNow(true)}catch(e){}},250);return}
+      MUSIC.playing=false;musicSync();
+      if(isAbortErr(err))toast('被手机打断了一下，再点一次播放键就好');
+      else toast('放不出来：'+((err&&err.message)||'试试重新点一次播放'));
+    });
+}
 function musicToggle(){
   const a=musicAudio();
-  if(!musicNow()){
+  const s=musicNow();
+  if(!s){
     const q=musicQIdx();                              /* 【新】没在放歌时，从当前歌单的第一首开始 */
     if(q.length)return musicPlayAt(q[0]);
     return toast('歌单是空的，先加一首吧');
   }
   if(MUSIC.playing){
-    a.pause();MUSIC.playing=false;musicSync();
-  }else{
-    const pr=a.play();
-    if(pr&&pr.then){pr.then(()=>{MUSIC.playing=true;musicSync()}).catch(err=>{MUSIC.playing=false;musicSync();toast('放不出来：'+((err&&err.message)||'试试重新点一次播放'))})}
-    else{MUSIC.playing=true;musicSync()}
+    try{a.pause()}catch(e){}
+    MUSIC.playing=false;musicSync();
+    return;
   }
+  /* 【修】以前这里是直接 a.play()。刚打开页面时播放器里其实还没装这首歌
+     （音频源是「点歌」那一下才装的），直接 play() 就会失败，
+     所以「歌单里点歌能放、最上面的播放键放不出来」。
+     现在没装源就走 musicPlayAt，跟点歌一样先把源装好。 */
+  if(!musicSrcReady(s))return musicPlayAt(MUSIC.cur);
+  musicPlayNow(false);                                /* 源已经在，就从暂停的位置接着放（不重新计数、不从头开始） */
 }
 /* ---------- 播放方式：列表循环 / 单曲循环 / 随机 ---------- */
 function musicModesHTML(){
@@ -5264,7 +5298,7 @@ function musicCtlRun(action){
   }
   if(action!=='play')return {ok:false,msg:'看不懂这个操作，只能用 play / pause / next。'};
   if(MUSIC.playing)return {ok:false,msg:'音乐已经在放了（'+musicName(cur)+'），不用再点播放。'};
-  if(musicHasSrc()&&MUSIC.cur>=0){try{musicToggle()}catch(e){}}
+  if(musicSrcReady(musicNow())){try{musicToggle()}catch(e){}}
   else{
     const q=musicQIdx();
     musicPlayAt(MUSIC.cur>=0?MUSIC.cur:(q.length?q[0]:0));
@@ -5300,6 +5334,7 @@ function musicDel(i){
   if(wasCur){
     MUSIC.cur=-1;MUSIC.playing=false;
     if(MUSIC.audio){try{MUSIC.audio.pause();MUSIC.audio.removeAttribute('src')}catch(e){}}
+    MUSIC.srcId='';
   }else if(i<MUSIC.cur)MUSIC.cur--;
   musicSave();musicSync();
 }
