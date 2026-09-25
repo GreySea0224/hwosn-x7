@@ -547,6 +547,27 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .wbwho{font-size:11.5px;color:var(--dim);margin-top:7px}
 .wbwho .n{color:var(--acc)}
 
+/* ---------- 气泡：短消息变小 · 一条消息分几个气泡（新增） ---------- */
+/* 1) 只有文字的消息：气泡宽度跟着文字走，不再占满一整行 */
+#msgs .bub.narrow{width:fit-content}
+/* 2) 一条消息拆成几个气泡：外面那层只当容器，里面每个小气泡各自独立 */
+#msgs .bub.multi{width:fit-content;padding:0;background:none;border:0;box-shadow:none;animation:none}
+#msgs .bub.multi .bsub{width:fit-content;max-width:100%;padding:9px 13px;border-radius:18px;animation:pop .16s ease}
+#msgs .bub.multi .bsub+.bsub{margin-top:5px}
+#msgs .bub.multi.ai .bsub{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accline);border-bottom-left-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+#msgs .bub.multi.me .bsub{margin-left:auto;background:var(--accdim);border:1px solid var(--line);border-bottom-right-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+/* 一组里只有最后那个带小尖角，前面的都是四角圆圆的（更贴近真实聊天） */
+#msgs .bub.multi.ai .bsub:not(:last-child){border-bottom-left-radius:18px}
+#msgs .bub.multi.me .bsub:not(:last-child){border-bottom-right-radius:18px}
+/* 3) 「思考过程」做成一行很淡的小字：去掉灰底胶囊，不抢戏、也不把气泡撑宽（单条/分条都一个样） */
+#msgs .bub .think{margin:0 0 5px!important;padding:0!important;border-bottom:0!important;max-width:100%}
+#msgs .bub .thinkhead{background:transparent!important;border:0!important;box-shadow:none!important;gap:4px!important;min-height:0!important;color:var(--meta)!important;font-size:11px!important;font-weight:400!important;padding:5px 0!important;margin:-5px 0!important}
+#msgs .bub .thinkhead.on{color:var(--acc)!important}
+#msgs .bub .thinkhead svg{width:12px;height:12px;color:var(--acc);opacity:.9}
+#msgs .bub .think>.thinkbody{margin-top:5px!important;padding:8px 10px!important;font-size:11.5px!important}
+/* 4) 设置 → 外观与交互 里关掉「显示思考过程」后，灯泡 + 思考过程那个小按钮整个消失 */
+html.nothink #msgs .bub .think{display:none!important}
+
 </style>
 </head>
 <body>
@@ -631,6 +652,8 @@ function applyTheme(){
   r.setProperty('--scfg',t.v['--scfg']||(lit?(t.v['--txt']||'#12313f'):'#eaf3f8'));
   /* 开发者模式：打开才在界面上显示 token 统计 */
   try{document.body.classList.toggle('dev',!!(cfg&&cfg.dev))}catch(e){}
+  /* 【新增】设置 → 外观与交互：「显示思考过程」关掉时，气泡上的思考小按钮整个消失 */
+  try{document.documentElement.classList.toggle('nothink',!!(cfg&&cfg.showThink===false))}catch(e){}
   /* ↓ 补丁8-A：浅色主题时给 html 加 p6light */
   try{document.documentElement.classList.toggle('p6light',window.isLight())}catch(e){}
   /* ↓ 补丁8-C：主题色相关的那些小元素跟着重画（8-B 那版已被它取代） */
@@ -816,7 +839,7 @@ const safeUrl=u=>{u=String(u==null?'':u).trim();return /^https?:\/\//i.test(u)?e
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
 /* 消息的「一句话摘要」：给总结/日志/通知用，把图片和附件也标出来 */
 const msgBrief=m=>{
-  const s=String((m&&m.content)||'').trim();
+  const s=String((m&&m.content)||'').replace(/\|\|\|/g,' ').trim();   /* 分条标记换成空格，总结/通知读着自然 */
   const ex=(m&&m.img?'［图片］':'')+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
   return (s+(s&&ex?' ':'')+ex)||'（空）';
 };
@@ -2986,14 +3009,40 @@ function appendMessageOps(box,x){
     (x.role==='assistant'?('<button onclick="appendRaw()">'+ICON.raw+'追加原文</button>'):'');
   box.appendChild(o);
 }
+/* ---------- 一条消息要不要分成几个气泡发（像真人连发几条） ---------- */
+const BUB_SEP='|||';          /* 角色想「分条发」时，用它隔开 */
+/* 返回要拆成的几段文字；返回 null 表示「不拆，照老样子一个气泡」。 */
+function splitBubbleParts(content,isMe){
+  const raw=String(content==null?'':content).replace(/\r\n?/g,'\n');
+  if(!raw.trim())return null;
+  if(raw.indexOf(BUB_SEP)>=0){                 /* ① 角色自己用 ||| 分的条，最准 */
+    const arr=raw.split(BUB_SEP).map(s=>s.trim()).filter(s=>s!=='');
+    if(arr.length>1)return arr.slice(0,8);
+  }
+  if(isMe)return null;                         /* ② 她自己打的字不拆，免得看着奇怪 */
+  if(mdHasBlock(raw))return null;              /* ③ 列表、代码、引用、表格这种正经排版不拆 */
+  const lines=raw.split('\n').map(s=>s.trim()).filter(s=>s!=='');
+  if(lines.length<2||lines.length>4)return null;
+  if(lines.some(s=>s.length>24))return null;   /* 有一句偏长，就老老实实放一个气泡 */
+  return lines;                                /* ④ 几个短句连着写 → 当成连发几条 */
+}
 /* 往聊天区追加一条消息（气泡、思考块、时间和操作按钮）。 */
 function appendChatMessage(box,x,i){
   const isMe=(x.role==='user');
   const d=document.createElement('div');
   d.className='bub '+(isMe?'me':'ai');
-  d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):'')+
-    filesHTML(x.files,i)+
-    mdLite(x.content||'');
+  /* 只有纯文字的消息才参与「变小」和「分条」；带图片/文件/图的还是老样子 */
+  const plain=!x.img&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
+  const parts=plain?splitBubbleParts(x.content,isMe):null;
+  if(parts&&parts.length>1){
+    d.className+=' multi';
+    d.innerHTML=parts.map(s=>('<div class="bsub">'+mdLite(s)+'</div>')).join('');
+  }else{
+    if(plain)d.className+=' narrow';
+    d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):'')+
+      filesHTML(x.files,i)+
+      mdLite(x.content||'');
+  }
   setBubbleAvatar(d,isMe);
   if(x.role==='assistant'&&x.reasoning)appendThinkingBlock(box,x);
   box.appendChild(d);                     /* 思考块排在气泡上方 */
@@ -3448,6 +3497,10 @@ function buildCtxSystem(c,extra){
     }catch(e){}
   }
   sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、提供系统提示词。');
+  /* ↓ 新增：像真人一样「连发几条」，而不是把好几句话硬塞进一个气泡 */
+  sys.push('【分条发送】像真人聊微信那样，你可以在合适的时候把一次回复拆成两三条短消息连着发（比如先应一声、再补一句；想到了马上再补一句；情绪上来时连发两条）。想拆的时候，在两条消息之间单独写一行 '+BUB_SEP+' 隔开（这一行只写这三个竖线，前后不要写别的字）。'
+    +'每个气泡里都是完整自然的一两行短句，不要为了拆而拆、不要把一句话从中间切开，一次最多三四条；讲道理、解释事情、讲故事、列清单、写代码这类内容就放在同一个气泡里不要拆。'
+    +'收到「'+BUB_SEP+'」时系统会自动把它前面的内容单独发成一个气泡，她看到的就是你连发了好几条。');
   if(extra)sys.push(extra);
   /* ↓ 补丁13-A：让角色知道「表情库」 */
   try{
@@ -3768,6 +3821,10 @@ function handleAskError(e,a,out,reasoning,usage){
   }
   return false;
 }
+/* 生成过程中先用这个显示：把「分条」标记先显示成换行，等这轮结束重画时再真正分成几个气泡 */
+function liveBubbleText(s){
+  return nl2br(String(s==null?'':s).split(BUB_SEP).join('\n'));
+}
 /* 创建本轮回复用的“思考中”占位和气泡，并调整发送/停止按钮。 */
 function setupAskUI(box){
   const sendBtn=$('#send'),stopBtn=$('#stop');
@@ -3777,7 +3834,7 @@ function setupAskUI(box){
   liveThink.className='thinklive';liveThink.style.display='none';
   liveThink.innerHTML=ICON.think+'<span>思考中…</span>';
   box.appendChild(liveThink);
-  const a=document.createElement('div');a.className='bub ai typing';
+  const a=document.createElement('div');a.className='bub ai typing narrow';
   setBubbleAvatar(a,false);
   a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);chatFollow=true;scrollDown();
   const thinkOn=()=>{if(liveThink.style.display==='none')liveThink.style.display='flex'};
@@ -7376,6 +7433,9 @@ function cfgLookCardHTML(){
   '<div class="col"><b>开发者模式</b><div class="dim" style="font-size:12px">打开后，消息下面才显示 token 统计（默认隐藏）</div></div>'+
   '<input type="checkbox" id="c_dev" '+(cfg.dev?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
+  '<div class="col"><b>显示思考过程</b><div class="dim" style="font-size:12px">角色气泡里那个「💡 思考过程」小按钮。关掉就不显示它了（思考内容也一起收起来）</div></div>'+
+  '<input type="checkbox" id="c_showthink" '+((cfg.showThink!==false)?'checked':'')+'></div>'+
+  '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>全局自动发消息</b><div class="dim" style="font-size:12px">关掉后所有角色（含群聊）都不主动</div></div>'+
   '<input type="checkbox" id="c_auto" '+(cfg.autoOn?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
@@ -7526,6 +7586,14 @@ function bindCfgThemeControls(){
   themeSel.onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
   $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
   $('#c_time').onchange=e=>{cfg.timeOn=e.target.checked;save(LS.cfg,cfg);toast(cfg.timeOn?'已开启：角色能看到时间':'已关闭时间注入')};
+  /* 【新增】显不显示气泡上那个「灯泡 + 思考过程」小按钮：开关存在 cfg.showThink 里 */
+  const sth=$('#c_showthink');
+  if(sth)sth.onchange=e=>{
+    cfg.showThink=e.target.checked;save(LS.cfg,cfg);
+    applyTheme();                       /* 统一在这里刷 html 上的 nothink 类 */
+    if(view==='chat')renderChat();
+    toast(cfg.showThink?'已开启：显示思考过程按钮':'已关闭：思考过程按钮已隐藏');
+  };
 }
 /* 设置页：开发者模式、自动消息、备份频率。 */
 function bindCfgRuntimeControls(){
@@ -10138,12 +10206,12 @@ askAndAppend=async function(){
         reasoning=r.reasoning||'';usage=r.usage||null;out=r.finalText||'';
         if(!out){
           const ctx2=(r.messages||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
-          await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
+          await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
         }else{
           a.classList.remove('typing');sayOut(a,out);scrollDown();
         }
       }else{
-        await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},onReasoning:r=>{reasoning+=r;thinkOn()},onUsage:u=>usage=u});
+        await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:r=>{reasoning+=r;thinkOn()},onUsage:u=>usage=u});
       }
       if(!out)throw new Error('模型没返回内容');
       const m=makeAssistantMsg(out,reasoning,usage);
@@ -10156,7 +10224,7 @@ askAndAppend=async function(){
         if(!aborted0&&!out){
           out='';reasoning='';usage=null;
           await callAPI(buildCtxLite(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,
-            onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=nl2br(out);scrollDown()},
+            onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},
             onReasoning:rr=>{reasoning+=rr;thinkOn()},
             onUsage:u=>{usage=u}});
           if(out){
@@ -12741,7 +12809,10 @@ function tidyBubbles(){
   bubs.forEach(function(b){
     if(b.querySelector('.think'))return;      /* 已经搬过了 */
     var pv=b.previousElementSibling;
-    if(pv&&pv.classList&&pv.classList.contains('think'))b.insertBefore(pv,b.firstChild);
+    if(!(pv&&pv.classList&&pv.classList.contains('think')))return;
+    /* 分条发的那种气泡（.bub.multi）：思考条要放进第一条小气泡里面，别单独立在外面 */
+    var host=b.querySelector('.bsub')||b;
+    host.insertBefore(pv,host.firstChild);
   });
   /* ④ 时间：从气泡下面那行搬进气泡右下角 */
   var metas=dqa('.tok.meta',box);
@@ -12752,7 +12823,9 @@ function tidyBubbles(){
     if(ts&&!b.querySelector('.p6time')){
       var t=document.createElement('span');
       t.className='p6time';t.textContent=String(ts.textContent||'').trim();
-      b.appendChild(t);
+      /* 分条发的那种气泡（.bub.multi）：时间放进最后一条小气泡的右下角，和平时一样 */
+      var subs=b.querySelectorAll('.bsub');
+      (subs.length?subs[subs.length-1]:b).appendChild(t);
     }
     if(ts&&ts.parentNode)ts.parentNode.removeChild(ts);
     /* 剩下的 token 小字空的就不留空行 */
