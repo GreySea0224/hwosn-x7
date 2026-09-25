@@ -551,14 +551,39 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 /* 1) 只有文字的消息：气泡宽度跟着文字走，不再占满一整行 */
 #msgs .bub.narrow{width:fit-content}
 /* 2) 一条消息拆成几个气泡：外面那层只当容器，里面每个小气泡各自独立 */
-#msgs .bub.multi{width:fit-content;padding:0;background:none;border:0;box-shadow:none;animation:none}
-#msgs .bub.multi .bsub{width:fit-content;max-width:100%;padding:9px 13px;border-radius:18px;animation:pop .16s ease}
+#msgs .bub.multi .bsub{position:relative;width:fit-content;max-width:100%;padding:9px 13px;border-radius:18px;animation:pop .16s ease;display:flow-root}
 #msgs .bub.multi .bsub+.bsub{margin-top:5px}
-#msgs .bub.multi.ai .bsub{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accline);border-bottom-left-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-#msgs .bub.multi.me .bsub{margin-left:auto;background:var(--accdim);border:1px solid var(--line);border-bottom-right-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-/* 一组里只有最后那个带小尖角，前面的都是四角圆圆的（更贴近真实聊天） */
-#msgs .bub.multi.ai .bsub:not(:last-child){border-bottom-left-radius:18px}
-#msgs .bub.multi.me .bsub:not(:last-child){border-bottom-right-radius:18px}
+/* 气泡外面那圈模糊阴影去掉，改成 Telegram 那种干净的扁平边（小尾巴才不会显得突兀） */
+#msgs .bub,#msgs .bub .bsub{box-shadow:none!important}
+/* 角色气泡原来左边那条主题色竖线去掉，和用户气泡一样，只有颜色不同 */
+#msgs .bub.ai,#msgs .bub.multi.ai .bsub{border:1px solid var(--line)}
+/* 外面那层只是排版的容器：自己不能有边框/底色/阴影，不然整组气泡外面会多出一个框 */
+#msgs .bub.multi,#msgs .bub.multi.ai,#msgs .bub.multi.me{width:fit-content;padding:0;background:none;border:0!important;box-shadow:none;animation:none}
+/* 靠近头像的那个下角尖一点（Telegram 那种小尖角）：角色在左、自己在右，每条气泡都带 */
+#msgs .bub.ai,#msgs .bub.multi.ai .bsub{border-bottom-left-radius:3px}
+#msgs .bub.me,#msgs .bub.multi.me .bsub{border-bottom-right-radius:3px}
+#msgs .bub.multi.ai .bsub{background:var(--panel)}
+#msgs .bub.multi.me .bsub{margin-left:auto;background:var(--accdim);border:1px solid var(--line)}
+/* Telegram 那种小尾巴：靠头像那个下角凸出一小截。
+   两层叠着画：外面一层用气泡描边的颜色，里面一层用气泡本身的颜色，
+   这样尾巴也带描边，不会像一块突然冒出来的东西。
+   描边那层在气泡里那一侧要多铺 3px：把气泡自己的圆角盖住，
+   不然那个圆角会露出半截、底边的线就断了一个小口子。 */
+#msgs .bub>.btail,#msgs .bub.multi .bsub>.btail{position:absolute;bottom:-1px;width:11px;height:8px;background:var(--meline,var(--line))}
+#msgs .bub>.btailf,#msgs .bub.multi .bsub>.btailf{position:absolute;bottom:0;width:8.6px;height:8.6px}
+#msgs .bub.ai>.btail,#msgs .bub.multi.ai .bsub>.btail{left:-9px;clip-path:polygon(8px 0,0 100%,100% 100%,100% 4px)}
+#msgs .bub.ai>.btailf,#msgs .bub.multi.ai .bsub>.btailf{left:-6.6px;background:var(--panel);border-bottom-left-radius:3px;clip-path:polygon(100% 0,100% 100%,0 100%)}
+#msgs .bub.me>.btail,#msgs .bub.multi.me .bsub>.btail{right:-9px;clip-path:polygon(3px 0,100% 100%,0 100%,0 4px)}
+#msgs .bub.me>.btailf,#msgs .bub.multi.me .bsub>.btailf{right:-6.6px;background:var(--accdim);border-bottom-right-radius:3px;clip-path:polygon(0 0,0 100%,100% 100%)}
+/* 浅色主题里用户气泡的描边其实是「半透明黑压在自己的底色上」，
+   直接拿半透明色去画尾巴的话，压在不同的底上算出来会偏浅。
+   这里用 color-mix 把它算成一个实色，气泡和尾巴就用同一个颜色了。 */
+@supports (color:color-mix(in srgb,red 50%,blue)){
+  html.p6light #msgs .bub.me{--meline:color-mix(in srgb,var(--accdim) 88%,rgb(15,23,36) 12%);border:1px solid var(--meline)}
+  html.p6light #msgs .bub.multi.me .bsub{border:1px solid var(--meline)}
+}
+/* 老浏览器不认 clip-path 的话，宁可不显示尾巴，也别在角落露出一个方块 */
+@supports not (clip-path:polygon(0 0,100% 0,0 100%)){#msgs .bub>.btail,#msgs .bub>.btailf{display:none}}
 /* 3) 「思考过程」做成一行很淡的小字：去掉灰底胶囊，不抢戏、也不把气泡撑宽（单条/分条都一个样） */
 #msgs .bub .think{margin:0 0 5px!important;padding:0!important;border-bottom:0!important;max-width:100%}
 #msgs .bub .thinkhead{background:transparent!important;border:0!important;box-shadow:none!important;gap:4px!important;min-height:0!important;color:var(--meta)!important;font-size:11px!important;font-weight:400!important;padding:5px 0!important;margin:-5px 0!important}
@@ -3026,6 +3051,23 @@ function splitBubbleParts(content,isMe){
   if(lines.some(s=>s.length>24))return null;   /* 有一句偏长，就老老实实放一个气泡 */
   return lines;                                /* ④ 几个短句连着写 → 当成连发几条 */
 }
+/* Telegram 那种「小尾巴」：给一条气泡补上靠头像那个下角的小尖角（已经有了就不重复加） */
+function addBubbleTail(el){
+  if(!el)return;
+  var kids=el.children;
+  for(var i=0;i<kids.length;i++){
+    if(kids[i].classList&&kids[i].classList.contains('btail'))return;
+  }
+  /* 两层：btail 是描边那层，btailf 是气泡色那层（后加的盖在上面） */
+  var tip=document.createElement('i');
+  tip.className='btail';
+  tip.setAttribute('aria-hidden','true');
+  el.appendChild(tip);
+  var fill=document.createElement('i');
+  fill.className='btailf';
+  fill.setAttribute('aria-hidden','true');
+  el.appendChild(fill);
+}
 /* 往聊天区追加一条消息（气泡、思考块、时间和操作按钮）。 */
 function appendChatMessage(box,x,i){
   const isMe=(x.role==='user');
@@ -3043,6 +3085,8 @@ function appendChatMessage(box,x,i){
       filesHTML(x.files,i)+
       mdLite(x.content||'');
   }
+  /* 每条气泡都补一个 Telegram 小尾巴（分条的那种是每个小气泡都补） */
+  ((parts&&parts.length>1)?Array.prototype.slice.call(d.querySelectorAll('.bsub')):[d]).forEach(function(b){addBubbleTail(b)});
   setBubbleAvatar(d,isMe);
   if(x.role==='assistant'&&x.reasoning)appendThinkingBlock(box,x);
   box.appendChild(d);                     /* 思考块排在气泡上方 */
@@ -3786,7 +3830,8 @@ function typeLastChatMsg(text){
     const el=bubs.length?bubs[bubs.length-1]:null;
     if(!el||el.classList.contains('me')||el.querySelector('img'))return;
     if(text&&String(text).trim()!==(el.textContent||'').trim())return;   /* 对不上就别动 */
-    revealText(el,(text!=null&&text!=='')?String(text):(el.textContent||''));
+    /* 打字动画会把气泡里的东西清空，放完再把 Telegram 小尾巴补回来 */
+    revealText(el,(text!=null&&text!=='')?String(text):(el.textContent||''),{onDone:function(){try{addBubbleTail(el)}catch(e){}}});
   }catch(e){}
 }
 /* 把已经拿到的一整段文字，交给打字机逐字显示（拿不到就原样显示） */
@@ -12821,11 +12866,14 @@ function tidyBubbles(){
     var b=bubs[i];if(!b)return;
     var ts=meta.querySelector('.ts');
     if(ts&&!b.querySelector('.p6time')){
-      var t=document.createElement('span');
-      t.className='p6time';t.textContent=String(ts.textContent||'').trim();
-      /* 分条发的那种气泡（.bub.multi）：时间放进最后一条小气泡的右下角，和平时一样 */
       var subs=b.querySelectorAll('.bsub');
-      (subs.length?subs[subs.length-1]:b).appendChild(t);
+      /* 分条发的那种气泡（.bub.multi）：每条小气泡右下角各放一份时间；普通气泡就放在自己里面 */
+      var hosts=subs.length?Array.prototype.slice.call(subs):[b];
+      hosts.forEach(function(h){
+        var t=document.createElement('span');
+        t.className='p6time';t.textContent=String(ts.textContent||'').trim();
+        h.appendChild(t);
+      });
     }
     if(ts&&ts.parentNode)ts.parentNode.removeChild(ts);
     /* 剩下的 token 小字空的就不留空行 */
@@ -14125,6 +14173,8 @@ function paintUserSticker(b,x){
   }
   b.insertBefore(mkImg(x.sticker,'p13sk'),time&&time.parentNode===b?time:null);
   if(time&&time.parentNode===b)b.appendChild(time);
+  /* 气泡被清空重建过，把 Telegram 小尾巴补回来（纯表情气泡是透明的，那种不加尾巴） */
+  if(!b.classList.contains('p13only')){try{addBubbleTail(b)}catch(e){}}
 }
 /* 不等整页重画，先把刚发出去那条画对（不然会先看到一行说明文字） */
 window.paintUserSticker=paintUserSticker;   /* 挂到全局：主程序里的 renderChat 要用 */
