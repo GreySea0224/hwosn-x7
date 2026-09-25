@@ -361,7 +361,7 @@ header .hact:active{background:var(--bg2)}
 /* 气泡：白底 + 1px 描边 + 极淡阴影 */
 #msgs .bub{border-radius:18px}
 .bub.ai{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accline);border-bottom-left-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
-.bub.me{background:var(--accdim);border:1px solid var(--line);border-bottom-right-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.bub.me{background:var(--bubme);border:1px solid transparent;border-bottom-right-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
 #msgs .bub.ai{max-width:calc(92% - 38px)}
 #msgs .bub.me{max-width:calc(86% - 38px)}
 
@@ -548,11 +548,14 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .wbwho .n{color:var(--acc)}
 
 /* ---------- 气泡：短消息变小 · 一条消息分几个气泡（新增） ---------- */
+/* 0) 间距和圆角：消息之间松一点、圆角收一点（参照常见聊天软件的观感） */
+#msgs .bub{margin-top:9px;border-radius:14px}
+#msgs .bub:not(.typing){padding:10px 14px}
 /* 1) 只有文字的消息：气泡宽度跟着文字走，不再占满一整行 */
 #msgs .bub.narrow{width:fit-content}
 /* 2) 一条消息拆成几个气泡：外面那层只当容器，里面每个小气泡各自独立 */
-#msgs .bub.multi .bsub{position:relative;width:fit-content;max-width:100%;padding:9px 13px;border-radius:18px;animation:pop .16s ease;display:flow-root}
-#msgs .bub.multi .bsub+.bsub{margin-top:5px}
+#msgs .bub.multi .bsub{position:relative;width:fit-content;max-width:100%;padding:10px 14px;border-radius:14px;animation:pop .16s ease;display:flow-root}
+#msgs .bub.multi .bsub+.bsub{margin-top:7px}
 /* 气泡外面那圈模糊阴影去掉，改成 Telegram 那种干净的扁平边（小尾巴才不会显得突兀） */
 #msgs .bub,#msgs .bub .bsub{box-shadow:none!important}
 /* 角色气泡原来左边那条主题色竖线去掉，和用户气泡一样，只有颜色不同 */
@@ -563,7 +566,7 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 #msgs .bub.ai,#msgs .bub.multi.ai .bsub{border-bottom-left-radius:3px}
 #msgs .bub.me,#msgs .bub.multi.me .bsub{border-bottom-right-radius:3px}
 #msgs .bub.multi.ai .bsub{background:var(--panel)}
-#msgs .bub.multi.me .bsub{margin-left:auto;background:var(--accdim);border:1px solid var(--line)}
+#msgs .bub.multi.me .bsub{margin-left:auto;background:var(--bubme);border:1px solid transparent}
 /* Telegram 那种小尾巴：靠头像那个下角凸出一小截。
    两层叠着画：外面一层用气泡描边的颜色，里面一层用气泡本身的颜色，
    这样尾巴也带描边，不会像一块突然冒出来的东西。
@@ -574,14 +577,12 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 #msgs .bub.ai>.btail,#msgs .bub.multi.ai .bsub>.btail{left:-9px;clip-path:polygon(8px 0,0 100%,100% 100%,100% 4px)}
 #msgs .bub.ai>.btailf,#msgs .bub.multi.ai .bsub>.btailf{left:-6.6px;background:var(--panel);border-bottom-left-radius:3px;clip-path:polygon(100% 0,100% 100%,0 100%)}
 #msgs .bub.me>.btail,#msgs .bub.multi.me .bsub>.btail{right:-9px;clip-path:polygon(3px 0,100% 100%,0 100%,0 4px)}
-#msgs .bub.me>.btailf,#msgs .bub.multi.me .bsub>.btailf{right:-6.6px;background:var(--accdim);border-bottom-right-radius:3px;clip-path:polygon(0 0,0 100%,100% 100%)}
-/* 浅色主题里用户气泡的描边其实是「半透明黑压在自己的底色上」，
-   直接拿半透明色去画尾巴的话，压在不同的底上算出来会偏浅。
-   这里用 color-mix 把它算成一个实色，气泡和尾巴就用同一个颜色了。 */
-@supports (color:color-mix(in srgb,red 50%,blue)){
-  html.p6light #msgs .bub.me{--meline:color-mix(in srgb,var(--accdim) 88%,rgb(15,23,36) 12%);border:1px solid var(--meline)}
-  html.p6light #msgs .bub.multi.me .bsub{border:1px solid var(--meline)}
-}
+/* 自己发的气泡：右下角那个小角改成「一个实心三角」画。
+   底边和气泡的底边齐平，左边往气泡里多伸 4px，把气泡自己的圆角盖住——
+   不盖住的话圆角那里会露出一个小缺口，看着就像小角跟气泡断开了。
+   因为气泡是跟着主题走的实色底，这个三角直接用气泡的颜色，不用再描边。 */
+#msgs .bub.me>.btail,#msgs .bub.multi.me .bsub>.btail{display:none}
+#msgs .bub.me>.btailf,#msgs .bub.multi.me .bsub>.btailf{right:-6.5px;bottom:-1px;width:10.5px;height:9px;background:var(--bubme);border-radius:0;clip-path:polygon(0 0,100% 100%,0 100%)}
 /* 老浏览器不认 clip-path 的话，宁可不显示尾巴，也别在角落露出一个方块 */
 @supports not (clip-path:polygon(0 0,100% 0,0 100%)){#msgs .bub>.btail,#msgs .bub>.btailf{display:none}}
 /* 3) 「思考过程」做成一行很淡的小字：去掉灰底胶囊，不抢戏、也不把气泡撑宽（单条/分条都一个样） */
@@ -592,6 +593,24 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 #msgs .bub .think>.thinkbody{margin-top:5px!important;padding:8px 10px!important;font-size:11.5px!important}
 /* 4) 设置 → 外观与交互 里关掉「显示思考过程」后，灯泡 + 思考过程那个小按钮整个消失 */
 html.nothink #msgs .bub .think{display:none!important}
+
+/* ============================================================
+   2026-09-25 聊天界面改版（参照微信那种聊天软件的观感）
+   ① 时间戳不再挤在气泡右下角：改成消息上方一条居中的灰色小字，
+      两条消息隔了 5 分钟以上、或者跨了一天，才会出现一条，
+      连着聊的那几句共用上面那一条（具体由下面的 needTimeSep 决定）
+   ② 自己发的气泡改成实色底，颜色跟着主题走
+      （蓝色主题就是蓝色系、粉色主题就是粉色系，见上面 THEMES 里的 --bubme），
+      底色够实，所以不加描边，尾巴和气泡连成一片
+   ③ 气泡圆角收小、同一段消息之间挨得近一点，整屏更像正经聊天软件
+   ============================================================ */
+/* ① 时间条：单独一行、居中、不占气泡的地方 */
+#msgs .tsep{text-align:center;margin:16px 0 3px;font-size:11.5px;line-height:1.4;color:var(--meta);opacity:.75;user-select:none;letter-spacing:.4px;font-variant-numeric:tabular-nums}
+#msgs .tsep:first-child{margin-top:4px}
+/* 时间条后面第一条消息靠紧一点，看得出「这条时间条管的是下面这一组」 */
+#msgs .tsep+.bub{margin-top:6px}
+/* 老版本塞进气泡里的时间（p6time）不再显示 */
+#msgs .bub .p6time{display:none!important}
 
 </style>
 </head>
@@ -631,8 +650,8 @@ const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',p
 
 /* ---------- 主题 ---------- */
 const THEMES={
-  dark:{label:'深海（深蓝·暗）',v:{'--bg':'#0a1219','--bg2':'#101922','--panel':'#141e26','--line':'#1f2c36','--txt':'#e3eef6','--dim':'#8aa0b0','--meta':'#93a7b6','--acc':'#4d9bf0','--acc2':'#6fb4ff','--accdim':'#16354f','--accline':'#2f6ea8','--warn':'#e07068','--grad':'linear-gradient(160deg,#111d27 0%,#0a1219 62%)','--shadow':'0 1px 2px rgba(0,0,0,.22)','--bubme':'linear-gradient(135deg,#1b3a52,#16324a)'}},
-  light:{label:'浅色（白）',v:{'--bg':'#e7ebf1','--bg2':'#edf0f5','--panel':'#ffffff','--line':'#e1e6ef','--txt':'#0f1724','--dim':'#6b7280','--meta':'#5f6774','--acc':'#2f6fed','--acc2':'#5b8cf5','--accdim':'#e3ebfd','--accline':'#b9cdf7','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f5f9 0%,#e7ebf1 60%)','--shadow':'0 1px 2px rgba(16,24,40,.05)','--bubme':'linear-gradient(135deg,#e8ecf4,#dfe5ef)'}},
+  dark:{label:'深海（深蓝·暗）',v:{'--bg':'#0a1219','--bg2':'#101922','--panel':'#141e26','--line':'#1f2c36','--txt':'#e3eef6','--dim':'#8aa0b0','--meta':'#93a7b6','--acc':'#4d9bf0','--acc2':'#6fb4ff','--accdim':'#16354f','--accline':'#2f6ea8','--warn':'#e07068','--grad':'linear-gradient(160deg,#111d27 0%,#0a1219 62%)','--shadow':'0 1px 2px rgba(0,0,0,.22)','--bubme':'#1e4a78'}},
+  light:{label:'浅色（白）',v:{'--bg':'#e7ebf1','--bg2':'#edf0f5','--panel':'#ffffff','--line':'#e1e6ef','--txt':'#0f1724','--dim':'#6b7280','--meta':'#5f6774','--acc':'#2f6fed','--acc2':'#5b8cf5','--accdim':'#e3ebfd','--accline':'#b9cdf7','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f5f9 0%,#e7ebf1 60%)','--shadow':'0 1px 2px rgba(16,24,40,.05)','--bubme':'#a9d1ff'}},
   /* 【新】黑白（极简）：纯黑底 + 白字 + 白色按钮，没有一点彩色。
      --onsend 是「白色按钮上的字/图标」颜色（黑），不然白按钮上的白图标会看不见。 */
   mono:{label:'黑白（极简）',v:{'--bg':'#0a0a0a','--bg2':'#111111','--panel':'#161616','--line':'#2a2a2a','--txt':'#f2f2f2','--dim':'#9c9c9c','--meta':'#a8a8a8','--acc':'#e8e8e8','--acc2':'#ffffff','--accdim':'#202020','--accline':'#4a4a4a','--warn':'#8e8e8e','--grad':'linear-gradient(160deg,#181818 0%,#0a0a0a 62%)','--shadow':'0 1px 2px rgba(0,0,0,.5)','--bubme':'linear-gradient(135deg,#282828,#1e1e1e)','--onsend':'#0a0a0a','--accglow':'rgba(255,255,255,.32)','--scbg':'rgba(20,20,20,.92)','--scfg':'#f2f2f2',
@@ -643,12 +662,12 @@ const THEMES={
   paper:{label:'黑白（明亮）',v:{'--bg':'#f2f2f2','--bg2':'#f8f8f8','--panel':'#ffffff','--line':'#e4e4e4','--txt':'#111111','--dim':'#6b6b6b','--meta':'#5f5f5f','--acc':'#1a1a1a','--acc2':'#3d3d3d','--accdim':'#ececec','--accline':'#d8d8d8','--warn':'#6f6f6f','--grad':'linear-gradient(160deg,#ffffff 0%,#f2f2f2 62%)','--shadow':'0 1px 2px rgba(0,0,0,.06)','--bubme':'linear-gradient(135deg,#efefef,#e6e6e6)','--onacc':'#ffffff','--onsend':'#ffffff','--accglow':'rgba(0,0,0,.16)','--scbg':'rgba(255,255,255,.94)','--scfg':'#111111',
     /* 【新】同黑白（极简）：黑色强调 + 淡淡灰底 */
     '--em':'#000000','--embg':'rgba(0,0,0,.08)'}},
-  cyan:{label:'浅青（推荐）',v:{'--bg':'#e8edee','--bg2':'#eef2f3','--panel':'#ffffff','--line':'#dfe6e7','--txt':'#142b2e','--dim':'#5f7c80','--meta':'#4c6a6e','--acc':'#128e9c','--acc2':'#3ab0be','--accdim':'#dcf0f2','--accline':'#9fcbd2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f7f8 0%,#e8edee 60%)','--shadow':'0 1px 2px rgba(16,60,70,.05)','--bubme':'linear-gradient(135deg,#e6f1f2,#dbe9ec)'}},
-  sea:{label:'青碧（暗）',v:{'--bg':'#0a1315','--bg2':'#101a1c','--panel':'#162023','--line':'#223033','--txt':'#d8eef0','--dim':'#7fa3a6','--meta':'#93b3b6','--acc':'#2fb3a8','--acc2':'#59e0d6','--accdim':'#10443f','--accline':'#1f6b66','--warn':'#e0776c','--grad':'linear-gradient(160deg,#131f22 0%,#0a1315 60%)','--shadow':'0 1px 2px rgba(0,0,0,.24)','--bubme':'linear-gradient(135deg,#10443f,#0b3a38)'}},
-  sakura:{label:'樱雪（淡粉）',v:{'--bg':'#f2ecee','--bg2':'#f7f1f3','--panel':'#ffffff','--line':'#e8dfe2','--txt':'#33222b','--dim':'#8a6f7a','--meta':'#755c67','--acc':'#d2598f','--acc2':'#ec93bd','--accdim':'#fbe0ec','--accline':'#eec2d6','--warn':'#d9534f','--grad':'linear-gradient(160deg,#faf4f6 0%,#f2ecee 60%)','--shadow':'0 1px 2px rgba(120,60,90,.06)','--bubme':'linear-gradient(135deg,#f6e6ee,#f0dae5)'}},
-  matcha:{label:'抹茶（淡绿）',v:{'--bg':'#edf0ea','--bg2':'#f2f5ef','--panel':'#ffffff','--line':'#e2e8db','--txt':'#252c22','--dim':'#71806c','--meta':'#5e6b58','--acc':'#46903a','--acc2':'#6cbd5d','--accdim':'#e2f0d9','--accline':'#c2ddb2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f6f9f2 0%,#edf0ea 60%)','--shadow':'0 1px 2px rgba(60,90,50,.06)','--bubme':'linear-gradient(135deg,#e9f3e2,#dfeed5)'}},
-  ink:{label:'墨夜（暗紫黑）',v:{'--bg':'#0b0b0e','--bg2':'#131319','--panel':'#191920','--line':'#2b2b35','--txt':'#e9e9ee','--dim':'#8f8f9a','--meta':'#9b9ba7','--acc':'#9b8cff','--acc2':'#c3b8ff','--accdim':'#2a2450','--accline':'#4a3f86','--warn':'#e07070','--grad':'linear-gradient(160deg,#1a1a22 0%,#0b0b0e 60%)','--shadow':'0 1px 2px rgba(0,0,0,.4)','--bubme':'linear-gradient(135deg,#2a2450,#1e1940)'}},
-  dusk:{label:'暮紫（暗紫）',v:{'--bg':'#0f0d15','--bg2':'#161320','--panel':'#1b1826','--line':'#2a2536','--txt':'#eae4f8','--dim':'#9488b6','--meta':'#a196c0','--acc':'#a97cf0','--acc2':'#cda6f9','--accdim':'#33245c','--accline':'#5b4694','--warn':'#e07070','--grad':'linear-gradient(160deg,#1d1830 0%,#0f0d15 60%)','--shadow':'0 1px 2px rgba(0,0,0,.3)','--bubme':'linear-gradient(135deg,#33245c,#251848)'}}
+  cyan:{label:'浅青（推荐）',v:{'--bg':'#e8edee','--bg2':'#eef2f3','--panel':'#ffffff','--line':'#dfe6e7','--txt':'#142b2e','--dim':'#5f7c80','--meta':'#4c6a6e','--acc':'#128e9c','--acc2':'#3ab0be','--accdim':'#dcf0f2','--accline':'#9fcbd2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f2f7f8 0%,#e8edee 60%)','--shadow':'0 1px 2px rgba(16,60,70,.05)','--bubme':'#9fdde3'}},
+  sea:{label:'青碧（暗）',v:{'--bg':'#0a1315','--bg2':'#101a1c','--panel':'#162023','--line':'#223033','--txt':'#d8eef0','--dim':'#7fa3a6','--meta':'#93b3b6','--acc':'#2fb3a8','--acc2':'#59e0d6','--accdim':'#10443f','--accline':'#1f6b66','--warn':'#e0776c','--grad':'linear-gradient(160deg,#131f22 0%,#0a1315 60%)','--shadow':'0 1px 2px rgba(0,0,0,.24)','--bubme':'#11514c'}},
+  sakura:{label:'樱雪（淡粉）',v:{'--bg':'#f2ecee','--bg2':'#f7f1f3','--panel':'#ffffff','--line':'#e8dfe2','--txt':'#33222b','--dim':'#8a6f7a','--meta':'#755c67','--acc':'#d2598f','--acc2':'#ec93bd','--accdim':'#fbe0ec','--accline':'#eec2d6','--warn':'#d9534f','--grad':'linear-gradient(160deg,#faf4f6 0%,#f2ecee 60%)','--shadow':'0 1px 2px rgba(120,60,90,.06)','--bubme':'#ffc9df'}},
+  matcha:{label:'抹茶（淡绿）',v:{'--bg':'#edf0ea','--bg2':'#f2f5ef','--panel':'#ffffff','--line':'#e2e8db','--txt':'#252c22','--dim':'#71806c','--meta':'#5e6b58','--acc':'#46903a','--acc2':'#6cbd5d','--accdim':'#e2f0d9','--accline':'#c2ddb2','--warn':'#d9534f','--grad':'linear-gradient(160deg,#f6f9f2 0%,#edf0ea 60%)','--shadow':'0 1px 2px rgba(60,90,50,.06)','--bubme':'#c3e8a8'}},
+  ink:{label:'墨夜（暗紫黑）',v:{'--bg':'#0b0b0e','--bg2':'#131319','--panel':'#191920','--line':'#2b2b35','--txt':'#e9e9ee','--dim':'#8f8f9a','--meta':'#9b9ba7','--acc':'#9b8cff','--acc2':'#c3b8ff','--accdim':'#2a2450','--accline':'#4a3f86','--warn':'#e07070','--grad':'linear-gradient(160deg,#1a1a22 0%,#0b0b0e 60%)','--shadow':'0 1px 2px rgba(0,0,0,.4)','--bubme':'#3a2f7a'}},
+  dusk:{label:'暮紫（暗紫）',v:{'--bg':'#0f0d15','--bg2':'#161320','--panel':'#1b1826','--line':'#2a2536','--txt':'#eae4f8','--dim':'#9488b6','--meta':'#a196c0','--acc':'#a97cf0','--acc2':'#cda6f9','--accdim':'#33245c','--accline':'#5b4694','--warn':'#e07070','--grad':'linear-gradient(160deg,#1d1830 0%,#0f0d15 60%)','--shadow':'0 1px 2px rgba(0,0,0,.3)','--bubme':'#432c73'}}
 };
 function applyTheme(){
   const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
@@ -3014,15 +3033,36 @@ function appendThinkingBlock(box,x){
   };
   th.appendChild(hd);th.appendChild(bd);box.appendChild(th);
 }
-/* 追加一条消息的时间与 token 信息。 */
+/* 追加一条消息的 token 信息。
+   注意：时间已经不在这里了，改成消息上方那条居中的「时间条」（见 appendTimeSep）。 */
 function appendMessageMeta(box,x,isMe){
+  if(!document.body.classList.contains('dev'))return;   /* 不是开发者模式，token 本来就不显示，别留空行 */
   const tk=x.tok||((x.content)?estTokens(x.content):0);
+  const tkTxt=tk?((isMe?'约 ':'生成 ')+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):'')):'';
+  if(!tkTxt)return;                       /* 没东西可写，就别在气泡下面留一行空白 */
   const meta=document.createElement('div');
   meta.className='tok meta'+(isMe?' me':'');
-  const tkTxt=tk?((isMe?'约 ':'生成 ')+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):'')):'';
-  meta.innerHTML='<span class="ts">'+esc(fmtStamp(x.t))+'</span>'+
-    (tkTxt?('<span class="tk"> · '+esc(tkTxt)+'</span>'):'');
+  meta.innerHTML='<span class="tk">'+esc(tkTxt)+'</span>';
   box.appendChild(meta);
+}
+/* ---------- 时间条：消息上方那条居中的灰色小字 ----------
+   什么时候显示：这一条是聊天里最上面一条，或者跟上一条隔得比较久
+   （超过 5 分钟，或者干脆跨了一天）。挨着聊的那几句就共用上面那一条。 */
+const TSEP_GAP=5*60*1000;
+function needTimeSep(prev,x){
+  const t=Number(x&&x.t)||0;
+  if(!t)return false;                     /* 这条自己没记时间，就不画 */
+  if(!prev)return true;                   /* 最上面那一条：画 */
+  const p=Number(prev.t)||0;
+  if(!p)return true;                      /* 上一条没时间：也画一条 */
+  if(new Date(t).toDateString()!==new Date(p).toDateString())return true;  /* 跨天了 */
+  return Math.abs(t-p)>=TSEP_GAP;
+}
+function appendTimeSep(box,x){
+  const d=document.createElement('div');
+  d.className='tsep';
+  d.textContent=fmtStamp(x.t);
+  box.appendChild(d);
 }
 /* 追加最后一条消息下面的操作按钮。 */
 function appendMessageOps(box,x){
@@ -3068,9 +3108,12 @@ function addBubbleTail(el){
   fill.setAttribute('aria-hidden','true');
   el.appendChild(fill);
 }
-/* 往聊天区追加一条消息（气泡、思考块、时间和操作按钮）。 */
+/* 往聊天区追加一条消息（时间条、气泡、思考块、操作按钮）。 */
 function appendChatMessage(box,x,i){
   const isMe=(x.role==='user');
+  /* 时间条画在消息上方，不占气泡的地方；隔得近的消息共用上面那一条 */
+  const prev=(typeof i==='number'&&i>0)?msgs[i-1]:null;
+  if(needTimeSep(prev,x))appendTimeSep(box,x);
   const d=document.createElement('div');
   d.className='bub '+(isMe?'me':'ai');
   /* 只有纯文字的消息才参与「变小」和「分条」；带图片/文件/图的还是老样子 */
@@ -12802,8 +12845,9 @@ console.log('[深蓝海域] 补丁7-A 已加载');
             最上面，直到你发消息才消失。这里补一次重画 + 样式兜底隐藏。
    ② 头像和消息顶端对齐（角色、用户两边都改）
    ③ 「思考过程」折叠条收进气泡内部的最上方
-   ④ 每条消息的时间：缩小、变浅，挪进气泡内部右下角（像 Telegram）
-   ⑤ 浅色主题下，用户气泡的描边 + 阴影加重一点，更好认
+   ④ 每条消息的时间：不再塞进气泡里了，改成消息上方居中的「时间条」
+      （画时间条的代码在主程序里，见 appendChatMessage / appendTimeSep）
+   ⑤ 用户气泡改成实色底（颜色跟着主题走），不再需要描边
    ⑥ 顶栏去掉「聊天」两个字，改放加大的角色名，
       下面一行小字：自动发消息 开/关 · 联网搜索 开/关
    改动只追加在文件末尾，前面任何一段老代码都没动。
@@ -12827,10 +12871,10 @@ var CSS=[
 '#msgs .bub>.think .thinkhead{background:transparent;border:0;color:var(--meta);font-size:11.5px;padding:2px 0;border-radius:0;box-shadow:none}',
 '#msgs .bub>.think .thinkhead.on{background:transparent;color:var(--acc)}',
 '#msgs .bub>.think .thinkbody{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--accline);border-radius:12px;padding:9px 11px;margin-top:6px;font-size:12px}',
-/* ④ 时间：小、浅、在气泡右下角 */
-'#msgs .bub .p6time{float:right;margin:7px 0 0 8px;font-size:10px;line-height:1.4;font-weight:400;color:var(--meta);opacity:.55;font-variant-numeric:tabular-nums;user-select:none}',
-/* ⑤ 浅色主题：用户气泡描边 + 阴影加重 */
-'html.p6light #msgs .bub.me{border:1px solid rgba(15,23,36,.12);box-shadow:0 3px 10px rgba(16,24,40,.18),0 1px 2px rgba(16,24,40,.12)}',
+/* ④ 时间：已经挪到消息上方那条「时间条」里了，气泡里这份不再显示 */
+'#msgs .bub .p6time{display:none!important}',
+/* ⑤ 用户气泡是跟着主题走的实色底，不需要描边了 */
+'html.p6light #msgs .bub.me{border:1px solid transparent}',
 /* ⑥ 顶栏：加大的角色名 */
 'header.p8chat h1{font-size:22px;line-height:1.2;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
 'header.p8chat .who{color:var(--meta)}'
@@ -12859,24 +12903,13 @@ function tidyBubbles(){
     var host=b.querySelector('.bsub')||b;
     host.insertBefore(pv,host.firstChild);
   });
-  /* ④ 时间：从气泡下面那行搬进气泡右下角 */
-  var metas=dqa('.tok.meta',box);
-  if(metas.length!==msgs.length)return;
-  metas.forEach(function(meta,i){
-    var b=bubs[i];if(!b)return;
+  /* ④ 时间：现在统一由「时间条」画在消息上方（居中、隔一段才出现一条），
+        这里只负责把老版本搬进气泡的时间（.p6time）和没用的空行清干净 */
+  dqa('.p6time',box).forEach(function(el){if(el.parentNode)el.parentNode.removeChild(el)});
+  dqa('.tok.meta',box).forEach(function(meta){
     var ts=meta.querySelector('.ts');
-    if(ts&&!b.querySelector('.p6time')){
-      var subs=b.querySelectorAll('.bsub');
-      /* 分条发的那种气泡（.bub.multi）：每条小气泡右下角各放一份时间；普通气泡就放在自己里面 */
-      var hosts=subs.length?Array.prototype.slice.call(subs):[b];
-      hosts.forEach(function(h){
-        var t=document.createElement('span');
-        t.className='p6time';t.textContent=String(ts.textContent||'').trim();
-        h.appendChild(t);
-      });
-    }
     if(ts&&ts.parentNode)ts.parentNode.removeChild(ts);
-    /* 剩下的 token 小字空的就不留空行 */
+    /* token 小字空的就不留空行 */
     var tk=meta.querySelector('.tk');
     if(!tk||!String(tk.textContent||'').trim()){if(meta.parentNode)meta.parentNode.removeChild(meta)}
   });
