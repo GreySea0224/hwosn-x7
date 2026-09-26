@@ -3497,7 +3497,8 @@ function buildCtxSystem(c,extra){
   const amb=actMemBlock(c);if(amb)sys.push(amb);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
-  const wbLine=wbForChar(c);if(wbLine)sys.push(wbLine);   /* 世界书：挂在这个角色身上的共同设定 */
+  /* 世界书：挂在这个角色身上的共同设定。先算好内容，等系统提示全部拼完，再压到最末尾一行 */
+  const wbLine=wbForChar(c);
   if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
   const th=THINK_LEVELS[(c.think==null?1:c.think)];
   if(th&&th.hint)sys.push('【思考要求】'+th.hint);
@@ -3598,6 +3599,8 @@ function buildCtxSystem(c,extra){
       sys.push(blk);
     }
   }catch(e){}
+  /* 世界书压轴：放在系统提示的最后，离对话最近，角色更容易照它来 */
+  if(wbLine)sys.push(wbLine);
   return sys;
 }
 /* 把聊天记录转换成接口需要的消息格式。 */
@@ -7293,9 +7296,10 @@ function buildGroupContext(g,c){
   if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
-  const wbG=wbForChar(c);if(wbG)sys.push(wbG);   /* 世界书：挂在这个角色身上的共同设定 */
+  const wbG=wbForChar(c);   /* 世界书：挂在这个角色身上的共同设定 */
   if(c.examples)sys.push('【对话示例】'+c.examples);
   sys.push('【硬性要求】中文回复；只输出你要发的那条群消息本身，不要加任何名字前缀。');
+  if(wbG)sys.push(wbG);   /* 世界书放最后，离对话最近，角色更容易照它来 */
   const hist=arr.map(m=>({role:(m.role==='user'?'user':'assistant'),content:(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}));
   const ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
   ctx.push({role:'user',content:'（继续群聊，现在轮到你发言，用你的身份发一条）'});
@@ -8383,7 +8387,9 @@ function wbWhoText(w){
   if(w.all)return '全部角色';
   return (w.cids||[]).map(id=>{const c=charOf(id);return c?c.name:''}).filter(Boolean).join('、');
 }
-/* 给某个角色拼「世界书」这段系统提示；这个角色一条都没挂就返回空字符串 */
+/* 给某个角色拼「世界书」这段系统提示；这个角色一条都没挂就返回空字符串。
+   这段话写得比较强硬（规则、优先级、回复前自检），因为它是压在系统提示最后的一段，
+   目的就是让角色优先照世界书里写的规矩来。 */
 function wbForChar(c){
   if(!c)return '';
   const out=[];
@@ -8394,8 +8400,12 @@ function wbForChar(c){
     out.push('◆ '+(String(w.title||'').trim()||'世界设定')+'\n'+String(w.text||'').trim());
   });
   if(!out.length)return '';
-  return '【世界书】下面是用户为这个世界写下的共同设定，对这里所有人都成立，和你的人设一样重要，'+
-    '你说话、做事、判断都要符合它们。这些是幕后规则：不要照抄，也不要主动提「世界书」这个词。\n\n'+out.join('\n\n');
+  return '【世界书 · 必须遵守的规则（优先级最高）】下面是用户为这个世界定下的设定和规矩，'+
+    '它们优先级高于你平时的说话习惯、一般常识和别的次要设定；只要不违背你人设最基本的底线，'+
+    '你就必须严格照它们说话、做事、做判断。每当你要写一条回复，先在脑子里对照一遍下面的规则；'+
+    '如果你原本的打算和它们有冲突，一律以世界书为准。\n\n'+out.join('\n\n')+
+    '\n\n【世界书 · 再提醒一次】上面这些规则这一轮同样有效，回复前再检查一遍，不要漏、不要打折扣。'+
+    '这些是幕后规则：不要照抄原文，也不要主动提「世界书」「设定」这类词。';
 }
 window.wbForChar=wbForChar;
 
@@ -9314,9 +9324,10 @@ function addGroupCharacterContext(sys,g,c){
   if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
-  var wbC=wbForChar(c);if(wbC)sys.push(wbC);   /* 世界书：挂在这个角色身上的共同设定 */
+  var wbC=wbForChar(c);   /* 世界书：挂在这个角色身上的共同设定；放到这一段的最后，分量更重 */
   if(c.examples)sys.push('【对话示例】'+c.examples);
   if(cfg.timeOn!==false)sys.push('【现在的时间】现在是 '+P4.now()+'。群里聊天记录里提到的时间（比如 5 月）都是过去，不要当成现在。');
+  if(wbC)sys.push(wbC);
 }
 /* 组装群聊发言的基础上下文。 */
 function buildGroupBaseContext(g,c){
