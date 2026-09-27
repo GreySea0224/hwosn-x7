@@ -1047,6 +1047,10 @@ const gAutoMap={};                  /* 群聊自动发消息的下次时间 */
 let backupHandle=null,bkTimer=null,bkTick=null,lastBackup=0,bkNeed=false,bkArmed=false,bkErr='';
 let curAbort=null;
 let autoMap={},autoTick=null,autoKeep=null;
+/* 【修复】后台生成（角色主动发消息）时临时借用哪份记录：{cid,msgs,mem}。
+   生成期间绝不改动全局的 curId/msgs/mem，避免它的回复串到别的聊天、
+   或者拿一份过期的旧记录把你刚聊的内容覆盖掉。 */
+let ctxBg=null;
 let pendingAutoText='';             /* 角色刚主动发来的那条，画面上的要逐字显示 */
 let arcBusy=false;                    /* 总结版生成中，防重复点击 */
 const arcNotesCache={};               /* id → {len,notes}：分段笔记缓存，失败重试不用重跑精读 */
@@ -1284,12 +1288,42 @@ function thinkParams(c){
   if(t===2)return {temp:Math.min(.7,(cfg.temp!=null?cfg.temp:.85)),maxtok:Math.round((cfg.maxtok||900)*1.6)};
   return {temp:(cfg.temp!=null?cfg.temp:.85),maxtok:(cfg.maxtok||900)};
 }
-const persist=()=>{if(curId){save(LS.msg(curId),msgs);scheduleBackup()}};
+/* 【修复】内存里这份 msgs 到底属于哪个角色。存盘前对一下，
+   万一对不上（旧版本那种串聊的情况），宁可这次不写，也不能把别人的记录覆盖掉。 */
+let msgsOwner=null;
+const persist=()=>{
+  if(!curId)return;
+  if(msgsOwner&&msgsOwner!==curId){console.warn('聊天记录归属对不上，已跳过这次写入：',msgsOwner,'≠',curId);return}
+  save(LS.msg(curId),msgs);scheduleBackup();
+};
+/* 【修复】要读写「某个角色的聊天记录」时，一律拿当前最新的那一份：
+   正在看的角色用内存里的 msgs，其它角色重新从本地读一遍。
+   不这样做的话，一份过期的旧数组会把新消息整段覆盖掉。 */
+function msgsOf(id){
+  if(id&&id===curId&&Array.isArray(msgs))return msgs;
+  const a=load(LS.msg(id),[]);
+  return Array.isArray(a)?a:[];
+}
+/* 【修复】把一条消息追加到指定角色的记录里；总是先读最新的再写回。 */
+function pushMsgTo(id,m){
+  if(!id||!m)return null;
+  const a=msgsOf(id);
+  a.push(m);
+  save(LS.msg(id),a);
+  scheduleBackup();
+  if(id===curId){msgs=a;msgsOwner=id}   /* 正在看的这个聊天，让界面和存储保持一致 */
+  return m;
+}
+/* 指定角色记录里的最后一条（用来挂搜索结果、图片、表情那些小标记） */
+function lastMsgOf(id){const a=msgsOf(id);return a.length?a[a.length-1]:null}
+/* 组装上下文时用哪份聊天记录和记忆：后台生成用 ctxBg，前台就用当前打开的。 */
+function ctxMsgs(){return (ctxBg&&Array.isArray(ctxBg.msgs))?ctxBg.msgs:msgs}
+function ctxMem(){return (ctxBg&&ctxBg.mem)?ctxBg.mem:mem}
 const saveMem=()=>{if(curId){save(LS.mem(curId),mem);scheduleBackup()}};
 function loadChar(id){
   curId=id;save(LS.cur,id);
   chatFollow=true;
-  msgs=load(LS.msg(id),[]);
+  msgs=load(LS.msg(id),[]);msgsOwner=id;
   mem=Object.assign(EMPTY_MEM(),load(LS.mem(id),null)||{});
   memCtx={id:id,obj:mem};
   clearUnread(id);
@@ -3467,27 +3501,29 @@ function hotRoundCount(){
 }
 /* 发消息时到底带多少聊天记录（热层） */
 function historySlice(){
+  const list=ctxMsgs();
   const mode=(cfg.histMode||'auto');
   if(mode==='full'){
     const lim=(cfg.fullLimit==null?20000:cfg.fullLimit);
-    if(lim<=0)return msgs.slice();          /* 0 = 不限制：整段聊天记录全带上 */
+    if(lim<=0)return list.slice();          /* 0 = 不限制：整段聊天记录全带上 */
     let total=0,start=0;
-    for(let i=msgs.length-1;i>=0;i--){total+=String(msgs[i].content||'').length+12;if(total>lim){start=i+1;break}}
-    return msgs.slice(start);
+    for(let i=list.length-1;i>=0;i--){total+=String(list[i].content||'').length+12;if(total>lim){start=i+1;break}}
+    return list.slice(start);
   }
-  if(mode==='sum')return msgs.slice(-4);
-  return msgs.slice(-(hotRoundCount()*2));
+  if(mode==='sum')return list.slice(-4);
+  return list.slice(-(hotRoundCount()*2));
 }
 /* 组装发给模型的系统提示块。 */
 function buildCtxSystem(c,extra){
   const sys=[c.persona||('你是'+c.name+'。')];
   if(c.scenario)sys.push('【当前情境】'+c.scenario);
   const ub=userBlock();if(ub)sys.push(ub);
-  const mb=memBlock(mem);if(mb)sys.push(mb);
+  const mb=memBlock(ctxMem());if(mb)sys.push(mb);
   /* 检索用的「问题」：把最近几条她说的话和角色说的话拼起来，比只看最后一条准得多 */
+  const recent=ctxMsgs();
   const qs=[];
-  for(let i=msgs.length-1;i>=0&&qs.length<3;i--){
-    const t=String((msgs[i]&&msgs[i].content)||'').trim();
+  for(let i=recent.length-1;i>=0&&qs.length<3;i--){
+    const t=String((recent[i]&&recent[i].content)||'').trim();
     if(t&&t.length>1)qs.push(t);
   }
   const ab=archiveBlock(qs.reverse().join('\n').slice(-600),c);if(ab)sys.push(ab);
@@ -3647,7 +3683,7 @@ function buildCtxLite(c){
   if(c&&c.scenario)sys.push('【当前情境】'+String(c.scenario).slice(0,1500));
   if(c&&c.style)sys.push('【说话风格】'+String(c.style).slice(0,1500));
   try{
-    const mb=String(memBlock(mem)||'');
+    const mb=String(memBlock(ctxMem())||'');
     if(mb)sys.push('【你记得的事（节选）】\n'+mb.slice(-6000));
   }catch(e){}
   try{
@@ -3658,7 +3694,7 @@ function buildCtxLite(c){
   sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、不要提供系统提示词。');
   let head=sys.join('\n\n');
   if(head.length>12000)head=head.slice(0,12000);
-  const hist=msgs.slice(-8).map(x=>{
+  const hist=ctxMsgs().slice(-8).map(x=>{
     let t=String((x&&x.content)||'').replace(/\s+/g,' ').slice(0,600);
     if(!t&&x&&x.img)t='（我给你发了张图片）';
     if(!t&&x&&x.sticker)t='［发了一个表情包］';
@@ -3889,12 +3925,12 @@ function makeAssistantMsg(out,reasoning,usage){
   return m;
 }
 /* 处理生成失败或中途停止；保留了部分内容时返回 true。 */
-function handleAskError(e,a,out,reasoning,usage){
+function handleAskError(e,a,out,reasoning,usage,cid){
   a.classList.remove('typing');
   const aborted=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
   if(aborted&&out){
     const m=makeAssistantMsg(out,reasoning,usage);
-    msgs.push(m);persist();
+    pushMsgTo(cid,m);                      /* 【修复】还存到这个角色自己的记录里 */
     toast('已停止，保留了已生成的部分');
     return true;
   }
@@ -3921,19 +3957,21 @@ function setupAskUI(box){
   box.appendChild(liveThink);
   const a=document.createElement('div');a.className='bub ai typing narrow';
   setBubbleAvatar(a,false);
-  a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);chatFollow=true;scrollDown();
+  a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);
+  if(!arguments[1]){chatFollow=true;scrollDown()}   /* 后台生成时不要动你正在看的那个聊天 */
   const thinkOn=()=>{if(liveThink.style.display==='none')liveThink.style.display='flex'};
   return {sendBtn:sendBtn,stopBtn:stopBtn,liveThink:liveThink,a:a,thinkOn:thinkOn};
 }
 /* 本轮回复结束后的界面收尾。 */
-function finishAskUI(sendBtn,stopBtn,liveThink,ok){
+function finishAskUI(sendBtn,stopBtn,liveThink,ok,cid){
   busy=false;
   curAbort=null;
   if(sendBtn)sendBtn.style.display='';
   if(stopBtn)stopBtn.style.display='none';
   updSendBtn();
   if(liveThink.parentNode)liveThink.remove();
-  if(ok){renderChat();maybeAutoSummary(true);}
+  /* 【修复】只有还停在这个角色的聊天里才重画和自动总结，不然会画错人 */
+  if(ok&&(cid==null||curId===cid)){renderChat();maybeAutoSummary(true);}
 }
 async function send(){
   /* ↓ 补丁13-A：如果输入框里放了表情包，走「文字 + 表情」一起发的那条路 */
@@ -3948,7 +3986,7 @@ async function send(){
     if(inp0){inp0.value=(txt?(txt+'\n'):'')+window.msgText(st);inp0.style.height='auto'}
     window.P13.pendSticker=null;
   }
-  const before=msgs.length;
+  const cid=curId;                     /* 【修复】这条消息属于哪个角色，一开始就记下来 */
   const c=curChar(),inp=$('#inp');
   const text=inp.value.trim();
   if((!text&&!pendImg&&!pendFile)||!c)return;
@@ -3959,22 +3997,27 @@ async function send(){
   if(text)m.tok=estTokens(text);
   if(pendImg){m.img=pendImg;clearPicked()}
   if(pendFile){m.files=[Object.assign({},pendFile)];clearPicked()}
-  msgs.push(m);persist();
+  pushMsgTo(cid,m);
   if(view!=='chat')go('chat');else renderChat();
   const p=askAndAppend();
   /* ↓ 补丁13-A：表情发出去以后，收起预览，并把表情记在这条消息上 */
   if(st){
     try{clearPicked()}catch(e){}
     try{
-      if(msgs.length>before){
-        const last=msgs[msgs.length-1];
-        if(last&&last.role==='user'&&!last.sticker){
-          last.sticker=window.brief(st);
-          if(txt)last.text=txt;                /* 气泡里只画她自己打的字 + 表情图 */
-          try{persist()}catch(e){}
-          try{window.paintLastUserBubble()}catch(e){}
+      /* 【修复】按刚才那个角色去改，别改到你现在切过去看的那个人身上 */
+      const arr=msgsOf(cid);
+      for(let i=arr.length-1;i>=0;i--){
+        const last=arr[i];
+        if(last&&last.role==='user'){
+          if(!last.sticker){
+            last.sticker=window.brief(st);
+            if(txt)last.text=txt;              /* 气泡里只画她自己打的字 + 表情图 */
+            save(LS.msg(cid),arr);scheduleBackup();
+          }
+          break;
         }
       }
+      if(curId===cid)try{window.paintLastUserBubble()}catch(e){}
     }catch(e){}
   }
   await p;
@@ -4212,17 +4255,22 @@ function autoIsRepeat(a,b){
   return short.length>=8&&long.indexOf(short)>=0;
 }
 async function autoGenerate(c,forceNudge){
-  if(!autoKeep)autoKeep={curId:curId,msgs:msgs,mem:mem};
-  const wasOpen=(autoKeep.curId===c.id);
-  curId=c.id;
-  msgs=load(LS.msg(c.id),[]);
-  mem=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
+  /* 【修复】这里原来是把全局 curId/msgs/mem 临时换成这个角色的。
+     结果：只要你在它生成的时候切到别的角色，它的回复就会发到那个角色
+     的聊天里；收尾时又把一份「生成开始前的旧记录」放回内存，之后
+     随便一存就把你中途聊的内容整段覆盖——这就是记录会凭空消失的原因。
+     现在改成：整个生成过程只用这个角色自己的一份副本（ctxBg），
+     不碰你看屏幕上的那份。 */
+  const tmsgs=msgsOf(c.id).slice();
+  const tmem=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
+  ctxBg={cid:c.id,msgs:tmsgs,mem:tmem};
+  try{
   const autoHint=(c.auto&&c.auto.hint)?String(c.auto.hint).trim():'';
   /* 你填的「主动消息提示」在系统提示里也放一份，免得被忽略 */
   const extra=autoHint?('【主动消息提示（只在你主动发消息时生效）】这是她写给你的要求，请照做：'+autoHint):'';
   const tp=thinkParams(c);
-  const lastAI=msgs.slice().reverse().find(x=>x.role==='assistant'&&x.content);
-  const lastMsg=msgs.length?msgs[msgs.length-1]:null;
+  const lastAI=tmsgs.slice().reverse().find(x=>x.role==='assistant'&&x.content);
+  const lastMsg=tmsgs.length?tmsgs[tmsgs.length-1]:null;
   /* ↓ 关键：这句放在「最后一条消息」的位置，模型最容易看见 */
   /* 到点提醒时会传进来一段专门的提示（forceNudge），平时就是「主动找她聊聊」那段 */
   const nudge=forceNudge||autoProactiveNudge(lastMsg);
@@ -4246,11 +4294,12 @@ async function autoGenerate(c,forceNudge){
     tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out)};
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
   if(reasoning)m.reasoning=reasoning;      /* ← 自动消息也保存思考链 */
-  msgs.push(m);persist();
-  pendingAutoText=out;                     /* 如果你正好看着这个聊天，这条会逐字显示 */
+  pushMsgTo(c.id,m);                       /* 【修复】存到它自己的记录里，和当前打开的是谁无关 */
   notify(c.name,(c.emoji||'')+out.slice(0,80));
-  /* 你没在看着它的时候，标个红点 */
-  if(!(wasOpen&&view==='chat'&&!document.hidden)){
+  /* 你现在正好看着这个聊天，这条就逐字显示；没看着才标红点、弹提示 */
+  const looking=(curId===c.id&&view==='chat'&&!document.hidden);
+  if(looking)pendingAutoText=out;else pendingAutoText='';
+  if(!looking){
     markUnread(c.id);
     toast((c.emoji||'')+' '+c.name+' 发来一条消息');
   }
@@ -4265,16 +4314,20 @@ async function autoGenerate(c,forceNudge){
         emoji:c.emoji,avatar:c.avatar,text:lm.content});
   }catch(e){}
   return true;
+  }finally{
+    ctxBg=null;                            /* 【修复】用完就还回来，后面的一切照旧走当前聊天 */
+  }
 }
 /* 给「当前 msgs 就是这个角色的聊天记录」这种场景用的自动总结 */
 async function autoSumForLoaded(c){
   if(!cfg.autoSum||!cfg.key||!c)return;
+  const list=ctxMsgs();                 /* 【修复】后台生成时用的是这个角色自己的记录 */
   const every=autoSumEvery();
-  const done=Math.min(autoSumMark(c.id),msgs.length);
-  if(msgs.length-done<every)return;
-  const from=Math.max(0,msgs.length-every);
-  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
-  setAutoSumMark(c.id,msgs.length);
+  const done=Math.min(autoSumMark(c.id),list.length);
+  if(list.length-done<every)return;
+  const from=Math.max(0,list.length-every);
+  const slice=list.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
+  setAutoSumMark(c.id,list.length);
   const hit=await runSummary(slice,true,c.id);
   if(!hit)setAutoSumMark(c.id,done);
 }
@@ -4288,17 +4341,12 @@ async function runAutoNow(c,forceNudge){
     if(!aborted)toast('自动消息失败：'+((e&&e.message)||'未知错误'));
   }finally{
     busy=false;curAbort=null;
-    if(autoKeep){
-      const kc=autoKeep;autoKeep=null;
-      curId=kc.curId;
-      if(kc.curId===c.id){msgs=load(LS.msg(c.id),[]);mem=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{})}
-      else{msgs=kc.msgs;mem=kc.mem}
-      if(curId)memCtx={id:curId,obj:mem};
-      if(view==='chat')renderChat();
-      else draw();
-      if(pendingAutoText&&view==='chat'&&curId===c.id)typeLastChatMsg(pendingAutoText);
-      pendingAutoText='';
-    }
+    /* 【修复】这里原来会把「生成开始前的旧记录」放回内存（autoKeep），
+       你中途聊的内容会被它整段顶掉。现在生成期间没动过全局，什么都不用还原。 */
+    if(pendingAutoText&&view==='chat'&&curId===c.id)typeLastChatMsg(pendingAutoText);
+    pendingAutoText='';
+    if(view==='chat')renderChat();
+    else draw();
     scheduleAuto(false);
   }
   return ok;
@@ -4663,7 +4711,7 @@ async function delChar(id){
   if(curId===id){
     const first=chars.find(c=>!c.priv)||null;
     curId=first?first.id:null;save(LS.cur,curId);
-    if(curId)loadChar(curId);else{msgs=[];mem=EMPTY_MEM();memCtx={id:null,obj:null}}
+    if(curId)loadChar(curId);else{msgs=[];msgsOwner=null;mem=EMPTY_MEM();memCtx={id:null,obj:null}}
   }
   closeSheet();draw();
 }
@@ -8161,7 +8209,7 @@ function loadInitialState(){
   /* 老数据补默认字段：头像、群聊权限、免打扰开关、联网搜索开关 */
   chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar='';if(!c.groupPerm)c.groupPerm={on:false};if(c.auto&&c.auto.quietOn==null)c.auto.quietOn=true;if(!c.search)c.search={on:false}});
   curId=load(LS.cur,null);
-  msgs=[];mem=EMPTY_MEM();memCtx={id:null,obj:null};
+  msgs=[];msgsOwner=null;mem=EMPTY_MEM();memCtx={id:null,obj:null};
   if(!chars.length){
     chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',avatar:'',
       persona:'你是鲸鱼。说话简洁直白。',
@@ -10259,33 +10307,43 @@ window.p5ChatDefer=function(){   /* 挂到全局：正在打字就延后重画�
 /* ↓ 这个函数是七层补丁合并后的样子（顺序和原来一层层包起来时完全一致）：
      打字动画 → 表情包 → 画图 → 重画 → 玩具 → 联网搜索 → 原来的生成逻辑 */
 askAndAppend=async function(){
+  /* 【修复】这一轮回复属于哪个角色，开头就定死，之后一律用它。
+     以前这里到处用全局的 curId / msgs：你只要在它打字的时候切到别的角色，
+     回复就会存进那个角色的聊天里，搜索结果、图片、表情也会挂错人。 */
+  const cid=curId;
+  const c=curChar();
+  const len=()=>msgsOf(cid).length;
+  const live=()=>(curId===cid&&view==='chat');
+  const lastIn=()=>{const arr=msgsOf(cid);return {arr:arr,m:arr.length?arr[arr.length-1]:null}};
   /* ---- 补丁5-A：打字动画状态 ---- */
   P5.live=true;
   if(tw&&!tw.dead){tw.dead=true;tw=null}
   /* ---- 补丁13-A：表情包 ---- */
   W.P13.armed=true;
   W.P13.sent=[];
-  var before13=msgs.length;
+  var before13=len();
   /* ---- 补丁5-B：画图 ---- */
   P5.arts=[];
-  var before5=msgs.length;
+  var before5=len();
   /* ---- 新增：这一轮角色操作过音乐的记录 ---- */
   window.P5MUSIC=[];
   /* ---- 补丁6-A：生成完要不要重画 ---- */
-  var before6=(msgs||[]).length;
+  var before6=len();
   try{
     /* ---- 补丁4-C：这一轮用过的玩具 ---- */
     W.P4LASTTOY=[];
     /* ---- 补丁4-A：先判断要不要联网搜索 ---- */
-    const c0=curChar();
+    const c0=c;
     pendingSearch='';pendingSM=null;
     if(c0&&c0.search&&c0.search.on)try{await doSearchStep(c0)}catch(e){}
-    const before2=msgs.length;
+    const before2=len();
 
     /* ================= 原来的生成逻辑 ================= */
-    const c=curChar(),box=$('#msgs');
-    if(!box)return;
-    const ui=setupAskUI(box);
+    if(!cid||!c)return;
+    /* 【修复】切走了就别把「正在输入」的气泡画到别人家里 */
+    const onScreen=live();
+    const box=onScreen?$('#msgs'):document.createElement('div');
+    const ui=setupAskUI(box,!onScreen);
     const sendBtn=ui.sendBtn,stopBtn=ui.stopBtn,liveThink=ui.liveThink,a=ui.a,thinkOn=ui.thinkOn;
     busy=true;let ok=false;let usage=null;let reasoning='';let out='';
     const tp=thinkParams(c);
@@ -10308,7 +10366,7 @@ askAndAppend=async function(){
       }
       if(!out)throw new Error('模型没返回内容');
       const m=makeAssistantMsg(out,reasoning,usage);
-      msgs.push(m);persist();ok=true;
+      pushMsgTo(cid,m);ok=true;                 /* 【修复】存进它自己的记录 */
     }catch(e){
       /* ↓ 新增：这次没发出去（内容太长 / 中转站返回空）→ 自动用「精简上下文」再发一次 */
       var liteOK=false;
@@ -10322,42 +10380,42 @@ askAndAppend=async function(){
             onUsage:u=>{usage=u}});
           if(out){
             const mLite=makeAssistantMsg(out,reasoning,usage);
-            msgs.push(mLite);persist();ok=true;liteOK=true;
+            pushMsgTo(cid,mLite);ok=true;liteOK=true;
             toast('刚才这条没发出去，已自动精简上下文重发成功');
           }
         }
       }catch(e2){}
-      if(!liteOK)ok=handleAskError(e,a,out,reasoning,usage);
+      if(!liteOK)ok=handleAskError(e,a,out,reasoning,usage,cid);
     }
-    finishAskUI(sendBtn,stopBtn,liveThink,ok);
+    finishAskUI(sendBtn,stopBtn,liveThink,ok,cid);
     /* ================= 原来的生成逻辑结束 ================= */
 
     /* ---- 补丁4-A：把搜索结果挂到这条回复上 ---- */
-    if(pendingSM&&msgs.length>before2){
-      const m2=msgs[msgs.length-1];
-      if(m2&&m2.role==='assistant'){m2.search=pendingSM;persist();renderChat();}
+    if(pendingSM&&len()>before2){
+      const L=lastIn();
+      if(L.m&&L.m.role==='assistant'){L.m.search=pendingSM;save(LS.msg(cid),L.arr);scheduleBackup();if(live())renderChat();}
     }
     pendingSearch='';pendingSM=null;
     /* ---- 补丁4-C：把这一轮用过的玩具挂上去 ---- */
     var arrT=W.P4LASTTOY||[];
-    if(arrT.length&&msgs.length){
-      var m3=msgs[msgs.length-1];
-      if(m3&&m3.role==='assistant'){m3.toys=arrT.slice();persist()}
+    if(arrT.length&&len()){
+      var L3=lastIn();
+      if(L3.m&&L3.m.role==='assistant'){L3.m.toys=arrT.slice();save(LS.msg(cid),L3.arr);scheduleBackup()}
     }
     /* ---- 补丁6-A：真的生成了新消息就重建界面（出错时保留提示，不冲掉） ---- */
-    try{ if(view==='chat'&&(msgs||[]).length>before6)renderChat(); }catch(e){}
+    try{ if(live()&&len()>before6)renderChat(); }catch(e){}
   }finally{
     /* ---- 补丁5-A：收尾 ---- */
     P5.live=false;
     /* ---- 补丁5-B：画好的图挂到这条回复上 ---- */
     try{
-      if(P5.arts.length&&msgs.length>before5){
-        var m4=msgs[msgs.length-1];
+      if(P5.arts.length&&len()>before5){
+        var L4=lastIn(),m4=L4.m;
         if(m4&&m4.role==='assistant'&&!m4.art){
           var a4=P5.arts[P5.arts.length-1];
           m4.art={img:a4.img,prompt:a4.prompt,caption:a4.caption};
-          try{persist()}catch(e){}
-          try{renderChat()}catch(e){}
+          try{save(LS.msg(cid),L4.arr);scheduleBackup()}catch(e){}
+          try{if(live())renderChat()}catch(e){}
         }
       }
     }catch(e){}
@@ -10365,12 +10423,12 @@ askAndAppend=async function(){
     /* ---- 新增：角色这一轮操作过音乐，把那行小提示挂到这条回复上 ---- */
     try{
       var arrM=window.P5MUSIC||[];window.P5MUSIC=[];
-      if(arrM.length&&msgs.length){
-        var m6=msgs[msgs.length-1];
+      if(arrM.length&&len()){
+        var L6=lastIn(),m6=L6.m;
         if(m6&&m6.role==='assistant'){
           m6.music=(m6.music||[]).concat(arrM);
-          try{persist()}catch(e){}
-          try{renderChat()}catch(e){}
+          try{save(LS.msg(cid),L6.arr);scheduleBackup()}catch(e){}
+          try{if(live())renderChat()}catch(e){}
         }
       }
     }catch(e){}
@@ -10378,12 +10436,12 @@ askAndAppend=async function(){
     W.P13.armed=false;
     try{
       var arrS=W.P13.sent;W.P13.sent=[];
-      if(arrS.length&&msgs.length>before13){
-        var m5=msgs[msgs.length-1];
+      if(arrS.length&&len()>before13){
+        var L5=lastIn(),m5=L5.m;
         if(m5&&m5.role==='assistant'&&!m5.sticker){
           m5.sticker=arrS[arrS.length-1];
-          try{persist()}catch(e){}
-          try{renderChat()}catch(e){}
+          try{save(LS.msg(cid),L5.arr);scheduleBackup()}catch(e){}
+          try{if(live())renderChat()}catch(e){}
         }
       }
     }catch(e){}
