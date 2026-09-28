@@ -633,7 +633,7 @@ const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',priv:'wh_priv',unread:'wh_unread',
   groups:'wh_groups',gauto:'wh_gauto',music:'wh_music',moments:'wh_moments',momSeen:'wh_momseen',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
-  summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id,
+  summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id,delmsg:id=>'wh_delmsg_'+id,
   mtag:'wh_mtag',mpin:'wh_mpin'};
 
 /* ---------- 主题 ---------- */
@@ -819,13 +819,36 @@ function save(k,v){
     }
   }catch(e){}
   if(cryptKey){store[k]=v;encWrite(k,v)}
-  else{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){alert('存不下：'+e.message)}}
+  else{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){saveFailNotice(k,e)}}
 }
 function removeKey(k){localStorage.removeItem(k);if(store)delete store[k]}
 function encWrite(k,v){
   const s=JSON.stringify(v);
   const prev=_writes[k]||Promise.resolve();
-  _writes[k]=prev.then(()=>encVal(cryptKey,s)).then(enc=>localStorage.setItem(k,enc)).catch(()=>{});
+  _writes[k]=prev.then(()=>encVal(cryptKey,s)).then(enc=>localStorage.setItem(k,enc)).catch(e=>saveFailNotice(k,e));
+}
+/* 【新增】写进本地存储失败时必须说出来。
+   以前加密模式下写入失败是「悄悄吞掉」的：界面照常显示，其实一条都没存，
+   刷新以后新消息就没了、导出的备份里也没有。现在统一在这里提醒。 */
+let _saveFailAt=0;
+function saveFailNotice(k,e){
+  try{console.warn('写入本地存储失败：',k,e)}catch(_){}
+  const msg=(e&&e.message)||String(e||'未知错误');
+  const now=Date.now();
+  if(now-_saveFailAt<20000)return;      /* 20 秒内只弹一次，免得刷屏 */
+  _saveFailAt=now;
+  const full=/quota|exceed|full/i.test(msg);
+  try{
+    if(full){
+      alert('存不下了：本地存储满了，这条内容可能没保存。\n\n'+
+        '请先做两件事：\n'+
+        '1）到「设置 → 数据与备份」点「导出备份」，先存一份文件；\n'+
+        '2）再删掉一些占地方的东西（表情包、聊天里的图片、朋友圈图片），然后重新发一次。\n\n'+
+        '（聊天记录另外有一份安全副本，可以点「从安全副本找回」试试。）');
+    }else{
+      alert('存不下：'+msg);
+    }
+  }catch(_){}
 }
 function allDataKeys(){
   const out=[];
@@ -1122,7 +1145,7 @@ function idbOpen(){
   return new Promise((res,rej)=>{
     if(_db)return res(_db);
     if(!window.indexedDB)return rej(new Error('这个浏览器不支持 IndexedDB'));
-    const r=indexedDB.open('wh_db',5);
+    const r=indexedDB.open('wh_db',6);
     r.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains('arc'))d.createObjectStore('arc');
@@ -1130,6 +1153,7 @@ function idbOpen(){
       if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');
       if(!d.objectStoreNames.contains('music'))d.createObjectStore('music');   /* 新增：存手机里的音乐文件 */
       if(!d.objectStoreNames.contains('memidx'))d.createObjectStore('memidx'); /* 记忆宫殿：索引（可随时重建，不是原文） */
+      if(!d.objectStoreNames.contains('msglog'))d.createObjectStore('msglog'); /* 【新增】聊天记录安全副本（防丢失用） */
     };
     r.onsuccess=e=>{_db=e.target.result;res(_db)};
     r.onerror=()=>rej(r.error||new Error('IndexedDB 打不开'));
@@ -1288,13 +1312,130 @@ function thinkParams(c){
   if(t===2)return {temp:Math.min(.7,(cfg.temp!=null?cfg.temp:.85)),maxtok:Math.round((cfg.maxtok||900)*1.6)};
   return {temp:(cfg.temp!=null?cfg.temp:.85),maxtok:(cfg.maxtok||900)};
 }
+/* ================= SAFEMSG：聊天记录安全写入（防丢失）开始 =================
+   背景：聊天记录原来是「整份覆盖」写进本地存储的。只要内存里那份比本地
+   存的旧（同时开了两个页面、手机把页面挂起后没刷新、后台生成用了旧记录
+   ……），一存就会把新消息抹掉。下面改成「先合并、再写入」，并且在
+   IndexedDB 里另留一份安全副本（本地存储写满时也不至于丢）。
+   注意：删除/编辑过的消息会记一个「删除标记」，合并时不会自己复活。 */
+const _mirrorTimer={};
+function msgKeyOf(m){
+  if(!m)return '';
+  return (m.role||'')+'|'+(m.t||0)+'|'+String(m.content==null?'':m.content).slice(0,64);
+}
+function delKeysOf(id){
+  try{const a=load(LS.delmsg(id),[]);return Array.isArray(a)?a:[]}catch(e){return []}
+}
+function addDelKey(id,key){
+  if(!id||!key)return;
+  const a=delKeysOf(id);
+  if(a.indexOf(key)>=0)return;
+  a.push(key);
+  while(a.length>400)a.shift();          /* 只留最近 400 条，防止越攒越大 */
+  save(LS.delmsg(id),a);
+}
+function markMsgDeleted(id,m){addDelKey(id,msgKeyOf(m))}
+/* 合并两份聊天记录：重复的去掉、缺的补上；都有时间就按时间排 */
+function mergeMsgs(oldArr,newArr,delKeys){
+  const del={};(delKeys||[]).forEach(k=>{del[k]=1});
+  const seen={},out=[];
+  const put=function(m){
+    if(!m)return;
+    const k=msgKeyOf(m);
+    if(!k||del[k]||seen[k])return;
+    seen[k]=1;out.push(m);
+  };
+  (Array.isArray(oldArr)?oldArr:[]).forEach(put);
+  (Array.isArray(newArr)?newArr:[]).forEach(put);
+  let allTimed=out.length>0;
+  for(let i=0;i<out.length;i++){const m=out[i];if(!(m&&typeof m.t==='number'&&m.t>0)){allTimed=false;break}}
+  if(allTimed)out.sort((a,b)=>a.t-b.t);
+  return out;
+}
+/* 写某个角色的聊天记录：先读本地最新的一份，合并后再写 */
+function saveMsgs(id,arr){
+  if(!id)return Array.isArray(arr)?arr:[];
+  let old=[];
+  try{const o=load(LS.msg(id),[]);if(Array.isArray(o))old=o}catch(e){}
+  const merged=mergeMsgs(old,arr,delKeysOf(id));
+  save(LS.msg(id),merged);
+  msgMirror(id,merged);
+  return merged;
+}
+/* 存完之后让「界面上的那份」和存储保持一致 */
+function saveArrFor(id,arr){
+  const merged=saveMsgs(id,arr);
+  if(id===curId){msgs=merged;msgsOwner=id}
+  return merged;
+}
+/* 安全副本：每个角色的聊天记录再往 IndexedDB 存一份（那边空间大得多） */
+function msgMirror(id,arr){
+  if(!id||!Array.isArray(arr))return;
+  const snap=arr.slice();
+  try{
+    clearTimeout(_mirrorTimer[id]);
+    _mirrorTimer[id]=setTimeout(function(){mirrorNow(id,snap)},1200);
+  }catch(e){}
+}
+function mirrorNow(id,snap){
+  try{idbPut('msg:'+id,{n:snap.length,at:Date.now(),ms:snap},'msglog').catch(function(){})}catch(e){}
+}
+/* 从安全副本里把「本地存储没有的消息」找回来 */
+async function recoverFromMirror(manual){
+  if(!window.indexedDB)return 0;
+  let keys=[];
+  try{keys=await idbKeys('msglog')}
+  catch(e){if(manual)alert('安全副本读不了：'+((e&&e.message)||e));return 0}
+  let fixed=0,lost=0;
+  for(const k0 of keys){
+    const k=String(k0);
+    if(k.indexOf('msg:')!==0)continue;
+    const id=k.slice(4);
+    let rec=null;
+    try{rec=await idbGet(k,'msglog')}catch(e){continue}
+    const ms=(rec&&Array.isArray(rec.ms))?rec.ms:null;
+    if(!ms||!ms.length)continue;
+    let cur=[];
+    try{const o=load(LS.msg(id),[]);if(Array.isArray(o))cur=o}catch(e){}
+    const merged=mergeMsgs(cur,ms,delKeysOf(id));
+    if(merged.length<=cur.length)continue;
+    try{
+      save(LS.msg(id),merged);        /* 这里不调 saveMsgs，免得又写一遍副本 */
+      if(id===curId){msgs=merged;msgsOwner=id}
+      fixed++;lost+=(merged.length-cur.length);
+    }catch(e){}
+  }
+  if(fixed){
+    try{if(view==='chat')renderChat()}catch(e){}
+    toast('已从安全副本找回 '+lost+' 条消息（'+fixed+' 个角色）');
+  }else if(manual){
+    alert('安全副本里没有更多的消息了，现在显示的就是最全的一份。');
+  }
+  return fixed;
+}
+/* 别的标签页/窗口改了这个角色的记录：立刻合并进来，别用旧的那份覆盖 */
+window.addEventListener('storage',function(e){
+  try{
+    if(!e||!e.key||!curId)return;
+    if(e.key!==LS.msg(curId))return;
+    const disk=load(LS.msg(curId),[]);
+    if(!Array.isArray(disk)||!disk.length)return;
+    const merged=mergeMsgs(disk,msgs,delKeysOf(curId));
+    if(merged.length!==msgs.length){
+      msgs=merged;msgsOwner=curId;
+      if(view==='chat')try{renderChat()}catch(er){}
+      try{toast('另一个页面里也有新消息，已经合并进来')}catch(er){}
+    }
+  }catch(err){}
+});
+/* ================= SAFEMSG 结束 ================= */
 /* 【修复】内存里这份 msgs 到底属于哪个角色。存盘前对一下，
    万一对不上（旧版本那种串聊的情况），宁可这次不写，也不能把别人的记录覆盖掉。 */
 let msgsOwner=null;
 const persist=()=>{
   if(!curId)return;
   if(msgsOwner&&msgsOwner!==curId){console.warn('聊天记录归属对不上，已跳过这次写入：',msgsOwner,'≠',curId);return}
-  save(LS.msg(curId),msgs);scheduleBackup();
+  msgs=saveMsgs(curId,msgs);msgsOwner=curId;scheduleBackup();
 };
 /* 【修复】要读写「某个角色的聊天记录」时，一律拿当前最新的那一份：
    正在看的角色用内存里的 msgs，其它角色重新从本地读一遍。
@@ -1309,9 +1450,9 @@ function pushMsgTo(id,m){
   if(!id||!m)return null;
   const a=msgsOf(id);
   a.push(m);
-  save(LS.msg(id),a);
+  const merged=saveMsgs(id,a);
   scheduleBackup();
-  if(id===curId){msgs=a;msgsOwner=id}   /* 正在看的这个聊天，让界面和存储保持一致 */
+  if(id===curId){msgs=merged;msgsOwner=id}   /* 正在看的这个聊天，让界面和存储保持一致 */
   return m;
 }
 /* 指定角色记录里的最后一条（用来挂搜索结果、图片、表情那些小标记） */
@@ -4012,7 +4153,7 @@ async function send(){
           if(!last.sticker){
             last.sticker=window.brief(st);
             if(txt)last.text=txt;              /* 气泡里只画她自己打的字 + 表情图 */
-            save(LS.msg(cid),arr);scheduleBackup();
+            saveArrFor(cid,arr);scheduleBackup();
           }
           break;
         }
@@ -4029,6 +4170,7 @@ async function regen(){
   if(i<0)return alert('没有可重做的回复');
   if(i!==msgs.length-1)return alert('最后一条不是ta的回复，先删掉它');
   if(!confirm('丢掉这条，让它重说一遍？'))return;
+  markMsgDeleted(curId,msgs[i]);
   msgs.splice(i,1);persist();renderChat();
   await askAndAppend();
 }
@@ -4045,11 +4187,13 @@ function saveEdit(){
   const v=$('#emv').value.trim();
   const m=msgs[msgs.length-1];
   if(!v&&!(m&&m.img))return alert('不能空着');
+  markMsgDeleted(curId,m);            /* 记一笔：这条的旧内容不要了 */
   m.content=v;m.tok=estTokens(v);persist();closeSheet();renderChat();
 }
 function delMsg(){
   if(busy||!msgs.length)return;
   if(!confirm('删掉最后一条？'))return;
+  markMsgDeleted(curId,msgs[msgs.length-1]);
   msgs.pop();persist();renderChat();
 }
 
@@ -5748,7 +5892,7 @@ function remindFallback(c,t){
   const m={role:'assistant',content:txt,t:Date.now(),tok:0};
   const wasOpen=(curId===c.id&&view==='chat'&&!document.hidden);
   if(curId===c.id&&msgs&&msgs.length!==undefined){msgs.push(m);persist()}
-  else{const a=load(LS.msg(c.id),[]);a.push(m);save(LS.msg(c.id),a)}
+  else{const a=load(LS.msg(c.id),[]);a.push(m);saveArrFor(c.id,a)}
   try{window.P5.maybeNotify({kind:'char',cid:c.id,name:(c.emoji||'')+' '+c.name,emoji:c.emoji,avatar:c.avatar,text:txt})}catch(e){}
   if(wasOpen){try{renderChat()}catch(e){}}
   else{markUnread(c.id);toast('⏰ '+c.name+' 提醒你：'+String(t.text||''))}
@@ -7622,6 +7766,8 @@ function cfgDataCardHTML(){
   '<div class="row"><button class="col" onclick="exportAll()">导出备份</button>'+
   '<button class="col" onclick="document.getElementById(\'imp\').click()">导入备份</button></div>'+
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
+  '<div class="row" style="margin-top:10px"><button class="col" onclick="showStorageUse()">📦 本地存储用量</button>'+
+  '<button class="col" onclick="recoverFromMirror(true)">🛟 从安全副本找回</button></div>'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="chooseBackupFile()">'+(backupHandle?'更换自动备份文件':'开启自动备份到文件')+'</button></div>'+
   (backupHandle?('<div class="row" style="margin-top:8px"><button class="col" onclick="backupNow()">💾 立即备份一次</button></div>'):'')+
   '<div class="setrow" style="margin-top:10px">'+
@@ -7817,7 +7963,7 @@ async function encryptStoreToLocal(key){
 }
 /* 把 IndexedDB 里的数据加密后写回。 */
 async function reencryptIndexedDb(key,oldKey){
-  for(const st of ['arc','rawlog']){
+  for(const st of ['arc','rawlog','msglog']){
     let ks=[];try{ks=await idbKeys(st)}catch(e){}
     for(const k of ks){
       let raw;try{raw=await idbGetRaw(k,st)}catch(e){continue}
@@ -7853,7 +7999,7 @@ async function removePassword(){
   if(!confirm('移除密码？聊天和记忆会变回明文存储（任何拿到设备的人都能看到）'))return;
   try{
     for(const k of Object.keys(store)){localStorage.setItem(k,JSON.stringify(store[k]))}
-    for(const st of ['arc','rawlog']){
+    for(const st of ['arc','rawlog','msglog']){
       let ks=[];try{ks=await idbKeys(st)}catch(e){}
       for(const k of ks){
         let raw;try{raw=await idbGetRaw(k,st)}catch(e){continue}
@@ -7967,7 +8113,8 @@ function importBackupCfg(d){
 /* 导入备份：角色、消息、记忆、待办、群记忆和档案列表。 */
 function importBackupBaseData(d){
   if(d.chars)save(LS.chars,d.chars);
-  if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
+  /* 导入是「整份替换」：顺手清掉删除标记，免得以前删过的消息把导入的记录挡住 */
+  if(d.messages)Object.keys(d.messages).forEach(k=>{save(LS.delmsg(k),[]);save(LS.msg(k),d.messages[k])});
   if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
   if(d.todos)Object.keys(d.todos).forEach(k=>{if(d.todos[k]&&d.todos[k].length)save(LS.todo(k),d.todos[k])});
   if(d.gmems)Object.keys(d.gmems).forEach(k=>{if(d.gmems[k]&&d.gmems[k].length)save(LS.gmem(k),d.gmems[k])});
@@ -8022,6 +8169,49 @@ async function parseBackupText(s){
   }
   try{return {data:JSON.parse(s)}}
   catch(e){return {error:'文件读不了：'+e.message}}
+}
+/* 【新增】看看本地存储都用在哪了：聊天记录就存在这里，满了就存不进新消息 */
+function storageNameOf(k){
+  if(k.indexOf('wh_msg_')===0)return '聊天记录';
+  if(k.indexOf('wh_mem_')===0)return '记忆';
+  if(k.indexOf('wh_delmsg_')===0)return '删除标记';
+  if(k.indexOf('wh_actmsg_')===0)return '演绎记录';
+  if(k.indexOf('wh_gmsg_')===0)return '群聊记录';
+  if(k.indexOf('wh_arc_')===0)return '档案（正文字在 IndexedDB，这里只是列表）';
+  if(k==='wh_stickers')return '表情包';
+  if(k==='wh_sticker_cats')return '表情分类';
+  if(k==='wh_chars')return '角色设定';
+  if(k==='wh_cfg')return '设置';
+  if(k==='wh_moments')return '朋友圈';
+  if(k==='wh_arcs')return '档案列表';
+  if(k.indexOf('wh_p5_art_')===0)return '画册';
+  return k;
+}
+function showStorageUse(){
+  try{
+    const kb=n=>n<1024?(n+' 字节'):(n<1048576?(Math.round(n/102.4)/10)+' KB':(Math.round(n/104857.6)/10)+' MB');
+    let total=0;
+    const agg={};
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(!k)continue;
+      const v=localStorage.getItem(k)||'';
+      const n=k.length+v.length;
+      total+=n;
+      const nm=storageNameOf(k);
+      agg[nm]=(agg[nm]||0)+n;
+    }
+    const list=Object.keys(agg).map(nm=>({nm:nm,n:agg[nm]})).sort((a,b)=>b.n-a.n);
+    let txt='本地存储总用量：'+kb(total)+'（浏览器一般只给 5 MB 左右）\n\n占地方最多的几项：\n'+
+      list.slice(0,10).map(o=>'· '+o.nm+'：'+kb(o.n)).join('\n');
+    if(total>4.2*1024*1024){
+      txt+='\n\n⚠️ 快满了！满了以后新消息就存不进去。请先点「导出备份」存一份文件，'+
+        '再删掉一些表情包或带图片的消息，腾出空间。';
+    }else{
+      txt+='\n\n✅ 目前还没满，空间够用。';
+    }
+    alert(txt);
+  }catch(e){alert('看不了用量：'+((e&&e.message)||e))}
 }
 /* 确认后按顺序应用一份备份。 */
 async function applyImportedBackup(d){
@@ -8253,6 +8443,8 @@ function openDeepLink(){
 async function initApp(){
   loadInitialState();
   finishAppStart();
+  /* 【新增】开机后跟 IndexedDB 里的安全副本对一次：本地存储里缺的消息补回来 */
+  try{await recoverFromMirror(false)}catch(e){}
 }
 async function boot(){
   let meta=null;
@@ -10393,14 +10585,14 @@ askAndAppend=async function(){
     /* ---- 补丁4-A：把搜索结果挂到这条回复上 ---- */
     if(pendingSM&&len()>before2){
       const L=lastIn();
-      if(L.m&&L.m.role==='assistant'){L.m.search=pendingSM;save(LS.msg(cid),L.arr);scheduleBackup();if(live())renderChat();}
+      if(L.m&&L.m.role==='assistant'){L.m.search=pendingSM;saveArrFor(cid,L.arr);scheduleBackup();if(live())renderChat();}
     }
     pendingSearch='';pendingSM=null;
     /* ---- 补丁4-C：把这一轮用过的玩具挂上去 ---- */
     var arrT=W.P4LASTTOY||[];
     if(arrT.length&&len()){
       var L3=lastIn();
-      if(L3.m&&L3.m.role==='assistant'){L3.m.toys=arrT.slice();save(LS.msg(cid),L3.arr);scheduleBackup()}
+      if(L3.m&&L3.m.role==='assistant'){L3.m.toys=arrT.slice();saveArrFor(cid,L3.arr);scheduleBackup()}
     }
     /* ---- 补丁6-A：真的生成了新消息就重建界面（出错时保留提示，不冲掉） ---- */
     try{ if(live()&&len()>before6)renderChat(); }catch(e){}
@@ -10414,7 +10606,7 @@ askAndAppend=async function(){
         if(m4&&m4.role==='assistant'&&!m4.art){
           var a4=P5.arts[P5.arts.length-1];
           m4.art={img:a4.img,prompt:a4.prompt,caption:a4.caption};
-          try{save(LS.msg(cid),L4.arr);scheduleBackup()}catch(e){}
+          try{saveArrFor(cid,L4.arr);scheduleBackup()}catch(e){}
           try{if(live())renderChat()}catch(e){}
         }
       }
@@ -10427,7 +10619,7 @@ askAndAppend=async function(){
         var L6=lastIn(),m6=L6.m;
         if(m6&&m6.role==='assistant'){
           m6.music=(m6.music||[]).concat(arrM);
-          try{save(LS.msg(cid),L6.arr);scheduleBackup()}catch(e){}
+          try{saveArrFor(cid,L6.arr);scheduleBackup()}catch(e){}
           try{if(live())renderChat()}catch(e){}
         }
       }
@@ -10440,7 +10632,7 @@ askAndAppend=async function(){
         var L5=lastIn(),m5=L5.m;
         if(m5&&m5.role==='assistant'&&!m5.sticker){
           m5.sticker=arrS[arrS.length-1];
-          try{save(LS.msg(cid),L5.arr);scheduleBackup()}catch(e){}
+          try{saveArrFor(cid,L5.arr);scheduleBackup()}catch(e){}
           try{if(live())renderChat()}catch(e){}
         }
       }
@@ -11652,7 +11844,8 @@ importAll=function(input){
       if(!confirm('导入会覆盖现在所有数据，确定？'))return;
       importBackupCfg(d);            /* 用带保护的写法：保留你现在的密钥，接口地址变了会先问你 */
       if(d.chars)save(LS.chars,d.chars);
-      if(d.messages)Object.keys(d.messages).forEach(k=>save(LS.msg(k),d.messages[k]));
+      /* 导入是「整份替换」：顺手清掉删除标记，免得以前删过的消息把导入的记录挡住 */
+      if(d.messages)Object.keys(d.messages).forEach(k=>{save(LS.delmsg(k),[]);save(LS.msg(k),d.messages[k])});
       if(d.memories)Object.keys(d.memories).forEach(k=>{if(d.memories[k])save(LS.mem(k),d.memories[k])});
       if(d.todos)Object.keys(d.todos).forEach(k=>{if(d.todos[k]&&d.todos[k].length)save(LS.todo(k),d.todos[k])});
       if(d.gmems)Object.keys(d.gmems).forEach(k=>{if(d.gmems[k]&&d.gmems[k].length)save(LS.gmem(k),d.gmems[k])});
@@ -12273,12 +12466,14 @@ P6.saveEdit=function(){
   var el=document.getElementById('p6ed');
   var v=el?String(el.value||'').trim():'';
   if(!v&&!m.img)return say('不能空着');
+  markMsgDeleted(curId,m);            /* 记一笔：这条的旧内容不要了 */
   m.content=v;m.tok=estTokens(v);
   persist();closeSheet();renderChat();say('已保存');
 };
 P6.del=function(){
   if(!msgs[curI])return;
   if(!confirm('删除这条消息？删了就找不回来了'))return;
+  markMsgDeleted(curId,msgs[curI]);
   msgs.splice(curI,1);persist();closeSheet();renderChat();say('已删除');
 };
 P6.regen=function(){
@@ -12350,7 +12545,7 @@ P6.selDel=function(){
   var idx=Object.keys(sel.set).map(Number).filter(function(i){return msgs[i]}).sort(function(a,b){return b-a});
   if(!idx.length)return say('先点几条消息选中');
   if(!confirm('删除选中的 '+idx.length+' 条消息？删了就找不回来了'))return;
-  idx.forEach(function(i){msgs.splice(i,1)});
+  idx.forEach(function(i){markMsgDeleted(curId,msgs[i]);msgs.splice(i,1)});
   persist();var n=idx.length;selStop();renderChat();say('已删除 '+n+' 条');
 };
 /* 【新】把选中的这几条，按原来的先后顺序追加到「原文日志」里（不用管它们是不是连着的） */
