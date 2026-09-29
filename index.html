@@ -51,6 +51,7 @@ button:disabled{opacity:.45;pointer-events:none}
 .bub.ai{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:6px}
 .bub .time{display:block;margin-top:5px;font-size:10px;opacity:.5;text-align:right;line-height:1;user-select:none}
 .bub .msgimg{display:block;max-width:100%;border-radius:10px;margin-bottom:5px;border:1px solid rgba(0,0,0,.15)}
+.bub .imgcleared{display:inline-block;font-size:12px;color:var(--dim);border:1px dashed var(--line);border-radius:10px;padding:6px 9px;margin-bottom:5px}
 .bub.typing{padding:13px 15px}
 .bub.typing span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:var(--dim);animation:tp 1.2s infinite}
 .bub.typing span:nth-child(2){animation-delay:.15s}
@@ -799,7 +800,199 @@ function wallClear(tag){
 let store=null, cryptKey=null;
 const _writes={};
 function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o,k)}
+
+/* ================= 聊天记录搬家：localStorage → IndexedDB =================
+   背景：聊天记录原来整份存在 localStorage（一般只有 5MB，满了新消息就存不进去）。
+   现在改成：正本存在 IndexedDB 的 msglog 仓库里（键名 msg:角色id），内存里留
+   一份同步缓存 msgMem，这样文件里几百处「同步读聊天记录」的写法一处都不用改。
+   三条安全线：
+   ① 只有确认 IndexedDB 写得进去、还能读回来，才删掉 localStorage 里那份；
+   ② IndexedDB 万一打不开，自动退回原来的 localStorage 存法，功能照常；
+   ③ 同一个角色的写入按先后排队，永远是后写的覆盖先写的，不会新旧互相覆盖。 */
+const MSG_PREFIX='wh_msg_';
+const MSG_STORE='msglog';               /* 复用已有的仓库：原来存安全副本的那个 */
+const MSG_FLAG='wh_msgs_idb';           /* 只记一个小标记：聊天记录是否已经搬进数据库 */
+let msgIdbOk=false;                     /* IndexedDB 是否已确认可以当正本 */
+let msgPreloadMissed=0;                 /* 开机时读不出来的记录条数（用来提醒用户，不静默） */
+const msgLocked=Object.create(null);    /* 读不出来的角色：先锁住，不允许覆盖它的旧记录 */
+const msgMem=Object.create(null);       /* 角色id → 消息数组（内存缓存） */
+const _msgWrites={};                    /* 角色id → 写入队列 */
+let _msgPending=0;                      /* 还没写完的笔数（刷新前要等它归零） */
+let _msgChan=null;                      /* 多标签页同步用 */
+function msgKeyId(k){return (typeof k==='string'&&k.indexOf(MSG_PREFIX)===0)?k.slice(MSG_PREFIX.length):null}
+function msgRecKey(id){return 'msg:'+id}
+function msgMemHas(id){return Object.prototype.hasOwnProperty.call(msgMem,id)}
+try{if(typeof BroadcastChannel!=='undefined')_msgChan=new BroadcastChannel('wh_msg_sync')}catch(e){_msgChan=null}
+function msgBroadcast(id){try{if(_msgChan)_msgChan.postMessage({id:String(id),at:Date.now()})}catch(e){}}
+/* 写进 IndexedDB（开着应用锁密码时由 idbPut 自动加密，和以前存安全副本时一致） */
+function msgWrite(id,arr){
+  const snap=Array.isArray(arr)?arr.slice():[];
+  _msgPending++;
+  const prev=_msgWrites[id]||Promise.resolve();
+  const run=prev.catch(function(){}).then(function(){
+    return idbPut(msgRecKey(id),{n:snap.length,at:Date.now(),ms:snap},MSG_STORE);
+  });
+  _msgWrites[id]=run.catch(function(){});
+  run.then(function(){
+    _msgPending--;msgBroadcast(id);
+  },function(e){
+    _msgPending--;saveFailNotice(MSG_PREFIX+id,e);
+  });
+  return run;
+}
+/* 等所有聊天记录落盘（导入备份、刷新页面之前必须等，否则会白写） */
+async function msgFlush(){
+  for(let i=0;i<200&&_msgPending>0;i++){
+    try{await Promise.all(Object.keys(_msgWrites).map(function(k){return _msgWrites[k]}))}catch(e){}
+  }
+  return _msgPending===0;
+}
+/* 旧记录没读出来时的提醒（同一个页面只弹一次，免得刷屏） */
+let _msgLockWarned=false;
+function msgLockWarn(){
+  try{console.warn('这个角色的旧聊天记录这次没从数据库里读出来，已暂停写入，以免覆盖它')}catch(e){}
+  if(_msgLockWarned)return;
+  _msgLockWarned=true;
+  try{
+    alert('注意：有一个角色的旧聊天记录这次没能从本地数据库读出来。\n\n'+
+      '为了不把旧记录覆盖掉，刚发的这条暂时只留在屏幕上，没有写进数据库。\n\n'+
+      '请你：\n'+
+      '1）先去「设置 → 数据与备份」点「导出备份」，存一份文件留底；\n'+
+      '2）再刷新页面（或重开 App），让它重新读一遍。\n\n'+
+      '如果刷新后还是这样，就把导出的备份文件发我看看，先别删任何东西。');
+  }catch(e){}
+}
+/* 别的标签页写完了：把它读回来合并
+   （IndexedDB 不会触发 localStorage 的 storage 事件，所以改用 BroadcastChannel） */
+async function msgRemoteSync(d){
+  if(!d||!d.id||!msgIdbOk)return;
+  const id=String(d.id);
+  let rec=null;
+  try{rec=await idbGet(msgRecKey(id),MSG_STORE)}catch(e){return}
+  const ms=(rec&&Array.isArray(rec.ms))?rec.ms:null;
+  if(!ms)return;
+  const cur=(msgMemHas(id)&&Array.isArray(msgMem[id]))?msgMem[id]:ms;
+  const merged=mergeMsgs(cur,ms,delKeysOf(id));
+  const grew=merged.length!==cur.length;
+  msgMem[id]=merged;
+  if(!grew)return;
+  if(id===curId){msgs=merged;msgsOwner=id;if(view==='chat')try{renderChat()}catch(e){}}
+  try{toast('另一个页面里也有新消息，已经合并进来')}catch(e){}
+}
+if(_msgChan)_msgChan.onmessage=function(ev){try{msgRemoteSync(ev&&ev.data)}catch(e){}};
+/* 开机：把聊天记录读进内存，顺便把还留在 localStorage 的旧记录搬到 IndexedDB。
+   必须在画界面之前 await 完成，否则会看到「聊天记录空了」的假象。 */
+async function preloadMsgs(){
+  msgIdbOk=false;
+  try{
+    if(!window.indexedDB)throw new Error('这个浏览器不支持 IndexedDB');
+    /* 加个超时：数据库万一没反应，也不能让整个 App 卡着打不开 */
+    await Promise.race([
+      idbOpen(),
+      new Promise(function(_,rej){setTimeout(function(){rej(new Error('本地数据库响应超时'))},8000)})
+    ]);
+    msgIdbOk=true;
+  }catch(e){
+    msgIdbOk=false;
+    try{console.warn('聊天记录暂时仍放在本地存储里（IndexedDB 打不开）：',e)}catch(_){}
+    let hadIdb=false;
+    try{hadIdb=localStorage.getItem(MSG_FLAG)!=null}catch(e2){}
+    return {ok:false,moved:0,failed:0,idbFail:true,hadIdb:hadIdb};
+  }
+  /* ① IndexedDB 里已有的记录：读进内存当正本（以前那份「安全副本」就是它） */
+  let keys=[];
+  let listOk=true;
+  try{keys=await idbKeys(MSG_STORE)}catch(e){listOk=false;keys=[]}
+  if(!listOk){
+    /* 列不出仓库里的键：退一步，按角色列表逐个去取（总比把已有记录当成空的强） */
+    try{
+      for(const id of await charIdsFromStore())keys.push(msgRecKey(id));
+      try{console.warn('读取聊天记录索引失败，已改用「按角色逐个读取」的兜底办法')}catch(e){}
+    }catch(e){}
+  }
+  msgPreloadMissed=0;
+  for(const k of keys){
+    const s=String(k);
+    if(s.indexOf('msg:')!==0)continue;
+    let ms=null;
+    for(let tryN=0;tryN<2&&!ms;tryN++){        /* 读不出来再试一次，别一次失败就认成空的 */
+      let rec=null;
+      try{rec=await idbGet(s,MSG_STORE)}catch(e){rec=null}
+      if(rec&&Array.isArray(rec.ms))ms=rec.ms;
+    }
+    if(ms)msgMem[s.slice(4)]=ms;
+    else{msgPreloadMissed++;msgLocked[s.slice(4)]=1}
+  }
+  /* ② localStorage 里还剩的旧聊天记录：合并后写进 IndexedDB，确认没问题才删原来那份 */
+  const left=[];
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.indexOf(MSG_PREFIX)===0)left.push(k);
+    }
+  }catch(e){}
+  let moved=0,failed=0;
+  for(const k of left){
+    const id=k.slice(MSG_PREFIX.length);
+    let raw=null;try{raw=localStorage.getItem(k)}catch(e){}
+    if(raw==null)continue;
+    let local=null;
+    try{
+      if(raw.indexOf('enc:')===0){          /* 加密过的：解锁以后才搬得动 */
+        if(!cryptKey)continue;
+        local=JSON.parse(await decVal(cryptKey,raw));
+      }else local=JSON.parse(raw);
+    }catch(e){local=null}
+    if(!Array.isArray(local))continue;
+    const oldArr=(msgMemHas(id)&&Array.isArray(msgMem[id]))?msgMem[id]:[];
+    const merged=mergeMsgs(oldArr,local,delKeysOf(id));
+    msgMem[id]=merged;                      /* 先放进内存，界面绝不会缺记录 */
+    try{
+      await idbPut(msgRecKey(id),{n:merged.length,at:Date.now(),ms:merged},MSG_STORE);
+      const back=await idbGet(msgRecKey(id),MSG_STORE);
+      if(!(back&&Array.isArray(back.ms)&&back.ms.length>=merged.length))throw new Error('写回校验没过');
+      try{localStorage.removeItem(k)}catch(e){}   /* 确认写进去了，才删 localStorage 里那份 */
+      moved++;
+    }catch(e){
+      failed++;                             /* 搬不动就先留着，下次开机再试 */
+      try{console.warn('这条聊天记录这次没搬成，已经原样留着：',k,e)}catch(_){}
+    }
+  }
+  /* 只要数据库里确实有记录（或这次搬进来了），就留个标记：
+     以后万一数据库打不开，好判断「记录是搬走了」而不是「本来就没有」 */
+  try{if(moved||Object.keys(msgMem).length)localStorage.setItem(MSG_FLAG,'1')}catch(e){}
+  return {ok:true,moved:moved,failed:failed,missed:msgPreloadMissed};
+}
+/* 兜底用：从角色列表（wh_chars）里取出所有角色 id。列表本身也可能被加密，所以要能解密。 */
+async function charIdsFromStore(){
+  try{
+    let raw=localStorage.getItem(LS.chars);
+    if(!raw)return [];
+    if(raw.indexOf('enc:')===0){
+      if(!cryptKey)return [];
+      raw=await decVal(cryptKey,raw);
+    }
+    const arr=JSON.parse(raw);
+    if(!Array.isArray(arr))return [];
+    const out=[];
+    for(const c of arr){if(c&&c.id)out.push(String(c.id))}
+    return out;
+  }catch(e){return []}
+}
+/* 申请「长期保存」：免得系统在空间紧张时自动清理掉本地数据库 */
+async function askPersist(){
+  try{
+    if(!(navigator.storage&&navigator.storage.persist))return false;
+    if(navigator.storage.persisted){
+      const p=await navigator.storage.persisted();
+      if(p)return true;
+    }
+    return await navigator.storage.persist();
+  }catch(e){return false}
+}
 function load(k,d){
+  const mid=msgKeyId(k);
+  if(mid!==null&&msgIdbOk)return msgMemHas(mid)?msgMem[mid]:d;
   if(cryptKey)return (store&&hasOwn(store,k))?store[k]:d;
   try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}
 }
@@ -818,10 +1011,24 @@ function save(k,v){
       }
     }
   }catch(e){}
+  const mid=msgKeyId(k);
+  if(mid!==null&&msgIdbOk){
+    msgMem[mid]=v;
+    if(msgLocked[mid]){msgLockWarn(mid);return}   /* 旧记录没读出来：宁可不写，也不能覆盖掉它 */
+    msgWrite(mid,v);return;
+  }
   if(cryptKey){store[k]=v;encWrite(k,v)}
   else{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){saveFailNotice(k,e)}}
 }
-function removeKey(k){localStorage.removeItem(k);if(store)delete store[k]}
+function removeKey(k){
+  const mid=msgKeyId(k);
+  if(mid!==null&&msgIdbOk){                 /* 聊天记录：删内存和 IndexedDB 里那份 */
+    try{delete msgMem[mid]}catch(e){}
+    try{idbDel(msgRecKey(mid),MSG_STORE).catch(function(){})}catch(e){}
+    return;
+  }
+  localStorage.removeItem(k);if(store)delete store[k];
+}
 function encWrite(k,v){
   const s=JSON.stringify(v);
   const prev=_writes[k]||Promise.resolve();
@@ -838,15 +1045,24 @@ function saveFailNotice(k,e){
   if(now-_saveFailAt<20000)return;      /* 20 秒内只弹一次，免得刷屏 */
   _saveFailAt=now;
   const full=/quota|exceed|full/i.test(msg);
+  const isMsg=(typeof k==='string'&&k.indexOf(MSG_PREFIX)===0);
   try{
     if(full){
-      alert('存不下了：本地存储满了，这条内容可能没保存。\n\n'+
-        '请先做两件事：\n'+
-        '1）到「设置 → 数据与备份」点「导出备份」，先存一份文件；\n'+
-        '2）再删掉一些占地方的东西（表情包、聊天里的图片、朋友圈图片），然后重新发一次。\n\n'+
-        '（聊天记录另外有一份安全副本，可以点「从安全副本找回」试试。）');
+      if(isMsg){
+        alert('聊天记录没能写进本地数据库，这条可能没保存。\n\n'+
+          '请先做两件事：\n'+
+          '1）到「设置 → 数据与备份」点「导出备份」，先存一份文件；\n'+
+          '2）再刷新页面重试。\n\n'+
+          '（刚聊的内容在屏幕上还看得到，刷新之前请先导出备份。）');
+      }else{
+        alert('存不下了：本地存储满了，这条内容可能没保存。\n\n'+
+          '请先做两件事：\n'+
+          '1）到「设置 → 数据与备份」点「导出备份」，先存一份文件；\n'+
+          '2）再删掉一些占地方的东西（表情包、聊天里的图片、朋友圈图片），然后重新发一次。\n\n'+
+          '（聊天记录另外有一份安全副本，可以点「从安全副本找回」试试。）');
+      }
     }else{
-      alert('存不下：'+msg);
+      alert((isMsg?'聊天记录没能写进本地数据库：':'存不下：')+msg);
     }
   }catch(_){}
 }
@@ -899,7 +1115,7 @@ const nl2br=s=>esc(s).replace(/\n/g,'<br>');
 /* 消息的「一句话摘要」：给总结/日志/通知用，把图片和附件也标出来 */
 const msgBrief=m=>{
   const s=String((m&&m.content)||'').replace(/\|\|\|/g,' ').trim();   /* 分条标记换成空格，总结/通知读着自然 */
-  const ex=(m&&m.img?'［图片］':'')+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
+  const ex=(m&&m.img?'［图片］':(m&&m.imgCleared?'［图片已清理］':''))+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
   return (s+(s&&ex?' ':'')+ex)||'（空）';
 };
 /* ---------- markdown 渲染（自己写的，不联网、不装库） ----------
@@ -1342,8 +1558,14 @@ function mergeMsgs(oldArr,newArr,delKeys){
   const put=function(m){
     if(!m)return;
     const k=msgKeyOf(m);
-    if(!k||del[k]||seen[k])return;
-    seen[k]=1;out.push(m);
+    if(!k||del[k])return;
+    if(seen[k]){
+      const i=seen[k]-1;
+      /* 「图片已清理」的那条永远胜出，免得清理过的图片又被旧副本合并回来 */
+      if(m.imgCleared&&!(out[i]&&out[i].imgCleared))out[i]=m;
+      return;
+    }
+    seen[k]=out.length+1;out.push(m);
   };
   (Array.isArray(oldArr)?oldArr:[]).forEach(put);
   (Array.isArray(newArr)?newArr:[]).forEach(put);
@@ -1371,6 +1593,7 @@ function saveArrFor(id,arr){
 /* 安全副本：每个角色的聊天记录再往 IndexedDB 存一份（那边空间大得多） */
 function msgMirror(id,arr){
   if(!id||!Array.isArray(arr))return;
+  if(msgIdbOk)return;        /* 【搬家后】save() 已经直接写进 IndexedDB 了，不用再写一遍 */
   const snap=arr.slice();
   try{
     clearTimeout(_mirrorTimer[id]);
@@ -1383,6 +1606,16 @@ function mirrorNow(id,snap){
 /* 从安全副本里把「本地存储没有的消息」找回来 */
 async function recoverFromMirror(manual){
   if(!window.indexedDB)return 0;
+  /* 【聊天记录搬家之后】安全副本已经变成正本了，这里改成「重新读一遍并核对」 */
+  if(msgIdbOk){
+    try{await msgFlush()}catch(e){}
+    try{await preloadMsgs()}catch(e){}
+    try{if(curId)loadChar(curId)}catch(e){}
+    try{if(view==='chat')renderChat()}catch(e){}
+    if(manual)alert('聊天记录现在直接存在本地数据库（IndexedDB）里，不会再挤在 5MB 的本地存储里。\n\n'+
+      '刚才已经重新读了一遍，现在显示的就是最全的一份，不用再「找回」。');
+    return 0;
+  }
   let keys=[];
   try{keys=await idbKeys('msglog')}
   catch(e){if(manual)alert('安全副本读不了：'+((e&&e.message)||e));return 0}
@@ -1856,6 +2089,7 @@ function palaceMsgText(m){
   if(!m)return '';
   let t=String(m.content||'').replace(/\s+/g,' ').trim();
   if(m.img)t=t?(t+'（还发了张图片）'):'（发了张图片）';
+  else if(m.imgCleared&&!t)t='（之前发过一张图片，后来为了腾空间清理掉了）';
   if(m.files&&m.files.length)t+='（还发了个文件'+(m.files[0]&&m.files[0].name?('：'+m.files[0].name):'')+'）';
   if(m.sticker&&!t)t='（发了个表情）';
   return t.slice(0,1500);
@@ -3286,14 +3520,15 @@ function appendChatMessage(box,x,i){
   const d=document.createElement('div');
   d.className='bub '+(isMe?'me':'ai');
   /* 只有纯文字的消息才参与「变小」和「分条」；带图片/文件/图的还是老样子 */
-  const plain=!x.img&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
+  const plain=!x.img&&!x.imgCleared&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
   const parts=plain?splitBubbleParts(x.content,isMe):null;
   if(parts&&parts.length>1){
     d.className+=' multi';
     d.innerHTML=parts.map(s=>('<div class="bsub">'+mdLite(s)+'</div>')).join('');
   }else{
     if(plain)d.className+=' narrow';
-    d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):'')+
+    d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):
+      (x.imgCleared?'<div class="imgcleared">🖼 图片已清理（为了腾空间删掉了，文字还在）</div>':''))+
       filesHTML(x.files,i)+
       mdLite(x.content||'');
   }
@@ -7768,6 +8003,8 @@ function cfgDataCardHTML(){
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
   '<div class="row" style="margin-top:10px"><button class="col" onclick="showStorageUse()">📦 本地存储用量</button>'+
   '<button class="col" onclick="recoverFromMirror(true)">🛟 从安全副本找回</button></div>'+
+  '<div class="row" style="margin-top:10px"><button class="col" onclick="scanChatImages()">🖼 统计能清理的旧图片</button>'+
+  '<button class="col" onclick="cleanChatImages()">🧹 清理旧图片</button></div>'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="chooseBackupFile()">'+(backupHandle?'更换自动备份文件':'开启自动备份到文件')+'</button></div>'+
   (backupHandle?('<div class="row" style="margin-top:8px"><button class="col" onclick="backupNow()">💾 立即备份一次</button></div>'):'')+
   '<div class="setrow" style="margin-top:10px">'+
@@ -7777,7 +8014,7 @@ function cfgDataCardHTML(){
   '</select></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">'+bkStatusText()+'</p>'+
   '<div class="row" style="margin-top:10px"><button class="warn col" onclick="wipe()">清空全部数据</button></div>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">档案存在 IndexedDB 里，单独一份备份可能很大。设密码后导出的备份文件会被加密。聊天里带图片的记录会让备份变大。</p></div>';
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">档案和聊天记录都存在 IndexedDB 里，单独一份备份可能很大。设密码后导出的备份文件会被加密。聊天里带图片的记录会让备份变大；「清理旧图片」只删旧消息里的图片，文字一条都不会动。</p></div>';
 }
 function renderCfg(){
   const hm=cfg.histMode||'auto';
@@ -8187,9 +8424,9 @@ function storageNameOf(k){
   if(k.indexOf('wh_p5_art_')===0)return '画册';
   return k;
 }
-function showStorageUse(){
+const kbTxt=n=>n<1024?(n+' 字节'):(n<1048576?(Math.round(n/102.4)/10)+' KB':(Math.round(n/104857.6)/10)+' MB');
+async function showStorageUse(){
   try{
-    const kb=n=>n<1024?(n+' 字节'):(n<1048576?(Math.round(n/102.4)/10)+' KB':(Math.round(n/104857.6)/10)+' MB');
     let total=0;
     const agg={};
     for(let i=0;i<localStorage.length;i++){
@@ -8202,16 +8439,141 @@ function showStorageUse(){
       agg[nm]=(agg[nm]||0)+n;
     }
     const list=Object.keys(agg).map(nm=>({nm:nm,n:agg[nm]})).sort((a,b)=>b.n-a.n);
-    let txt='本地存储总用量：'+kb(total)+'（浏览器一般只给 5 MB 左右）\n\n占地方最多的几项：\n'+
-      list.slice(0,10).map(o=>'· '+o.nm+'：'+kb(o.n)).join('\n');
-    if(total>4.2*1024*1024){
-      txt+='\n\n⚠️ 快满了！满了以后新消息就存不进去。请先点「导出备份」存一份文件，'+
-        '再删掉一些表情包或带图片的消息，腾出空间。';
+    /* 聊天记录现在在 IndexedDB 里（不受 5MB 限制），单独统计一份 */
+    let msgChars=0,msgRoles=0,msgBytes=0;
+    if(msgIdbOk){
+      try{
+        for(const k of await idbKeys(MSG_STORE)){
+          const s=String(k);
+          if(s.indexOf('msg:')!==0)continue;
+          let rec=null;try{rec=await idbGet(s,MSG_STORE)}catch(e){continue}
+          const ms=(rec&&Array.isArray(rec.ms))?rec.ms:null;
+          if(!ms)continue;
+          msgRoles++;msgChars+=ms.length;
+          try{msgBytes+=JSON.stringify(rec).length}catch(e){}
+        }
+      }catch(e){}
+    }
+    let quotaTxt='';
+    try{
+      if(navigator.storage&&navigator.storage.estimate){
+        const est=await navigator.storage.estimate();
+        if(est&&est.quota){
+          let persistent=false;
+          try{persistent=navigator.storage.persisted?await navigator.storage.persisted():false}catch(e){}
+          quotaTxt='\n\n浏览器总共允许这个应用用约 '+kbTxt(est.quota)+'，现在已用约 '+kbTxt(est.usage||0)+
+            '（含聊天记录）。'+(persistent?'已经拿到「长期保存」，系统一般不会自动清理它。':'还没拿到「长期保存」权限，系统在空间很紧张时有可能清理它。');
+        }
+      }
+    }catch(e){}
+    let txt='';
+    if(msgIdbOk){
+      txt+='聊天记录：'+(msgRoles?(msgRoles+' 个角色，共 '+msgChars+' 条，约 '+kbTxt(msgBytes)):'（还没有）')+
+        '\n存在本地数据库（IndexedDB）里，不受下面这条 5MB 线的限制。\n\n';
     }else{
-      txt+='\n\n✅ 目前还没满，空间够用。';
+      txt+='⚠️ 这次聊天记录没能用上本地数据库，暂时还是存在「本地存储」里的老办法（功能正常，但 5MB 满了会存不下）。可以刷新一次页面再试试。\n\n';
+    }
+    txt+='「本地存储」用量：'+kbTxt(total)+'（浏览器一般只给 5 MB 左右，聊天记录已经不算在这里了）\n\n占地方最多的几项：\n'+
+      (list.length?list.slice(0,10).map(o=>'· '+o.nm+'：'+kbTxt(o.n)).join('\n'):'（空的）')+quotaTxt;
+    if(total>4.2*1024*1024){
+      txt+='\n\n⚠️ 「本地存储」快满了。聊天记录已经不在这里了，剩下的多半是表情包、朋友圈、画册里的图片。'+
+        '请先点「导出备份」存一份文件，再清理旧图片（设置 → 数据与备份）。';
+    }else{
+      txt+='\n\n✅ 本地存储还够用。聊天记录不受这条 5MB 线影响，可以放心聊。';
     }
     alert(txt);
   }catch(e){alert('看不了用量：'+((e&&e.message)||e))}
+}
+
+/* ---------- 清理旧消息里的图片（只删图片数据，文字一条不动） ---------- */
+function msgAllIds(){
+  const out=[],seen={};
+  const push=id=>{if(!id||seen[id])return;seen[id]=1;out.push(id)};
+  if(msgIdbOk){for(const k in msgMem)push(k)}
+  try{(chars||[]).forEach(c=>push(c.id))}catch(e){}
+  return out;
+}
+function msgArrOf(id){
+  if(msgIdbOk)return Array.isArray(msgMem[id])?msgMem[id]:[];
+  const a=load(LS.msg(id),[]);
+  return Array.isArray(a)?a:[];
+}
+/* 一条消息里图片数据大概占多少字符 */
+function imgBytesOf(m){
+  let n=0;
+  if(m&&typeof m.img==='string')n+=m.img.length;
+  if(m&&m.art&&typeof m.art.img==='string')n+=m.art.img.length;
+  if(m&&Array.isArray(m.files))for(const f of m.files){if(f&&typeof f.url==='string'&&f.url.indexOf('data:')===0)n+=f.url.length}
+  return n;
+}
+/* 统计：保留最近 keepLast 条，更早的里面有多少张图、大概多少字节 */
+function imgScan(keepLast){
+  let imgs=0,bytes=0,charsN=0,leftImgs=0,leftBytes=0;
+  msgAllIds().forEach(function(id){
+    const arr=msgArrOf(id);
+    if(!arr.length)return;
+    const cut=Math.max(0,arr.length-keepLast);
+    let hit=false;
+    for(let i=0;i<arr.length;i++){
+      const b=imgBytesOf(arr[i]);
+      if(!b)continue;
+      if(i<cut){imgs++;bytes+=b;hit=true}else{leftImgs++;leftBytes+=b}
+    }
+    if(hit)charsN++;
+  });
+  return {imgs:imgs,bytes:bytes,charsN:charsN,leftImgs:leftImgs,leftBytes:leftBytes};
+}
+async function scanChatImages(){
+  if(!msgIdbOk)toast('提示：聊天记录这次还在本地存储里，统计结果可能不全');
+  const keep=200;
+  const s=imgScan(keep);
+  if(!s.imgs)return alert('没有可以清理的旧图片了。\n\n（按「保留最近 '+keep+' 条消息里的图片」来算，更早的消息里已经没有图片数据。）');
+  alert('能清理的旧图片：'+s.imgs+' 张，约 '+kbTxt(s.bytes)+'\n涉及 '+s.charsN+' 个角色\n\n'+
+    '会保留：\n· 最近 '+keep+' 条消息里的图片（'+s.leftImgs+' 张，约 '+kbTxt(s.leftBytes)+'）\n'+
+    '· 所有文字、时间、角色设定、记忆、档案、待办\n\n'+
+    '点设置里的「清理旧图片」就会真的删掉它们。删之前建议先点一次「导出备份」。');
+}
+async function cleanChatImages(){
+  const keepRaw=prompt('保留最近多少条消息里的图片？\n\n填个数字（默认 200）。只有比它更早的旧图片会被清理，文字一条都不会动。','200');
+  if(keepRaw==null)return;
+  let keep=parseInt(keepRaw,10);
+  if(!Number.isFinite(keep)||keep<0)keep=200;
+  if(keep>100000)keep=100000;
+  const s=imgScan(keep);
+  if(!s.imgs)return alert('按「保留最近 '+keep+' 条」来算，没有需要清理的旧图片。');
+  if(!confirm('要清理 '+s.imgs+' 张旧图片吗？\n\n大约能腾出 '+kbTxt(s.bytes)+'。\n\n'+
+    '· 只删图片本身，文字、时间、角色、记忆全都不动\n'+
+    '· 删掉的位置会显示「图片已清理」，旧的对话还能照常翻\n'+
+    '· 清理后恢复不了（除非你有导出过的备份）\n'+
+    '· 画册和群聊里的图是另外存的，这次不动\n\n'+
+    '建议先点「导出备份」再清理。要继续吗？'))return;
+  let done=0,bytes=0;
+  const hitIds=[];
+  msgAllIds().forEach(function(id){
+    const arr=msgArrOf(id);
+    if(!arr.length)return;
+    const cut=Math.max(0,arr.length-keep);
+    if(cut<=0)return;
+    let changed=false;
+    for(let i=0;i<cut;i++){
+      const m=arr[i];
+      if(!m)continue;
+      if(typeof m.img==='string'&&m.img){bytes+=m.img.length;done++;m.img='';m.imgCleared=1;changed=true}
+      if(m.art&&typeof m.art.img==='string'&&m.art.img){bytes+=m.art.img.length;done++;m.art.img='';m.art.cleared=1;changed=true}
+      if(Array.isArray(m.files))for(const f of m.files){
+        if(f&&typeof f.url==='string'&&f.url.indexOf('data:')===0){bytes+=f.url.length;done++;f.url='';f.cleared=1;changed=true}
+      }
+    }
+    if(!changed)return;
+    hitIds.push(id);
+    /* 直接覆盖写：这里不能用 saveMsgs 的合并（合并会优先留下没清理的那份） */
+    if(msgIdbOk){msgMem[id]=arr;msgWrite(id,arr)}
+    else save(LS.msg(id),arr);
+  });
+  await msgFlush();
+  if(hitIds.indexOf(curId)>=0&&view==='chat')try{renderChat()}catch(e){}
+  alert('清理完成：删掉 '+done+' 张旧图片，约 '+kbTxt(bytes)+'。\n\n'+
+    '文字、时间、角色和记忆都没有动。往上翻旧消息时，原来有图的位置会显示「图片已清理」。');
 }
 /* 确认后按顺序应用一份备份。 */
 async function applyImportedBackup(d){
@@ -8222,16 +8584,25 @@ async function applyImportedBackup(d){
   importBackupGroupData(d);
   importBackupExtraData(d);
   await importBackupRawLogs(d);
+  await msgFlush();                    /* 【搬家后】等聊天记录真的写进数据库，再刷新 */
   alert('导入完成，刷新一下');
   location.reload();
   return true;
 }
-function wipe(){
+async function wipe(){
   if(!confirm('清空全部数据？角色、聊天、记忆、档案、待办、群聊全没，不可恢复'))return;
   localStorage.removeItem(LS.pw);
   localStorage.removeItem(LS.priv);
   allDataKeys().forEach(k=>localStorage.removeItem(k));
-  try{indexedDB.deleteDatabase('wh_db')}catch(e){}
+  try{await msgFlush()}catch(e){}
+  for(const id of Object.keys(_msgWrites)){try{delete _msgWrites[id]}catch(e){}}
+  try{
+    await new Promise(function(res){
+      const r=indexedDB.deleteDatabase('wh_db');
+      r.onsuccess=function(){res()};r.onerror=function(){res()};r.onblocked=function(){res()};
+      setTimeout(res,1500);
+    });
+  }catch(e){}
   location.reload();
 }
 async function initBackup(){
@@ -8453,6 +8824,35 @@ async function boot(){
     $('#lock').style.display='flex';
     await new Promise(res=>{window._unlockGo=res});
   }
+  /* 【聊天记录搬家】先把 IndexedDB 里的记录读进内存，再把还留在本地存储的搬过去。
+     必须等它完成再画界面，否则会出现「刷新后聊天记录空了」的假象。 */
+  let _bootHint=null;
+  try{
+    /* 记录多的时候要读一会儿，超过 0.4 秒就提示一下，别让她以为卡住了 */
+    _bootHint=setTimeout(function(){try{toast('正在读取聊天记录…')}catch(e){}},400);
+    const r=await preloadMsgs();
+    try{clearTimeout(_bootHint)}catch(e){}
+    if(r&&r.ok&&(r.moved||r.failed)){
+      if(r.failed)try{console.warn('有 '+r.failed+' 个角色的聊天记录这次没搬到数据库，已原样保留')}catch(e){}
+      if(r.moved&&!r.failed)try{console.log('聊天记录已搬到 IndexedDB，共 '+r.moved+' 个角色')}catch(e){}
+    }
+    if(r&&r.ok&&r.missed){
+      try{
+        alert('有 '+r.missed+' 个角色的旧聊天记录这次没能从本地数据库读出来。\n\n'+
+          '为了安全，这些角色的新消息暂时不会写进数据库（只显示在屏幕上），以免把旧记录覆盖掉。\n\n'+
+          '请先到「设置 → 数据与备份」点「导出备份」存一份文件，然后刷新页面（或重开 App）再试。');
+      }catch(e){}
+    }
+    if(r&&!r.ok&&r.hadIdb){
+      try{
+        alert('聊天记录读不出来了：本地数据库（IndexedDB）这次打不开。\n\n'+
+          '最常见的原因：用了隐私 / 无痕模式，或者换了一个浏览器、换了一种打开方式。\n\n'+
+          '记录没有丢，它就存在数据库里。请你换回平时用的那个浏览器重新打开这个页面。\n\n'+
+          '（如果现在继续发消息，会先存在本地存储里，等数据库恢复正常后会自动合并回来。）');
+      }catch(e){}
+    }
+  }catch(e){try{console.warn('聊天记录加载失败',e)}catch(_){}}
+  try{askPersist()}catch(e){}
   initApp();
 }
 /* ================= 补丁：自动总结报错可见 + 设置保存加固 ================= */
@@ -11861,6 +12261,7 @@ importAll=function(input){
       /* 演绎 / 表情库 / 便条 / 日记 / 好感度记录 / 画册 / 自动总结进度 */
       try{importBackupExtraData(d)}catch(e){}
       await importBackupRawLogs(d);      /* 原文日志（IndexedDB） */
+      try{await msgFlush()}catch(e){}    /* 【搬家后】等聊天记录真的写进数据库，再刷新 */
       alert('导入完成，刷新一下');
       location.reload();
     }catch(e){alert('文件读不了：'+e.message)}
