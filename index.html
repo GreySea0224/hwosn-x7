@@ -8330,7 +8330,15 @@ async function backupPayload(){
     (d.acts||[]).forEach(function(a){d.actMsgs[a.id]=window.actMsgs(a.id)});
   }catch(e){}
   const str=JSON.stringify(d);
-  if(cryptKey)return {str:await encVal(cryptKey,str),enc:true};
+  if(cryptKey){
+    const body=await encVal(cryptKey,str);      /* body 是旧格式 enc:iv:密文 */
+    let salt='';
+    try{const m=JSON.parse(localStorage.getItem(LS.pw));if(m&&m.salt)salt=bufToB64u(new Uint8Array(m.salt))}catch(e){}
+    /* 【修复】把「盐」一起写进备份文件：换手机导入时，用文件里的盐 + 你输入的密码
+       就能算出和原来一样的钥匙，不再依赖本机那把钥匙。新格式：enc2:盐:iv:密文。
+       （万一取不到盐，就退回旧格式，保证功能不出错。） */
+    return {str:(salt?('enc2:'+salt+':'+body.slice(4)):body),enc:true};
+  }
   return {str:str,enc:false};
 }
 async function exportAll(){
@@ -8405,14 +8413,34 @@ async function importBackupRawLogs(d){
     try{await rawPut(k,d.rawLogs[k])}catch(e){}
   }
 }
-/* 读取备份文字：必要时解密并解析 JSON。 */
-async function parseBackupText(s){
-  if(s.indexOf('enc:')===0){
-    if(!cryptKey)return {error:'这个备份是加密的。请先设置/输入密码解锁后再导入。'};
-    try{s=await decVal(cryptKey,s)}catch(e){return {error:'解密失败：密码不对或文件损坏'}}
+/* 【修复】解开加密备份。两种格式都认：
+   · 新格式 enc2:盐:iv:密文 —— 文件自带「盐」，换到别的手机也能解开，
+     只要输入「导出这份备份的那台手机」的应用锁密码。
+   · 旧格式 enc:iv:密文 —— 文件里没有盐，只能用当前这台手机的钥匙解，换手机解不开。 */
+async function decryptBackupIfNeeded(s){
+  if(typeof s==='string'&&s.indexOf('enc2:')===0){
+    const parts=String(s).split(':');
+    const saltB=parts[1]||'',ivB=parts[2]||'',ctB=parts[3]||'';
+    if(!saltB||!ivB||!ctB)return {error:'这份备份文件好像坏了（内容不完整）。'};
+    let pw='';
+    try{pw=window.prompt('这份备份是加密的。\n\n请输入「导出这份备份的那台手机」上设置的应用锁密码：','')||''}catch(e){pw=''}
+    if(!pw)return {cancel:true};
+    let key=null;
+    try{key=await deriveKey(pw,b64uToBuf(saltB))}catch(e){return {error:'密码处理失败：'+((e&&e.message)||e)}}
+    try{s=await decVal(key,'enc:'+ivB+':'+ctB)}
+    catch(e){return {error:'打不开这份备份。\n\n最可能的原因：密码不对。\n要填的是「导出备份那台手机」的应用锁密码，不是这台手机的。'}}
+  }else if(typeof s==='string'&&s.indexOf('enc:')===0){
+    if(!cryptKey)return {error:'这是旧格式的加密备份，需要先在这台手机上设一个应用锁密码、解锁之后再导入。\n\n说明：旧格式备份没有带上「盐」，换手机后一般打不开。如果设了密码还是打不开，请回到导出备份的那台手机，重新导出一份（新版导出的备份会带上盐，换手机就能用）。'};
+    try{s=await decVal(cryptKey,s)}catch(e){return {error:'打不开这份备份。\n\n如果这是从别的手机导出的旧格式备份：旧格式没带「盐」，换手机恢复不了，请回到导出备份的那台手机重新导出一份。\n如果是本机自己的备份：请确认应用锁密码有没有改过。'}}
   }
   try{return {data:JSON.parse(s)}}
   catch(e){return {error:'文件读不了：'+e.message}}
+}
+/* 读取备份文字：必要时解密并解析 JSON。 */
+async function parseBackupText(s){
+  const r=await decryptBackupIfNeeded(s);
+  if(r&&r.cancel)return {error:'已取消（没有输入密码）'};
+  return r;
 }
 /* 【新增】看看本地存储都用在哪了：聊天记录就存在这里，满了就存不进新消息 */
 function storageNameOf(k){
@@ -12253,11 +12281,11 @@ importAll=function(input){
   rd.onload=async function(){
     try{
       var s=String(rd.result),d;
-      if(s.indexOf('enc:')===0){
-        if(!cryptKey)return alert('这个备份是加密的。请先设置/输入密码解锁后再导入。');
-        try{s=await decVal(cryptKey,s)}catch(e){return alert('解密失败：密码不对或文件损坏')}
-      }
-      d=JSON.parse(s);
+      /* 【修复】换手机导入：新格式备份自带「盐」，用你输入的密码就能解开，不再依赖本机钥匙 */
+      var _bp=await decryptBackupIfNeeded(s);
+      if(_bp.cancel)return;
+      if(_bp.error)return alert(_bp.error);
+      d=_bp.data;
       if(!confirm('导入会覆盖现在所有数据，确定？'))return;
       importBackupCfg(d);            /* 用带保护的写法：保留你现在的密钥，接口地址变了会先问你 */
       if(d.chars)save(LS.chars,d.chars);
@@ -12279,7 +12307,7 @@ importAll=function(input){
       try{importBackupExtraData(d)}catch(e){}
       await importBackupRawLogs(d);      /* 原文日志（IndexedDB） */
       try{await msgFlush()}catch(e){}    /* 【搬家后】等聊天记录真的写进数据库，再刷新 */
-      alert('导入完成，刷新一下');
+      alert('导入完成，刷新一下'+(cryptKey?'':'。\n\n提醒：你还没设置应用锁密码，导入进来的数据现在是不加密的；想加密可以去「设置 → 隐私与安全」设一个。'));
       location.reload();
     }catch(e){alert('文件读不了：'+e.message)}
   };
