@@ -1290,6 +1290,12 @@ let autoMap={},autoTick=null,autoKeep=null;
    生成期间绝不改动全局的 curId/msgs/mem，避免它的回复串到别的聊天、
    或者拿一份过期的旧记录把你刚聊的内容覆盖掉。 */
 let ctxBg=null;
+/* 【修复】前台这一轮回复专用的记录快照 {msgs,mem}。
+   在 askAndAppend 一开头就照当前角色拍下来，整轮组装上下文都用它，
+   这样你在这轮回复（联网搜索 / 打字）期间切到别的角色，
+   它也不会拿错人的聊天记录来回复；用完在 finally 里清掉。
+   （前台回复期间后台自动发送本来就被 busy 挡着，两者不会同时出现。） */
+let ctxAsk=null;
 let pendingAutoText='';             /* 角色刚主动发来的那条，画面上的要逐字显示 */
 let arcBusy=false;                    /* 总结版生成中，防重复点击 */
 const arcNotesCache={};               /* id → {len,notes}：分段笔记缓存，失败重试不用重跑精读 */
@@ -1690,9 +1696,10 @@ function pushMsgTo(id,m){
 }
 /* 指定角色记录里的最后一条（用来挂搜索结果、图片、表情那些小标记） */
 function lastMsgOf(id){const a=msgsOf(id);return a.length?a[a.length-1]:null}
-/* 组装上下文时用哪份聊天记录和记忆：后台生成用 ctxBg，前台就用当前打开的。 */
-function ctxMsgs(){return (ctxBg&&Array.isArray(ctxBg.msgs))?ctxBg.msgs:msgs}
-function ctxMem(){return (ctxBg&&ctxBg.mem)?ctxBg.mem:mem}
+/* 组装上下文时用哪份聊天记录和记忆：
+   前台这一轮回复用 ctxAsk（开头拍好的快照），后台生成用 ctxBg，都没有就用当前打开的。 */
+function ctxMsgs(){if(ctxAsk&&Array.isArray(ctxAsk.msgs))return ctxAsk.msgs;return (ctxBg&&Array.isArray(ctxBg.msgs))?ctxBg.msgs:msgs}
+function ctxMem(){if(ctxAsk&&ctxAsk.mem)return ctxAsk.mem;return (ctxBg&&ctxBg.mem)?ctxBg.mem:mem}
 const saveMem=()=>{if(curId){save(LS.mem(curId),mem);scheduleBackup()}};
 function loadChar(id){
   curId=id;save(LS.cur,id);
@@ -10922,6 +10929,15 @@ askAndAppend=async function(){
   /* ---- 补丁6-A：生成完要不要重画 ---- */
   var before6=len();
   try{
+    if(!cid||!c)return;
+    /* 【修复】这一轮到底看谁的记录：开头就照这个角色拍一份快照（聊天记录 + 记忆），
+       整轮都用它。这样在它联网搜索 / 打字的时候你切到别的角色，
+       它也不会拿错人的聊天记录来回复。用完在下面的 finally 里清掉。 */
+    ctxAsk={msgs:msgsOf(cid).slice(),mem:Object.assign(EMPTY_MEM(),load(LS.mem(cid),null)||{})};
+    /* 【修复】「正在回复」的标记要提前立起来：联网搜索那几秒也算正在回复，
+       免得你在这段时间里在别的角色里又发一条、同时跑两轮。 */
+    busy=true;
+    try{updSendBtn()}catch(e){}
     /* ---- 补丁4-C：这一轮用过的玩具 ---- */
     W.P4LASTTOY=[];
     /* ---- 补丁4-A：先判断要不要联网搜索 ---- */
@@ -10931,13 +10947,12 @@ askAndAppend=async function(){
     const before2=len();
 
     /* ================= 原来的生成逻辑 ================= */
-    if(!cid||!c)return;
     /* 【修复】切走了就别把「正在输入」的气泡画到别人家里 */
     const onScreen=live();
     const box=onScreen?$('#msgs'):document.createElement('div');
     const ui=setupAskUI(box,!onScreen);
     const sendBtn=ui.sendBtn,stopBtn=ui.stopBtn,liveThink=ui.liveThink,a=ui.a,thinkOn=ui.thinkOn;
-    busy=true;let ok=false;let usage=null;let reasoning='';let out='';
+    let ok=false;let usage=null;let reasoning='';let out='';
     const tp=thinkParams(c);
     curAbort=new AbortController();
     const sig=curAbort.signal;
@@ -10997,6 +11012,8 @@ askAndAppend=async function(){
     /* ---- 补丁6-A：真的生成了新消息就重建界面（出错时保留提示，不冲掉） ---- */
     try{ if(live()&&len()>before6)renderChat(); }catch(e){}
   }finally{
+    ctxAsk=null;                 /* 【修复】这一轮结束，记录快照不再需要了 */
+    busy=false;curAbort=null;    /* 【修复】兜底复位：万一上面某步出错，也不会一直卡在「正在忙」 */
     /* ---- 补丁5-A：收尾 ---- */
     P5.live=false;
     /* ---- 补丁5-B：画好的图挂到这条回复上 ---- */
