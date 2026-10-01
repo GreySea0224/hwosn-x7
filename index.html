@@ -34,12 +34,17 @@ main::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
 .card.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 4px 16px var(--p8accSh,rgba(63,169,216,.18))}
 .ttl{font-weight:700;font-size:14px;color:var(--acc);margin-bottom:8px;letter-spacing:.3px}
+/* 【新】角色设置页：每张卡片点标题展开／收起（默认收起） */
+.charfold{font-weight:700;font-size:14px;color:var(--acc);letter-spacing:.3px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.charfold .ch{color:var(--dim);font-size:12px;flex:0 0 auto}
 .dim{color:var(--dim)}
 label.f{display:block;margin:10px 0 4px;font-size:12px;color:var(--dim)}
 input,textarea,select{width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;outline:none;transition:border-color .15s ease,box-shadow .15s ease}
 textarea{resize:vertical;min-height:72px}
 input:focus,textarea:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--p8accSh,rgba(63,169,216,.12))}
-input[type=checkbox]{width:auto;transform:scale(1.2);accent-color:var(--acc)}
+/* 【新】勾的颜色单独用一个变量 --chk：极简主题的强调色接近纯白，
+   勾也会跟着变浅、看不清，所以极简主题把方框底色改成深灰，勾就是白的。 */
+input[type=checkbox]{width:auto;transform:scale(1.2);accent-color:var(--chk,var(--acc))}
 button{font:inherit;background:var(--accdim);color:var(--txt);border:0;border-radius:12px;padding:10px 14px;font-size:14px;cursor:pointer;transition:transform .06s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 2px rgba(0,0,0,.15)}
 button:active{transform:scale(.97)}
 button.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--onacc,#02131c);font-weight:700;box-shadow:0 4px 14px var(--p8accSh,rgba(63,169,216,.28))}
@@ -645,7 +650,9 @@ const THEMES={
      --onsend 是「白色按钮上的字/图标」颜色（黑），不然白按钮上的白图标会看不见。 */
   mono:{label:'黑白（极简）',v:{'--bg':'#0a0a0a','--bg2':'#111111','--panel':'#161616','--line':'#2a2a2a','--txt':'#f2f2f2','--dim':'#9c9c9c','--meta':'#a8a8a8','--acc':'#e8e8e8','--acc2':'#ffffff','--accdim':'#202020','--accline':'#4a4a4a','--warn':'#8e8e8e','--grad':'linear-gradient(160deg,#181818 0%,#0a0a0a 62%)','--shadow':'0 1px 2px rgba(0,0,0,.5)','--bubme':'linear-gradient(135deg,#282828,#1e1e1e)','--onsend':'#0a0a0a','--accglow':'rgba(255,255,255,.32)','--scbg':'rgba(20,20,20,.92)','--scfg':'#f2f2f2',
     /* 【新】黑白主题没有彩色可用，加粗/强调改用纯白 + 一层淡淡白底，不然和正文几乎一样 */
-    '--em':'#ffffff','--embg':'rgba(255,255,255,.14)'}},
+    '--em':'#ffffff','--embg':'rgba(255,255,255,.14)',
+    /* 【新】极简主题的强调色是纯白，勾上去几乎看不见，所以复选框单独用深灰底（勾就是白的） */
+    '--chk':'#4a4a4a'}},
   /* 【新】黑白（明亮）：白底黑字，按钮是黑的、字是白的。
      --onacc 是「深色按钮上的字色」（白色），--onsend 是「发送键上的图标色」（白色）。 */
   paper:{label:'黑白（明亮）',v:{'--bg':'#f2f2f2','--bg2':'#f8f8f8','--panel':'#ffffff','--line':'#e4e4e4','--txt':'#111111','--dim':'#6b6b6b','--meta':'#5f5f5f','--acc':'#1a1a1a','--acc2':'#3d3d3d','--accdim':'#ececec','--accline':'#d8d8d8','--warn':'#6f6f6f','--grad':'linear-gradient(160deg,#ffffff 0%,#f2f2f2 62%)','--shadow':'0 1px 2px rgba(0,0,0,.06)','--bubme':'linear-gradient(135deg,#efefef,#e6e6e6)','--onacc':'#ffffff','--onsend':'#ffffff','--accglow':'rgba(0,0,0,.16)','--scbg':'rgba(255,255,255,.94)','--scfg':'#111111',
@@ -666,6 +673,8 @@ function applyTheme(){
      每个主题都要设一次，不然换主题时会留下上一个主题的值。（没写就用原来的蓝色） */
   r.setProperty('--onacc',t.v['--onacc']||'#02131c');
   r.setProperty('--onsend',t.v['--onsend']||'#fff');
+  /* 【新】复选框的勾色：主题里没单独写，就还用这个主题的强调色（和以前一样） */
+  r.setProperty('--chk',t.v['--chk']||t.v['--acc']||'#3fa9d8');
   r.setProperty('--accglow',t.v['--accglow']||'rgba(63,169,216,.55)');
   /* 【新】markdown 的强调色：主题里没写就用主题色；黑白主题写了高对比的那套 */
   r.setProperty('--em',t.v['--em']||t.v['--acc']||'#3fa9d8');
@@ -4382,7 +4391,9 @@ async function send(){
   if(pendFile){m.files=[Object.assign({},pendFile)];clearPicked()}
   pushMsgTo(cid,m);
   if(view!=='chat')go('chat');else renderChat();
-  const p=askAndAppend();
+  /* 【新增】开了「自己决定什么时候回」的角色：先让它自己判断（秒回 / 等会儿回 / 不回）；
+     没开的角色，和以前一样：马上回。 */
+  const p=(c&&c.freeTiming)?freeReplyFlow(cid):askAndAppend();
   /* ↓ 补丁13-A：表情发出去以后，收起预览，并把表情记在这条消息上 */
   if(st){
     try{clearPicked()}catch(e){}
@@ -4747,6 +4758,123 @@ async function checkAuto(){
   autoArm(c,true);
   await runAutoNow(c);
 }
+/* ---------- 角色自己决定什么时候回（角色设置里的「自己决定什么时候回」） ---------- */
+/* 开了这个开关的角色：你发完消息后，它先自己判断一次——秒回 / 等一会儿再回 / 不回。
+   关着就完全不走这里，和以前一样立刻回。 */
+const FREE_MAX_WAIT=30*60;              /* 最多让它等 30 分钟 */
+const FREE_KEEP=6*60*60*1000;           /* 等着没回的，最多留 6 小时，超时就不补了 */
+const FREE_PEND_KEY='wh_freepending';   /* 还没到点的那次回复记在这里（刷新 / 关掉页面也不丢） */
+const freeTimers={};                    /* 每个角色一个定时器 */
+const freeSeq={};                       /* 每次判断编个号：她连着发消息时，以最新那次为准 */
+function freePendAll(){try{const o=load(FREE_PEND_KEY,{});return (o&&typeof o==='object')?o:{}}catch(e){return{}}}
+function freePendSave(o){try{save(FREE_PEND_KEY,o)}catch(e){}}
+function freePendSet(cid,due){const o=freePendAll();o[cid]=due;freePendSave(o)}
+function freePendDel(cid){const o=freePendAll();if(o[cid]!=null){delete o[cid];freePendSave(o)}}
+/* 只让它做一个决定：这条要不要回、想等多久。只回一行 JSON，便宜又快。 */
+function freeReplyCtx(c){
+  const sys=[];
+  sys.push(String(c.persona||('你是'+(c.name||'角色')+'。')).slice(0,2400));
+  if(c.scenario)sys.push('【当前情境】'+String(c.scenario).slice(0,1000));
+  if(c.style)sys.push('【说话风格】'+String(c.style).slice(0,600));
+  if(c.sysPrompt)sys.push(String(c.sysPrompt).slice(0,800));
+  if(cfg.timeOn!==false)sys.push('【现在的时间】'+nowText());
+  sys.push('【这一轮的特殊规则：什么时候回，由你自己决定】\n'+
+    '她刚才发来一条消息。系统这一轮不要求你马上回——回不回、隔多久回，全由你像真人一样自己拿主意。\n'+
+    '你现在只要「做一个决定」，先不要写回复内容。你可以选：\n'+
+    '1）现在就回：你在、方便、也想聊；\n'+
+    '2）过一会儿再回：你在忙、困了、手机不在手边、想晾一晾她，或者这条消息不急；\n'+
+    '3）不回：她只是随口一说、没什么好接的、你已经说过了，或者你就是不想理。\n'+
+    '要符合你的人设、你们的关系，还有现在的时间（比如半夜多半在睡觉）。别为了装忙每次都拖，也别太过分。\n'+
+    '只输出一行 JSON，什么都不要多说：{"reply":true,"wait":0}\n'+
+    'reply 填 true（要回）或 false（不回）；wait 是想等多少秒再回，0 表示马上，最多 1800。');
+  const hist=msgsOf(c.id).slice(-8).map(function(x){
+    let t=String((x&&x.content)||'').replace(/\s+/g,' ').slice(0,400);
+    if(!t&&x&&x.sticker)t='［发了一个表情包］';
+    if(!t&&x&&x.img)t='（我给你发了张图片）';
+    return {role:(x&&x.role)==='user'?'user':'assistant',content:t||'（这条没有文字）'};
+  });
+  return [{role:'system',content:sys.join('\n\n')}].concat(hist);
+}
+async function freeReplyDecide(c){
+  let out='';
+  try{out=String(await callAPI(freeReplyCtx(c),{stream:false,model:modelOf(c),temp:.4,maxtok:80})||'')}
+  catch(e){return {reply:true,wait:0}}                 /* 判断失败就当「马上回」，别把她晾着 */
+  const m=out.match(/\{[\s\S]*\}/);
+  if(!m)return {reply:true,wait:0};
+  let j=null;try{j=JSON.parse(m[0])}catch(e){return {reply:true,wait:0}}
+  if(!j||typeof j!=='object')return {reply:true,wait:0};
+  const r=j.reply;
+  const reply=!(r===false||r==='false'||r==='否'||r===0||r==='0'||r==='no');
+  let w=parseInt(j.wait,10);if(!isFinite(w)||w<0)w=0;
+  return {reply:reply,wait:Math.min(w,FREE_MAX_WAIT)};
+}
+function freeReplyNudge(){
+  return '（系统提示：上面最后一条是她发给你的消息，你已经看过、并且决定现在回。'+
+    '请回她最后那一条，就像真人隔了一会儿才回消息那样自然。'+
+    '不要解释你为什么现在才回、不要提到这条提示本身、也不要重复你已经说过的话。'+
+    '用 1-2 句自然的话回她。）';
+}
+/* 到点了却刚好在忙别的（它正在回别人 / 在自动冒泡）→ 过 8 秒再试，最多试十几次 */
+async function freeReplyFire(cid,tries){
+  freeTimers[cid]=null;
+  const c=chars.find(x=>x.id===cid);
+  if(!c||!c.freeTiming){freePendDel(cid);return}       /* 角色删了 / 关了这个开关 → 就不回了 */
+  if(!cfg||!cfg.key){freePendDel(cid);return}
+  if(busy){
+    if((tries||0)>=15){freePendDel(cid);return}
+    freePendSet(cid,Date.now()+8000);
+    clearTimeout(freeTimers[cid]);
+    freeTimers[cid]=setTimeout(function(){freeReplyFire(cid,(tries||0)+1)},8000);
+    return;
+  }
+  freePendDel(cid);
+  const looking=(curId===cid&&view==='chat'&&!document.hidden);
+  try{
+    if(looking){
+      await askAndAppend(cid);           /* 你正看着这个聊天：和平时一样打字显示 */
+    }else{
+      /* 你没在看它：后台生成，直接发进它的记录里；切回去能看到小红点 */
+      await runAutoNow(c,freeReplyNudge());
+    }
+  }catch(e){}
+}
+/* 你发完消息后走这里：先让它判断，再按判断决定是马上回、等会儿回、还是不回。 */
+async function freeReplyFlow(cid){
+  const c=chars.find(x=>x.id===cid);
+  if(!c||!c.freeTiming)return;
+  const seq=(freeSeq[cid]=(freeSeq[cid]||0)+1);
+  if(freeTimers[cid]){clearTimeout(freeTimers[cid]);freeTimers[cid]=null}
+  freePendDel(cid);                                      /* 上一条还没回？重新判断 */
+  const d=await freeReplyDecide(c);
+  if(seq!==freeSeq[cid])return;                          /* 这段时间她又发了新的，这次作废 */
+  if(!d.reply)return;                                    /* 它决定不回 */
+  const wait=Math.max(0,Math.round(d.wait||0));
+  if(wait<2){await askAndAppend(cid);return}             /* 秒回 */
+  freePendSet(cid,Date.now()+wait*1000);
+  freeTimers[cid]=setTimeout(function(){freeReplyFire(cid,0)},wait*1000);
+}
+/* 回到前台时：把到点还没回的补上 */
+function freeReplyCheckDue(){
+  const o=freePendAll(),now=Date.now();
+  Object.keys(o).forEach(function(cid){
+    const due=o[cid];
+    if(typeof due!=='number'||freeTimers[cid])return;
+    if(due<=now)freeReplyFire(cid,0);
+  });
+}
+/* 打开应用时：把上次留着没回的重新排上（太久以前的就算了） */
+function freeReplyBoot(){
+  const o=freePendAll(),now=Date.now();
+  let changed=false;
+  Object.keys(o).forEach(function(cid){
+    const due=o[cid],c=chars.find(x=>x.id===cid);
+    if(typeof due!=='number'||!c||!c.freeTiming||(now-due)>FREE_KEEP){
+      delete o[cid];changed=true;return;
+    }
+    freeTimers[cid]=setTimeout(function(){freeReplyFire(cid,0)},Math.max(0,due-now));
+  });
+  if(changed)freePendSave(o);
+}
 function notify(title,body){
   if(!cfg.notify)return;
   if(document.visibilityState==='visible')return;
@@ -4813,7 +4941,7 @@ function moveChar(id,dir){
 function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
-    sysPrompt:'',examples:'',think:1,priv:false,
+    sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
@@ -4862,6 +4990,15 @@ function charAutoCardHTML(c,a,id){
   '<label class="f">主动消息的内容提示（可选）</label><input id="e_hint" value="'+esc(a.hint||'')+'">'+
   '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="testAuto(\''+id+'\')">✨ 保存并试一条</button></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">想快点验证效果，可把「最短」设成 1~3 分钟。保存后立刻生效，不用刷新页面。</p></div>';
+}
+/* 角色设定页：让角色自己决定「什么时候回你消息」的开关。
+   关着（默认）＝老样子：你一发消息，它马上就回。
+   打开＝它先自己判断一下：可以秒回、隔一会儿再回，也可以觉得没必要就不回。 */
+function charReplyCardHTML(c){
+  return '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>自己决定什么时候回</b><div class="dim" style="font-size:12px">打开后，你发完消息它不一定马上回：它可以秒回、隔一会儿再回，也可能觉得这条没必要回、干脆不回。关着就是老样子——你一发，它立刻回。它「不回」的时候就是真的什么都不发，不是坏了。</div></div>'+
+  '<input type="checkbox" id="e_freereply" '+(c.freeTiming?'checked':'')+'></div>'+
+  '<p class="dim" style="font-size:11.5px;margin:8px 0 0">这是「回你消息」的节奏，和上面的「自动发消息」（没人说话时它主动冒泡）是两回事。等待时间最长 30 分钟；它决定「等一会儿」的时候，就算你把页面关了再回来，它也会把这条补上（超过 6 小时就不补了）。</p></div>';
 }
 /* 角色设定页：隐私、待办、群聊和演绎记忆卡片。 */
 function charPermissionCardsHTML(c){
@@ -4918,6 +5055,7 @@ function editChar(id,tema){
   charAvatarCardHTML(c,id)+
   charBaseFieldsHTML(c)+
   charAutoCardHTML(c,a,id)+
+  charReplyCardHTML(c)+
   charPermissionCardsHTML(c)+
   '<div class="row" style="margin-top:14px"><button class="pri col" onclick="saveChar(\''+id+'\')">保存</button>'+
   '<button class="col" onclick="copyChar(\''+id+'\')">复制这个角色</button></div>'+
@@ -5008,12 +5146,93 @@ function editChar(id,tema){
     if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(d,anchor);
     else sheet.appendChild(d);
   }catch(e){}
+  /* 【新】角色设置页：每张卡片默认收起，点标题才展开（和「设置」页一个套路） */
+  try{foldCharSheet()}catch(e){}
 }
 /* 免打扰时段开关：关掉就把起止输入隐藏（等于不设免打扰） */
 function toggleQuietRow(on){
   const el=document.getElementById('e_quietrow');
   if(el)el.style.display=on?'flex':'none';
 }
+/* ---------- 角色设置页：每张卡片默认收起，点标题才展开 ---------- */
+/* 记忆放在这里：同一个角色这次打开过一次，关掉再打开还记得展开过哪些。
+   存的是「标题文字 → 是否展开」，默认全是 false（收起）。 */
+const CHARFOLD={};
+/* 找这张卡片的标题：优先用那一行里加粗的字（比如「待办权限」「自己决定什么时候回」） */
+function charFoldTitleOf(card){
+  const kids=Array.prototype.slice.call(card.children);
+  for(let i=0;i<kids.length;i++){
+    const el=kids[i];
+    if(el.classList&&el.classList.contains('row')){
+      const b=el.querySelector('b');
+      const t=b?String(b.textContent||'').trim():'';
+      if(t)return t;
+    }
+  }
+  const b0=card.querySelector('b');
+  if(b0&&String(b0.textContent||'').trim())return String(b0.textContent||'').trim();
+  const t0=card.querySelector('.ttl');
+  if(t0&&String(t0.textContent||'').trim())return String(t0.textContent||'').trim();
+  return '';
+}
+/* 把一张卡片里的东西搬进可收起的容器，再在最上面加一行能点的标题 */
+function charFoldApply(card,open){
+  let head=null,body=null;
+  Array.prototype.forEach.call(card.children,function(el){
+    if(!el.classList)return;
+    if(el.classList.contains('charfold'))head=el;
+    if(el.classList.contains('charfoldbody'))body=el;
+  });
+  if(head){const ch=head.querySelector('.ch');if(ch)ch.textContent=open?'▾':'▸'}
+  if(body)body.style.display=open?'':'none';
+}
+function foldOneCharCard(card,title){
+  const body=document.createElement('div');
+  body.className='charfoldbody';
+  while(card.firstChild)body.appendChild(card.firstChild);
+  const head=document.createElement('div');
+  head.className='charfold';
+  head.innerHTML='<span class="ch">▸</span>'+esc(title);
+  card.appendChild(head);card.appendChild(body);
+  card.classList.add('charfolded');
+  card._charFoldTitle=title;
+  charFoldApply(card,!!CHARFOLD[title]);
+  head.addEventListener('click',function(e){
+    if(e.target&&e.target.closest&&e.target.closest('button,input,select,textarea,a,label'))return;
+    CHARFOLD[title]=!CHARFOLD[title];
+    charFoldApply(card,CHARFOLD[title]);
+  });
+}
+/* 角色设置页打开后调用一次：顶部加「全部展开／全部收起」，并把每张卡片收起来 */
+function foldCharSheet(){
+  const sheet=document.getElementById('sheet');if(!sheet)return;
+  if(!sheet.querySelector('.charfoldbar')){
+    const bar=document.createElement('div');
+    bar.className='p6cbar charfoldbar';
+    bar.innerHTML='<span class="dim" style="font-size:12px;flex:1">点标题展开／收起</span>'+
+      '<button class="ghost" onclick="charFoldAll(true)">全部展开</button>'+
+      '<button class="ghost" onclick="charFoldAll(false)">全部收起</button>';
+    const tabs=sheet.querySelector('.tabs');
+    if(tabs)sheet.insertBefore(bar,tabs.nextSibling);else sheet.insertBefore(bar,sheet.firstChild);
+  }
+  Array.prototype.forEach.call(sheet.children,function(card){
+    if(!card.classList||!card.classList.contains('card'))return;
+    if(card.classList.contains('charfolded'))return;         /* 已经折过了 */
+    if(card.getAttribute&&card.getAttribute('data-nofold'))return;
+    const title=charFoldTitleOf(card);
+    if(!title)return;                                        /* 没找到标题的（比如头像那张）就保持原样 */
+    foldOneCharCard(card,title);
+  });
+}
+function charFoldAll(open){
+  const sheet=document.getElementById('sheet');if(!sheet)return;
+  Array.prototype.forEach.call(sheet.children,function(card){
+    if(!card.classList||!card.classList.contains('charfolded'))return;
+    const t=card._charFoldTitle;if(t)CHARFOLD[t]=!!open;
+    charFoldApply(card,!!open);
+  });
+}
+window.charFoldAll=charFoldAll;      /* 顶部那两个按钮要用，挂到全局 */
 function applyCharInputs(id){
   const c=chars.find(x=>x.id===id);if(!c)return null;
   const v=i=>{const el=document.getElementById(i);return el?el.value:''};
@@ -5051,6 +5270,9 @@ function applyCharInputs(id){
   /* ↓ 补丁5-B：画图开关 */
   const elImg=document.getElementById('e_imgperm');
   if(elImg)c.imgPerm={on:!!elImg.checked};
+  /* ↓ 新增：角色设置里的「自己决定什么时候回」开关 */
+  const elFree=document.getElementById('e_freereply');
+  if(elFree)c.freeTiming=!!elFree.checked;
   /* ↓ 新增：电量可见 / 听歌数据可见 / 音乐控制（没有这个开关的旧数据就当默认开着） */
   const elBatP=document.getElementById('e_batperm');
   if(elBatP)c.batPerm={on:!!elBatP.checked};
@@ -8791,7 +9013,7 @@ function bindAppControls(){
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').classList.contains('on'))closeSheet()});
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)autoBackup();
-    else{checkAuto();checkGroupAuto()}
+    else{checkAuto();checkGroupAuto();freeReplyCheckDue()}
   });
   window.addEventListener('focus',()=>{checkAuto();checkGroupAuto()});
   window.addEventListener('pagehide',()=>autoBackup());
@@ -8830,6 +9052,7 @@ function finishAppStart(){
   go('chat');
   scheduleAuto(false);
   scheduleGroupAuto(false);
+  freeReplyBoot();              /* 【新增】「自己决定什么时候回」：把上次留着没回的重新排上 */
   startRemindTick();            /* 【新增】待办提醒：到点由角色发消息 */
   /* ↓ 从桌面图标直接打开「记忆宫殿」（地址带 #palace） */
   openDeepLink();
@@ -10933,12 +11156,14 @@ window.p5ChatDefer=function(){   /* 挂到全局：正在打字就延后重画�
 };
 /* ↓ 这个函数是七层补丁合并后的样子（顺序和原来一层层包起来时完全一致）：
      打字动画 → 表情包 → 画图 → 重画 → 玩具 → 联网搜索 → 原来的生成逻辑 */
-askAndAppend=async function(){
+askAndAppend=async function(freeCid){
   /* 【修复】这一轮回复属于哪个角色，开头就定死，之后一律用它。
      以前这里到处用全局的 curId / msgs：你只要在它打字的时候切到别的角色，
-     回复就会存进那个角色的聊天里，搜索结果、图片、表情也会挂错人。 */
-  const cid=curId;
-  const c=curChar();
+     回复就会存进那个角色的聊天里，搜索结果、图片、表情也会挂错人。
+     【新增】平时不传参数；「自己决定什么时候回」等到点了要在后台替某个角色
+     回话时，会明确把「这次是替谁回」传进来（freeCid），免得回错人。 */
+  const cid=freeCid||curId;
+  const c=chars.find(x=>x.id===cid)||null;
   const len=()=>msgsOf(cid).length;
   const live=()=>(curId===cid&&view==='chat');
   const lastIn=()=>{const arr=msgsOf(cid);return {arr:arr,m:arr.length?arr[arr.length-1]:null}};
