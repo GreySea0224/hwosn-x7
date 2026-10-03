@@ -56,6 +56,8 @@ button:disabled{opacity:.45;pointer-events:none}
 .bub.ai{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:6px}
 .bub .time{display:block;margin-top:5px;font-size:10px;opacity:.5;text-align:right;line-height:1;user-select:none}
 .bub .msgimg{display:block;max-width:100%;border-radius:10px;margin-bottom:5px;border:1px solid rgba(0,0,0,.15)}
+.bub .msgimgs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px}
+.bub .msgimgs .msgimg{max-width:calc(50% - 2px);margin-bottom:0}
 .bub .imgcleared{display:inline-block;font-size:12px;color:var(--dim);border:1px dashed var(--line);border-radius:10px;padding:6px 9px;margin-bottom:5px}
 .bub.typing{padding:13px 15px}
 .bub.typing span{display:inline-block;width:7px;height:7px;margin:0 2px;border-radius:50%;background:var(--dim);animation:tp 1.2s infinite}
@@ -106,6 +108,9 @@ button:disabled{opacity:.45;pointer-events:none}
 #picked{display:none;flex:0 0 auto;align-items:center;gap:10px;padding:8px 12px 0;background:var(--grad)}
 #picked.on{display:flex}
 #picked img{height:66px;border-radius:10px;border:1px solid var(--line);box-shadow:var(--shadow)}
+#picked #thumbs{display:flex;align-items:center;gap:8px;max-width:66vw;overflow-x:auto;padding:2px 0}
+#picked #thumbs img{flex:0 0 auto}
+#picked #thumbs .addpic{width:66px;height:66px;flex:0 0 auto;font-size:22px;border-radius:10px;border-style:dashed;color:var(--dim)}
 #picked button{width:30px;height:30px;padding:0;border-radius:50%;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:13px;box-shadow:none}
 /* ---------- 底部输入栏：去掉右下角小点 + 更圆润 ---------- */
 #composer{flex:0 0 auto;display:flex;gap:8px;padding:8px 12px;background:var(--grad);border-top:1px solid var(--line);align-items:flex-end}
@@ -611,9 +616,9 @@ html.chatwall #msgs .tsep>span{padding:3px 11px;opacity:1;background:var(--panel
 <body>
 <header><div class="hcol"><h1 id="title">聊天</h1><span class="who" id="who"></span></div><button class="hact" id="hsearch" type="button" aria-label="查找聊天记录" title="查找聊天记录" onclick="openFind()" style="display:none"><svg viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.2"/><path d="m15.2 15.2 4.6 4.6"/></svg></button><button class="hact" id="hact" type="button" aria-label="更多">⋯</button></header>
 <main id="main"></main>
-<div id="picked"><img id="thumb" alt=""><span id="fchip" class="filechip" style="display:none"></span><button id="pickedX" onclick="clearPicked()">✕</button></div>
+<div id="picked"><img id="thumb" alt=""><span id="thumbs"></span><span id="fchip" class="filechip" style="display:none"></span><button id="pickedX" onclick="clearPicked()">✕</button></div>
 <div id="composer"><div id="cbox"><button id="plus" title="发送图片或文件" aria-label="发送图片或文件"><svg viewBox="0 0 24 24"><path d="M12 5.2v13.6M5.2 12h13.6"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button><button id="send" aria-label="发送" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5.4"/><path d="M5.8 11.6 12 5.4l6.2 6.2"/></svg></button></div></div>
-<input id="imgIn" type="file" accept="image/*" style="display:none" onchange="pickImage(this)">
+<input id="imgIn" type="file" accept="image/*" multiple style="display:none" onchange="pickImage(this)">
 <input id="fileIn" type="file" style="display:none" onchange="pickFile(this)">
 <input id="avaIn" type="file" accept="image/*" style="display:none" onchange="avaChange(this)">
 <nav>
@@ -640,7 +645,9 @@ const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',p
   groups:'wh_groups',gauto:'wh_gauto',music:'wh_music',moments:'wh_moments',momSeen:'wh_momseen',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
   summark:id=>'wh_summark_'+id,gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id,delmsg:id=>'wh_delmsg_'+id,
-  mtag:'wh_mtag',mpin:'wh_mpin'};
+  mtag:'wh_mtag',mpin:'wh_mpin',
+  /* 角色自动打的标签单独存一份：和手打的 wh_mtag 分开，撤回时只清这份，手打的绝不动 */
+  mtagai:'wh_mtag_ai',mtagaiLast:'wh_mtag_ai_last'};
 
 /* ---------- 主题 ---------- */
 const THEMES={
@@ -1124,9 +1131,19 @@ const nl2br=s=>esc(s).replace(/\n/g,'<br>');
 /* 消息的「一句话摘要」：给总结/日志/通知用，把图片和附件也标出来 */
 const msgBrief=m=>{
   const s=String((m&&m.content)||'').replace(/\|\|\|/g,' ').trim();   /* 分条标记换成空格，总结/通知读着自然 */
-  const ex=(m&&m.img?'［图片］':(m&&m.imgCleared?'［图片已清理］':''))+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
+  const nImg=msgImgs(m).length;
+  const ex=(nImg?('［'+(nImg>1?(nImg+' 张图片'):'图片')+'］'):(m&&m.imgCleared?'［图片已清理］':''))+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
   return (s+(s&&ex?' ':'')+ex)||'（空）';
 };
+/* 一条消息里的所有图片：新的多图存在 imgs 数组里；老数据只有单张 img。
+   两种都认，返回 dataURL 数组（没有就返回空数组）。 */
+function msgImgs(m){
+  if(!m)return [];
+  const a=[];
+  if(Array.isArray(m.imgs))for(const u of m.imgs){if(typeof u==='string'&&u)a.push(u)}
+  if(!a.length&&typeof m.img==='string'&&m.img)a.push(m.img);
+  return a;
+}
 /* ---------- markdown 渲染（自己写的，不联网、不装库） ----------
    支持：标题 #、列表 - / 1.、引用 >、代码块 ```、行内代码 `、
         加粗 **、斜体 *、删除线 ~~、链接 [文字](网址)、表格、分隔线 ---
@@ -1314,7 +1331,7 @@ const secOpen={};
 /* ---------- 记忆上下文 / 弹层栈 / 待发送图片 / 头像上传目标 ---------- */
 let memCtx={id:null,obj:null};        /* 正在编辑的是哪个角色的记忆 */
 const sheetStack=[];                  /* 弹层逐层返回 */
-let pendImg=null;                     /* 待发送的图片 dataURL */
+let pendImgs=[];                      /* 待发送的图片 dataURL 数组（可以多张） */
 let pendFile=null;                    /* 待发送的附件 {name,size,type,kind,text?} */
 let avaTarget=null;                   /* {kind:'me'} 或 {kind:'char',id:...} */
 const HIST_HINT={
@@ -2258,7 +2275,36 @@ function palaceSeg(o,c){
   return head+'\n'+lines.join('\n');
 }
 /* ---------- 人工标签 & 「一直记得」 ---------- */
-function mtagAll(){const v=load(LS.mtag,{});return (v&&typeof v==='object')?v:{}}
+/* 标签有两份，分开放：
+   · wh_mtag    ＝ 你自己手打的（程序永远不会自动改它）；
+   · wh_mtag_ai ＝ 角色/AI 整理助手自动打的（可以一键撤回，撤回不影响手打的）。
+   平时「读」标签用 mtagAll()，看到的是两份合起来的；「写」的时候各写各的。 */
+function mtagStore(key){const v=load(key,{});return (v&&typeof v==='object')?v:{}}
+let MTAG_HCACHE=null,MTAG_ACACHE=null;             /* 小缓存：标签多的时候界面不卡 */
+function mtagHumanAll(){if(!MTAG_HCACHE)MTAG_HCACHE=mtagStore(LS.mtag);return MTAG_HCACHE}
+function mtagAiAll(){if(!MTAG_ACACHE)MTAG_ACACHE=mtagStore(LS.mtagai);return MTAG_ACACHE}
+function mtagSaveHuman(all){MTAG_HCACHE=all;save(LS.mtag,all)}
+function mtagSaveAi(all){MTAG_ACACHE=all;save(LS.mtagai,all)}
+/* 两份合并成一份（同一条上「分类+名字」一样的算同一个，不重复） */
+function mtagMerge(a,b){
+  const out={};
+  [a,b].forEach(src=>{
+    for(const id in src){
+      const m=src[id]||{},o=out[id]||(out[id]={});
+      for(const k in m){
+        const add=Array.isArray(m[k])?m[k]:[],cur=Array.isArray(o[k])?o[k]:[],seen={};
+        cur.forEach(t=>{const s=tagSplit(t);seen[s.cat+'|'+s.name]=1});
+        add.forEach(t=>{
+          const s=tagSplit(t),key=s.cat+'|'+s.name;
+          if(!seen[key]){cur.push(t);seen[key]=1}
+        });
+        o[k]=cur;
+      }
+    }
+  });
+  return out;
+}
+function mtagAll(){return mtagMerge(mtagHumanAll(),mtagAiAll())}
 /* 标签分类：时间 / 事件 / 性质 / 其他。
    存的时候写成「分类|名字」（比如 时间|2024-05-03、事件|海边捡贝壳、性质|开心）。
    以前没有分类的老标签（比如「重要」）一律算「其他」，照样能搜、能用。 */
@@ -2278,19 +2324,57 @@ function tagJoin(cat,name){
   if(!n)return '';
   return (cat&&cat!=='其他')?(cat+'|'+n):n;
 }
-function mtagOf(arcId,idx){
-  const a=mtagAll()[arcId];
+function mtagOfStore(store,arcId,idx){
+  const a=store[arcId];
   if(!a)return [];
   const t=a[String(idx)];
   return Array.isArray(t)?t:[];
 }
-function mtagSet(arcId,idx,tags){
-  const all=mtagAll(),a=all[arcId]||(all[arcId]={}),k=String(idx);
+function mtagOf(arcId,idx){return mtagOfStore(mtagAll(),arcId,idx)}        /* 读：人工＋AI 合起来 */
+function mtagOfHuman(arcId,idx){return mtagOfStore(mtagHumanAll(),arcId,idx)}
+function mtagOfAi(arcId,idx){return mtagOfStore(mtagAiAll(),arcId,idx)}
+function tagCleanList(tags){
   const clean=[];
   (tags||[]).forEach(s=>{const t=String(s).trim().slice(0,16);if(t&&clean.indexOf(t)<0)clean.push(t)});
+  return clean;
+}
+function mtagPut(store,arcId,idx,tags){
+  const all=store,a=all[arcId]||(all[arcId]={}),k=String(idx);
+  const clean=tagCleanList(tags);
   if(clean.length)a[k]=clean;else delete a[k];
   if(!Object.keys(a).length)delete all[arcId];
-  save(LS.mtag,all);
+}
+/* 手打标签：只写人工那份（界面上点标签、整卷标签都走这里） */
+function mtagSet(arcId,idx,tags){
+  const all=mtagHumanAll();
+  mtagPut(all,arcId,idx,tags);
+  mtagSaveHuman(all);
+}
+/* AI 标签：只写 AI 那份（撤回就是清这份） */
+function mtagAiSet(arcId,idx,tags){
+  const all=mtagAiAll();
+  mtagPut(all,arcId,idx,tags);
+  mtagSaveAi(all);
+}
+/* 去掉某一条上的某一个 AI 标签（界面里点 AI 标签时用） */
+function mtagAiDropOne(arcId,idx,tag){
+  const all=mtagAiAll(),a=all[arcId];
+  if(!a)return;
+  const k=String(idx),v=Array.isArray(a[k])?a[k]:[],i=v.indexOf(tag);
+  if(i<0)return;
+  v.splice(i,1);
+  if(v.length)a[k]=v;else delete a[k];
+  if(!Object.keys(a).length)delete all[arcId];
+  mtagSaveAi(all);
+}
+/* 这个标签是不是「只有 AI 打过、你没打过」——只有这种才允许撤回 */
+function mtagIsAiOnly(arcId,idx,tag){
+  return mtagOfHuman(arcId,idx).indexOf(tag)<0&&mtagOfAi(arcId,idx).indexOf(tag)>=0;
+}
+/* 某条上「只有 AI 打过」的标签（界面上给它们加 🤖 标记） */
+function mtagAiOnlyOf(arcId,idx){
+  const h=mtagOfHuman(arcId,idx);
+  return mtagOfAi(arcId,idx).filter(t=>h.indexOf(t)<0);
 }
 function mtagCount(){                 /* 标签 → 打了多少条 */
   const all=mtagAll(),m=Object.create(null);
@@ -2303,6 +2387,20 @@ function mtagCount(){                 /* 标签 → 打了多少条 */
   }
   return m;
 }
+/* AI 标签的统计（撤回界面用）：标签 → 打了多少条 */
+function mtagAiCount(){
+  const all=mtagAiAll(),m=Object.create(null);
+  for(const arcId in all){
+    const a=all[arcId]||{};
+    for(const k in a){
+      const ts=a[k]||[];
+      for(let i=0;i<ts.length;i++)m[ts[i]]=(m[ts[i]]||0)+1;
+    }
+  }
+  return m;
+}
+/* AI 一共打过多少「条」（一条记忆上有几个标签算几个） */
+function mtagAiTotal(){const m=mtagAiCount();let n=0;for(const t in m)n+=m[t];return n}
 function mtagByCat(cat){              /* 某个分类下用过的标签（按用得多排前面） */
   return mtagByCatMap(cat,mtagCount());
 }
@@ -2338,9 +2436,11 @@ function arcVisText(a){
   return '只给 '+names.join('、')+' 看';
 }
 /* 一条记忆的标签，按分类拼成一行字给界面看 */
-function tagLineText(tags){
+function tagLineText(tags,aiOnly){
+  const isAi={};
+  (aiOnly||[]).forEach(t=>{const s=tagSplit(t);isAi[s.cat+'|'+s.name]=1});
   const g={};
-  (tags||[]).forEach(t=>{const s=tagSplit(t);(g[s.cat]=g[s.cat]||[]).push(s.name)});
+  (tags||[]).forEach(t=>{const s=tagSplit(t);(g[s.cat]=g[s.cat]||[]).push((isAi[s.cat+'|'+s.name]?'🤖':'')+s.name)});
   const out=[];
   MTAG_CATS.forEach(c=>{if(g[c]&&g[c].length)out.push(MTAG_ICON[c]+c+'：'+g[c].join('、'))});
   return out.join('　');
@@ -2448,7 +2548,7 @@ let PALACE_LOG=[];
    认不出时间的条目，借前后最近那条的时间。已经有「时间」标签的条目不动。 */
 async function palaceAutoTimeTags(){
   if(!confirm('自动给记忆补「时间」标签？\n\n· 用每条记忆原本带的时间\n· 认不出时间的，借前后最近那条的时间\n· 已经手动打过「时间」标签的不会动\n\n只加标签，一个字都不改原文。'))return;
-  const ALL=mtagAll();
+  const ALL=mtagHumanAll();      /* 只动人工那份：AI 标签不会被顺手写进手打标签里 */
   const cur=(id,key)=>{const a=ALL[id];const v=a&&a[key];return Array.isArray(v)?v:[]};
   const hasTime=(id,key)=>cur(id,key).some(t=>tagSplit(t).cat==='时间');
   const put=(id,key,tag)=>{
@@ -2488,7 +2588,7 @@ async function palaceAutoTimeTags(){
       add++;
     }
   }
-  try{save(LS.mtag,ALL)}
+  try{mtagSaveHuman(ALL)}
   catch(e){alert('保存失败：'+((e&&e.message)||e));return}
   try{if(typeof refreshMem==='function')refreshMem()}catch(e){}
   alert('✅ 时间标签补好了\n\n· 新加 '+add+' 条\n· 已有时间标签、跳过 '+skip+' 条\n· 认不出时间的 '+noTime+' 条（这些只能手动打）\n\n回记忆宫殿就能看到：点标签可以按时间找记忆，角色也能按时间去回忆。');
@@ -3536,17 +3636,23 @@ function appendChatMessage(box,x,i){
   const d=document.createElement('div');
   d.className='bub '+(isMe?'me':'ai');
   /* 只有纯文字的消息才参与「变小」和「分条」；带图片/文件/图的还是老样子 */
-  const plain=!x.img&&!x.imgCleared&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
+  const imgs=msgImgs(x);
+  const plain=!imgs.length&&!x.imgCleared&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
   const parts=plain?splitBubbleParts(x.content,isMe):null;
   if(parts&&parts.length>1){
     d.className+=' multi';
     d.innerHTML=parts.map(s=>('<div class="bsub">'+mdLite(s)+'</div>')).join('');
   }else{
     if(plain)d.className+=' narrow';
-    d.innerHTML=(x.img?('<img class="msgimg" src="'+esc(x.img)+'" alt="图片" onclick="viewImg(this.src)">'):
-      (x.imgCleared?'<div class="imgcleared">🖼 图片已清理（为了腾空间删掉了，文字还在）</div>':''))+
-      filesHTML(x.files,i)+
-      mdLite(x.content||'');
+    let media='';
+    if(imgs.length>1){
+      media='<div class="msgimgs">'+imgs.map(u=>'<img class="msgimg" src="'+esc(u)+'" alt="图片" onclick="viewImg(this.src)">').join('')+'</div>';
+    }else if(imgs.length===1){
+      media='<img class="msgimg" src="'+esc(imgs[0])+'" alt="图片" onclick="viewImg(this.src)">';
+    }else if(x.imgCleared){
+      media='<div class="imgcleared">🖼 图片已清理（为了腾空间删掉了，文字还在）</div>';
+    }
+    d.innerHTML=media+filesHTML(x.files,i)+mdLite(x.content||'');
   }
   /* 每条气泡都补一个 Telegram 小尾巴（分条的那种是每个小气泡都补） */
   ((parts&&parts.length>1)?Array.prototype.slice.call(d.querySelectorAll('.bsub')):[d]).forEach(function(b){addBubbleTail(b)});
@@ -4037,13 +4143,14 @@ function buildCtxHistory(){
   const hist=historySlice().map(x=>{
     const pre=(useT&&x.role==='user')?('（'+stampOf(x.t)+'）'):'';
     const fb=fileBlocks(x.files);
-    if(x.img||fb){
+    const imgs=msgImgs(x);
+    if(imgs.length||fb){
       const parts=[];
       let head=pre+(x.content||'');
-      if(!head&&x.img)head=pre+'（我给你发了张图片）';
+      if(!head&&imgs.length)head=pre+(imgs.length>1?('（我给你发了 '+imgs.length+' 张图片）'):'（我给你发了张图片）');
       if(fb)head+=(head?'\n':'')+fb;
       if(head)parts.push({type:'text',text:head});
-      if(x.img)parts.push({type:'image_url',image_url:{url:x.img}});
+      imgs.forEach(u=>parts.push({type:'image_url',image_url:{url:u}}));
       return {role:x.role,content:parts};
     }
     return {role:x.role,content:pre+(x.content||'')};
@@ -4338,14 +4445,16 @@ function handleAskError(e,a,out,reasoning,usage,cid){
 function liveBubbleText(s){
   return nl2br(String(s==null?'':s).split(BUB_SEP).join('\n'));
 }
-/* 创建本轮回复用的“思考中”占位和气泡，并调整发送/停止按钮。 */
-function setupAskUI(box){
+/* 创建本轮回复用的“思考中”占位和气泡，并调整发送/停止按钮。
+   第三个参数是正在回复的角色，可以用它自定义气泡文字（角色设置里的「等待回复时显示的文字」）。 */
+function setupAskUI(box,offscreen,ch){
   const sendBtn=$('#send'),stopBtn=$('#stop');
   if(sendBtn){sendBtn.disabled=true;sendBtn.style.display='none'}
   if(stopBtn)stopBtn.style.display='';
+  const thinkTxt=((ch&&String(ch.thinkText||'').trim())||'思考中…');
   const liveThink=document.createElement('div');
   liveThink.className='thinklive';liveThink.style.display='none';
-  liveThink.innerHTML=ICON.think+'<span>思考中…</span>';
+  liveThink.innerHTML=ICON.think+'<span>'+esc(thinkTxt)+'</span>';
   box.appendChild(liveThink);
   const a=document.createElement('div');a.className='bub ai typing narrow';
   setBubbleAvatar(a,false);
@@ -4381,13 +4490,14 @@ async function send(){
   const cid=curId;                     /* 【修复】这条消息属于哪个角色，一开始就记下来 */
   const c=curChar(),inp=$('#inp');
   const text=inp.value.trim();
-  if((!text&&!pendImg&&!pendFile)||!c)return;
+  if((!text&&!pendImgs.length&&!pendFile)||!c)return;
   if(busy){toast('ta还在输入，稍等一下');return}
   inp.value='';inp.style.height='auto';
   updSendBtn();
   const m={role:'user',content:text,t:Date.now()};
   if(text)m.tok=estTokens(text);
-  if(pendImg){m.img=pendImg;clearPicked()}
+  /* 多张图存进 imgs；同时把第一张也写进 img，兼容旧数据和老逻辑 */
+  if(pendImgs.length){m.imgs=pendImgs.slice();m.img=m.imgs[0];clearPicked()}
   if(pendFile){m.files=[Object.assign({},pendFile)];clearPicked()}
   pushMsgTo(cid,m);
   if(view!=='chat')go('chat');else renderChat();
@@ -4431,7 +4541,7 @@ function editMsg(){
   if(busy||!msgs.length)return;
   const c=curChar(),m=msgs[msgs.length-1];
   showSheet('<div class="ttl">编辑这条（'+(m.role==='user'?'你说的':esc(c?c.name:'AI')+'说的')+'）</div>'+
-  (m.img?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条消息带了一张图片，编辑只改文字。</p>':'')+
+  (msgImgs(m).length?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条消息带了图片，编辑只改文字。</p>':'')+
   '<textarea id="emv" style="min-height:180px">'+esc(m.content)+'</textarea>'+
   '<div class="row" style="margin-top:12px"><button class="pri col" onclick="saveEdit()">保存</button>'+
   '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
@@ -4439,7 +4549,7 @@ function editMsg(){
 function saveEdit(){
   const v=$('#emv').value.trim();
   const m=msgs[msgs.length-1];
-  if(!v&&!(m&&m.img))return alert('不能空着');
+  if(!v&&!msgImgs(m).length)return alert('不能空着');
   markMsgDeleted(curId,m);            /* 记一笔：这条的旧内容不要了 */
   m.content=v;m.tok=estTokens(v);persist();closeSheet();renderChat();
 }
@@ -4970,6 +5080,7 @@ function charBaseFieldsHTML(c){
   '<option value="1"'+((c.think==null||c.think===1)?'selected':'')+'>正常</option>'+
   '<option value="2"'+(c.think===2?'selected':'')+'>深想（多想一会，更深入）</option>'+
   '</select>'+
+  '<label class="f">等待回复时显示的文字（聊天里那个小气泡）</label><input id="e_thinktxt" placeholder="默认是「思考中…」，可以写「鲸鱼正在输入…」" value="'+esc(c.thinkText||'')+'">'+
   '<label class="f">开场白（第一次进聊天自动发）</label><textarea id="e_greeting">'+esc(c.greeting||'')+'</textarea>'+
   '<label class="f">单独指定模型（留空用默认）</label><input id="e_model" value="'+esc(c.model||'')+'">';
 }
@@ -5245,6 +5356,7 @@ function applyCharInputs(id){
   c.sysPrompt=v('e_sys').trim();
   c.examples=v('e_examples').trim();
   let th=parseInt(v('e_think'),10);c.think=([0,1,2].indexOf(th)>=0)?th:1;
+  c.thinkText=String(v('e_thinktxt')||'').trim();   /* 自定义「思考中」气泡文字，留空就用默认 */
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
   c.auto={on:ck('e_auto'),min:+v('e_min')||30,max:+v('e_max')||90,
@@ -5751,10 +5863,22 @@ function mpalTogglePin(n){
 /* 标签：点一下加上、再点一下去掉，立刻保存，不会白打 */
 function mpalToggleTag(tag){
   const e=mpalCurEntry();if(!e||!tag)return;
-  const cur=mtagOf(e.id,e.key);
-  const i=cur.indexOf(tag);
-  if(i>=0)cur.splice(i,1);else cur.push(tag);
-  mtagSet(e.id,e.key,cur);
+  const h=mtagOfHuman(e.id,e.key).slice(),ai=mtagOfAi(e.id,e.key).slice();
+  const inH=h.indexOf(tag)>=0,inA=ai.indexOf(tag)>=0;
+  if(!inH&&inA){                       /* 只有 AI 打过：点一下＝撤回它这个标签 */
+    mtagAiDropOne(e.id,e.key,tag);
+    mpalRender();refreshMem();
+    toast('已撤回 AI 标签「'+tagSplit(tag).name+'」');
+    return;
+  }
+  if(inH){
+    h.splice(h.indexOf(tag),1);
+    mtagSet(e.id,e.key,h);
+    if(inA)mtagAiDropOne(e.id,e.key,tag);   /* 你手上有过的，撤掉时 AI 那份也一起清干净 */
+  }else{
+    h.push(tag);
+    mtagSet(e.id,e.key,h);
+  }
   mpalRender();refreshMem();
 }
 function mpalQuickTime(){
@@ -5762,7 +5886,7 @@ function mpalQuickTime(){
   const t=mpalEntryTime(e);
   if(!t)return toast('这条认不出时间，要手动打一个');
   const tag=tagJoin('时间',dayTagOf(t));
-  const cur=mtagOf(e.id,e.key);
+  const cur=mtagOfHuman(e.id,e.key);
   if(cur.indexOf(tag)<0)cur.push(tag);
   mtagSet(e.id,e.key,cur);
   mpalRender();refreshMem();
@@ -5776,7 +5900,7 @@ function mpalAddTagHere(){
   const e=mpalCurEntry();if(!e)return;
   const tag=tagJoin(MPAL.tcat||'事件',name);
   if(!tag)return;
-  const cur=mtagOf(e.id,e.key);
+  const cur=mtagOfHuman(e.id,e.key);
   if(cur.indexOf(tag)<0)cur.push(tag);
   mtagSet(e.id,e.key,cur);
   mpalRender();refreshMem();
@@ -5784,10 +5908,10 @@ function mpalAddTagHere(){
 }
 /* 整卷标签：这一卷里每一条都会算上 */
 function mpalTagVol(arcId){
-  const cur=mtagOf(arcId,'vol').map(t=>tagSplit(t).name).join('，');
+  const cur=mtagOfHuman(arcId,'vol').map(t=>tagSplit(t).name).join('，');
   const v=prompt('给整卷打标签（这一卷里每一条都会算上）\n多个用逗号隔开，比如：2024年夏天，高中时期\n（这些会算成「事件」类；时间请用旁边那个「整卷时间」按钮）\n留空 = 删掉整卷的这类标签',cur);
   if(v==null)return;
-  const keep=mtagOf(arcId,'vol').filter(t=>tagSplit(t).cat==='时间');
+  const keep=mtagOfHuman(arcId,'vol').filter(t=>tagSplit(t).cat==='时间');
   const add=String(v).split(/[，,、\s]+/).filter(Boolean).map(n=>tagJoin('事件',n));
   mtagSet(arcId,'vol',keep.concat(add));
   mpalRender();refreshMem();
@@ -5799,7 +5923,7 @@ function mpalTagVolTime(arcId){
   const first=ts.filter(x=>x)[0]||0;
   const v=prompt('给整卷加「时间」标签（这一卷里每一条都会算上）\n填日期或时间段，比如 2024-05-03、2024年5月、2024年夏天\n留空 = 不加',first?dayTagOf(first):'');
   if(v==null||!String(v).trim())return;
-  const keep=mtagOf(arcId,'vol').filter(t=>tagSplit(t).cat!=='时间');
+  const keep=mtagOfHuman(arcId,'vol').filter(t=>tagSplit(t).cat!=='时间');
   mtagSet(arcId,'vol',keep.concat([tagJoin('时间',String(v).trim())]));
   mpalRender();refreshMem();
   toast('整卷时间标签已保存');
@@ -5847,6 +5971,7 @@ function mpalRow2(e,n){
   }
   txt=txt.slice(0,160);
   const tags=mtagOf(e.id,e.key);
+  const aiOnly=mtagAiOnlyOf(e.id,e.key);
   const pinned=mpinHas(e.id,e.key);
   const isVolTag=(e.kind==='arc')&&((mtagOf(e.id,'vol')||[]).length>0);
   const t=mpalEntryTime(e);
@@ -5854,7 +5979,7 @@ function mpalRow2(e,n){
     '<div style="font-size:13px;margin-bottom:4px">'+esc(txt.slice(0,160)||'（这条没有文字）')+'</div>'+
     '<div class="dim" style="font-size:11.5px">'+esc(mpalEntryWho(e))+esc(mpalEntryLabel(e))+
     (t?('　'+esc(dayTagOf(t))):'')+
-    (tags.length?('　'+esc(tagLineText(tags))):'')+(isVolTag?'　（含整卷标签）':'')+(pinned?'　📌 一直记得':'')+'</div>'+
+    (tags.length?('　'+esc(tagLineText(tags,aiOnly))):'')+(isVolTag?'　（含整卷标签）':'')+(pinned?'　📌 一直记得':'')+'</div>'+
     '<div class="row" style="margin-top:6px">'+
     '<button class="col" data-n="'+n+'" onclick="mpalStartTag(parseInt(this.dataset.n,10))">✍️ 看全文 / 打标签</button>'+
     '<button class="ghost" data-n="'+n+'" onclick="mpalTogglePin(parseInt(this.dataset.n,10))">'+(pinned?'取消📌':'📌 一直记得')+'</button>'+
@@ -5867,6 +5992,7 @@ function mpalTagViewHTML(c){
   const k=Math.max(0,Math.min(MPAL.ti||0,L.length-1));
   const e=L[k];
   const tags=mtagOf(e.id,e.key);
+  const aiOnly=mtagAiOnlyOf(e.id,e.key);
   const pinned=mpinHas(e.id,e.key);
   const full=mpalEntryFull(e);
   const t=mpalEntryTime(e);
@@ -5877,7 +6003,8 @@ function mpalTagViewHTML(c){
     if(!arr.length)return '<span class="dim" style="font-size:12px">（这个分类还没有标签，在下面新建）</span>';
     return arr.map(x=>{
       const on=tags.indexOf(x.tag)>=0;
-      return '<button class="'+(on?'pri':'ghost')+'" data-t="'+esc(x.tag)+'" onclick="mpalToggleTag(this.dataset.t)" style="margin:0 6px 6px 0">'+esc(MTAG_ICON[cat2]+x.name)+' ('+x.n+')</button>';
+      const robot=(aiOnly.indexOf(x.tag)>=0)?'🤖':'';
+      return '<button class="'+(on?'pri':'ghost')+'" data-t="'+esc(x.tag)+'" onclick="mpalToggleTag(this.dataset.t)" style="margin:0 6px 6px 0">'+esc(MTAG_ICON[cat2]+robot+x.name)+' ('+x.n+')</button>';
     }).join('');
   };
   const ph=(cat==='时间')?'比如 2024-05-03':((cat==='事件')?'比如 海边捡贝壳':((cat==='性质')?'比如 开心 / 吵架':'比如 重要'));
@@ -5891,8 +6018,8 @@ function mpalTagViewHTML(c){
     '<div class="card" style="margin-top:10px"><div class="ttl">全部文字（'+full.length+' 字）</div>'+
     '<div style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow:auto">'+esc(full||'（这条没有文字）')+'</div></div>'+
     '<div class="card" style="margin-top:10px"><div class="ttl">这条现在的标签</div>'+
-    (tags.length?('<p style="font-size:13px;margin:0">'+esc(tagLineText(tags))+'</p>'):'<p class="dim" style="font-size:13px;margin:0">还没有</p>')+
-    '<p class="dim" style="font-size:11.5px;margin:6px 0 0">下面的标签点一下＝加上，再点＝去掉，立刻保存。</p></div>'+
+    (tags.length?('<p style="font-size:13px;margin:0">'+esc(tagLineText(tags,aiOnly))+'</p>'):'<p class="dim" style="font-size:13px;margin:0">还没有</p>')+
+    '<p class="dim" style="font-size:11.5px;margin:6px 0 0">下面的标签点一下＝加上，再点＝去掉，立刻保存。带 🤖 的是角色自己打的，点一下就能撤回它。</p></div>'+
     MTAG_CATS.map(cat2=>'<div class="card" style="margin-top:10px"><div class="ttl">'+MTAG_ICON[cat2]+cat2+'标签</div>'+
       '<div class="row" style="flex-wrap:wrap;gap:0">'+catChips(cat2)+'</div></div>').join('')+
     '<div class="card" style="margin-top:10px"><div class="ttl">加一个新标签</div>'+
@@ -5948,7 +6075,7 @@ function mpalHTML(){
       '<button class="col" onclick="palaceAutoTimeTags()">开始自动补时间</button></div>';
     let chatN2=0;
     try{const cw=MPAL.who||c.id;const msa=(cw===curId)?msgs:(load(LS.msg(cw),[])||[]);chatN2=msa.length}catch(e){}
-    const chatCard='<div class="card" style="margin-top:10px"><div class="ttl">💬 聊天记录（打字聊出来的）</div>'+
+    const chatCard='<div class="card" style="margin-top:10px"><div class="ttl">💬 聊天记录（你和角色打字聊的，不是上面导入的档案）</div>'+
       '<p class="dim" style="font-size:12px;margin:0 0 6px">'+(whoChar?esc((whoChar.name||'')+'的聊天，'):'')+'共 '+chatN2+' 条，和档案一样能打标签、能设「一直记得」。从最近的往前翻。</p>'+
       '<button class="col" onclick="mpalOpenChat()">看聊天记录</button></div>';
     const vols=visList.map(a=>{
@@ -5959,7 +6086,7 @@ function mpalHTML(){
         '<p class="dim" style="font-size:12px;margin:0 0 6px">'+am.length+' 条 · 已索引 '+segs+' 段'+(a.off?' · ⛔已归档（不检索）':'')+
         '<br>👀 '+esc(arcVisText(a))+
         (tags.length?('　🏷 '+esc(tags.join('、'))):'')+'</p>'+
-        '<div class="row"><button class="col" data-a="'+esc(a.id)+'" onclick="mpalOpen(this.dataset.a)">看条目</button>'+
+        '<div class="row"><button class="col" data-a="'+esc(a.id)+'" onclick="mpalOpen(this.dataset.a)">📖 看这 '+am.length+' 条</button>'+
         '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalVisSheet(this.dataset.a)">👀 谁能看见</button></div>'+
         '<div class="row" style="margin-top:6px"><button class="pri col" data-a="'+esc(a.id)+'" onclick="mpalOpenTag(this.dataset.a)">✍️ 找内容 / 打标签</button></div>'+
         '<div class="row" style="margin-top:6px">'+
@@ -5968,9 +6095,12 @@ function mpalHTML(){
         (whoChar?('<div class="row" style="margin-top:6px"><button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalVisOnly(this.dataset.a)">🔒 只给《'+esc(whoChar.name||'')+'》看</button></div>'):'')+
         '</div>';
     }).join('');
-    return whoCard+stat+searchBox+cloud+timeCard+chatCard+
-      '<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+visList.length+' 卷档案。点「✍️ 找内容 / 打标签」可以直接进去逐条看全文、打标签；点「看条目」先浏览再打标签；点「👀 谁能看见」决定哪些角色能看到这一卷。</p>'+
-      (visList.length?'':('<div class="card"><div class="ttl">这里还没有卷</div><p class="dim" style="font-size:12px;margin:0">'+(whoChar?('《'+esc(whoChar.name||'')+'》现在看不到任何档案。切到「全部档案」，把某卷改成只给它看，或者新建/导入一份。'):'还没有导入过档案。')+'</p></div>'));
+    /* 【修复】档案卷卡片以前排在标签云/时间/聊天记录后面，标签一多就被顶到很下面，看不见。
+       现在把「历史记忆档案」整块提到最前面，紧跟「状态」，打开就能看到。 */
+    const volHead='<div class="card" style="margin-top:10px"><div class="ttl">📚 历史记忆档案（'+visList.length+' 卷）</div>'+
+      '<p class="dim" style="font-size:12px;margin:0">这些就是你导入的文件。点「✍️ 找内容 / 打标签」可以直接一条条翻、给某条打标签；点「📖 看这 N 条」先浏览。</p></div>';
+    return whoCard+stat+tagAiCardHTML()+volHead+vols+searchBox+cloud+timeCard+chatCard+
+      (visList.length?'':('<div class="card" style="margin-top:10px"><div class="ttl">这里还没有卷</div><p class="dim" style="font-size:12px;margin:0">'+(whoChar?('《'+esc(whoChar.name||'')+'》现在看不到任何档案。切到「全部档案」，把某卷改成只给它看，或者新建/导入一份。'):'还没有导入过档案。')+'</p></div>'));
   }
   if(MPAL.mode==='list'){
     const all=mpalEntries(c);
@@ -6037,6 +6167,372 @@ function mpalHTML(){
       rows;
   }
   return '';
+}
+/* ================= 🤖 角色自动打标签（AI 整理；单独存一份，随时能撤回） =================
+   设计要点：
+   · AI 只往 wh_mtag_ai 里写，绝不碰你手打的 wh_mtag —— 所以「撤回」永远是安全的。
+   · 打过的会跳过，所以中途停了、下次点「继续」就是接着跑。
+   · 「新对话自动打标签」是聊完一轮后在后台悄悄跑，不影响聊天速度。 */
+function tagAiCfg(){
+  if(!cfg)return null;
+  if(!cfg.tagai||typeof cfg.tagai!=='object')cfg.tagai={};
+  const d=cfg.tagai;
+  if(d.on==null)d.on=false;              /* 新对话自动打标签：默认关 */
+  if(d.n==null)d.n=30;                   /* 每次送多少条 */
+  if(d.existing==null)d.existing=false;  /* 已经有手打标签的也补：默认关（跳过更稳） */
+  if(d.share==null)d.share=true;         /* 共享角色基础信息：默认开 */
+  if(d.extra==null)d.extra='';           /* 自定义额外提示词 */
+  return d;
+}
+let TAGA_RUN=null;        /* 正在跑的一批：{stop,total,done,fail,adds,who} */
+let TAGA_AUTO_AT=0;       /* 自动打标签的节流，免得连着发好几轮 */
+/* 现在要给哪个角色打标签：优先用记忆宫殿里选的那个 */
+function tagAiCurChar(){
+  try{
+    if(MPAL.who)return chars.find(x=>x.id===MPAL.who)||curChar()||null;
+    return getMemChar()||curChar()||null;
+  }catch(e){try{return curChar()||null}catch(e2){return null}}
+}
+/* 给打标签的 AI 看的「角色是谁、用户是谁」（受设置里的共享开关控制） */
+function tagAiCharInfo(c){
+  const L=[];
+  if(c){
+    L.push('角色名字：'+(c.name||'（未命名）'));
+    if(c.persona)L.push('人设：'+String(c.persona).slice(0,1200));
+    if(c.scenario)L.push('情境 / 世界观：'+String(c.scenario).slice(0,600));
+    if(c.style)L.push('说话风格：'+String(c.style).slice(0,300));
+    if(c.sysPrompt)L.push('额外设定：'+String(c.sysPrompt).slice(0,600));
+  }
+  if(cfg&&cfg.userName)L.push('用户名字：'+cfg.userName+(cfg.userGender?('（'+cfg.userGender+'）'):''));
+  if(cfg&&cfg.userNote)L.push('用户其他信息：'+String(cfg.userNote).slice(0,600));
+  return L.join('\n');
+}
+/* 提示词：让它只做分类，别乱说话 */
+function tagAiSystemPrompt(c,names){
+  const d=tagAiCfg()||{};
+  const L=[];
+  L.push('你是「记忆标签整理助手」。你唯一的任务：读下面一条条记忆，给每条加上分类标签，方便以后按标签找回旧事。');
+  L.push('你不是在聊天，不要扮演角色，不要写故事，不要解释，除了输出格式要求的 JSON 以外不要写任何字。');
+  L.push('');
+  L.push('【打标签的规矩】');
+  L.push('1. 只能打两类：事件（发生过什么，比如 事件|海边捡贝壳、事件|搬家）和性质（情绪、关系、氛围，比如 性质|开心、性质|吵架、性质|暧昧）。');
+  L.push('2. 不要打「时间」标签，时间由程序自动补。');
+  L.push('3. 优先从下面【已有标签】里挑意思一样的用，名字要一模一样；实在没有合适的才新建（2~8 个字，名词短语或形容词，不要整句话、不要标点）。');
+  L.push('4. 每条最多 3 个标签（事件最多 2 个，性质最多 1 个）。平淡寒暄、看不出内容、只有表情或图片的，可以不给标签。');
+  L.push('5. 只根据记忆原文判断，不要编造原文没有的事；人名、称呼按原文写。');
+  if(names&&names.length)L.push('','【已有标签（优先复用这些名字）】\n'+names.join('、'));
+  if(d.share){
+    const info=tagAiCharInfo(c);
+    if(info)L.push('','【背景参考（帮你判断谁是谁、什么关系）】\n'+info);
+  }
+  const extra=String(d.extra||'').trim();
+  if(extra)L.push('','【用户给的额外说明（优先遵守）】\n'+extra.slice(0,2000));
+  L.push('','【输出格式】只输出一个 JSON 数组，不要解释、不要代码块围栏：');
+  L.push('[{"i":1,"tags":["事件|海边捡贝壳","性质|开心"]},{"i":2,"tags":[]}]');
+  L.push('i 是每条开头的编号（从 1 开始）；tags 用「分类|名字」的写法；想不出合适的就写空数组 []。');
+  return L.join('\n');
+}
+function tagAiBatchMsg(batch){
+  const L=['请给下面 '+batch.length+' 条记忆打标签：'];
+  batch.forEach((it,n)=>{L.push('【'+(n+1)+'】'+it.text)});
+  return L.join('\n');
+}
+/* 把模型返回的文字抠成 [ [标签…], … ]；返回 null＝这批没解析出来（会重试一次再跳过） */
+function tagAiParse(raw,count){
+  let s=String(raw==null?'':raw).trim();
+  if(!s)return null;
+  s=s.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
+  const i=s.indexOf('['),j=s.lastIndexOf(']');
+  if(i<0||j<=i)return null;
+  const body=s.slice(i,j+1);
+  let arr=null;
+  try{arr=JSON.parse(body)}catch(e){}
+  if(!arr){try{arr=JSON.parse(body.replace(/,\s*([\]}])/g,'$1'))}catch(e2){arr=null}}
+  if(!Array.isArray(arr))return null;
+  const out=[];for(let n=0;n<count;n++)out.push([]);
+  arr.forEach(o=>{
+    const k=Math.round(Number(o&&o.i))-1;
+    if(!(k>=0&&k<count))return;
+    const tags=Array.isArray(o&&o.tags)?o.tags:[];
+    tags.forEach(t=>{
+      const s2=String(t==null?'':t).trim().replace(/｜/g,'|');
+      if(!s2)return;
+      const sp=(s2.indexOf('|')<0)?{cat:'事件',name:s2}:tagSplit(s2);   /* 忘了写分类，就当「事件」 */
+      if(sp.cat!=='事件'&&sp.cat!=='性质')return;
+      const clean=tagJoin(sp.cat,sp.name);
+      if(clean&&out[k].indexOf(clean)<0)out[k].push(clean);
+    });
+  });
+  return out;
+}
+/* 已经用过的标签名（给模型复用，少造新词） */
+function tagAiKnownNames(who){
+  let m;
+  try{m=who?mtagCountFor(who):mtagCount()}catch(e){try{m=mtagCount()}catch(e2){m={}}}
+  const out=[];
+  Object.keys(m).forEach(t=>{
+    const s=tagSplit(t);
+    if((s.cat==='事件'||s.cat==='性质')&&s.name&&out.indexOf(s.name)<0)out.push(s.name);
+  });
+  return out.slice(0,150);
+}
+/* 真的调一次 API，让 AI 给一批打标签 */
+async function tagAiAsk(c,batch,names){
+  const msgsIn=[
+    {role:'system',content:tagAiSystemPrompt(c,names)},
+    {role:'user',content:tagAiBatchMsg(batch)}
+  ];
+  const maxtok=Math.max(600,Math.min(5000,200+batch.length*90));
+  const raw=await callAPI(msgsIn,{stream:false,model:modelOf(c),temp:.2,maxtok:maxtok});
+  return tagAiParse(raw,batch.length);
+}
+/* 这次有哪些记忆要打标签：AI 打过的不重复打（方便接着跑）；你手打过的默认跳过 */
+function tagAiCandidates(c,existing){
+  const out=[];
+  const HU=mtagHumanAll(),AI=mtagAiAll();
+  const list=load(LS.arcs,[])||[];
+  for(const a of list){
+    if(a.off)continue;
+    if(c&&!archiveAllowed(a,c.id))continue;
+    const am=getArc(a.id);
+    for(let i=0;i<am.length;i++){
+      const x=String(arcMsgText(am[i])||'').replace(/\s+/g,' ').trim();
+      if(x.length<3)continue;
+      const key=String(i);
+      if(mtagOfStore(AI,a.id,key).length)continue;
+      if(!existing&&mtagOfStore(HU,a.id,key).length)continue;
+      out.push({id:a.id,key:key,kind:'arc',text:x.slice(0,220)});
+    }
+  }
+  if(c){
+    const ms2=msgsOf(c.id)||[];
+    for(let i=0;i<ms2.length;i++){
+      const x=String(palaceMsgText(ms2[i])||'').trim();
+      if(x.length<3)continue;
+      const key=chatKey(ms2[i],i),id='chat:'+c.id;
+      if(mtagOfStore(AI,id,key).length)continue;
+      if(!existing&&mtagOfStore(HU,id,key).length)continue;
+      out.push({id:id,key:key,kind:'chat',text:x.slice(0,220)});
+    }
+  }
+  return out;
+}
+/* ---------- 跑起来（分批 + 进度 + 能停 + 能续） ---------- */
+function tagAiStop(){if(TAGA_RUN)TAGA_RUN.stop=true;toast('等这一批跑完就停…')}
+function tagAiProgressHTML(text,note){
+  return '<div class="ttl">🤖 正在给记忆打标签…</div>'+
+    '<p style="font-size:13.5px;margin:0 0 8px">'+esc(text)+'</p>'+
+    (note?('<p class="dim" style="font-size:12px;margin:0 0 8px">'+esc(note)+'</p>'):'')+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">只会写进「AI 标签」，你手打的标签一个字都不会动。停下来也没关系，已经打好的会留着，下次点「继续」接着跑。</p>'+
+    '<div class="row"><button class="ghost col" onclick="tagAiStop()">■ 停下来</button>'+
+    '<button class="ghost col" onclick="closeSheet()">收起</button></div>';
+}
+async function tagAiRun(){
+  const d=tagAiCfg();if(!d)return;
+  if(TAGA_RUN){toast('已经有一轮在跑了，先等它跑完');return}
+  if(!cfg||!cfg.key){alert('还没填 API Key。先去「设置」里填上，才能让 AI 打标签。');return}
+  const c=tagAiCurChar();
+  if(!c){alert('先选一个角色');return}
+  const cands=tagAiCandidates(c,!!d.existing);
+  if(!cands.length){alert('没有需要打标签的记忆了。\n\n要么都打过了，要么它们被你手打过标签、按设置跳过了。想重打就先撤回。');return}
+  const per=Math.max(5,Math.min(60,Math.round(Number(d.n)||30)));
+  const batches=[];for(let i=0;i<cands.length;i+=per)batches.push(cands.slice(i,i+per));
+  if(!confirm('让 AI 帮《'+(c.name||'')+'》打标签？\n\n· 这次要打 '+cands.length+' 条，分成 '+batches.length+' 批（每批最多 '+per+' 条）\n· 每批调用一次 API，会花 token，也要等一会儿\n\n· 只写进「AI 标签」，绝不改你手打的标签\n· 中途能停，打好的会保留，下次点「继续」接着跑'))return;
+  TAGA_RUN={stop:false,total:cands.length,done:0,fail:0,adds:[],who:c.id};
+  let names=tagAiKnownNames(c.id);
+  let done=0,fail=0;
+  showSheet(tagAiProgressHTML('准备开始…','共 '+cands.length+' 条 / '+batches.length+' 批'),true);
+  for(let b=0;b<batches.length;b++){
+    if(TAGA_RUN.stop)break;
+    const batch=batches[b];
+    TAGA_RUN.done=done;TAGA_RUN.fail=fail;
+    showSheet(tagAiProgressHTML('第 '+(b+1)+' / '+batches.length+' 批　（已处理 '+(done+fail)+' / '+cands.length+' 条）',
+      fail?('有 '+fail+' 条没成功，已经跳过'):''),true);
+    let got=null;
+    try{got=await tagAiAsk(c,batch,names)}catch(e){got=null}
+    if(!got){try{got=await tagAiAsk(c,batch,names)}catch(e){got=null}}   /* 失败重试一次 */
+    if(!got){fail+=batch.length;continue}
+    batch.forEach((it,n)=>{
+      const tags=got[n]||[];
+      const cur=mtagOfAi(it.id,it.key).slice();
+      let added=false;
+      tags.forEach(t=>{
+        if(cur.indexOf(t)<0){
+          cur.push(t);added=true;
+          TAGA_RUN.adds.push({id:it.id,key:it.key,tag:t});
+          const nm=tagSplit(t).name;
+          if(names.indexOf(nm)<0&&names.length<300)names.push(nm);
+        }
+      });
+      if(added)mtagAiSet(it.id,it.key,cur);
+      done++;
+    });
+    await new Promise(r=>setTimeout(r,150));   /* 喘口气，让界面能刷新 */
+  }
+  const stopped=!!TAGA_RUN.stop;
+  const adds=TAGA_RUN.adds.slice(0,20000);
+  TAGA_RUN=null;
+  try{save(LS.mtagaiLast,{at:Date.now(),n:adds.length,adds:adds,who:c.id,total:done,fail:fail})}catch(e){}
+  try{mpalRender()}catch(e){}
+  try{refreshMem()}catch(e){}
+  showSheet('<div class="ttl">🤖 打标签'+(stopped?'停下来了':'结束')+'</div>'+
+    '<p style="font-size:13.5px;margin:0 0 8px">这次处理了 '+done+' 条记忆，打上 '+adds.length+' 个 AI 标签'+(fail?('；有 '+fail+' 条没成功，已跳过'):'')+'。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 10px">觉得不对，可以随时「撤回最近一次」或「全部撤回」——都只动 AI 打的，你手打的不受影响。</p>'+
+    '<div class="row"><button class="pri col" onclick="tagAiSheet()">回打标签设置</button>'+
+    '<button class="ghost col" onclick="closeSheet()">关闭</button></div>');
+}
+/* ---------- 新对话自动打标签（聊完一轮后在后台悄悄跑，不影响聊天） ---------- */
+function tagAiAutoTurn(cid){
+  const d=tagAiCfg();
+  if(!d||!d.on)return;                       /* 默认关，用户开了才跑 */
+  if(!cfg||!cfg.key)return;
+  if(TAGA_RUN)return;                        /* 批量任务在跑，先不插队 */
+  const now=Date.now();
+  if(now-TAGA_AUTO_AT<6000)return;           /* 节流：太密就跳过 */
+  TAGA_AUTO_AT=now;
+  setTimeout(async()=>{
+    try{
+      const c=chars.find(x=>x.id===cid);
+      if(!c)return;
+      const list=msgsOf(cid);
+      if(!list||!list.length)return;
+      const batch=[];
+      for(let i=list.length-1;i>=0&&batch.length<4;i--){
+        const m=list[i];
+        if(!m||(m.role!=='user'&&m.role!=='assistant'))continue;
+        const x=String(palaceMsgText(m)||'').trim();
+        if(x.length<3)continue;
+        const key=chatKey(m,i),id='chat:'+cid;
+        if(mtagOfAi(id,key).length)continue;             /* 打过的跳过 */
+        if(mtagOfHuman(id,key).length)continue;          /* 你手打过标签的，不打扰 */
+        batch.unshift({id:id,key:key,kind:'chat',text:x.slice(0,220)});
+      }
+      if(!batch.length)return;
+      const got=await tagAiAsk(c,batch,tagAiKnownNames(cid));
+      if(!got)return;
+      const adds=[];
+      batch.forEach((it,n)=>{
+        const cur=mtagOfAi(it.id,it.key).slice();
+        let added=false;
+        (got[n]||[]).forEach(t=>{
+          if(cur.indexOf(t)<0){cur.push(t);added=true;adds.push({id:it.id,key:it.key,tag:t})}
+        });
+        if(added)mtagAiSet(it.id,it.key,cur);
+      });
+      if(adds.length){
+        try{save(LS.mtagaiLast,{at:Date.now(),n:adds.length,adds:adds,who:cid,auto:true})}catch(e){}
+        try{refreshMem()}catch(e){}
+      }
+    }catch(e){console.warn('自动打标签失败（不影响聊天）',e)}
+  },2500);
+}
+/* ---------- 撤回（只动 AI 那份） ---------- */
+function tagAiUndoLast(){
+  const rec=load(LS.mtagaiLast,null);
+  if(!rec||!Array.isArray(rec.adds)||!rec.adds.length)return toast('还没有可以撤回的记录');
+  if(!confirm('撤回最近这一次 AI 打的标签？\n\n· 会去掉 '+rec.adds.length+' 个 AI 标签\n· 你手打的标签不受影响\n· 时间：'+(rec.at?new Date(rec.at).toLocaleString('zh-CN'):'')+ ''))return;
+  let n=0;
+  rec.adds.forEach(x=>{if(mtagOfAi(x.id,x.key).indexOf(x.tag)>=0){mtagAiDropOne(x.id,x.key,x.tag);n++}});
+  save(LS.mtagaiLast,null);
+  try{mpalRender()}catch(e){}
+  try{refreshMem()}catch(e){}
+  alert('已撤回 '+n+' 个 AI 标签。');
+}
+function tagAiDropTag(tag){
+  const n=mtagAiCount()[tag]||0;
+  if(!n)return toast('这个标签已经没有了');
+  if(!confirm('撤回所有「'+tagSplit(tag).name+'」的 AI 标签？\n\n会去掉 '+n+' 个（都是 AI 打的；同名的手打标签不动）。'))return;
+  const all=mtagAiAll();
+  for(const id in all){
+    const a=all[id]||{};
+    for(const k in a){
+      const v=(a[k]||[]).filter(t=>t!==tag);
+      if(v.length)a[k]=v;else delete a[k];
+    }
+    if(!Object.keys(a).length)delete all[id];
+  }
+  mtagSaveAi(all);
+  save(LS.mtagaiLast,null);
+  try{mpalRender()}catch(e){}
+  try{refreshMem()}catch(e){}
+  alert('已撤回「'+tagSplit(tag).name+'」，共 '+n+' 个。');
+}
+function tagAiDropAll(){
+  const n=mtagAiTotal();
+  if(!n)return toast('现在没有 AI 标签');
+  if(!confirm('撤回全部 AI 标签？\n\n· 会清掉 '+n+' 个 AI 打的标签\n· 你手打的标签一个都不动'))return;
+  mtagSaveAi({});
+  save(LS.mtagaiLast,null);
+  try{mpalRender()}catch(e){}
+  try{refreshMem()}catch(e){}
+  alert('已撤回全部 '+n+' 个 AI 标签。');
+}
+/* ---------- 设置面板 ---------- */
+function tagAiSheetHTML(){
+  const d=tagAiCfg();if(!d)return '';
+  const c=tagAiCurChar();
+  const cands=tagAiCandidates(c,!!d.existing);
+  const cnt=mtagAiCount(),total=mtagAiTotal();
+  const names=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
+  const last=load(LS.mtagaiLast,null);
+  const listHTML=names.length?names.slice(0,60).map(t=>
+      '<button class="ghost" data-t="'+esc(t)+'" onclick="tagAiDropTag(this.dataset.t)" style="margin:0 6px 6px 0">'+
+      esc(MTAG_ICON[tagSplit(t).cat]+tagSplit(t).name+' ('+cnt[t]+')')+' ✕</button>').join('')
+    :'<p class="dim" style="font-size:12.5px;margin:0">还没有 AI 标签</p>';
+  return '<div class="ttl">🤖 角色帮我打标签</div>'+
+   '<div class="card"><div class="ttl">现在的情况</div>'+
+     '<p class="dim" style="font-size:12px;margin:0">'+
+       'AI 标签：<b>'+total+'</b> 个（'+names.length+' 种名字）　你手打的标签不受影响<br>'+
+       '这次还能打：<b>'+cands.length+'</b> 条'+(c?('　角色：《'+esc(c.name||'')+'》'):'')+
+       (last?('<br>上次打标签：'+new Date(last.at).toLocaleString('zh-CN')+'，'+((last.adds&&last.adds.length)||0)+' 个'):'')+
+     '</p>'+
+     '<button class="pri col" style="margin-top:8px" onclick="tagAiRun()">🚀 开始 / 继续打标签</button></div>'+
+   '<div class="card" style="margin-top:10px"><div class="ttl">设置</div>'+
+     '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_auto" '+(d.on?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>新对话自动打标签<div class="dim" style="font-size:11.5px">每聊完一轮，后台悄悄给这轮打标签（不影响聊天速度；默认关）</div></span></label>'+
+     '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_exist" '+(d.existing?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>已经有标签的也让它补<div class="dim" style="font-size:11.5px">关＝你手打过标签的记忆直接跳过（更稳）；开＝它也补几个，但绝不改你打的那几个</div></span></label>'+
+     '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_share" '+(d.share?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>把角色的基础信息共享给它<div class="dim" style="font-size:11.5px">给它看角色的名字、人设、情境、风格，还有你在「我的主页」填的名字，这样它才知道谁是谁、什么关系</div></span></label>'+
+     '<label class="f" style="margin-top:6px">每次送多少条（5~60；大一点更省请求，但每条分到的注意力少一点）</label>'+
+     '<input id="taga_n" type="number" min="5" max="60" value="'+esc(String(d.n||30))+'">'+
+     '<label class="f">额外提示词（想让它知道的别的信息，可留空）</label>'+
+     '<textarea id="taga_extra" placeholder="比如：我和他是大学同学；「她」指的是我；吵架类的都标成「性质|闹别扭」…">'+esc(d.extra||'')+'</textarea>'+
+     '<div class="row" style="margin-top:8px"><button class="pri col" onclick="tagAiSaveCfg()">保存设置</button></div></div>'+
+   '<div class="card" style="margin-top:10px"><div class="ttl">撤回它打的标签</div>'+
+     '<p class="dim" style="font-size:12px;margin:0 0 8px">下面每一步都只动 AI 标签，你手打的一个都不会少。</p>'+
+     '<div class="row"><button class="ghost col" onclick="tagAiUndoLast()">↩︎ 撤回最近一次</button>'+
+     '<button class="ghost col" style="color:var(--warn)" onclick="tagAiDropAll()">🗑 全部撤回</button></div>'+
+     '<div style="margin-top:10px"><div class="dim" style="font-size:12px;margin-bottom:4px">按标签撤回（点一个＝把它打过的这类全去掉）：</div>'+
+     '<div class="row" style="flex-wrap:wrap;gap:0">'+listHTML+'</div></div></div>'+
+   '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
+}
+function tagAiSheet(){
+  showSheet('<div id="tagaBody">'+tagAiSheetHTML()+'</div>');
+}
+function tagAiSaveCfg(){
+  const d=tagAiCfg();if(!d)return;
+  const g=id=>document.getElementById(id);
+  d.on=!!(g('taga_auto')&&g('taga_auto').checked);
+  d.existing=!!(g('taga_exist')&&g('taga_exist').checked);
+  d.share=!!(g('taga_share')&&g('taga_share').checked);
+  d.n=Math.max(5,Math.min(60,Math.round(Number((g('taga_n')||{}).value)||30)));
+  d.extra=String((g('taga_extra')||{}).value||'').slice(0,2000);
+  try{save(LS.cfg,cfg)}catch(e){}
+  try{scheduleBackup()}catch(e){}
+  const box=document.getElementById('tagaBody');
+  if(box)box.innerHTML=tagAiSheetHTML();
+  toast('设置已保存');
+}
+/* 记忆宫殿目录页上的入口卡片 */
+function tagAiCardHTML(){
+  const total=mtagAiTotal();
+  const n=Object.keys(mtagAiCount()).length;
+  const c=tagAiCurChar();
+  let can=0;
+  try{can=tagAiCandidates(c,!!(tagAiCfg()||{}).existing).length}catch(e){can=0}
+  return '<div class="card" style="margin-top:10px"><div class="ttl">🤖 角色帮我打标签</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 6px">让 AI 读你的记忆，自动分「事件 / 性质」类，还能自己造新标签。'+
+    (total?('现在有 <b>'+total+'</b> 个 AI 标签（'+n+' 种名字）。'):'还没有 AI 标签。')+
+    '它只写单独的「AI 标签」，绝不会改你手打的；不满意随时一键撤回。</p>'+
+    '<button class="pri col" onclick="tagAiSheet()">打开设置 / '+(total?'继续':'开始')+'打标签'+(can?('（还有 '+can+' 条没打）'):'')+'</button></div>';
 }
 function listCard(title,key){
   const M=memCur();
@@ -6154,9 +6650,10 @@ function viewFile(f){
     '<div class="row" style="margin-top:12px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>');
 }
 function clearPicked(){
-  pendImg=null;pendFile=null;
+  pendImgs=[];pendFile=null;
   const p=$('#picked');if(p)p.classList.remove('on');
   const t=$('#thumb');if(t){t.removeAttribute('src');t.style.display=''}
+  const th=$('#thumbs');if(th)th.innerHTML=''
   const c=$('#fchip');if(c){c.style.display='none';c.innerHTML=''}
   updSendBtn();
   /* ↓ 补丁13-A：清掉待发内容时，表情也一起清掉 */
@@ -6166,7 +6663,7 @@ function clearPicked(){
 function updSendBtn(){
   const b=$('#send');if(!b)return;
   const i=$('#inp');
-  const has=!!((i&&i.value.trim())||pendImg||pendFile);
+  const has=!!((i&&i.value.trim())||pendImgs.length||pendFile);
   b.disabled=!!busy||!has;
   /* ↓ 补丁13-A：发送键要认得「只放了表情、还没打字」的情况 */
   try{
@@ -6193,6 +6690,7 @@ function chooseFile(){
 function showFchip(f){
   const c=$('#fchip');if(!c)return;
   const t=$('#thumb');if(t)t.style.display='none';
+  const th=$('#thumbs');if(th)th.innerHTML=''
   c.innerHTML=FILE_ICON+'<span>'+esc(f.name)+'</span><i>'+fmtSize(f.size)+'</i>';
   c.style.display='inline-flex';
   const p=$('#picked');if(p)p.classList.add('on');
@@ -6200,18 +6698,46 @@ function showFchip(f){
 async function pickImage(input){
   /* ↓ 补丁13-A：选了图片，就把待发的表情让位 */
   window.P13.pendSticker=null;
-  const f=input.files&&input.files[0];input.value='';
-  if(!f)return;
+  const files=Array.prototype.slice.call((input&&input.files)||[]);
+  try{if(input)input.value=''}catch(e){}
+  if(!files.length)return;
   if(!curChar())return toast('先选个角色再发图');
+  const list=files.filter(f=>String((f&&f.type)||'').indexOf('image/')===0);
+  if(!list.length)return toast('这些文件不是图片');
+  /* 一次别放太多：每张压完大概几十到三百 KB，太多会占地方 */
+  const MAXPIC=9;
+  /* 已经放过图了，就把新选到的「加」在后面，别清空前面的（安卓相册常常只能单选一张） */
+  const append=pendImgs.length>0;
+  const room=Math.max(0,MAXPIC-pendImgs.length);
+  let extra=0;
+  if(list.length>room){extra=list.length-room;list.length=room}
+  if(!list.length){
+    toast('最多就能放 '+MAXPIC+' 张，先发送或点 ✕ 清掉一些再加吧');
+    return;
+  }
   toast('处理图片…');
   try{
-    pendFile=null;clearPicked();
-    pendImg=await shrinkImage(f,760,.72);
-    const t=$('#thumb');if(t){t.style.display='';t.src=pendImg}
-    $('#picked').classList.add('on');
+    /* 追加：只去掉可能占位的表情/文件预览，不动已有的图 */
+    if(!append){pendFile=null;window.P13.pendSticker=null;clearPicked()}
+    let bad=0;
+    for(const f of list){
+      try{pendImgs.push(await shrinkImage(f,760,.72))}catch(e){bad++}
+    }
+    if(!pendImgs.length)return toast('图片读不了，换一张试试');
+    paintPickedImgs();
     updSendBtn();
-    toast('图片已就绪，点发送');
+    const n=pendImgs.length;
+    const tail=[bad?('，'+bad+' 张读不了已跳过'):'',extra?('，一次最多 '+MAXPIC+' 张，多出的 '+extra+' 张这次没加'):''].join('');
+    toast(n>1?('已放好 '+n+' 张图片'+tail+'，还可以点「＋」继续加，或直接点发送'):('图片已就绪'+tail+'，点「＋」还能再加，或直接点发送'));
   }catch(e){toast('图片读不了：'+((e&&e.message)||e))}
+}
+/* 把待发的图片画成缩略图（可以有多张） */
+function paintPickedImgs(){
+  const t=$('#thumb');if(t)t.style.display='none';
+  const box=$('#thumbs');
+  if(box)box.innerHTML=pendImgs.map((u,i)=>'<img src="'+esc(u)+'" alt="图片'+(i+1)+'">').join('')+
+    '<button class="addpic" type="button" onclick="choosePic()" title="再加一张" aria-label="再加一张">＋</button>';
+  const p=$('#picked');if(p)p.classList.add('on');
 }
 async function pickFile(input){
   /* ↓ 补丁13-A：选了文件，就把待发的表情让位 */
@@ -8568,7 +9094,9 @@ async function backupPayload(){
     notes:{},diary:{},favs:{},arts:{},summarks:{},rawMarks:{},rawLogs:{},world:load('wh_world',[]),
     /* 【修复】以前这四样没进备份，换手机导入后「朋友圈」和记忆宫殿的标签会不见，这里补上：
        朋友圈内容 / 朋友圈已读时间 / 记忆宫殿的人工标签 / 「一直记得」 */
-    moments:load(LS.moments,[]),momSeen:load(LS.momSeen,0),mtag:load(LS.mtag,{}),mpin:load(LS.mpin,{})};
+    moments:load(LS.moments,[]),momSeen:load(LS.momSeen,0),mtag:load(LS.mtag,{}),mpin:load(LS.mpin,{}),
+    /* 【新增】角色自动打的标签也一起备份（换手机后不用重新打；老备份没这个字段，导入时会跳过） */
+    mtagAi:load(LS.mtagai,{}),mtagAiLast:load(LS.mtagaiLast,null)};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id);d.gmems[c.id]=gmemOf(c.id);
     /* 这几类数据以前没进备份，恢复后会缺，这里补上：便条、日记、好感度记录、画册、自动总结进度 */
     d.notes[c.id]=load('wh_p4_note_'+c.id,[]);
@@ -8658,7 +9186,10 @@ function importBackupExtraData(d){
      老备份里没有这几个字段，就不动本机现有的（不会把标签清空）。 */
   if(Array.isArray(d.moments))save(LS.moments,d.moments);
   if(typeof d.momSeen==='number'&&d.momSeen>0)save(LS.momSeen,d.momSeen);
-  if(d.mtag&&typeof d.mtag==='object')save(LS.mtag,d.mtag);
+  if(d.mtag&&typeof d.mtag==='object')mtagSaveHuman(d.mtag);
+  /* 老备份里没有 AI 标签这两个字段，就保留本机现有的（不会把标签清空） */
+  if(d.mtagAi&&typeof d.mtagAi==='object')mtagSaveAi(d.mtagAi);
+  if(d.mtagAiLast&&typeof d.mtagAiLast==='object')save(LS.mtagaiLast,d.mtagAiLast);
   if(d.mpin&&typeof d.mpin==='object')save(LS.mpin,d.mpin);
   if(d.world&&d.world.length)save('wh_world',d.world);   /* 世界书：键名和「世界书」应用里的一致（旧备份没这个字段，跳过就行） */
   const preOf={notes:'wh_p4_note_',diary:'wh_p4_diary_',favs:'wh_p5_fav_',arts:'wh_p5_art_',summarks:'wh_summark_',rawMarks:'wh_rawmark_'};
@@ -8801,7 +9332,7 @@ function msgArrOf(id){
 /* 一条消息里图片数据大概占多少字符 */
 function imgBytesOf(m){
   let n=0;
-  if(m&&typeof m.img==='string')n+=m.img.length;
+  msgImgs(m).forEach(function(u){n+=u.length});
   if(m&&m.art&&typeof m.art.img==='string')n+=m.art.img.length;
   if(m&&Array.isArray(m.files))for(const f of m.files){if(f&&typeof f.url==='string'&&f.url.indexOf('data:')===0)n+=f.url.length}
   return n;
@@ -8817,7 +9348,8 @@ function imgScan(keepLast){
     for(let i=0;i<arr.length;i++){
       const b=imgBytesOf(arr[i]);
       if(!b)continue;
-      if(i<cut){imgs++;bytes+=b;hit=true}else{leftImgs++;leftBytes+=b}
+      const cnt=Math.max(1,msgImgs(arr[i]).length);
+      if(i<cut){imgs+=cnt;bytes+=b;hit=true}else{leftImgs+=cnt;leftBytes+=b}
     }
     if(hit)charsN++;
   });
@@ -8858,7 +9390,11 @@ async function cleanChatImages(){
     for(let i=0;i<cut;i++){
       const m=arr[i];
       if(!m)continue;
-      if(typeof m.img==='string'&&m.img){bytes+=m.img.length;done++;m.img='';m.imgCleared=1;changed=true}
+      const mImgs=msgImgs(m);
+      if(mImgs.length){
+        mImgs.forEach(function(u){bytes+=u.length;done++});
+        m.imgs=[];m.img='';m.imgCleared=1;changed=true;
+      }
       if(m.art&&typeof m.art.img==='string'&&m.art.img){bytes+=m.art.img.length;done++;m.art.img='';m.art.cleared=1;changed=true}
       if(Array.isArray(m.files))for(const f of m.files){
         if(f&&typeof f.url==='string'&&f.url.indexOf('data:')===0){bytes+=f.url.length;done++;f.url='';f.cleared=1;changed=true}
@@ -9006,6 +9542,13 @@ function fixCfg(){
   if(cfg.palaceTop==null)cfg.palaceTop=6;   /* 每轮最多给几段旧记忆 */
   if(cfg.palaceChars==null)cfg.palaceChars=1500; /* 每轮旧记忆最多多少字 */
   if(cfg.palaceWVec==null)cfg.palaceWVec=.5;/* 向量在总分里的比重（其余是关键词） */
+  /* ↓ 🤖 角色自动打标签：AI 打的标签单独存在 wh_mtag_ai，和你手打的 wh_mtag 分开，撤回只清 AI 那份 */
+  if(!cfg.tagai||typeof cfg.tagai!=='object')cfg.tagai={};
+  if(cfg.tagai.on==null)cfg.tagai.on=false;          /* 新对话自动打标签：默认关 */
+  if(cfg.tagai.n==null)cfg.tagai.n=30;               /* 每次送多少条 */
+  if(cfg.tagai.existing==null)cfg.tagai.existing=false; /* 已经有手打标签的也补：默认关 */
+  if(cfg.tagai.share==null)cfg.tagai.share=true;     /* 把角色基础信息共享给打标签的 AI */
+  if(cfg.tagai.extra==null)cfg.tagai.extra='';       /* 自定义额外提示词 */
   /* ↓ 自动全屏（藏掉浏览器地址栏）：默认开着 */
   if(cfg.full==null)cfg.full=true;
   /* ↓ 新增：待办提醒的提示音/振动开关，以及自定义背景图（桌面 / 聊天） */
@@ -9417,7 +9960,10 @@ function wbSheetSave(){
   const cids=[];
   $$('#sheet .wbchk input[type=checkbox]').forEach(el=>{if(el.checked)cids.push(el.value)});
   const arr=wbAll();
-  const old=wbEditId?wbFind(wbEditId):null;
+  /* 【修复】wbFind 是从本地重新解析出来的副本，改它不会影响 arr，导致改名/改内容没存进去。
+     这里改成在「要保存的数组 arr」里按 id 找到那一条，直接改它。 */
+  let old=null;
+  if(wbEditId){for(let i=0;i<arr.length;i++){if(arr[i]&&arr[i].id===wbEditId){old=arr[i];break}}}
   if(old){
     old.title=title;old.text=text;old.all=all;old.cids=cids;old.u=Date.now();
   }else{
@@ -11246,7 +11792,7 @@ askAndAppend=async function(freeCid){
     /* 【修复】切走了就别把「正在输入」的气泡画到别人家里 */
     const onScreen=live();
     const box=onScreen?$('#msgs'):document.createElement('div');
-    const ui=setupAskUI(box,!onScreen);
+    const ui=setupAskUI(box,!onScreen,c);
     const sendBtn=ui.sendBtn,stopBtn=ui.stopBtn,liveThink=ui.liveThink,a=ui.a,thinkOn=ui.thinkOn;
     let ok=false;let usage=null;let reasoning='';let out='';
     const tp=thinkParams(c);
@@ -11291,6 +11837,8 @@ askAndAppend=async function(freeCid){
       if(!liteOK)ok=handleAskError(e,a,out,reasoning,usage,cid);
     }
     finishAskUI(sendBtn,stopBtn,liveThink,ok,cid);
+    /* ---- 新功能：这一轮真聊成了，如果开着「新对话自动打标签」，后台悄悄给它补标签 ---- */
+    if(ok)try{tagAiAutoTurn(cid)}catch(e){}
     /* ================= 原来的生成逻辑结束 ================= */
 
     /* ---- 补丁4-A：把搜索结果挂到这条回复上 ---- */
@@ -13170,7 +13718,7 @@ P6.quote=function(){
 P6.edit=function(){
   var m=msgs[curI];if(!m)return;
   showSheet('<div class="ttl">编辑这条</div>'+
-    (m.img?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条带图，编辑只改文字。</p>':'')+
+    (msgImgs(m).length?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条带图，编辑只改文字。</p>':'')+
     '<textarea id="p6ed" style="min-height:180px">'+esc(m.content||'')+'</textarea>'+
     '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P6.saveEdit()">保存</button>'+
     '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
@@ -13179,7 +13727,7 @@ P6.saveEdit=function(){
   var m=msgs[curI];if(!m)return;
   var el=document.getElementById('p6ed');
   var v=el?String(el.value||'').trim():'';
-  if(!v&&!m.img)return say('不能空着');
+  if(!v&&!msgImgs(m).length)return say('不能空着');
   markMsgDeleted(curId,m);            /* 记一笔：这条的旧内容不要了 */
   m.content=v;m.tok=estTokens(v);
   persist();closeSheet();renderChat();say('已保存');
