@@ -2766,7 +2766,7 @@ function palaceBlock(query,c){
       '（现在的时间是 '+window.P4.now()+'；下面记录里的日期都是过去，不是现在。）');
     hits.forEach(p=>out.push(p.seg+(p.tag?'（这条是她打过标签的记忆）':'')));
     out.push(palaceToolOn()
-      ? '（如果想不起某个细节，你还可以调用 search_memory 再去翻一次，按标签查更准。）'
+      ? '（如果想不起某个细节，你可以调用 search_memory 再去翻一次；想「某一类事」都有什么，就用 read_tag 按标签整批翻。）'
       : '（如果这些还不够，就自然地说想不太起来了、让她提醒你，不要编。）');
   }
   return out.join('\n\n');
@@ -2780,12 +2780,12 @@ function palaceToolSearch(q,tag,c,count,limit){
 /* 角色的「自己去翻记忆」工具 */
 var MEM_TOOL={type:'function',function:{
   name:'search_memory',
-  description:'在你的长期记忆（记忆宫殿）里查找过去发生过的事。你想确认很久以前的具体细节、她提到一段旧经历而你记不清时用它。先给 query（关键词或她刚说的话）；如果那次没查到，再给 tag（记忆标签，见系统提示里的【记忆标签】）补查一次。关键词和标签不是二选一，没打标签的记忆也能用关键词和意思搜到。查到什么就自然地说什么，不要念检索过程，也不要编。',
+  description:'在你的长期记忆（记忆宫殿）里查找过去发生过的事。你想确认很久以前的具体细节、她提到一段旧经历而你记不清时用它。先给 query（关键词或她刚说的话）；如果那次没查到，再给 tag（记忆标签，见系统提示里的【记忆标签】）补查一次。只给 tag、不给 query 也可以。想整批翻看某个标签底下都有什么，用 read_tag 更合适。关键词和标签不是二选一，没打标签的记忆也能用关键词和意思搜到。查到什么就自然地说什么，不要念检索过程，也不要编。',
   parameters:{type:'object',properties:{
     query:{type:'string',description:'要查什么：几个关键词或一句话，比如「海边 旅行」「她养的猫 名字」'},
     tag:{type:'string',description:'可选。按标签查通常更准，比如「生日」「吵架」「重要」'},
     count:{type:'integer',description:'最多看几条，默认 5，最多 12'}
-  },required:['query']}
+  },required:[]}   /* query 和 tag 至少给一个就行：想找具体细节给 query，想按标签找给 tag */
 }};
 window.MEM_TOOL=MEM_TOOL;
 function execMemTool(args,cid){
@@ -2804,6 +2804,103 @@ function execMemTool(args,cid){
   return {ok:true,msg:'在你的记忆里翻到这些（都是真实发生过的，别把没翻到的也当成记得）：\n'+r.picked.map(p=>p.seg).join('\n\n')};
 }
 window.execMemTool=execMemTool;
+
+/* ---------- 角色的「直接翻某个标签」工具 ---------- */
+/* 把角色嘴里说的标签名，对到本机真实存在的标签上（只认这个角色看得见的标签）。
+   先找完全一样的名字；没有再找「名字里含有」的，容忍它说个大概。 */
+function tagResolve(who,name){
+  const want=String(name||'').trim();
+  if(!want)return [];
+  let m;
+  try{m=who?mtagCountFor(who):mtagCount()}catch(e){try{m=mtagCount()}catch(e2){m={}}}
+  const exact=[],part=[];
+  for(const t in m){
+    const s=tagSplit(t);
+    if(s.name===want||t===want)exact.push({tag:t,name:s.name,cat:s.cat,n:m[t]});
+    else if(s.name&&(s.name.indexOf(want)>=0||want.indexOf(s.name)>=0))part.push({tag:t,name:s.name,cat:s.cat,n:m[t]});
+  }
+  return exact.length?exact:part;
+}
+/* 把某个标签下的记忆全部找出来（含整卷标签），按时间排好 */
+function tagMemoryList(c,tag,order){
+  const TAG=mtagAll(),out=[];
+  const allow=palaceAllowedArcs(c.id);
+  const list=load(LS.arcs,[])||[];
+  for(const a of list){
+    if(a.off||!allow[a.id])continue;
+    const am=getArc(a.id);
+    for(let i=0;i<am.length;i++){
+      const tags=mtagChunk(TAG,a.id,i);
+      if(!tags||tags.indexOf(tag)<0)continue;
+      const t=palaceTime(am[i]);
+      out.push({o:{src:'arc',a:a.id,n:a.name||'旧档案',i:i,t:t},t:t});
+    }
+  }
+  const ms2=msgsOf(c.id)||[];
+  for(let i=0;i<ms2.length;i++){
+    const key=chatKey(ms2[i],i);
+    const tags=mtagChunk(TAG,'chat:'+c.id,key);
+    if(!tags||tags.indexOf(tag)<0)continue;
+    const t=palaceTime(ms2[i]);
+    out.push({o:{src:'chat',c:c.id,i:i,t:t},t:t});
+  }
+  out.sort((x,y)=>{
+    const tx=x.t||0,ty=y.t||0;
+    if(tx!==ty)return order==='old'?(tx-ty):(ty-tx);
+    return order==='old'?(x.o.i-y.o.i):(y.o.i-x.o.i);
+  });
+  return out;
+}
+/* 角色调用 read_tag 时真正干活的地方 */
+function execTagTool(args,cid){
+  let c=null;
+  try{c=chars.find(x=>x.id===cid)||curChar()}catch(e){}
+  if(!c)return {ok:false,msg:'找不到角色，这次先别查了'};
+  const want=String((args&&args.tag)||'').trim();
+  if(!want)return {ok:false,msg:'要给我一个标签名，比如「生日」「吵架」。'};
+  const hit=tagResolve(c.id,want);
+  if(!hit.length){
+    /* 名字对不上：把手上有哪些标签告诉它，让它换个名字再试一次，而不是编 */
+    let m={};
+    try{m=mtagCountFor(c.id)}catch(e){m={}}
+    const uniq=[];
+    Object.keys(m).forEach(t=>{const n=tagSplit(t).name;if(n&&uniq.indexOf(n)<0)uniq.push(n)});
+    return {ok:false,msg:'没有「'+want+'」这个标签。'+
+      (uniq.length?('现在有这些标签：'+uniq.slice(0,60).join('、')+(uniq.length>60?('…（一共 '+uniq.length+' 个）'):'')):'（现在还没有任何标签）')+
+      '。换个名字再试一次；实在没有就别硬说记得。'};
+  }
+  const tag=hit[0].tag;
+  const cn=Math.max(1,Math.min(20,parseInt((args&&args.count),10)||8));
+  const order=(String((args&&args.order)||'new').trim()==='old')?'old':'new';
+  const all=tagMemoryList(c,tag,order);
+  if(!all.length)return {ok:false,msg:'「'+tagSplit(tag).name+'」这个标签下暂时没有能读出来的原文。'};
+  const segs=[],picked=[];
+  let used=0;
+  for(const it of all){
+    if(segs.length>=cn)break;
+    const s=palaceSeg(it.o,c);
+    if(!s)continue;
+    if(used+s.length>4000&&segs.length)break;      /* 一次别塞太多，免得把回复挤爆 */
+    segs.push(s);used+=s.length;
+    picked.push({o:it.o,seg:s,score:1,tag:1});
+  }
+  if(!segs.length)return {ok:false,msg:'「'+tagSplit(tag).name+'」这个标签下没有能读出来的原文。'};
+  palaceLog('tool','#'+tagSplit(tag).name,{picked:picked,used:used,total:all.length});
+  return {ok:true,msg:'「'+tagSplit(tag).name+'」这个标签下共有 '+hit[0].n+' 条记忆'+
+    (hit.length>1?('（你搜的名字对上了好几个，这次给你的是「'+tag+'」）'):'')+
+    '，按'+(order==='old'?'最早':'最近')+'先给你 '+segs.length+' 段真实原文：\n'+segs.join('\n\n')};
+}
+window.execTagTool=execTagTool;
+var TAG_TOOL={type:'function',function:{
+  name:'read_tag',
+  description:'直接翻看某一个记忆标签下都记了什么（不用给关键词）。当她说「把『生日』标签下的记忆翻出来」「我们吵过哪些架」，或者你想按某一类回忆往事时用它。只给标签名字就行，系统会把这个标签下真实发生过的原文按时间排好给你（默认最近 8 条，也可以要最早的）。如果拿不准标签叫什么，可以先随便填一个相近的词，系统会告诉你现在有哪些标签，你再用正确的名字查一次。查到什么就自然地说，不要念检索过程，也不要编。',
+  parameters:{type:'object',properties:{
+    tag:{type:'string',description:'标签名字，不用带「时间|事件|性质」这种前缀，比如「生日」「吵架」「海边」'},
+    count:{type:'integer',description:'最多看几条，默认 8，最多 20'},
+    order:{type:'string',enum:['new','old'],description:'new＝从最近的开始（默认）；old＝从最早的开始'}
+  },required:['tag']}
+}};
+window.TAG_TOOL=TAG_TOOL;
 
 /* 档案注入：整份和总结版。 */
 function archiveWholeBlocks(list,c,lim){
@@ -4096,19 +4193,26 @@ function buildCtxSystem(c,extra){
   if(mode==='full')sys.push('【聊天记录说明】下面是你们尽量完整的聊天记录，按时间先后排列，请像真人一样记得里面的细节。');
   else if(mode==='sum')sys.push('【聊天记录说明】较早的聊天没有逐条给你，只保留在下面的记忆总结里。如果对方提到很早以前的具体细节，可以说记不太清、让她提醒你，不要编造。');
   /* ↓ 记忆宫殿：告诉角色「旧记忆是按需翻出来的」，避免它以为那些事没发生过 */
-  if(palaceOn())sys.push('【记忆说明】很早以前的聊天记录和旧档案没有全部给你，它们存在你的「记忆宫殿」里。系统每次会自动把和她这句话最相关的几段翻出来放在上面（见【记忆宫殿】）。没被翻出来的部分不代表没发生过——如果你想不起某个细节，可以调用 '+((palaceToolOn())?'search_memory 再去翻一次':'回忆')+'，或者自然地说记不太清、让她提醒你。绝对不要编造没发生过的事。');
+  if(palaceOn())sys.push('【记忆说明】很早以前的聊天记录和旧档案没有全部给你，它们存在你的「记忆宫殿」里。系统每次会自动把和她这句话最相关的几段翻出来放在上面（见【记忆宫殿】）。没被翻出来的部分不代表没发生过——如果你想不起某个细节，可以调用 '+((palaceToolOn())?'search_memory（找某个细节）或 read_tag（把某一类标签的记忆整批翻出来）':'回忆')+'，或者自然地说记不太清、让她提醒你。绝对不要编造没发生过的事。');
   /* ↓ 记忆标签：她亲手打的标签，角色知道有哪些、也能按标签去查 */
   if(palaceOn()){
     try{
       const cnt=mtagCountFor(c.id);       /* 只给这个角色看得到的标签 */
       if(Object.keys(cnt).length){
-        const groups=[];
+        const groups=[];let shown=0;
         MTAG_CATS.forEach(cat=>{
           const arr=mtagByCatMap(cat,cnt).slice(0,25);
-          if(arr.length)groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'));
+          if(arr.length){shown+=arr.length;groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'))}
         });
-        sys.push('【记忆标签】她给记忆打的标签（按分类）：\n'+groups.join('\n')+
-          '\n要回忆某一类事时，先用 search_memory 的 query（关键词，用她刚说的话最准）去搜；关键词搜不到时，再把 tag 填成上面某个标签的名字（不用带「时间|」这种前缀，比如填「生日」）补查一次。别只靠标签——没打标签的记忆同样要靠关键词和意思去搜。');
+        const allN=Object.keys(cnt).length;
+        const toolOn=(typeof palaceToolOn==='function'&&palaceToolOn());
+        sys.push('【记忆标签】她给记忆打的标签（按分类，只列了最常用的）：\n'+groups.join('\n')+
+          (allN>shown?('\n（还有 '+(allN-shown)+' 个标签没列出来，一共 '+allN+' 个；需要时按名字直接查就行。）'):'')+
+          (toolOn?
+            '\n想回忆「某一类事」都有什么（比如她问「我们吵过哪些架」「过生日那几次」）：直接用 read_tag，tag 填标签的名字（不用带「时间|事件|性质」这种前缀，比如填「生日」），它会把这一类记忆的原文按时间翻给你。拿不准标签叫什么也没关系——先随便填个相近的词，系统会告诉你现在有哪些标签，你再用对的名字查一次。'
+           :'\n如果她说起上面某个标签，就顺着这个标签去回忆相关的旧事；没打标签的记忆要靠关键词和意思去想。')+
+          '\n想找「某个具体的细节 / 某句话」：用 search_memory 的 query（关键词，用她刚说的话最准）去搜；那次没搜到，再给 tag 补查一次。'+
+          '\n没打标签的记忆不是没发生过，只是要靠关键词去搜；想不起来就说想不起来，绝对不要编。');
       }
     }catch(e){}
   }
@@ -11394,6 +11498,8 @@ execCharTool=function(name,args,cid){
     else if(GROUP_TOOLS.some(function(t){return t.function.name===name}))r=execGroupTool(name,args,cid);
     /* ↓ 记忆宫殿：角色自己去翻旧记忆 */
     else if(name==='search_memory')r=execMemTool(args,cid);
+    /* ↓ 记忆宫殿：角色直接翻某个标签下的内容 */
+    else if(name==='read_tag')r=execTagTool(args,cid);
     else r={ok:false,msg:'未知工具'};
   }finally{ctx=prev}
   if(name==='favor_change'&&c&&before){
@@ -15854,6 +15960,7 @@ toolsFor=function(c){
   /* ↓ 记忆宫殿：让角色自己决定什么时候去翻旧记忆 */
   try{
     if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.MEM_TOOL)t.push(window.MEM_TOOL);
+    if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.TAG_TOOL)t.push(window.TAG_TOOL);
   }catch(e){}
   return t;
 };
