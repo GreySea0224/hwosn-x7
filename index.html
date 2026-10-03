@@ -5611,10 +5611,10 @@ function showPalaceLast(){
 }
 
 /* ================= 记忆宫殿浏览器（人工翻、搜、打标签） ================= */
-const MPAL={mode:'vols',arcId:null,page:0,q:'',tag:'',view:[],tlist:[],ti:0,tcat:'事件',who:'',backMode:'',prevPage:0};
+const MPAL={mode:'vols',arcId:null,page:0,q:'',f:'',tag:'',view:[],tlist:[],ti:0,tcat:'事件',who:'',backMode:'',prevPage:0};
 const MPAL_PER=30;                       /* 一页显示多少条 */
 function palaceBrowse(){
-  MPAL.mode='vols';MPAL.arcId=null;MPAL.page=0;MPAL.q='';MPAL.tag='';
+  MPAL.mode='vols';MPAL.arcId=null;MPAL.page=0;MPAL.q='';MPAL.f='';MPAL.tag='';
   MPAL.view=[];MPAL.tlist=[];MPAL.ti=0;
   try{ MPAL.who=(getMemChar()||curChar()||{}).id||''; }catch(e){ MPAL.who=''; }
   showSheet('<div class="ttl">🏛 记忆宫殿</div><div id="mpalBody"></div>'+
@@ -5625,7 +5625,7 @@ function palaceBrowse(){
 /* 切换「我正在看谁的记忆」：列表只显示这个角色能看见的卷 */
 function mpalWhoSet(id){
   MPAL.who=id||'';
-  MPAL.arcId=null;MPAL.tag='';MPAL.page=0;MPAL.view=[];
+  MPAL.arcId=null;MPAL.tag='';MPAL.f='';MPAL.page=0;MPAL.view=[];
   mpalRender();
 }
 /* ---------- 这一卷「谁能看见」 ---------- */
@@ -5668,16 +5668,32 @@ function mpalVisSave(arcId){
   toast(sel.length?('已保存：《'+(a.name||'')+'》只给 '+sel.length+' 个角色看'):('已保存：《'+(a.name||'')+'》谁都看不见'));
 }
 function mpalRender(){const el=document.getElementById('mpalBody');if(el)el.innerHTML=mpalHTML()}
-function mpalOpen(arcId){MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
-function mpalOpenChat(){MPAL.arcId=null;MPAL.mode='chat';MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
-function mpalBack(){MPAL.mode='vols';MPAL.arcId=null;MPAL.tag='';MPAL.page=0;MPAL.view=[];mpalRender()}
-function mpalTagQuery(t){MPAL.tag=t||'';MPAL.arcId=null;MPAL.mode='list';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalOpen(arcId){MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.f='';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalOpenChat(){MPAL.arcId=null;MPAL.mode='chat';MPAL.tag='';MPAL.f='';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalBack(){MPAL.mode='vols';MPAL.arcId=null;MPAL.tag='';MPAL.f='';MPAL.page=0;MPAL.view=[];mpalRender()}
+function mpalTagQuery(t){MPAL.tag=t||'';MPAL.arcId=null;MPAL.f='';MPAL.mode='list';MPAL.page=0;MPAL.view=[];mpalRender()}
 function mpalPage(n){MPAL.page=Math.max(0,(MPAL.page||0)+n);mpalRender()}
 function mpalSearchDo(){
   const el=document.getElementById('mpalQ');
   MPAL.q=el?String(el.value||'').trim():'';
-  MPAL.mode='search';MPAL.page=0;mpalRender();
+  MPAL.f='';MPAL.mode='search';MPAL.page=0;mpalRender();
 }
+/* 【新增】一键进某卷的「逐条看全文 / 打标签」：先列出这一卷的条目，再直接开始打标签 */
+function mpalOpenTag(arcId){
+  MPAL.arcId=arcId;MPAL.mode='list';MPAL.tag='';MPAL.f='';MPAL.page=0;MPAL.view=[];
+  mpalRender();                        /* 这一步会把这一卷的条目算进 MPAL.view */
+  if((MPAL.view||[]).length)mpalStartTag(0);
+  else toast('这一卷里没有能打标签的文字');
+}
+/* 【新增】只在某一卷里按文字找一句话（找到后再打标签） */
+function mpalFilterDo(){
+  const el=document.getElementById('mpalF');
+  MPAL.f=el?String(el.value||'').trim():'';
+  MPAL.page=0;MPAL.view=[];mpalRender();
+  const n=(MPAL.view||[]).length;
+  toast(n?('这一卷里找到 '+n+' 条，点「看全文 / 打标签」'):'这一卷里没有这几个字，换个说法再找');
+}
+function mpalFilterClear(){MPAL.f='';MPAL.page=0;MPAL.view=[];mpalRender()}
 /* ---------- 条目（档案 + 聊天记录，统一成同一种结构） ---------- */
 function mpalArcRef(a,i){return {kind:'arc',id:a.id,key:String(i),i:i,a:a}}
 function mpalChatRef(cid,m,i){return {kind:'chat',id:'chat:'+cid,key:chatKey(m,i),i:i,m:m}}
@@ -5792,6 +5808,7 @@ function mpalEntries(c){
   const TAG=mtagAll(),list=load(LS.arcs,[])||[],out=[];
   const who=MPAL.who;                     /* '' ＝「全部档案」模式，不按角色过滤 */
   const whoC=who||(c&&c.id);              /* 聊天记录：全部模式下用当前角色 */
+  const F=String(MPAL.f||'').trim().toLowerCase();   /* 【新增】卷内按文字找 */
   for(const a of list){
     if(MPAL.arcId){if(a.id!==MPAL.arcId)continue}
     else if(a.off||(who&&!archiveAllowed(a,who)))continue;
@@ -5801,6 +5818,7 @@ function mpalEntries(c){
         const tags=mtagChunk(TAG,a.id,i);
         if(!tags||!tags.some(t=>tagSplit(t).name===MPAL.tag))continue;
       }
+      if(F&&String(arcMsgText(am[i])||'').toLowerCase().indexOf(F)<0)continue;
       out.push(mpalArcRef(a,i));
       if(out.length>=3000)return out;
     }
@@ -5811,6 +5829,7 @@ function mpalEntries(c){
     for(let i=0;i<ms2.length;i++){
       const tags=mtagChunk(TAG,'chat:'+whoC,chatKey(ms2[i],i));
       if(!tags||!tags.some(t=>tagSplit(t).name===MPAL.tag))continue;
+      if(F&&String(palaceMsgText(ms2[i])||'').toLowerCase().indexOf(F)<0)continue;
       out.push(mpalChatRef(whoC,ms2[i],i));
       if(out.length>=3000)break;
     }
@@ -5819,7 +5838,14 @@ function mpalEntries(c){
 }
 /* 列表里的一行（点「看全文」进打标签界面） */
 function mpalRow2(e,n){
-  const txt=mpalEntryFull(e).replace(/\s+/g,' ');
+  let txt=mpalEntryFull(e).replace(/\s+/g,' ');
+  /* 【新增】在卷内找内容时，把预览挪到关键字附近，不然关键字在后面就看不见 */
+  const F=String(MPAL.f||'').trim().toLowerCase();
+  if(F){
+    const k=txt.toLowerCase().indexOf(F);
+    if(k>60)txt='…'+txt.slice(Math.max(0,k-60));
+  }
+  txt=txt.slice(0,160);
   const tags=mtagOf(e.id,e.key);
   const pinned=mpinHas(e.id,e.key);
   const isVolTag=(e.kind==='arc')&&((mtagOf(e.id,'vol')||[]).length>0);
@@ -5935,6 +5961,7 @@ function mpalHTML(){
         (tags.length?('　🏷 '+esc(tags.join('、'))):'')+'</p>'+
         '<div class="row"><button class="col" data-a="'+esc(a.id)+'" onclick="mpalOpen(this.dataset.a)">看条目</button>'+
         '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalVisSheet(this.dataset.a)">👀 谁能看见</button></div>'+
+        '<div class="row" style="margin-top:6px"><button class="pri col" data-a="'+esc(a.id)+'" onclick="mpalOpenTag(this.dataset.a)">✍️ 找内容 / 打标签</button></div>'+
         '<div class="row" style="margin-top:6px">'+
         '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVol(this.dataset.a)">整卷标签</button>'+
         '<button class="ghost col" data-a="'+esc(a.id)+'" onclick="mpalTagVolTime(this.dataset.a)">🕒 整卷时间</button></div>'+
@@ -5942,7 +5969,7 @@ function mpalHTML(){
         '</div>';
     }).join('');
     return whoCard+stat+searchBox+cloud+timeCard+chatCard+
-      '<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+visList.length+' 卷档案。点开一卷，可以一条条看全文打标签；点「👀 谁能看见」决定哪些角色能看到这一卷。</p>'+
+      '<p class="dim" style="font-size:12px;margin:10px 0 0">共 '+visList.length+' 卷档案。点「✍️ 找内容 / 打标签」可以直接进去逐条看全文、打标签；点「看条目」先浏览再打标签；点「👀 谁能看见」决定哪些角色能看到这一卷。</p>'+
       (visList.length?'':('<div class="card"><div class="ttl">这里还没有卷</div><p class="dim" style="font-size:12px;margin:0">'+(whoChar?('《'+esc(whoChar.name||'')+'》现在看不到任何档案。切到「全部档案」，把某卷改成只给它看，或者新建/导入一份。'):'还没有导入过档案。')+'</p></div>'));
   }
   if(MPAL.mode==='list'){
@@ -5953,8 +5980,15 @@ function mpalHTML(){
     const slice=all.slice(page*MPAL_PER,page*MPAL_PER+MPAL_PER);
     const head=(MPAL.tag?'<b>🏷 '+esc(MPAL.tag)+'</b> 下的记忆':'《'+esc((MPAL.arcId?(list.find(a=>a.id===MPAL.arcId)||{}).name:'全部档案'))+'》')+
       '：共 '+all.length+' 条';
-    return searchBox+'<div class="card"><div class="ttl">'+head+'</div>'+
+    /* 【新增】在某一卷里按文字找：找到那句话，再点「看全文 / 打标签」 */
+    const findCard=MPAL.arcId?('<div class="card"><div class="ttl">🔍 在这卷里找一句话</div>'+
+      '<div class="row"><input id="mpalF" placeholder="打几个字：人名 / 地名 / 某句话" value="'+esc(MPAL.f||'')+'" style="flex:1">'+
+      '<button class="pri" onclick="mpalFilterDo()">找</button>'+
+      (MPAL.f?'<button class="ghost" onclick="mpalFilterClear()">清空</button>':'')+'</div>'+
+      '<p class="dim" style="font-size:12px;margin:8px 0 0">只在这个卷里按文字找。找到那一条之后，点下面的「看全文 / 打标签」就能给它打标签。</p></div>'):'';
+    return findCard+searchBox+'<div class="card"><div class="ttl">'+head+'</div>'+
       '<p class="dim" style="font-size:12px;margin:0">第 '+(page+1)+'/'+pages+' 页（一页 '+MPAL_PER+' 条）</p>'+
+      (MPAL.f?'<p class="dim" style="font-size:12px;margin:4px 0 0">正在找「'+esc(MPAL.f)+'」</p>':'')+
       '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="mpalBack()">‹ 回目录</button>'+
       '<button class="pri col" data-n="'+(page*MPAL_PER)+'" onclick="mpalStartTag(parseInt(this.dataset.n,10))">✍️ 从这页第一条开始打标签</button></div></div>'+
       slice.map((x,n)=>mpalRow2(x,page*MPAL_PER+n)).join('')+
@@ -8529,9 +8563,12 @@ async function backupNow(){
 }
 function cfgSafe(){const c=JSON.parse(JSON.stringify(cfg||{}));delete c.key;if(c.web)delete c.web.key;if(c.img)delete c.img.key;return c}
 async function backupPayload(){
-  const d={v:8,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
+  const d={v:9,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{},stickers:load('wh_stickers',[]),stickerCats:load('wh_sticker_cats',[]),
-    notes:{},diary:{},favs:{},arts:{},summarks:{},rawMarks:{},rawLogs:{},world:load('wh_world',[])};
+    notes:{},diary:{},favs:{},arts:{},summarks:{},rawMarks:{},rawLogs:{},world:load('wh_world',[]),
+    /* 【修复】以前这四样没进备份，换手机导入后「朋友圈」和记忆宫殿的标签会不见，这里补上：
+       朋友圈内容 / 朋友圈已读时间 / 记忆宫殿的人工标签 / 「一直记得」 */
+    moments:load(LS.moments,[]),momSeen:load(LS.momSeen,0),mtag:load(LS.mtag,{}),mpin:load(LS.mpin,{})};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id);d.gmems[c.id]=gmemOf(c.id);
     /* 这几类数据以前没进备份，恢复后会缺，这里补上：便条、日记、好感度记录、画册、自动总结进度 */
     d.notes[c.id]=load('wh_p4_note_'+c.id,[]);
@@ -8617,6 +8654,12 @@ function importBackupExtraData(d){
   if(d.actMsgs)Object.keys(d.actMsgs).forEach(k=>{if(d.actMsgs[k])save('wh_actmsg_'+k,d.actMsgs[k])});
   if(d.stickers)save('wh_stickers',d.stickers);
   if(d.stickerCats)save('wh_sticker_cats',d.stickerCats);
+  /* 【修复】朋友圈、朋友圈已读时间、记忆宫殿的人工标签、「一直记得」。
+     老备份里没有这几个字段，就不动本机现有的（不会把标签清空）。 */
+  if(Array.isArray(d.moments))save(LS.moments,d.moments);
+  if(typeof d.momSeen==='number'&&d.momSeen>0)save(LS.momSeen,d.momSeen);
+  if(d.mtag&&typeof d.mtag==='object')save(LS.mtag,d.mtag);
+  if(d.mpin&&typeof d.mpin==='object')save(LS.mpin,d.mpin);
   if(d.world&&d.world.length)save('wh_world',d.world);   /* 世界书：键名和「世界书」应用里的一致（旧备份没这个字段，跳过就行） */
   const preOf={notes:'wh_p4_note_',diary:'wh_p4_diary_',favs:'wh_p5_fav_',arts:'wh_p5_art_',summarks:'wh_summark_',rawMarks:'wh_rawmark_'};
   Object.keys(preOf).forEach(k=>{
