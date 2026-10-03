@@ -7263,7 +7263,8 @@ function funHTML(){
   '<button class="col" onclick="funCoin()">'+ciHTML("🪙")+' 抛硬币</button></div>'+
   '<div class="row" style="margin-top:8px"><input id="funMax" class="col" type="number" value="100" placeholder="最大数"><button onclick="funRand()">抽数字</button></div>'+
   '<div class="row" style="margin-top:8px"><input id="funList" class="col" placeholder="逗号分隔，比如：吃火锅,吃面,点外卖"><button onclick="funPick()">抽一个</button></div>'+
-  '<div id="funBoxOut">'+funBoxHTML()+'</div></div>';
+  '<div id="funBoxOut">'+funBoxHTML()+'</div></div>'+
+  tarotCardHTML();
 }
 /* preview()：滚动时随机显示的假结果；result()：真正的结果 */
 function funRun(preview,result){
@@ -7292,6 +7293,179 @@ function funPick(){
   const arr=String(el?el.value:'').split(/[,，\n]/).map(s=>s.trim()).filter(Boolean);
   if(!arr.length)return toast('先填几个选项，用逗号隔开');
   funRun(()=>'👉 '+arr[Math.floor(Math.random()*arr.length)],()=>'👉 '+arr[Math.floor(Math.random()*arr.length)]);
+}
+
+/* ================= 塔罗牌（纯本地抽牌 + 让角色解读） =================
+   78 张牌：22 张大阿尔卡纳 + 56 张小阿尔卡纳（权杖 / 圣杯 / 宝剑 / 星币，
+   每门 王牌~10 + 侍从 / 骑士 / 王后 / 国王）。每张都有正位、逆位关键词。
+   数据格式：[中文名, 英文名, 组, 正位关键词, 逆位关键词] */
+var TAROT_DECK=[
+['愚者','The Fool','大阿尔卡纳','新的开始、冒险、纯真、可能性','鲁莽、犹豫、不敢迈步'],
+['魔术师','The Magician','大阿尔卡纳','行动力、有资源、把想法变现实','空谈、能力没用上、投机'],
+['女祭司','The High Priestess','大阿尔卡纳','直觉、隐藏的真相、静观其变','忽视直觉、秘密、迷惑'],
+['女皇','The Empress','大阿尔卡纳','丰盛、滋养、温柔的力量','依赖、过度付出、忽视自己'],
+['皇帝','The Emperor','大阿尔卡纳','秩序、掌控、稳定的结构','固执、控制欲、僵化'],
+['教皇','The Hierophant','大阿尔卡纳','传统、指引、值得信任的建议','墨守成规、教条、想反叛'],
+['恋人','The Lovers','大阿尔卡纳','关系、选择、心意相通','摇摆、价值观不合、诱惑'],
+['战车','The Chariot','大阿尔卡纳','前进、意志力、掌控方向','失控、冲动、方向不明'],
+['力量','Strength','大阿尔卡纳','温柔的勇气、耐心、驯服情绪','自我怀疑、逞强、失去耐心'],
+['隐士','The Hermit','大阿尔卡纳','独处、内省、寻找答案','孤立、逃避、钻牛角尖'],
+['命运之轮','Wheel of Fortune','大阿尔卡纳','转机、周期的变化、好运','停滞、重复老路、时机未到'],
+['正义','Justice','大阿尔卡纳','公平、因果、权衡利弊','偏颇、逃避责任、失衡'],
+['倒吊人','The Hanged Man','大阿尔卡纳','换个角度看、等待、放手','白等、牺牲没意义、拖延'],
+['死神','Death','大阿尔卡纳','结束与重生、蜕变、断舍离','抗拒改变、拖着不肯结束'],
+['节制','Temperance','大阿尔卡纳','平衡、调和、慢慢来','失衡、走极端、耐心不足'],
+['恶魔','The Devil','大阿尔卡纳','诱惑、依赖、被欲望捆住','挣脱束缚、看清陷阱'],
+['塔','The Tower','大阿尔卡纳','突变、动摇、真相被揭穿','灾后重建、险险避开、拖延'],
+['星星','The Star','大阿尔卡纳','希望、疗愈、灵感、被看见','失望、信心不足、泄气'],
+['月亮','The Moon','大阿尔卡纳','不安、看不清、潜意识','迷雾散开、真相浮现'],
+['太阳','The Sun','大阿尔卡纳','顺利、快乐、光明、成功','短暂低落、被乌云遮住'],
+['审判','Judgement','大阿尔卡纳','觉醒、召唤、重新开始','自我怀疑、逃避清算'],
+['世界','The World','大阿尔卡纳','圆满、完成、进入新阶段','差一步、没收尾、留恋'],
+['权杖王牌','Ace of Wands','权杖','灵感迸发、新机会、行动的开始','动力不足、计划搁浅'],
+['权杖二','Two of Wands','权杖','计划、远眺、选择方向','犹豫、害怕改变'],
+['权杖三','Three of Wands','权杖','扩展、远见、等消息','延误、目光短浅'],
+['权杖四','Four of Wands','权杖','庆祝、安稳、归属感','缺少支持、庆祝延后'],
+['权杖五','Five of Wands','权杖','竞争、意见不合、小摩擦','回避冲突、内耗'],
+['权杖六','Six of Wands','权杖','胜利、被认可、好消息','缺少认可、骄傲自满'],
+['权杖七','Seven of Wands','权杖','坚守立场、迎战、有韧性','疲惫、想放弃'],
+['权杖八','Eight of Wands','权杖','迅速推进、消息、抓住时机','拖延、时机溜走'],
+['权杖九','Nine of Wands','权杖','带伤坚持、警惕、快到终点','多疑、精疲力尽'],
+['权杖十','Ten of Wands','权杖','责任重、扛得多、接近完成','被压垮、该放下了'],
+['权杖侍从','Page of Wands','权杖','好奇心、新消息、勇敢尝试','三分钟热度、坏消息'],
+['权杖骑士','Knight of Wands','权杖','冲劲、冒险、主动出击','鲁莽、急躁'],
+['权杖王后','Queen of Wands','权杖','自信、热情、有魅力','嫉妒、不安全感'],
+['权杖国王','King of Wands','权杖','领导力、有远见、说到做到','专断、冲动'],
+['圣杯王牌','Ace of Cups','圣杯','新的感情、喜悦、心动','情感空虚、压抑感受'],
+['圣杯二','Two of Cups','圣杯','互相吸引、结伴、和解','关系失衡、误会'],
+['圣杯三','Three of Cups','圣杯','友谊、聚会、被祝福','社交疲劳、被排挤'],
+['圣杯四','Four of Cups','圣杯','无聊、冷淡、错过示好','重新振作、抓住机会'],
+['圣杯五','Five of Cups','圣杯','失落、遗憾、只看到失去的','走出阴影、接受现实'],
+['圣杯六','Six of Cups','圣杯','怀旧、旧友、纯真的善意','困在过去、长不大'],
+['圣杯七','Seven of Cups','圣杯','幻想、选择太多、白日梦','看清现实、做减法'],
+['圣杯八','Eight of Cups','圣杯','转身离开、寻找更深的意义','舍不得走、原地打转'],
+['圣杯九','Nine of Cups','圣杯','满足、愿望达成、享受','贪心、只是表面满足'],
+['圣杯十','Ten of Cups','圣杯','圆满、和睦、家的感觉','关系有裂缝、理想落空'],
+['圣杯侍从','Page of Cups','圣杯','温柔的消息、灵感、暗恋','情绪化、失望的消息'],
+['圣杯骑士','Knight of Cups','圣杯','浪漫、追求、发出邀请','空头承诺、想太多'],
+['圣杯王后','Queen of Cups','圣杯','体贴、共情、直觉准','情绪被淹没、过度依赖'],
+['圣杯国王','King of Cups','圣杯','情绪稳定、包容、成熟的爱','压抑情绪、情感操控'],
+['宝剑王牌','Ace of Swords','宝剑','想通了、真相、思路清晰','混乱、判断失误'],
+['宝剑二','Two of Swords','宝剑','僵局、两难、先回避','打破僵局、必须表态'],
+['宝剑三','Three of Swords','宝剑','扎心、伤心、无法回避的真相','开始愈合、慢慢放下'],
+['宝剑四','Four of Swords','宝剑','休息、恢复、暂停一下','焦虑、停不下来'],
+['宝剑五','Five of Swords','宝剑','争执、口角、两败俱伤','和解、退出争斗'],
+['宝剑六','Six of Swords','宝剑','过渡、离开困境、往前走','卡在原地、走不动'],
+['宝剑七','Seven of Swords','宝剑','策略、隐瞒、独自行动','坦白、被看穿'],
+['宝剑八','Eight of Swords','宝剑','自我设限、觉得没得选','挣脱、看清出口'],
+['宝剑九','Nine of Swords','宝剑','焦虑、失眠、想太多','走出焦虑、松口气'],
+['宝剑十','Ten of Swords','宝剑','触底、结束、最坏已经过去','慢慢恢复、重新开始'],
+['宝剑侍从','Page of Swords','宝剑','好奇、打听、新点子','流言、嘴快惹事'],
+['宝剑骑士','Knight of Swords','宝剑','直接、行动快、敢说','鲁莽、话太伤人'],
+['宝剑王后','Queen of Swords','宝剑','理性、独立、看得透','冷淡、刻薄'],
+['宝剑国王','King of Swords','宝剑','理智、公正、有判断力','专断、只讲道理'],
+['星币王牌','Ace of Pentacles','星币','实在的机会、好开端、踏实','机会流失、基础不稳'],
+['星币二','Two of Pentacles','星币','兼顾、灵活、找平衡','顾此失彼、手忙脚乱'],
+['星币三','Three of Pentacles','星币','合作、手艺被认可、打基础','配合不佳、敷衍了事'],
+['星币四','Four of Pentacles','星币','保守、攒着、有安全感','抓太紧、该松手'],
+['星币五','Five of Pentacles','星币','匮乏、被冷落、难熬','好转、有人帮忙'],
+['星币六','Six of Pentacles','星币','给予与接受、公平互助','不对等、有条件的帮忙'],
+['星币七','Seven of Pentacles','星币','耐心等待、长期投入、评估','白费力气、没耐心'],
+['星币八','Eight of Pentacles','星币','专心打磨、学习、下功夫','敷衍、重复到麻木'],
+['星币九','Nine of Pentacles','星币','独立、自在、享受成果','过度依赖、挥霍'],
+['星币十','Ten of Pentacles','星币','长久富足、家族、传承','家里或钱上不稳'],
+['星币侍从','Page of Pentacles','星币','学习新知、新工作、脚踏实地','拖延、不切实际'],
+['星币骑士','Knight of Pentacles','星币','沉稳、负责、按部就班','太慢、停滞'],
+['星币王后','Queen of Pentacles','星币','务实、会照顾人、丰盛','忽略自己、物质焦虑'],
+['星币国王','King of Pentacles','星币','成功、稳重、有资源','固执、控制欲']
+];
+var tarotBusy=false,tarotSpin=null,tarotTxt='',tarotEnd=0,tarotRes=[],tarotQ='',tarotRead='',tarotReading=false;
+function tarotPos(n){return n>=3?['过去','现在','未来']:['当下']}
+function tarotShuffle(n){
+  var idx=[],i,j,k,t;
+  for(i=0;i<TAROT_DECK.length;i++)idx.push(i);
+  for(j=idx.length-1;j>0;j--){k=Math.floor(Math.random()*(j+1));t=idx[j];idx[j]=idx[k];idx[k]=t}
+  var out=[];
+  for(i=0;i<n&&i<idx.length;i++)out.push({c:TAROT_DECK[idx[i]],rev:Math.random()<0.4});
+  return out;
+}
+function tarotLineHTML(x,i,n){
+  var pos=tarotPos(n)[i];
+  var kw=x.rev?x.c[4]:x.c[3];
+  return '<div style="padding:8px 0;border-bottom:1px dashed var(--line)">'+
+    '<div style="font-size:13px"><span class="dim" style="font-size:11.5px">'+pos+'</span> <b>'+esc(x.c[0])+'</b>'+
+    ' <span class="dim" style="font-size:11.5px">'+esc(x.c[1])+'</span> '+
+    '<span style="color:'+(x.rev?'var(--warn)':'var(--acc)')+';font-size:11.5px">'+(x.rev?'逆位':'正位')+'</span></div>'+
+    '<div style="font-size:12.5px;margin-top:3px;color:var(--txt)">'+esc(kw)+'</div></div>';
+}
+function tarotBoxHTML(){
+  if(tarotBusy){
+    return '<div style="margin-top:10px;border-top:1px dashed var(--line);overflow:hidden">'+
+    '<div class="funroll"><div class="funroll-in">'+esc(tarotTxt||'🔮')+'</div>'+
+    '<div class="funbar"><i></i></div><div class="funrolltip">洗牌中…</div></div></div>';
+  }
+  if(!tarotRes.length)return '';
+  var n=tarotRes.length;
+  var c=null;try{c=curChar()}catch(e){}
+  var h='<div style="margin-top:10px;border-top:1px dashed var(--line)">'+
+    '<div class="dim" style="font-size:12px;margin:8px 0 4px">抽牌结果</div>';
+  if(tarotQ)h+='<div class="dim" style="font-size:12px;margin-bottom:4px">你的问题：'+esc(tarotQ)+'</div>';
+  h+=tarotRes.map(function(x,i){return tarotLineHTML(x,i,n)}).join('');
+  if(tarotRead)h+='<div style="margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;font-size:13px;line-height:1.65;white-space:pre-wrap">'+esc(tarotRead)+'</div>';
+  if(c&&!tarotRead)h+='<div class="row" style="margin-top:10px"><button class="ghost col" onclick="tarotInterpret()">'+(tarotReading?'解读中…':'让「'+esc(c.name)+'」解读')+'</button></div>';
+  h+='<div class="funok" style="margin-top:8px">✓ 抽牌完成，只是参考，别太当真</div></div>';
+  return h;
+}
+function tarotRefresh(){var el=document.getElementById('tarotOut');if(el)el.innerHTML=tarotBoxHTML()}
+function tarotCardHTML(){
+  return '<div class="card"><div class="ttl">🔮 塔罗牌</div>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 10px">78 张牌，纯本地随机抽。抽一张看当下，或者抽三张看「过去 · 现在 · 未来」。抽完还能让角色帮你解读。</p>'+
+  '<input id="tarotQ" class="col" style="width:100%" placeholder="心里想问的事（可以不填）" value="'+esc(tarotQ)+'">'+
+  '<div class="row" style="margin-top:8px"><button class="col" onclick="tarotDraw(1)">🃏 抽一张</button>'+
+  '<button class="col" onclick="tarotDraw(3)">🃏 抽三张</button></div>'+
+  '<div id="tarotOut">'+tarotBoxHTML()+'</div></div>';
+}
+function tarotDraw(n){
+  if(tarotBusy)return;
+  n=(n>=3?3:1);
+  var qEl=document.getElementById('tarotQ');
+  tarotQ=qEl?String(qEl.value||'').trim().slice(0,120):'';
+  tarotBusy=true;tarotRes=[];tarotRead='';tarotTxt='🔮';
+  tarotRefresh();
+  tarotEnd=Date.now()+900;
+  clearInterval(tarotSpin);
+  tarotSpin=setInterval(function(){
+    tarotTxt=['🔮','✨','🌟','🃏','💫'][Math.floor(Math.random()*5)]+' '+TAROT_DECK[Math.floor(Math.random()*TAROT_DECK.length)][0];
+    tarotRefresh();
+    if(Date.now()>=tarotEnd){
+      clearInterval(tarotSpin);tarotSpin=null;
+      tarotBusy=false;tarotTxt='';
+      tarotRes=tarotShuffle(n);
+      tarotRefresh();
+      toast('✅ 抽牌完成');
+    }
+  },90);
+}
+async function tarotInterpret(){
+  if(!tarotRes.length||tarotReading)return;
+  var c=null;try{c=curChar()}catch(e){}
+  if(!c)return toast('先建一个角色，再让她解读');
+  if(!cfg.key)return toast('先去「设置」里填 API Key');
+  tarotReading=true;tarotRead='';tarotRefresh();
+  var pos=tarotPos(tarotRes.length);
+  var lines=tarotRes.map(function(x,i){return pos[i]+'：'+x.c[0]+'（'+x.c[1]+'，'+(x.rev?'逆位':'正位')+'）— '+(x.rev?x.c[4]:x.c[3])}).join('\n');
+  var sys=(c.persona||('你是'+c.name+'。'))+
+    '\n\n【塔罗解读】她刚抽了塔罗牌。请你用'+c.name+'的身份，结合下面的牌面，用中文给她一段自然、真诚的解读。'+
+    '要求：先说每张牌在这个问题里大概是什么意思，再给一句整体结论；正位逆位都要照顾到；语气像平时聊天，不要写标题、不要堆分点、不要提「系统」或「工具」；把它当成帮她理清思路的参考，不要说成命中注定；150-300 字左右。';
+  var usr=(tarotQ?('我想问的是：'+tarotQ+'\n\n'):'我没有具体想问的事，就想看看近况。\n\n')+'抽到的牌：\n'+lines;
+  try{
+    var tp=thinkParams(c);
+    var out=String(await callAPI([{role:'system',content:sys},{role:'user',content:usr}],{stream:false,model:modelOf(c),temp:tp.temp,maxtok:600})||'').trim();
+    tarotRead=out||'（这次没解读出来，再点一次试试）';
+  }catch(e){
+    tarotRead='解读失败：'+((e&&e.message)||e);
+  }
+  tarotReading=false;tarotRefresh();
 }
 
 /* ================= 一起听音乐（本地播放器） =================
@@ -10105,7 +10279,7 @@ const APPS=[
    ic:'<svg viewBox="0 0 24 24"><path d="M4.6 6.6h14.8M4.6 12h14.8M4.6 17.4h8.6"/><path d="m17.4 16.2 1.5 1.5 3-3.4"/></svg>'},
   {k:'group',n:'群聊',d:'让角色们一起聊',
    ic:'<svg viewBox="0 0 24 24"><circle cx="8.4" cy="8.6" r="2.9"/><path d="M3.4 19.2c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><circle cx="16.8" cy="9.4" r="2.3"/><path d="M15.4 14.9c2.5.2 4.3 1.9 4.3 4.3"/></svg>'},
-  {k:'fun',n:'小工具',d:'骰子 · 抽签 · 随机',
+  {k:'fun',n:'小工具',d:'骰子 · 塔罗 · 随机',
    ic:'<svg viewBox="0 0 24 24"><rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4.2"/><circle cx="8.6" cy="8.6" r="1.2"/><circle cx="15.4" cy="15.4" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg>'},
   {k:'moments',n:'朋友圈',d:'角色发动态 · 点赞评论',
    ic:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3.6v3.1M12 17.3v3.1M3.6 12h3.1M17.3 12h3.1"/></svg>'},
@@ -10775,7 +10949,7 @@ function injectGroupExtraCard(g,sheet){
   card.innerHTML='<div class="ttl">群聊记录条数 / 发言顺序 / 群里玩具</div>'+
   '<div class="setrow"><span class="lbl">角色默认能看到最近多少条群聊记录</span><input id="ge_histn" type="number" value="'+histOf(g,null)+'"><span class="unit">条</span></div>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">发言顺序＝每个人自己的「发言优先级」，数字越小越先开口（默认 50）。想让谁第一个说话，把它的优先级改成 1。</p>'+
-  '<label class="li" style="border:0;padding:8px 0"><input type="checkbox" id="ge_toys" '+(g.toys?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许角色在群里用互动玩具（掷骰子 / 抽签 / 报时 / 记心情 / 留便条 / 写日记 / 好感度）</span></label>'+
+  '<label class="li" style="border:0;padding:8px 0"><input type="checkbox" id="ge_toys" '+(g.toys?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>允许角色在群里用互动玩具（掷骰子 / 抽签 / 塔罗 / 报时 / 记心情 / 留便条 / 写日记 / 好感度）</span></label>'+
   '<p class="dim" style="font-size:12px;margin:0">开了之后每条群消息会多花一点点 token；默认关。</p>';
   var anchor=ch?(ch.closest('.card')):null;
   if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(card,anchor.nextSibling);else sheet.appendChild(card);
@@ -10954,7 +11128,7 @@ async function runGroupToyProbe(sys,c,g,hist,tp){
   if(!toyList.length)return;
   try{
     var probe=[{role:'system',content:sys.join('\n\n')}].concat(hist);
-    probe.push({role:'user',content:'（先决定要不要用玩具：想掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度就调用一次工具；不想用就直接回复 NO_TOY）'});
+    probe.push({role:'user',content:'（先决定要不要用玩具：想掷骰子、抽签、抽塔罗牌、看时间、记心情、留便条、写日记、调好感度就调用一次工具；不想用就直接回复 NO_TOY）'});
     var tr=await callAPI(probe,{stream:false,model:modelOf(c),tools:toyList,tool_choice:'auto',temp:tp.temp,maxtok:200});
     if(tr&&tr.tool_calls&&tr.tool_calls.length){
       var outs=[];
@@ -11085,8 +11259,8 @@ if(!P4.now)P4.now=function(){return P4.today()};
 
 function Knote(id){return 'wh_p4_note_'+id}
 function Kdiary(id){return 'wh_p4_diary_'+id}
-var FLAG={roll_dice:'dice',flip_coin:'coin',pick_one:'pick',get_now_time:'time',set_mood:'mood',leave_note:'note',write_diary:'diary',favor_change:'favor'};
-function tcfg(){if(!cfg.toys)cfg.toys={on:true,dice:true,coin:true,pick:true,time:true,mood:true,note:true,diary:true,favor:true};return cfg.toys}
+var FLAG={roll_dice:'dice',flip_coin:'coin',pick_one:'pick',get_now_time:'time',set_mood:'mood',leave_note:'note',write_diary:'diary',favor_change:'favor',draw_tarot:'tarot'};
+function tcfg(){if(!cfg.toys)cfg.toys={on:true,dice:true,coin:true,pick:true,time:true,mood:true,note:true,diary:true,favor:true,tarot:true};return cfg.toys}
 function toyOn(name){var t=tcfg();return t.on!==false&&t[FLAG[name]]!==false}
 function charOK(c){return !!c&&!(c.toyPerm&&c.toyPerm.on===false)}
 
@@ -11098,7 +11272,8 @@ var TOYS=[
  {type:'function',function:{name:'set_mood',description:'写下你现在的心情/状态，她能在「应用 → 互动」里看到。',parameters:{type:'object',properties:{mood:{type:'string',description:'一句话，比如「有点闷，但还行」'}},required:['mood']}}},
  {type:'function',function:{name:'leave_note',description:'给她留一张小纸条（便条），她会看到。',parameters:{type:'object',properties:{text:{type:'string',description:'纸条内容，短一点'}},required:['text']}}},
  {type:'function',function:{name:'write_diary',description:'写一段日记，记录此刻的想法（只有你和她能看到）。',parameters:{type:'object',properties:{text:{type:'string',description:'日记正文'}},required:['text']}}},
- {type:'function',function:{name:'favor_change',description:'调整你对她的「好感度」数值（-10 ~ +10），用在她说/做了什么让你有感觉的时候。',parameters:{type:'object',properties:{delta:{type:'integer',description:'变化量，正数=更近，负数=更远'},reason:{type:'string',description:'为什么变化，一句话'}},required:['delta']}}}
+ {type:'function',function:{name:'favor_change',description:'调整你对她的「好感度」数值（-10 ~ +10），用在她说/做了什么让你有感觉的时候。',parameters:{type:'object',properties:{delta:{type:'integer',description:'变化量，正数=更近，负数=更远'},reason:{type:'string',description:'为什么变化，一句话'}},required:['delta']}}},
+ {type:'function',function:{name:'draw_tarot',description:'抽塔罗牌。想占卜、想看看某件事的走向、或者她想让你抽牌的时候用。抽到的牌名和正逆位关键词会返回给你，你可以照着牌面亲自解读给她听。',parameters:{type:'object',properties:{question:{type:'string',description:'想问的问题，可以留空'},count:{type:'integer',description:'抽几张：1 或 3，默认 1；抽 3 张时分别代表过去、现在、未来'}}}}}
 ];
 
 function toyRollDice(args){
@@ -11149,6 +11324,15 @@ function toyFavorChange(args,c,blink){
   save(LS.chars,chars);scheduleBackup();blink();
   return {ok:true,msg:'💠 好感度：'+old+' → '+nw+'（'+(nw>old?'更近':(nw<old?'更远':'没变'))+'）'+(args.reason?('　原因：'+args.reason):'')};
 }
+function toyTarot(args){
+  var q=String((args&&args.question)||'').trim().slice(0,120);
+  var n=Math.round(Number(args&&args.count)||1);n=(n>=3?3:1);
+  var res=tarotShuffle(n),pos=tarotPos(n);
+  var lines=res.map(function(x,i){
+    return (n>1?(pos[i]+' '):'')+x.c[0]+' '+(x.rev?'逆位':'正位')+'（'+(x.rev?x.c[4]:x.c[3])+'）';
+  });
+  return {ok:true,msg:'🔮 塔罗牌'+(q?('（'+q+'）'):'')+'：'+lines.join('｜')+'　你可以照着牌面，用你自己的想法给她解读。'};
+}
 function execToy(name,args,cid){
   args=args||{};
   var c=charOf(cid)||curChar();
@@ -11163,6 +11347,7 @@ function execToy(name,args,cid){
   if(name==='leave_note')return toyLeaveNote(args,cid,blink);
   if(name==='write_diary')return toyWriteDiary(args,cid,blink);
   if(name==='favor_change')return toyFavorChange(args,c,blink);
+  if(name==='draw_tarot')return toyTarot(args);
   return {ok:false,msg:'未知玩具'};
 }
 function toysFor(c){
@@ -11188,6 +11373,7 @@ function toySwitchCardHTML(T){
   box('time',ciHTML("🕒")+' 看现在的真实时间')+box('mood',ciHTML("🫧")+' 写下心情状态','显示在下面')+
   box('note',ciHTML("📝")+' 给你留小纸条','挂在便条墙')+box('diary',ciHTML("📖")+' 写日记','只在下面给你看')+
   box('favor',ciHTML("💠")+' 调整好感度','-10 ~ +10')+
+  box('tarot',ciHTML("🔮")+' 抽塔罗牌','角色自己抽牌并解读')+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="P4.toySave()">保存玩具开关</button>'+
   '<p class="dim" style="font-size:12px;margin:8px 0 0">每个角色还能单独关（角色 → 编辑 → 互动玩具）；想让它们成群地在群里玩，去群设置里打开。</p></div>';
 }
@@ -11245,7 +11431,7 @@ P4.toySave=function(){
   var T=tcfg();
   var ck=function(i,def){var el=document.getElementById(i);return el?!!el.checked:def};
   T.on=ck('ty_on',T.on!==false);
-  ['dice','coin','pick','time','mood','note','diary','favor'].forEach(function(k){T[k]=ck('ty_'+k,T[k]!==false)});
+  ['dice','coin','pick','time','mood','note','diary','favor','tarot'].forEach(function(k){T[k]=ck('ty_'+k,T[k]!==false)});
   save(LS.cfg,cfg);
   toast('玩具开关已保存');
   renderToolPane();
