@@ -155,8 +155,125 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 #fsBtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .sheetclose:active{transform:scale(.92)}
 @keyframes up{from{transform:translateY(30px);opacity:.4}}
-#lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
-.lockbox{width:100%;max-width:320px}
+/* 【新】超细窄体 Barlow Condensed 100（只含数字和英文字母）。
+   字体文件已经直接嵌在这个页面里，所以不用联网、不用装东西，打开就有细体字。
+   许可：SIL Open Font License 1.1（可自由嵌入使用）。 */
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:100;font-display:swap;
+  src:url(data:font/woff2;base64,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) format("woff2")}
+/* ---------- 锁屏（仿 iOS：深色底 + 超大半透明时间；上滑才出现密码框） ----------
+   分成两屏：
+   ① 第一屏只有日期和巨大的时间，像画在壁纸上的字；
+   ② 手指往上滑（或者点一下）才翻到第二屏输密码，在第二屏往下滑可以退回去。
+   底色固定是「深色」的，上面再叠两团她主题色的柔光——因为参考图就是
+   深色壁纸 + 白字，浅色底上做不出那种高级感；这样浅色主题也有味道。
+   （如果她自己传了锁屏背景图，照片会盖在底色上面。） */
+#lock{position:fixed;inset:0;z-index:200;display:none;overflow:hidden;background:#070d13;
+  /* 【新】锁屏专用字体：超细窄体。手机里没有就顺着后面这份名单往下找，不会白屏 */
+  --lkfont:"Barlow Condensed","Saira Condensed","Archivo","Helvetica Neue",Inter,-apple-system,system-ui,"PingFang SC",sans-serif;
+  --lk-sx:.88;              /* 数字横向压窄（1 = 不压）。要改就得跟脚本里的 SQUEEZE 一起改 */
+  --lk-sy:1.55;             /* 数字纵向拉高（1 = 不拉），越大字越高越瘦 */
+  --lk-dot-uny:.645;        /* 抵消上面的拉高，让冒号那两个点保持正圆（约 1÷1.55） */
+  --lk-stroke:.06em;        /* 数字的「加粗量」（描边粗细）：想更粗就调大，想更细就调小 */
+  --lk-mask-a:44%;          /* 前景（山脊、树）从屏幕高度的这里开始遮住数字（往下挪过了：不然会把时间的下半截吃掉） */
+  --lk-mask-b:58%;          /* 到这里完全遮住（大致是山脊线的高度） */
+  --lk-img:none;            /* 壁纸图片；上下两层铺同一张图、同一个位置，接缝才看不出来 */
+  --lk-dim:linear-gradient(rgba(4,9,15,0),rgba(4,9,15,0))   /* 把壁纸压暗用的颜色，深浅由脚本按「透明度」设置算 */}
+#lock.on{display:block;animation:lkIn .5s ease}
+@keyframes lkIn{from{opacity:0}}
+/* 深色底 */
+.lkbase{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,#0c1620 0%,#070e15 55%,#04080d 100%)}
+/* 两团主题色的柔光：换成别的主题，这里的颜色也跟着变（【新】调淡一点，整体更冷更素） */
+.lktint{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.16;
+  background:radial-gradient(85% 52% at 16% 4%,var(--acc),transparent 62%),
+             radial-gradient(92% 56% at 88% 98%,var(--acc2),transparent 66%)}
+/* 锁屏背景图（在「设置 → 背景图 → 锁屏背景」里可以自己传一张）
+   【新】图片改成用「变量」挂上来，另外还叠了一层和图混在一起的压暗；
+        这样下面那层「前景」铺同一张图时，明暗也对得上。 */
+.lkwall{position:absolute;inset:0;z-index:1;background-image:var(--lk-dim),var(--lk-img);
+  background-position:center center;background-size:cover;background-repeat:no-repeat;
+  filter:saturate(.72) contrast(1.04) brightness(.97);   /* 【新】低饱和 + 一点点冷，压掉照片原来的暖调 */
+  opacity:0;transition:opacity .3s ease;pointer-events:none}
+/* 【新】前景层（「数字藏在山背后」的关键）：
+   把同一张壁纸再铺一遍，但用「遮罩」把上半部分擦掉，只留下下面那块（近处的树 + 山脊）。
+   因为上下两层是同一张图、同一个位置，盖住的地方像素一模一样，所以看不出接缝，
+   看起来就像数字被山挡住了。 */
+.lkfg{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background-image:var(--lk-dim),var(--lk-img);
+  background-position:center center;background-size:cover;background-repeat:no-repeat;
+  filter:saturate(.72) contrast(1.04) brightness(.97);
+  -webkit-mask-image:linear-gradient(184deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) var(--lk-mask-a),rgba(0,0,0,.5) calc((var(--lk-mask-a) + var(--lk-mask-b))/2),#000 var(--lk-mask-b),#000 100%);
+  mask-image:linear-gradient(184deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) var(--lk-mask-a),rgba(0,0,0,.5) calc((var(--lk-mask-a) + var(--lk-mask-b))/2),#000 var(--lk-mask-b),#000 100%)}
+/* 照片上的压暗（没传图就不显示）。
+   【新】这层挪到「数字上面」：这样前景层和它底下的壁纸被压暗的程度一模一样，
+   接缝看不出来；顺手让白字没那么刺眼。 */
+.lkscrim{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .3s ease;background:linear-gradient(180deg,rgba(2,8,14,.34) 0%,rgba(2,8,14,.14) 34%,rgba(2,8,14,.07) 56%,rgba(2,8,14,.44) 100%)}
+#lock.hasimg .lkscrim{opacity:1}
+/* 【新】冷蓝灰调 + 四角暗角（vignette）：上一层是「中间不动、四角变暗」，
+   下一层是很淡的冷色。都放在数字上面，所以字也跟着一起变冷、变灰。 */
+.lkvig{position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:radial-gradient(128% 92% at 50% 44%,rgba(6,14,22,0) 40%,rgba(6,14,22,.28) 74%,rgba(2,7,12,.62) 100%),
+             linear-gradient(180deg,rgba(108,142,172,.14) 0%,rgba(78,108,136,.06) 46%,rgba(12,24,38,.26) 100%)}
+/* 第一屏：日期 + 超大时间。【新】改成从上面开始排（不再垂直居中），
+   日期就被顶到上面的留白里，数字也跟着整体上移一点。 */
+.lkhome{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 30px);
+  touch-action:none;transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .3s ease}
+#lock.pass .lkhome{transform:translateY(-11%) scale(.965);opacity:0;pointer-events:none}
+.lkclock{width:100%;height:46%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:6vh}
+/* 日期小字：【新】参考图里日期是偏粗、很清晰的白字，所以这里改粗、提亮、字距收一点。
+   字体跟 App 里「用户选的字体」一致（--appfont），汉字和数字就都是同一个字体了 */
+.lkdate{font-family:var(--appfont,var(--lkfont));font-size:11.5px;font-weight:600;letter-spacing:.16em;text-indent:.08em;color:rgba(255,255,255,.97);opacity:.96;text-shadow:0 1px 10px rgba(0,0,0,.45);margin:0 0 2.2vh}
+/* 大时间：【新】超细窄体（字重 100）+ 又高又瘦，做成「半透明气泡」的质感：
+   · 字身（color）完全不画（transparent），颜色全交给那层同色描边（--lk-stroke）——
+     描边把最细的字加粗，而且整条笔画就是一个颜色；不会出现「里外两层白」或「中间一条缝」，
+     同时还是半透明的，能透出后面的山和雾；
+   · 遮罩只让字从上往下温柔地淡一点点，底部还留七成多，所以下半截照样看得出是几点。
+   （这里用遮罩而不是 background-clip:text，是为了让下面自己画的冒号圆点也能一起变淡。）
+   字号由脚本量出来（见 lockFitTime），保证正好撑满屏幕宽。 */
+.lktime{font-family:var(--lkfont);font-size:clamp(64px,26vw,220px);font-weight:100;line-height:1;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;
+  color:transparent;                                           /* 字身完全不画：颜色全交给描边，笔画里外才是一个颜色、不会分层 */
+  -webkit-text-stroke:var(--lk-stroke) rgba(255,255,255,.7);   /* 真正画字的是这层同色描边（想更亮/更透就调 .7 这个数） */
+  transform:scaleX(var(--lk-sx)) scaleY(var(--lk-sy));transform-origin:50% 50%;
+  -webkit-mask-image:linear-gradient(180deg,#fff 0%,rgba(255,255,255,.98) 30%,rgba(255,255,255,.9) 62%,rgba(255,255,255,.84) 100%);
+  mask-image:linear-gradient(180deg,#fff 0%,rgba(255,255,255,.98) 30%,rgba(255,255,255,.9) 62%,rgba(255,255,255,.84) 100%)}
+/* 【新】冒号：不用字体的冒号，自己画两个实心小圆点，颜色跟数字一样（不再加亮圈，免得看起来分两层）。
+   宽高都用 em 算，所以时间字放大缩小时，圆点会跟着一起缩放。 */
+.lktime .lkc{display:inline-block;position:relative;width:.16em;height:.72em;margin:0 .03em;vertical-align:baseline}
+.lktime .lkc::before,.lktime .lkc::after{content:'';position:absolute;left:50%;box-sizing:border-box;width:.095em;height:.095em;border-radius:50%;
+  background:rgba(255,255,255,.7);
+  transform:translateX(-50%) scaleY(var(--lk-dot-uny))}
+.lktime .lkc::before{bottom:.27em}
+.lktime .lkc::after{bottom:.46em}
+/* 底部那个一上一下的小箭头：提示「可以往上滑」（不写字，保持干净）
+   【新】从 .lkhome 里搬出来、直接挂在锁屏上：不然它会被新加的「前景层」盖住看不见。 */
+.lkhint{position:absolute;z-index:5;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 34px);display:flex;justify-content:center;pointer-events:none;color:#fff;opacity:.72;transition:opacity .3s ease}
+#lock.pass .lkhint{opacity:0}
+.lkhint svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;animation:lkUp 1.9s ease-in-out infinite}
+@keyframes lkUp{0%,100%{transform:translateY(3px);opacity:.5}50%{transform:translateY(-5px);opacity:1}}
+/* 第二屏：上滑之后才出现的密码框（放偏上一点，键盘弹出来也看得见）
+   【新】z-index 提到最高：不然会被新加的「前景层」和暗角层盖住 */
+.lkpass{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;
+  padding:calc(env(safe-area-inset-top) + 26vh) 26px calc(env(safe-area-inset-bottom) + 20px);
+  opacity:0;transform:translateY(10%);pointer-events:none;
+  transition:transform .42s cubic-bezier(.32,.72,0,1),opacity .32s ease}
+#lock.pass .lkpass{opacity:1;transform:none;pointer-events:auto}
+.lkfield{width:100%;max-width:420px;display:flex;align-items:center;gap:10px;padding:5px 5px 5px 18px;border-radius:999px;background:rgba(22,27,34,.42);border:1px solid rgba(255,255,255,.26);box-shadow:0 12px 30px rgba(0,0,0,.32);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#lock #pw{flex:1 1 auto;width:auto;min-width:0;background:transparent;border:0;border-radius:0;padding:9px 0;font-size:15px;letter-spacing:.5px;color:#fff;box-shadow:none}
+#lock #pw:focus{border-color:transparent;box-shadow:none}
+#lock #pw::placeholder{color:rgba(255,255,255,.7)}
+.lkgo{flex:0 0 auto;width:44px;height:44px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--acc),var(--acc2));color:var(--onacc,#02131c);box-shadow:0 6px 18px var(--accglow,rgba(63,169,216,.45))}
+.lkgo svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lkerr{min-height:17px;margin:9px 2px 0;text-align:center;font-size:12px;letter-spacing:.3px;color:#ffb9b3;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+/* 锁屏的时候不要把右下角那个「全屏」小按钮露出来 */
+body.locked #fsBtn{display:none!important}
+/* 屏幕矮的时候（比如键盘弹出来）自动调整，别把密码框顶出去 */
+@media (max-height:620px){
+  .lkclock{height:44%;padding-top:3vh}
+  .lktime{font-size:64px}
+  .lkpass{padding-top:calc(env(safe-area-inset-top) + 15vh)}
+  .lkdate{font-size:9.5px}
+}
 /* 弹层顶部标签（角色设定 / 记忆） */
 .tabs{display:flex;gap:8px;margin:0 0 14px}
 .tabs button{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:14px;padding:9px 0;border-radius:12px;font-weight:700;box-shadow:none}
@@ -245,6 +362,24 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .funres{font-size:22px;font-weight:700;text-align:center;padding:12px 0;color:var(--acc);white-space:pre-wrap;animation:funpop .5s cubic-bezier(.2,1.5,.4,1)}
 @keyframes funpop{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.13)}100%{transform:scale(1);opacity:1}}
 .funok{text-align:center;font-size:12px;color:var(--acc);opacity:.9;margin-bottom:4px;animation:pop .3s ease}
+/* ---------- 塔罗牌：抽到的小牌（统一线性 SVG 图标） ---------- */
+.taro-card{position:relative;flex:0 0 auto;width:60px;height:90px;border-radius:10px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;color:var(--acc);
+  background:linear-gradient(155deg,var(--accdim) 0%,var(--bg2) 92%);
+  border:1px solid var(--accline,var(--line));box-shadow:var(--shadow)}
+.taro-card::after{content:'';position:absolute;inset:4px;border-radius:6px;border:1px solid var(--accline,var(--line));opacity:.55;pointer-events:none}
+.taro-card .taro-rk{position:absolute;top:4px;left:0;right:0;text-align:center;font-size:9.5px;font-weight:800;letter-spacing:.8px;color:var(--acc)}
+.taro-card .taro-suit{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:8.5px;letter-spacing:1.5px;color:var(--dim);opacity:.9}
+.taro-card .taro-art{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.taro-card .taro-ic{display:block}
+.taro-card .taro-pips{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.taro-card .taro-prow{display:flex;align-items:center;justify-content:center}
+.taro-card.rev .taro-art{transform:rotate(180deg)}
+.taro-card.rev .taro-rk{color:var(--warn)}
+.taro-card.rev::after{border-color:var(--warn);opacity:.42}
+.taro-card.big{width:84px;height:126px;border-radius:12px}
+.taro-card.big .taro-rk{font-size:12.5px;top:6px}
+.taro-card.big .taro-suit{font-size:10px;bottom:6px}
 /* ========== 深蓝海域 · 视觉速改 ========== */
 
 /* 1) 卡片标题不再满屏蓝，改用左侧小色条 */
@@ -629,12 +764,27 @@ html.chatwall #msgs .tsep>span{padding:3px 11px;opacity:1;background:var(--panel
 </nav>
 <div class="modal" id="modal"><button class="sheetclose" onclick="closeSheet()" aria-label="关闭">✕</button><div class="sheet" id="sheet"></div></div>
 <div id="lock">
-  <div class="lockbox">
-    <div class="ttl">🔒 深蓝海域已锁定</div>
-    <p class="dim" style="font-size:13px;margin:4px 0 12px">输入密码解锁</p>
-    <input id="pw" type="password" placeholder="密码" autocomplete="off">
-    <button class="pri" style="width:100%;margin-top:10px" onclick="unlock()">解锁</button>
-    <p id="pwerr" class="dim" style="font-size:12px;margin-top:8px;color:var(--warn)"></p>
+  <div class="lkbase" aria-hidden="true"></div>
+  <div class="lktint" aria-hidden="true"></div>
+  <div class="lkwall" id="lkWall"></div>
+  <div class="lkhome">
+    <div class="lkclock" id="lkClock">
+      <div class="lkdate" id="lkDate"></div>
+      <div class="lktime" id="lkTime">--:--</div>
+    </div>
+  </div>
+  <!-- 【新】前景层：把锁屏壁纸再铺一遍，只留下面的山脊和树，正好把数字挡在身后 -->
+  <div class="lkfg" id="lkFg" aria-hidden="true"></div>
+  <div class="lkscrim" aria-hidden="true"></div>
+  <div class="lkvig" aria-hidden="true"></div>
+  <!-- 【新】上滑提示摆在所有层的最上面，才不会被山挡住 -->
+  <div class="lkhint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 14.5 12 8.5l6 6"/></svg></div>
+  <div class="lkpass">
+    <div class="lkfield">
+      <input id="pw" type="password" placeholder="输入密码" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="应用密码" onkeydown="if(event.key==='Enter'){event.preventDefault();unlock()}">
+      <button class="lkgo" type="button" onclick="unlock()" aria-label="解锁"><svg viewBox="0 0 24 24"><path d="M5 12h13"/><path d="M12.6 6.4 19 12l-6.4 5.6"/></svg></button>
+    </div>
+    <p id="pwerr" class="lkerr"></p>
   </div>
 </div>
 <div id="toast"></div>
@@ -718,11 +868,12 @@ function applyTheme(){
    两张图分开设置：桌面（首页）一张、聊天页一张；透明度 5%~100%。
    图存在本机（跟着备份走），太大会自动压小。 */
 function wallCfg(){
-  if(!cfg)return {dOp:.45,cOp:.45};
+  if(!cfg)return {dOp:.45,cOp:.45,lOp:1};
   if(!cfg.wall||typeof cfg.wall!=='object')cfg.wall={};
   const w=cfg.wall;
   if(w.dOp==null)w.dOp=.45;
   if(w.cOp==null)w.cOp=.45;
+  if(w.lOp==null)w.lOp=1;      /* 【新增】锁屏背景图：默认不透明 */
   return w;
 }
 function wallLayer(){
@@ -750,14 +901,17 @@ function applyWall(){
       el.style.opacity=String(Math.max(.05,Math.min(1,op)));
     }else{el.style.backgroundImage='none';el.style.opacity='0'}
   }catch(e){}
+  try{applyLockWall()}catch(e){}   /* 【新增】锁屏那张壁纸一起刷新 */
 }
 /* 设置页：背景图卡片 */
 function cfgWallCardHTML(){
   const w=wallCfg();
   const row=(tag,label,hint)=>{
-    const on=tag==='desk'?!!w.dOn:!!w.cOn;
-    const has=!!(tag==='desk'?w.dImg:w.cImg);
-    const op=Math.round((tag==='desk'?(w.dOp||.45):(w.cOp||.45))*100);
+    const isLock=(tag==='lock');
+    const on=isLock?!!w.lOn:(tag==='desk'?!!w.dOn:!!w.cOn);
+    const has=!!(isLock?w.lImg:(tag==='desk'?w.dImg:w.cImg));
+    const cur=isLock?(w.lOp==null?1:w.lOp):(tag==='desk'?(w.dOp||.45):(w.cOp||.45));
+    const op=Math.round(cur*100);
     return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)">'+
     '<div class="row" style="align-items:center">'+
     '<div class="col"><b>'+label+'</b><div class="dim" style="font-size:12px">'+hint+'</div></div>'+
@@ -771,20 +925,21 @@ function cfgWallCardHTML(){
     '</div>';
   };
   return '<div class="card"><div class="ttl">背景图</div>'+
-  '<p class="dim" style="font-size:12px;margin:0 0 4px">给自己换桌面和聊天页的背景。图片只存在你手机本地（跟着备份走），太大时会自动压小。</p>'+
+  '<p class="dim" style="font-size:12px;margin:0 0 4px">给自己换桌面、聊天页和锁屏的背景。图片只存在你手机本地（跟着备份走），太大时会自动压小。</p>'+
   row('desk','桌面背景','手机桌面（首页）的背景图')+
   row('chat','聊天背景','聊天页消息区后面的背景图')+
+  row('lock','锁屏背景','锁屏那张整屏壁纸（不选就用主题底色）')+
   '</div>';
 }
 function wallSetOn(tag,on){
   const w=wallCfg();
-  if(tag==='desk')w.dOn=!!on;else w.cOn=!!on;
+  if(tag==='desk')w.dOn=!!on;else if(tag==='lock')w.lOn=!!on;else w.cOn=!!on;
   save(LS.cfg,cfg);applyWall();
 }
 /* persist=0 只做实时预览（拖动中），persist=1 才写进本地存储（松手时） */
 function wallSetOp(tag,v,persist){
   const w=wallCfg(),n=Math.max(5,Math.min(100,parseInt(v,10)||45))/100;
-  if(tag==='desk')w.dOp=n;else w.cOp=n;
+  if(tag==='desk')w.dOp=n;else if(tag==='lock')w.lOp=n;else w.cOp=n;
   const lb=document.getElementById('wop_'+tag);if(lb)lb.textContent=Math.round(n*100)+'%';
   applyWall();
   if(persist)save(LS.cfg,cfg);
@@ -796,7 +951,9 @@ async function wallFile(inp,tag){
     toast('正在处理图片…');
     const small=await shrinkImage(f,1600,.8);      /* 自动压小，免得塞满本地存储 */
     const w=wallCfg();
-    if(tag==='desk'){w.dImg=small;w.dOn=true}else{w.cImg=small;w.cOn=true}
+    if(tag==='desk'){w.dImg=small;w.dOn=true}
+    else if(tag==='lock'){w.lImg=small;w.lOn=true}
+    else{w.cImg=small;w.cOn=true}
     save(LS.cfg,cfg);applyWall();
     if(view==='cfg')renderCfg();else draw();
     toast('背景图换好了');
@@ -806,7 +963,9 @@ async function wallFile(inp,tag){
 function wallClear(tag){
   if(!confirm('删掉这张背景图？'))return;
   const w=wallCfg();
-  if(tag==='desk'){w.dImg='';w.dOn=false}else{w.cImg='';w.cOn=false}
+  if(tag==='desk'){w.dImg='';w.dOn=false}
+  else if(tag==='lock'){w.lImg='';w.lOn=false}
+  else{w.cImg='';w.cOn=false}
   save(LS.cfg,cfg);applyWall();
   if(view==='cfg')renderCfg();else draw();
   toast('已删掉背景图');
@@ -1013,6 +1172,9 @@ function load(k,d){
   try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}
 }
 function save(k,v){
+  /* ↓ 存设置时顺手更新一份「锁屏外观影子」（只有主题/字体/锁屏背景图，
+       不加密）：因为锁屏出现时还没输密码，读不到加密的配置。 */
+  if(k===LS.cfg)try{lockSkinWrite(v)}catch(e){}
   /* ↓ 补丁6-A：把 token 写进演绎记录（角色/旁白的每一段都带上） */
   try{
     if(typeof k==='string'&&k.indexOf('wh_actmsg_')===0&&v&&v.length&&P6.actLast){
@@ -7392,11 +7554,100 @@ function tarotShuffle(n){
 function tarotLineHTML(x,i,n){
   var pos=tarotPos(n)[i];
   var kw=x.rev?x.c[4]:x.c[3];
-  return '<div style="padding:8px 0;border-bottom:1px dashed var(--line)">'+
-    '<div style="font-size:13px"><span class="dim" style="font-size:11.5px">'+pos+'</span> <b>'+esc(x.c[0])+'</b>'+
+  var info='<div style="font-size:13px"><span class="dim" style="font-size:11.5px">'+pos+'</span> <b>'+esc(x.c[0])+'</b>'+
     ' <span class="dim" style="font-size:11.5px">'+esc(x.c[1])+'</span> '+
     '<span style="color:'+(x.rev?'var(--warn)':'var(--acc)')+';font-size:11.5px">'+(x.rev?'逆位':'正位')+'</span></div>'+
-    '<div style="font-size:12.5px;margin-top:3px;color:var(--txt)">'+esc(kw)+'</div></div>';
+    '<div style="font-size:12.5px;margin-top:3px;color:var(--txt)">'+esc(kw)+'</div>';
+  if(n===1){   /* 只抽一张：牌面放中间、显示得大一点 */
+    return '<div style="padding:10px 0;border-bottom:1px dashed var(--line)">'+
+      '<div style="display:flex;justify-content:center;margin-bottom:9px">'+tarotCardArtHTML(x,true)+'</div>'+
+      info+'</div>';
+  }
+  return '<div style="display:flex;gap:11px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line)">'+
+    tarotCardArtHTML(x,false)+'<div style="flex:1;min-width:0">'+info+'</div></div>';
+}
+/* 牌面左上角的小标：大牌用罗马数字，小牌用 A~10 / 侍 骑 后 王 */
+var TAROT_ROMAN=['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI'];
+function tarotRankLabel(c){
+  if(c[2]==='大阿尔卡纳'){var i=TAROT_DECK.indexOf(c);return (i>=0&&TAROT_ROMAN[i])||''}
+  var r=String(c[0]).slice(String(c[2]).length);
+  var m={'王牌':'A','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10','侍从':'侍','骑士':'骑','王后':'后','国王':'王'};
+  return m[r]||r;
+}
+/* 一套统一的线性图标：24×24 描边风格，不填色，颜色跟着主题走（stroke=currentColor） */
+var TAROT_SVG={
+  fool:'<circle cx="12.6" cy="6.4" r="2.3"/><path d="M12.6 8.7v5.2M12.6 13.9 10 18.8M12.6 13.9 15.2 18.8M12.6 10.6 16.2 12.5"/><path d="M3 19.2h9.6"/><path d="M19.4 3.6v3M17.9 5.1h3"/>',
+  magician:'<path d="M6.2 20.6 14.6 12.2"/><path d="M18.4 4.2v5.4M15.7 6.9h5.4M16.6 5.1 20.2 8.7M19.9 5.1 16.3 8.7"/>',
+  priestess:'<rect x="6.8" y="4.6" width="10.4" height="14.8" rx="2"/><path d="M9.9 9.1h4.2M9.9 12h4.2M9.9 14.9h2.6"/>',
+  empress:'<path d="M12 20.4V8.4"/><path d="M12 8.4c-2 0-3.5-.9-4.3-2.5 2.1-.6 3.8.3 4.3 2.5Z"/><path d="M12 8.4c2 0 3.5-.9 4.3-2.5-2.1-.6-3.8.3-4.3 2.5Z"/><path d="M12 13.6c-2 0-3.5-.9-4.3-2.5 2.1-.6 3.8.3 4.3 2.5Z"/><path d="M12 13.6c2 0 3.5-.9 4.3-2.5-2.1-.6-3.8.3-4.3 2.5Z"/>',
+  emperor:'<path d="M4.8 18.6V9.4h1.8V6.6h4.2v2.8h2.4V6.6h4.2v2.8h1.8v9.2Z"/>',
+  hierophant:'<path d="M12 21V4"/><path d="M6.2 13h11.6M7.7 9.5h8.6M9.2 6h5.6"/>',
+  lovers:'<path d="M12 19.6C12 19.6 4.4 14.9 4.4 9.8 4.4 7.6 6.2 5.8 8.4 5.8c1.6 0 3 .9 3.6 2.2.6-1.3 2-2.2 3.6-2.2 2.2 0 4 1.8 4 4 0 5.1-7.6 9.8-7.6 9.8Z"/>',
+  chariot:'<path d="M4.6 12.4h14.8v4.2H4.6z"/><circle cx="8.2" cy="18.8" r="2"/><circle cx="15.8" cy="18.8" r="2"/><path d="M12 12.4V7.4M7.6 7.4h8.8"/>',
+  strength:'<path d="M12 12c-1.8-2.5-3.3-3.7-5-3.7a3.7 3.7 0 0 0 0 7.4c1.7 0 3.2-1.2 5-3.7 1.8-2.5 3.3-3.7 5-3.7a3.7 3.7 0 0 1 0 7.4c-1.7 0-3.2-1.2-5-3.7Z"/>',
+  hermit:'<path d="M9.6 6.6a2.4 2.4 0 0 1 4.8 0"/><path d="M8.4 6.6h7.2l1.6 12.8H6.8z"/><path d="M12 10.2v5.8M10.1 13.1h3.8"/>',
+  wheel:'<circle cx="12" cy="12" r="6.6"/><circle cx="12" cy="12" r="2"/><path d="M12 5.4v13.2M5.4 12h13.2M7.3 7.3l9.4 9.4M16.7 7.3l-9.4 9.4"/>',
+  justice:'<circle cx="12" cy="3.8" r="1.3"/><path d="M12 5.1v15.3"/><path d="M6.4 7.4h11.2"/><path d="M6.4 7.4 3.2 13.6a3.2 3.2 0 0 0 6.4 0Z"/><path d="M17.6 7.4 20.8 13.6a3.2 3.2 0 0 1-6.4 0Z"/>',
+  hanged:'<path d="M4.2 4.2h15.6M12 4.2v4.4M12 8.6 8.8 11M12 8.6l3.2 2.4M12 8.6v6.4"/><circle cx="12" cy="17.6" r="2.6"/>',
+  death:'<path d="M7.4 20.8 18.4 7.6"/><path d="M18.4 7.6C14.6 5.4 10 6 7 9c3.6 1.8 8 1.6 11.4-1.4Z"/>',
+  temperance:'<path d="M5.6 5.4h6.2v3.1a3.1 3.1 0 0 1-6.2 0Z"/><path d="M8.7 11.6c0 2.6 6.6 2.6 6.6 4.6"/><path d="M12.2 15.4h6.2v3.1a3.1 3.1 0 0 1-6.2 0Z"/>',
+  devil:'<path d="M12 19.4 7.65 6.01 19.04 14.29 4.96 14.29 16.35 6.01Z"/>',
+  tower:'<path d="M8.4 20.8V8.6h2.1V6.5h3v2.1h2.1v12.2Z"/><path d="M18.6 3.2 15.6 9h3.2l-2.2 4.8"/>',
+  star:'<circle cx="12" cy="12" r="2.4"/><path d="M12 4v16M4 12h16M6.6 6.6l4 4M17.4 6.6l-4 4M17.4 17.4l-4-4M6.6 17.4l4-4"/>',
+  moon:'<path d="M14.5 5a7 7 0 0 0 0 14 10 10 0 0 1 0-14Z"/><path d="M19 3.4v3M17.5 4.9h3"/>',
+  sun:'<circle cx="12" cy="12" r="4.4"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>',
+  judgement:'<path d="M20 6.4v11.2l-8.6-3.4v-4.4Z"/><path d="M11.4 9.8H7.2a2.2 2.2 0 0 0 0 4.4h4.2"/>',
+  world:'<circle cx="12" cy="12" r="8.2"/><ellipse cx="12" cy="12" rx="3.6" ry="8.2"/><path d="M3.8 12h16.4"/>',
+  wand:'<path d="M8.6 21 16.2 13.4"/><path d="M16.2 13.4c.3-2.3 1.5-4.1 3.5-5.3.5 2.4-.7 4.4-3.5 5.3Z"/>',
+  cup:'<path d="M6.2 4.4h11.6v1.6a5.8 5.8 0 0 1-11.6 0Z"/><path d="M12 11.8v5"/><path d="M8.4 20.4c0-1.6 1.6-2.9 3.6-2.9s3.6 1.3 3.6 2.9Z"/>',
+  sword:'<path d="M12 2.8 13.1 15.8h-2.2Z"/><path d="M8 15.8h8M12 15.8v3.4"/><circle cx="12" cy="20.6" r="1.3"/>',
+  pentacle:'<circle cx="12" cy="12" r="9"/><path d="M12 5.4 15.88 17.34 5.72 9.96 18.28 9.96 8.12 17.34Z"/>',
+  crown:'<path d="M5 17.4h14l-1.2-8-3.6 3.6L12 6.6 9.8 13 6.2 9.4Z"/>'
+};
+/* 大牌按名字找图标；小牌按花色找图标 */
+var TAROT_MAJOR={'愚者':'fool','魔术师':'magician','女祭司':'priestess','女皇':'empress','皇帝':'emperor','教皇':'hierophant','恋人':'lovers','战车':'chariot','力量':'strength','隐士':'hermit','命运之轮':'wheel','正义':'justice','倒吊人':'hanged','死神':'death','节制':'temperance','恶魔':'devil','塔':'tower','星星':'star','月亮':'moon','太阳':'sun','审判':'judgement','世界':'world'};
+var TAROT_SUIT={'权杖':'wand','圣杯':'cup','宝剑':'sword','星币':'pentacle'};
+/* 数字牌：像真牌那样把花色摆成图案（数组里每个数字=那一行放几个） */
+var TAROT_PIPS={1:[1],2:[1,1],3:[2,1],4:[2,2],5:[3,2],6:[3,3],7:[4,3],8:[3,2,3],9:[3,3,3],10:[4,4,2]};
+var TAROT_NUM={'王牌':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+function tarotIcon(key,px,sw){
+  var d=TAROT_SVG[key];if(!d)return '';
+  return '<svg class="taro-ic" viewBox="0 0 24 24" width="'+px+'" height="'+px+'" fill="none" stroke="currentColor" stroke-width="'+(sw||1.7)+'" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+}
+/* 数字牌：算出每个图标多大，再按行摆好 */
+function tarotPipsHTML(key,count,iw,ih,big){
+  var rows=TAROT_PIPS[count]||[count],maxc=1,i;
+  for(i=0;i<rows.length;i++)if(rows[i]>maxc)maxc=rows[i];
+  var g=big?4:3,cap=(count===1)?(big?46:30):(big?24:17);
+  var size=Math.floor(Math.min((iw-g*(maxc-1))/maxc,(ih-g*(rows.length-1))/rows.length,cap));
+  if(size<6)size=6;
+  var sw=size<12?2.8:(size<16?2.2:1.8),h='',r,j;
+  for(r=0;r<rows.length;r++){
+    h+='<div class="taro-prow" style="gap:'+g+'px">';
+    for(j=0;j<rows[r];j++)h+=tarotIcon(key,size,sw);
+    h+='</div>';
+  }
+  return '<div class="taro-pips" style="gap:'+g+'px">'+h+'</div>';
+}
+/* 画出那张小牌：外框 + 图标 + 花色；逆位就把图案倒过来、牌号变红 */
+function tarotCardArtHTML(x,big){
+  var c=x.c,suit=(c[2]&&c[2]!=='大阿尔卡纳')?c[2]:'';
+  var rank=suit?String(c[0]).slice(suit.length):'';
+  var key=suit?(TAROT_SUIT[suit]||'pentacle'):(TAROT_MAJOR[c[0]]||'star');
+  var art;
+  if(!suit||rank==='王牌'){                        /* 大牌、小牌王牌：只放一个大图标 */
+    art=tarotIcon(key,(big?46:30),(big?1.5:1.8));
+  }else if(rank==='侍从'||rank==='骑士'||rank==='王后'||rank==='国王'){  /* 宫廷牌：王冠 + 花色 */
+    art=tarotIcon('crown',(big?17:12),(big?1.9:2.3))+tarotIcon(key,(big?30:21),(big?1.6:2));
+  }else{                                           /* 数字牌：按张数摆成图案 */
+    art=tarotPipsHTML(key,TAROT_NUM[rank]||1,(big?68:48),(big?98:68),big);
+  }
+  var rk=tarotRankLabel(c);
+  return '<div class="taro-card'+(x.rev?' rev':'')+(big?' big':'')+'">'+
+    (rk?'<span class="taro-rk">'+esc(rk)+'</span>':'')+
+    '<span class="taro-art">'+art+'</span>'+
+    (suit?'<span class="taro-suit">'+esc(suit)+'</span>':'')+
+    '</div>';
 }
 function tarotBoxHTML(){
   if(tarotBusy){
@@ -7460,7 +7711,9 @@ async function tarotInterpret(){
   var usr=(tarotQ?('我想问的是：'+tarotQ+'\n\n'):'我没有具体想问的事，就想看看近况。\n\n')+'抽到的牌：\n'+lines;
   try{
     var tp=thinkParams(c);
-    var out=String(await callAPI([{role:'system',content:sys},{role:'user',content:usr}],{stream:false,model:modelOf(c),temp:tp.temp,maxtok:600})||'').trim();
+    /* 解读是长文：额度跟着「最长回复」设置走，并保底 1200，免得说到一半被掐断 */
+    var mt=Math.max(1200,tp.maxtok||0);
+    var out=String(await callAPI([{role:'system',content:sys},{role:'user',content:usr}],{stream:false,model:modelOf(c),temp:tp.temp,maxtok:mt})||'').trim();
     tarotRead=out||'（这次没解读出来，再点一次试试）';
   }catch(e){
     tarotRead='解读失败：'+((e&&e.message)||e);
@@ -9774,6 +10027,196 @@ async function autoBackup(force){
   }
 }
 
+/* ---------- 锁屏（仿 iOS：整屏壁纸 + 超大时间，上滑一下才出现密码框） ----------
+   【一个容易踩的坑】设置是「加密」存在手机里的，而锁屏弹出来的时候还没输密码、
+   解不开密，所以那个时候根本读不到主题和背景图。
+   解决办法：另外存一份「不加密的外观影子」（wh_lockskin），里面只有
+   主题 / 字体 / 锁屏背景图这三样，专门给锁屏用；每次存设置时它会自动跟着更新。
+   密码框、错误提示的 id（pw / pwerr）跟以前一样，解锁那套逻辑完全没动。 */
+const LOCK_SKIN_KEY='wh_lockskin';
+let _lkTimer=null,_lkFullArmed=false;
+function lockSkinRead(){
+  try{const v=JSON.parse(localStorage.getItem(LOCK_SKIN_KEY));return (v&&typeof v==='object')?v:null}catch(e){return null}
+}
+function lockSkinWrite(c){
+  try{
+    /* 还没解锁时不能写：那会儿 cfg 是空的，写进去会把好数据冲掉 */
+    if(!cryptKey){
+      let meta=null;try{meta=JSON.parse(localStorage.getItem(LS.pw))}catch(e){}
+      if(meta&&meta.salt)return;
+    }
+    const s=(c&&typeof c==='object')?c:(cfg||{});
+    const w=(s.wall&&typeof s.wall==='object')?s.wall:{};
+    const out={theme:s.theme||'dark',font:s.font||'sys',img:w.lImg||'',op:(w.lOp==null?1:w.lOp)};
+    try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify(out))}
+    catch(e){                        /* 图太大存不下：至少把主题和字体存对，锁屏别变成原始深蓝 */
+      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,img:'',op:1}))}catch(e2){}
+    }
+  }catch(e){}
+}
+/* 【新】把 "15:53" 变成「15 + 两个小圆点 + 53」：
+   冒号不用字体的冒号，改成用 CSS 画的两个小圆点（更小更圆、位置略偏上），更像参考图。 */
+function lkTimeHTML(t){
+  return String(t).replace(':','<span class="lkc"></span>');
+}
+function lockFace(){
+  const d=new Date();
+  const p2=n=>(n<10?'0':'')+n;
+  const wd=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+  const te=document.getElementById('lkTime');
+  if(te){
+    const t=p2(d.getHours())+':'+p2(d.getMinutes());
+    if(te.dataset.t!==t){te.innerHTML=lkTimeHTML(t);te.dataset.t=t}
+  }
+  const de=document.getElementById('lkDate');
+  if(de){const s=d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+wd[d.getDay()];if(de.textContent!==s)de.textContent=s}
+}
+/* 铺锁屏背景图：设了才铺；没设就让主题渐变透出来（那就是默认背景）
+   【新】改成「上下两层铺同一张图」：
+     · 下面一层（#lkWall）是壁纸本身；
+     · 上面那一层（#lkFg）用遮罩只留下面的山脊和树，数字就像被山挡住；
+   两层用的是同一张图、同一个位置，所以看不出接缝。
+   「透明度」也不再用 opacity 做（那样上下两层会对不上），改成往图里叠一层同色的淡淡遮罩。 */
+function lkFgOK(){
+  try{
+    return !!(window.CSS&&CSS.supports&&
+      (CSS.supports('mask-image','linear-gradient(#000,#000)')||
+       CSS.supports('-webkit-mask-image','linear-gradient(#000,#000)')));
+  }catch(e){return false}   /* 老浏览器不支持遮罩：那就别铺前景层，免得把时间整块盖住 */
+}
+function applyLockWall(){
+  const el=document.getElementById('lock'),wall=document.getElementById('lkWall'),fg=document.getElementById('lkFg');
+  if(!el||!wall)return;
+  let img='',op=1;
+  try{
+    const w=wallCfg();
+    if(w.lOn&&w.lImg){img=w.lImg;op=(w.lOp==null?1:w.lOp)}
+  }catch(e){}
+  const useFg=!!fg&&lkFgOK();
+  if(img){
+    const a=Math.max(0,Math.min(.95,1-Math.max(.05,Math.min(1,op))));
+    const url='url("'+String(img).replace(/["'\n\r]/g,'')+'")';
+    const bg='linear-gradient(rgba(4,9,15,'+a.toFixed(3)+'),rgba(4,9,15,'+a.toFixed(3)+')), '+url;
+    wall.style.backgroundImage=bg;
+    wall.style.opacity='1';
+    if(fg)fg.style.backgroundImage=(useFg?bg:'none');
+    el.classList.add('hasimg');
+  }else{
+    wall.style.backgroundImage='none';wall.style.opacity='0';
+    if(fg)fg.style.backgroundImage='none';
+    el.classList.remove('hasimg');
+  }
+}
+/* 翻到第二屏（输密码）／退回第一屏（看时间） */
+function lkGoPass(on){
+  const el=$('#lock');if(!el)return;
+  el.classList.toggle('pass',!!on);
+  if(!on)try{$('#pw').blur()}catch(e){}
+}
+/* 手指上滑 / 下滑 / 点一下 */
+function lockArmGestures(){
+  const el=$('#lock');if(!el||el.dataset.lkg==='1')return;
+  el.dataset.lkg='1';
+  let sy=0,st=0,dy=0;
+  el.addEventListener('touchstart',function(e){
+    const t=e.touches&&e.touches[0];if(!t)return;
+    sy=t.clientY;st=Date.now();dy=0;
+    if(!el.classList.contains('pass'))lkArmFull();    /* 第一次碰屏幕，顺便进全屏 */
+  },{passive:true});
+  el.addEventListener('touchmove',function(e){
+    const t=e.touches&&e.touches[0];if(!t)return;
+    dy=t.clientY-sy;
+  },{passive:true});
+  el.addEventListener('touchend',function(){
+    const pass=el.classList.contains('pass');
+    const tap=(Math.abs(dy)<14&&Date.now()-st<800);
+    if(pass){if(dy>62)lkGoPass(false)}                /* 往下滑：退回时间那一屏 */
+    else{if(dy<-52||tap)lkGoPass(true)}               /* 往上滑或点一下：去输密码 */
+  },{passive:true});
+  /* 电脑上用鼠标点也行（手机上走上面的手势） */
+  el.addEventListener('click',function(e){
+    if(el.classList.contains('pass'))return;
+    lkArmFull();
+    lkGoPass(true);
+  });
+}
+/* 浏览器规定：必须手指点一下才能全屏。锁屏上第一次碰屏幕时顺便进全屏 */
+function lkArmFull(){
+  if(_lkFullArmed)return;
+  _lkFullArmed=true;
+  try{if(fullOn()&&fullSupported()&&!isFull())enterFull()}catch(e){}
+}
+/* 把大时间撑到「几乎顶满屏幕宽」——因为每个人选的字体胖瘦不一样，
+   用固定的字号有的会太小、有的会溢出，所以直接量一下再缩放。 */
+function lockFitTime(){
+  const el=document.getElementById('lkTime'),box=document.getElementById('lkClock');
+  if(!el||!box)return;
+  const avail=box.clientWidth;
+  if(!avail)return;                        /* 锁屏没显示的时候量不了，跳过 */
+  const SQUEEZE=0.88;                      /* 必须跟 #lock 上的 --lk-sx 一样 */
+  const keep=el.innerHTML;
+  el.innerHTML=lkTimeHTML('00:00');        /* 按最宽的样子量：之后时间怎么变都不会撑破 */
+  el.style.fontSize='100px';
+  const w=el.offsetWidth;                  /* 用 offsetWidth：它不受横向压窄的影响 */
+  el.innerHTML=keep;
+  if(!w)return;
+  let s=100*(avail*1.08)/(w*SQUEEZE);      /* 数字的墨迹比外框窄，所以可以超过 1：让时间更大更大气 */
+  if(!isFinite(s)||s<=0)return;
+  const boxH=box.clientHeight||0;
+  if(boxH)s=Math.min(s,boxH*0.82);         /* 横屏 / 屏幕很矮时按高度再收一收 */
+  s=Math.max(40,Math.min(260,s));
+  el.style.fontSize=s.toFixed(1)+'px';
+}
+function lockArmFit(){
+  if(window.__lkFitArmed)return;
+  window.__lkFitArmed=1;
+  const f=function(){try{lockFitTime()}catch(e){}};
+  window.addEventListener('resize',f);
+  window.addEventListener('orientationchange',function(){setTimeout(f,300)});
+}
+function lockShow(){
+  const el=$('#lock');if(!el)return;
+  /* ① 先把外观恢复出来：优先读真配置（只有没加密时才读得到），读不到就用那份影子 */
+  try{
+    if(!cfg||cfg.__lockskin){
+      const real=load(LS.cfg,null);
+      if(real&&typeof real==='object'){
+        cfg=real;try{fixCfg()}catch(e){}
+      }else{
+        const s=lockSkinRead();
+        if(s){
+          cfg={theme:s.theme||'dark',font:s.font||'sys',fs:15,dev:false,showThink:true,__lockskin:true,
+               wall:{lImg:s.img||'',lOp:(s.op==null?1:s.op),lOn:!!s.img}};
+        }
+      }
+      try{applyTheme()}catch(e){}
+    }
+  }catch(e){}
+  try{applyLockWall()}catch(e){}
+  try{lockFace()}catch(e){}
+  lkGoPass(false);                    /* 每次都从「看时间」那一屏开始 */
+  el.classList.add('on');
+  try{document.body.classList.add('locked')}catch(e){}   /* 锁屏时不露出「全屏」小按钮 */
+  lockArmGestures();
+  lockArmFit();
+  try{clearInterval(_lkTimer)}catch(e){}
+  _lkTimer=setInterval(function(){try{lockFace()}catch(e){}},1000);
+  /* 量两次：第一次先撑起来；字体设置随后才生效，所以过一会儿再量一次 */
+  try{lockFitTime()}catch(e){}
+  try{setTimeout(lockFitTime,400)}catch(e){}
+  try{setTimeout(lockFitTime,1500)}catch(e){}
+}
+function lockHide(){
+  const el=$('#lock');if(!el)return;
+  el.classList.remove('on');
+  try{document.body.classList.remove('locked')}catch(e){}
+  lkGoPass(false);
+  try{clearInterval(_lkTimer)}catch(e){}
+  _lkTimer=null;
+  try{lockSkinWrite(cfg)}catch(e){}   /* 解锁后外观才是准的，这时更新那份影子 */
+  try{if(window.fsShowSoft)fsShowSoft()}catch(e){}   /* 重新判断「全屏」小按钮要不要冒出来 */
+}
+
 /* ---------- 启动 ---------- */
 async function unlock(){
   let meta=null;
@@ -9789,7 +10232,9 @@ async function unlock(){
     if(ok!=='ok')throw new Error('wrong');
     cryptKey=key;
     await decryptAll();
-    $('#lock').style.display='none';
+    lockHide();
+    /* 解锁后配置才是准的：立刻把「锁屏外观影子」更新一遍，下次开机锁屏就对 */
+    try{const real=load(LS.cfg,null);if(real&&typeof real==='object')lockSkinWrite(real)}catch(e){}
     errEl.textContent='';
     if(window._unlockGo)window._unlockGo();
   }catch(e){errEl.textContent='密码不对';}
@@ -9909,6 +10354,7 @@ function loadInitialState(){
 /* 启动：套主题、绑事件、启动后台任务、进入聊天页。 */
 function finishAppStart(){
   applyTheme();
+  try{lockSkinWrite(cfg)}catch(e){}   /* 【新增】刷新锁屏那份「不加密的外观影子」 */
   bindAppControls();
   initBackup();
   initArcs();
@@ -9943,7 +10389,7 @@ async function boot(){
   let meta=null;
   try{meta=JSON.parse(localStorage.getItem(LS.pw))}catch(e){}
   if(meta&&meta.salt){
-    $('#lock').style.display='flex';
+    lockShow();
     await new Promise(res=>{window._unlockGo=res});
   }
   /* 【聊天记录搬家】先把 IndexedDB 里的记录读进内存，再把还留在本地存储的搬过去。
