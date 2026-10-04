@@ -7859,6 +7859,12 @@ function musicLoad(){
   musicStatRoll();
   if(d.curId)MUSIC.cur=MUSIC.list.findIndex(s=>s.id===d.curId);
   else MUSIC.cur=(d.curUrl?MUSIC.list.map(s=>s.url).indexOf(d.curUrl):-1);
+  /* 【修】锁屏上点过「下一首」的话，真正在放的是另一首（锁屏时不让写数据，所以没存下来）。
+     这里以「播放器里现在装的那一首」为准，免得进音乐页显示成上一首。 */
+  try{
+    const pid=(typeof MUSIC.srcId==='string'&&MUSIC.srcId)?MUSIC.srcId:'';
+    if(pid){const pi=MUSIC.list.findIndex(s=>s.id===pid);if(pi>=0)MUSIC.cur=pi}
+  }catch(e){}
   /* 本机文件：把音频从浏览器本地库里取回来（自动补上，取到就刷新界面） */
   MUSIC.list.forEach(s=>{
     if(s.kind!=='file')return;
@@ -7866,7 +7872,7 @@ function musicLoad(){
   });
   MUSIC.loaded=true;                                    /* 【修】到这一步才算真的加载好了 */
   if(!MUSIC.list.length)try{musicRescueFromFiles()}catch(e){}   /* 【修】歌单空了就从本地库的音频里找回来 */
-  try{lockMusicWrite()}catch(e){}                       /* 【新】把锁屏那份「音乐影子」也刷新一下 */
+  try{musicSave()}catch(e){}                            /* 【修】把「当前是哪首」按实际播放的存好，并刷新锁屏那份影子 */
 }
 /* 【修】只有真的读到数据，才算「加载过」。
    以前是先设 loaded=true 再去读：锁屏（还没解锁、数据还是加密的）时读不到，
@@ -10519,6 +10525,7 @@ function lockArmGestures(){
   },{passive:true});
   el.addEventListener('touchend',function(){
     const pass=el.classList.contains('pass');
+    if(!pass){try{lkArmFull()}catch(e){}}               /* 【修】手指抬起时再试一次全屏（有的浏览器只认这一下） */
     if(pass){if(dy>62)lkGoPass(false)}                /* 往下滑：退回时间那一屏 */
     else{if(dy<-52)lkGoPass(true)}                    /* 往上滑一段：才去输密码（点一下不算） */
   },{passive:true});
@@ -10530,11 +10537,16 @@ function lockArmGestures(){
     lkGoPass(true);
   });
 }
-/* 浏览器规定：必须手指点一下才能全屏。锁屏上第一次碰屏幕时顺便进全屏 */
+/* 浏览器规定：必须手指点一下才能全屏。锁屏上一碰就顺便进全屏。
+   以前是「只试一次」：第一次被浏览器拒绝（那一下还不算有效"点击"）之后，
+   再点也不会试了 —— 所以怎么点都进不了全屏。
+   现在改成：只要还没全屏，每次碰屏幕都再试一次。 */
 function lkArmFull(){
-  if(_lkFullArmed)return;
-  _lkFullArmed=true;
-  try{if(fullOn()&&fullSupported()&&!isFull())enterFull()}catch(e){}
+  try{
+    if(_lkFullArmed&&isFull())return;          /* 已经全屏了就不用再试 */
+    _lkFullArmed=true;
+    if(fullOn()&&fullSupported()&&!isFull())enterFull();
+  }catch(e){}
 }
 /* 把大时间撑到「几乎顶满屏幕宽」——因为每个人选的字体胖瘦不一样，
    用固定的字号有的会太小、有的会溢出，所以直接量一下再缩放。 */
