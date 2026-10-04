@@ -1238,7 +1238,14 @@ function save(k,v){
     msgWrite(mid,v);return;
   }
   if(cryptKey){store[k]=v;encWrite(k,v)}
-  else{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){saveFailNotice(k,e)}}
+  else{
+    /* 【修】还没解锁时，绝不能用明文盖掉加密数据。
+       以前这里会直接写明文：只要锁屏上有任何代码碰了一下「保存」，
+       整份加密的数据（歌单、设置…）就被一份明文（往往还是空的）顶掉了。
+       现在发现原来存的是加密数据，就宁可不写。 */
+    try{if(String(localStorage.getItem(k)||'').indexOf('enc:')===0){try{console.warn('还没解锁，跳过写入：'+k)}catch(e){}return}}catch(e){}
+    try{localStorage.setItem(k,JSON.stringify(v))}catch(e){saveFailNotice(k,e)}
+  }
 }
 function removeKey(k){
   const mid=msgKeyId(k);
@@ -7777,9 +7784,25 @@ const MUSIC={list:[],cur:-1,vol:.9,playing:false,audio:null,loaded:false,seeking
   see:{mode:'added',listId:''},                /* 【新】让角色看哪些歌：added 最前面加的 / list 某个歌单 / recent 最近播放 */
   recent:[],                                   /* 【新】最近播放过的歌（歌的 id，越靠前越新） */
   sorting:false,drag:null};                    /* 【新】拖动排序：sorting 是「正在排序」模式，drag 记着这次拖动 */
+/* 【修】歌单空了、但浏览器的本地库里还存着音频文件 → 自动把它们找回来。
+   （歌名先写成「未命名 N」，可以自己改；音频本身不用重新下载。） */
+function musicRescueFromFiles(){
+  if(typeof idbKeys!=='function'||MUSIC.list.length)return;
+  return Promise.resolve().then(()=>idbKeys('music')).then(keys=>{
+    if(!keys||!keys.length)return;
+    keys.forEach(k=>{
+      const id=String(k);
+      if(MUSIC.list.some(s=>s.blobId===id))return;
+      MUSIC.list.push({id:id,title:'未命名 '+(MUSIC.list.length+1),artist:'',kind:'file',blobId:id,url:'',pl:''});
+    });
+    if(!MUSIC.list.length)return;
+    try{musicSave()}catch(e){}
+    try{toast('歌单之前空了，我从本地库里找回了 '+MUSIC.list.length+' 首（名字先写成「未命名」，可以自己改）')}catch(e){}
+  }).catch(()=>{});
+}
 function musicLoad(){
   const d=load(LS.music,null);
-  if(!d||typeof d!=='object')return;
+  if(!d||typeof d!=='object'){MUSIC.loaded=false;return}   /* 【修】读不到就别算「加载过」，下次再试 */
   MUSIC.list=(Array.isArray(d.list)?d.list:[]).filter(s=>s&&s.title&&(s.url||s.kind==='file')).map(s=>{
     if(s.kind==='file')return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'file',blobId:s.blobId||s.id,url:'',pl:s.pl||''};
     return {id:s.id||uid(),title:s.title,artist:s.artist||'',kind:'url',url:s.url,pl:s.pl||''};
@@ -7810,8 +7833,14 @@ function musicLoad(){
     if(s.kind!=='file')return;
     musicFileUrl(s).then(()=>{try{musicSync()}catch(e){}}).catch(()=>{s.missing=true;try{musicSync()}catch(e){}});
   });
+  MUSIC.loaded=true;                                    /* 【修】到这一步才算真的加载好了 */
+  if(!MUSIC.list.length)try{musicRescueFromFiles()}catch(e){}   /* 【修】歌单空了就从本地库的音频里找回来 */
 }
-function musicEnsure(){if(MUSIC.loaded)return;MUSIC.loaded=true;musicLoad()}
+/* 【修】只有真的读到数据，才算「加载过」。
+   以前是先设 loaded=true 再去读：锁屏（还没解锁、数据还是加密的）时读不到，
+   也会被记成「加载过了（空歌单）」，解锁后音乐页就一直是空的 ——
+   这就是「存的音乐全没了」的根源。 */
+function musicEnsure(){if(MUSIC.loaded)return;musicLoad()}
 function musicNow(){return (MUSIC.cur>=0&&MUSIC.list[MUSIC.cur])||null}
 /* ---------- 【新】歌单：分类、播放队列 ---------- */
 function musicSongPl(s){return (s&&s.pl)||''}                    /* 这首歌在哪：'' 是默认歌单 */
@@ -7962,6 +7991,7 @@ function musicTimeTick(){
 }
 setInterval(musicTimeTick,1000);
 function musicSave(){
+  if(!MUSIC.loaded)return;   /* 【修】还没成功加载过歌单，绝不能用空列表去覆盖存储里的数据 */
   const cur=musicNow();
   musicStatRoll();
   /* 本机文件的地址（blob:…）关掉页面就失效，所以只存歌的信息；音频本身存在浏览器本地库里 */
@@ -10177,7 +10207,12 @@ function lkMusicPaint(){
   var el=document.getElementById('lkMusic');if(!el)return;
   lkMusicBuild();
   try{
-    if(typeof musicEnsure==='function')musicEnsure();
+    /* 【修】只在「音乐数据已经加载过」时才动它。
+       因为整个 App 是加密存的，锁屏（还没输密码）时读不到真正的歌单；
+       要是这时候去触发一次「加载」，会被记成「已经加载过了（空歌单）」，
+       解锁后音乐页就一直是空的 —— 这就是上次「存的音乐全没了」的原因。
+       所以锁屏上只用「内存里已经有的」音乐状态，绝不主动去读。 */
+    if(typeof MUSIC==='undefined'||!MUSIC.loaded)return;
     var s=(typeof musicNow==='function')?musicNow():null;
     if(!s||(lkMusicHideFor&&s.id===lkMusicHideFor)){el.classList.remove('on');el.setAttribute('aria-hidden','true');return}
     if(lkMusicDrag)return;                       /* 正在拖动就先别动它 */
