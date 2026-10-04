@@ -7800,6 +7800,37 @@ function musicRescueFromFiles(){
     try{toast('歌单之前空了，我从本地库里找回了 '+MUSIC.list.length+' 首（名字先写成「未命名」，可以自己改）')}catch(e){}
   }).catch(()=>{});
 }
+/* 【新】给锁屏留一份「不加密」的音乐影子（和锁屏壁纸那份思路一样）。
+   因为 App 的数据是加密的，锁屏时还没输密码、读不到歌单；
+   有了这份影子，锁屏上的音乐气泡就能显示歌名，也能直接播放 / 切歌。
+   只写这一个额外的 key，不动任何加密数据。 */
+const LOCK_MUSIC_KEY='wh_lockmusic';
+function lockMusicWrite(){
+  try{
+    if(!MUSIC.loaded)return;                 /* 歌单没加载好就别写，免得写进去一份空的 */
+    const out={cur:(MUSIC.cur>=0?MUSIC.cur:-1),v:(typeof MUSIC.vol==='number'?MUSIC.vol:.9),at:Date.now(),
+      list:MUSIC.list.map(s=>({id:s.id,title:s.title||'',artist:s.artist||'',kind:(s.kind==='file'?'file':'url'),
+        blobId:s.blobId||'',url:(s.kind==='file'?'':(s.url||'')),fmt:s.fmt||'',pl:s.pl||''}))};
+    localStorage.setItem(LOCK_MUSIC_KEY,JSON.stringify(out));
+  }catch(e){}
+}
+function lockMusicRead(){
+  try{const v=JSON.parse(localStorage.getItem(LOCK_MUSIC_KEY));return (v&&typeof v==='object'&&Array.isArray(v.list))?v:null}catch(e){return null}
+}
+/* 锁屏上用影子先把歌单摆进内存（只在「真正的歌单还没加载」时做；只写内存，不写存储） */
+function lockMusicApply(){
+  try{
+    if(MUSIC.loaded||MUSIC.list.length)return;
+    const d=lockMusicRead();if(!d||!d.list.length)return;
+    MUSIC.list=d.list.map(s=>({id:s.id||uid(),title:s.title||'',artist:s.artist||'',kind:(s.kind==='file'?'file':'url'),
+      blobId:s.blobId||s.id||'',url:(s.kind==='file'?'':(s.url||'')),fmt:s.fmt||'',pl:s.pl||''}));
+    MUSIC.cur=(typeof d.cur==='number'&&d.cur>=0&&d.cur<MUSIC.list.length)?d.cur:-1;
+    if(typeof d.v==='number')MUSIC.vol=d.v;
+    /* 本机文件：把音频从浏览器本地库拿回来（这一步不需要密码，锁屏上也做得到） */
+    MUSIC.list.forEach(s=>{if(s.kind!=='file')return;
+      musicFileUrl(s).then(()=>{try{musicSync()}catch(e){}}).catch(()=>{s.missing=true;try{musicSync()}catch(e){}});});
+  }catch(e){}
+}
 function musicLoad(){
   const d=load(LS.music,null);
   if(!d||typeof d!=='object'){MUSIC.loaded=false;return}   /* 【修】读不到就别算「加载过」，下次再试 */
@@ -7835,6 +7866,7 @@ function musicLoad(){
   });
   MUSIC.loaded=true;                                    /* 【修】到这一步才算真的加载好了 */
   if(!MUSIC.list.length)try{musicRescueFromFiles()}catch(e){}   /* 【修】歌单空了就从本地库的音频里找回来 */
+  try{lockMusicWrite()}catch(e){}                       /* 【新】把锁屏那份「音乐影子」也刷新一下 */
 }
 /* 【修】只有真的读到数据，才算「加载过」。
    以前是先设 loaded=true 再去读：锁屏（还没解锁、数据还是加密的）时读不到，
@@ -8001,6 +8033,7 @@ function musicSave(){
   try{save(LS.music,{list:list,curId:cur?cur.id:'',vol:MUSIC.vol,mode:MUSIC.mode,manual:MUSIC.manual,stat:MUSIC.stat,
     lists:MUSIC.lists,pl:MUSIC.pl,see:MUSIC.see,recent:MUSIC.recent})}
   catch(e){try{toast('歌单存不下了：'+((e&&e.message)||e))}catch(_){}}
+  try{lockMusicWrite()}catch(e){}     /* 【新】顺手更新锁屏那份「音乐影子」 */
 }
 function musicAudio(){
   if(!MUSIC.audio){
@@ -8374,7 +8407,7 @@ function musicHTML(){
     '<div class="row" style="margin-top:8px"><input id="mTitle" class="col" placeholder="歌名"><input id="mArtist" class="col" placeholder="歌手（可不填）"></div>'+
     '<div class="row" style="margin-top:8px"><button class="col pri" onclick="musicAddUrl()">加进歌单</button></div>'+
     '<div class="row" style="margin-top:8px"><button class="col" onclick="musicPickFile()">'+MICO.folder+' 从手机里选一首</button></div>'+
-    '<input id="mFile" type="file" accept="audio/*" style="display:none" onchange="musicFileChosen(this)">'+
+    '<input id="mFile" type="file" accept="audio/*" multiple style="display:none" onchange="musicFileChosen(this)">'+
     '<p class="dim" style="font-size:11.5px;margin:8px 0 0">链接要能直接在浏览器里播放的音频直链（以 .mp3 / .m4a 结尾）。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:4px 0 0">QQ音乐、网易云那种「分享链接」和短链接放不了，请用下面的「从手机里选一首」。</p>'+
     '<p class="dim" style="font-size:11.5px;margin:8px 0 0">批量加：每行一条「链接|歌名|歌手」，贴在链接框里再点添加。</p>'+
@@ -8717,24 +8750,37 @@ function musicSniff(f){
   });
 }
 function musicFileChosen(inp){
-  const f=inp&&inp.files&&inp.files[0];
+  /* 【新】一次可以选好几首：把选中的文件全部加进来（以前只能一首一首加） */
+  const fs=inp&&inp.files?Array.prototype.slice.call(inp.files):[];
   try{if(inp)inp.value=''}catch(e){}
-  if(!f)return;
-  const nm=String(f.name||'').replace(/\.[A-Za-z0-9]+$/,'');
-  const id=uid();
-  musicSniff(f).catch(()=>null).then(info=>{
-    if(!info){
-      toast('这个文件不是普通的音频（音乐App里「下载」的歌是加密的，比如名字带 [mqms2] 的），网页放不了。换一个没加密的 mp3/flac 吧。');
+  if(!fs.length)return;
+  const before=MUSIC.list.length;               /* 加之前有几首，用来算这次加成功了几首 */
+  let bad=0,done=0;
+  const finish=function(){
+    if(done<fs.length)return;                   /* 还没全部处理完 */
+    const added=MUSIC.list.length-before;
+    if(!added){
+      if(bad)toast('这 '+bad+' 个文件不是普通音频（音乐App里「下载」的歌是加密的，比如名字带 [mqms2] 的），网页放不了。换没加密的 mp3/flac 吧。');
       return;
     }
-    /* 明确写上格式，浏览器才知道怎么放（有些文件选进来是没有格式信息的） */
-    const blob=info.type?new Blob([f],{type:info.type}):f;
-    MUSIC.list.push({id:id,title:nm||'本机音频',artist:'',kind:'file',blobId:id,url:URL.createObjectURL(blob),fmt:info.kind,pl:musicAddPl()});
     musicSave();musicSync();
-    /* 音频文件本身也存进浏览器本地库，刷新/关掉再开都还在 */
-    if(typeof idbPutRaw==='function'){try{idbPutRaw(id,blob,'music').catch(()=>{})}catch(e){}}
-    musicPlayAt(MUSIC.list.length-1);
-  }).catch(e=>toast('读不了这个文件：'+((e&&e.message)||e)));
+    if(added===1)musicPlayAt(MUSIC.list.length-1);       /* 只加了一首：和以前一样直接放 */
+    else toast('一次加了 '+added+' 首'+(bad?('，另有 '+bad+' 个不是普通音频，跳过了'):''));
+  };
+  fs.forEach(function(f){
+    const nm=String((f&&f.name)||'').replace(/\.[A-Za-z0-9]+$/,'');
+    const id=uid();
+    musicSniff(f).catch(()=>null).then(function(info){
+      if(info){
+        /* 明确写上格式，浏览器才知道怎么放（有些文件选进来是没有格式信息的） */
+        const blob=info.type?new Blob([f],{type:info.type}):f;
+        MUSIC.list.push({id:id,title:nm||'本机音频',artist:'',kind:'file',blobId:id,url:URL.createObjectURL(blob),fmt:info.kind,pl:musicAddPl()});
+        /* 音频文件本身也存进浏览器本地库，刷新/关掉再开都还在 */
+        if(typeof idbPutRaw==='function'){try{idbPutRaw(id,blob,'music').catch(()=>{})}catch(e){}}
+      }else bad++;
+      done++;finish();
+    }).catch(function(){bad++;done++;finish()});
+  });
 }
 
 /* ================= 朋友圈（角色也能自己发动态） =================
@@ -10212,7 +10258,9 @@ function lkMusicPaint(){
        要是这时候去触发一次「加载」，会被记成「已经加载过了（空歌单）」，
        解锁后音乐页就一直是空的 —— 这就是上次「存的音乐全没了」的原因。
        所以锁屏上只用「内存里已经有的」音乐状态，绝不主动去读。 */
-    if(typeof MUSIC==='undefined'||!MUSIC.loaded)return;
+    if(typeof MUSIC==='undefined')return;
+    if(!MUSIC.loaded){try{lockMusicApply()}catch(e){}}   /* 【新】锁屏上先用那份「音乐影子」把歌单摆上（不需要密码） */
+    if(!MUSIC.loaded&&!MUSIC.list.length)return;
     var s=(typeof musicNow==='function')?musicNow():null;
     if(!s||(lkMusicHideFor&&s.id===lkMusicHideFor)){el.classList.remove('on');el.setAttribute('aria-hidden','true');return}
     if(lkMusicDrag)return;                       /* 正在拖动就先别动它 */
