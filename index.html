@@ -190,6 +190,16 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   --lk-dim:linear-gradient(rgba(4,9,15,0),rgba(4,9,15,0))   /* 把壁纸压暗用的颜色，深浅由脚本按「透明度」设置算 */}
 #lock.on{display:block;animation:lkIn .5s ease}
 @keyframes lkIn{from{opacity:0}}
+</style>
+<!-- ================================================================
+     锁屏方案：现代款（这一段只属于「现代款」，别的方案看不到）
+     想加新款：另起一个样式表（id 写成：lkCSS-你的key）写自己的样式；
+     再去 lkSchemes() 里加一行；只属于它的界面块加上 data-lk-only="你的key"。
+     切换方案时脚本会把「不属于当前款」的样式表整张关掉（见 lkApplyScheme）。
+     【补】现代款同时还当「底座」：搞笑款是在它的布局上换皮肤，
+          所以搞笑款开着的时候，这张样式表也会保留（见 lkSchemes 里的 base:1）。
+     ================================================================ -->
+<style id="lkCSS-modern">
 /* 深色底 */
 .lkbase{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,#0c1620 0%,#070e15 55%,#04080d 100%)}
 /* 两团主题色的柔光：换成别的主题，这里的颜色也跟着变（【新】调淡一点，整体更冷更素） */
@@ -226,31 +236,31 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
              linear-gradient(180deg,rgba(104,132,164,.22) 0%,rgba(76,104,132,.11) 46%,rgba(12,24,38,.3) 100%)}   /* 稍浓一点：补上滤镜拿掉后少的那点冷调 */
 /* 第一屏：日期 + 超大时间。从上面开始排（不再垂直居中），日期就顶到上面的留白里。
    z-index 比「压暗层 / 暗角层」大：这两层只压壁纸，不再把数字一起压灰。
-   mix-blend-mode:screen = 「光穿过玻璃」的算法：不是把颜色盖在背景上，而是往背景上加光，
-   所以背景亮的地方数字也跟着更亮（像透光），而且永远比背景亮一档，不会糊在一起。
-   （普通做法是「覆盖」：背景越亮，字和背景越接近，最后就看不清了。） */
-.lkhome{position:absolute;inset:0;z-index:5;mix-blend-mode:screen;display:flex;flex-direction:column;align-items:center;
+   【方案2】原来这里是 mix-blend-mode:screen（往背景上加光）。毛玻璃的「磨砂感」是靠
+   笔画内外的明暗差别看出来的，而「加光」会把这点差别冲平、数字又变成一片白，
+   所以改回普通叠加（这也是后来数字发暗的另一个原因：白云本来就亮，再加光就糊成一片）。 */
+.lkhome{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;
   padding:calc(env(safe-area-inset-top) + 12px) 0 calc(env(safe-area-inset-bottom) + 30px);   /* 【新】左右不留边距：数字才能贴到屏幕两边 */
   touch-action:none;transition:transform .52s cubic-bezier(.22,.75,.25,1),opacity .4s ease}
 #lock.pass .lkhome{transform:translateY(-19%) scale(.93);opacity:0;pointer-events:none}
 .lkclock{width:100%;height:46%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:2vh}
 /* 日期小字：照参考图的样子——不要太粗、也不要纯白地"钉"在画面上：
-   字重降一档，外面加一层柔和的白光（像被光照着），所以看着轻、也融进背景里。
-   英文格式（例如 October 5,Monday），不需要像中文那样拉开字距。 */
-.lkdate{font-family:var(--appfont,system-ui,"Roboto","Helvetica Neue",Arial,sans-serif);font-size:16px;font-weight:600;letter-spacing:.03em;text-indent:.01em;white-space:nowrap;color:#fff;opacity:.62;text-shadow:0 0 .22em rgba(226,236,255,.38),0 0 .06em rgba(255,255,255,.28);margin:0 0 2vh}
+   字重降一档，外面加一层「很淡的暗影」，亮云上也压得住、又不会像白光那样把字冲淡。
+  英文格式（例如 October 5,Monday），不需要像中文那样拉开字距。 */
+.lkdate{font-family:var(--appfont,system-ui,"Roboto","Helvetica Neue",Arial,sans-serif);font-size:16px;font-weight:600;letter-spacing:.03em;text-indent:.01em;white-space:nowrap;color:#fff;opacity:.62;text-shadow:0 .008em .05em rgba(6,14,24,.42),0 .02em .16em rgba(6,14,24,.28);margin:0 0 2vh}   /* 【改】原来是柔和白光；换成淡暗影，在亮云上更清楚 */
 .lkdate .lkd{margin:0 .16em;font-size:.92em;opacity:.75}   /* 中间那个「·」两边的空当收窄一点 */
 /* 大时间（玻璃做法：字身渐变 + 轮廓亮边 + 周围淡阴影）：
    参考图的字是「字身很透、看得见后面的壁纸；亮的是每一笔的边、上面亮下面淡；
    字边还有一点不发闷的暗影」。所以把同一个时间叠成三层（同字号、同位置）：
    ① .lkshadow —— 只出阴影：字身全透明，只在字边留一点点淡影；
    ② .lktbody  —— 字身：上面亮、往下越来越透的渐变。整体调得比以前透，壁纸能透出来；
-   ③ .lktrim   —— 一圈很细的亮边（描边）+ 一点点白光，用遮罩让它只出现在上半段。
+   ③ .lktrim   —— 一圈很细的亮边（描边）；用遮罩让它只在数字顶上露一小截就淡掉。
    字号由脚本量出来（见 lockFitTime），保证正好撑满屏幕宽。 */
 .lktime{position:relative;font-family:var(--lkfont);font-size:clamp(64px,26vw,220px);font-weight:700;line-height:1;
   letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;   /* 字距：负数越小越挤（现在留一点缝，不贴在一起） */
   transform:scaleX(var(--lk-sx)) scaleY(var(--lk-sy));transform-origin:50% 50%;
-  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.98) 0%,rgba(0,0,0,.88) 44%,rgba(0,0,0,.62) 74%,rgba(0,0,0,.3) 92%,rgba(0,0,0,.12) 100%);
-  mask-image:linear-gradient(180deg,rgba(0,0,0,.98) 0%,rgba(0,0,0,.88) 44%,rgba(0,0,0,.62) 74%,rgba(0,0,0,.3) 92%,rgba(0,0,0,.12) 100%)}
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) 44%,rgba(0,0,0,.78) 74%,rgba(0,0,0,.55) 92%,rgba(0,0,0,.4) 100%);   /* 【改】放松一点：底部原来只剩 0.12，下半段看着偏暗 */
+  mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) 44%,rgba(0,0,0,.78) 74%,rgba(0,0,0,.55) 92%,rgba(0,0,0,.4) 100%)}
 /* 三层文字：每层都是一行 1em 高，后两层往上挪 1em，就正好盖在前一层上 */
 .lktime>span{display:block}
 .lktime>.lktbody,.lktime>.lktrim{margin-top:-1em}
@@ -260,31 +270,48 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* ② 字身层：一层「浅藕荷色」的薄膜（不是纯白，带一点蓝紫），数字因此比背景亮、又不会白成灰。
    这几个数就是「亮多少」：往大调更亮更实，往小调更透更接近背景。 */
 .lktime .lktbody{color:#fff;                                   /* 兜底：不支持下面那层渐变的浏览器就是实心白 */
-  background-image:linear-gradient(180deg,rgba(230,236,252,.58) 0%,rgba(228,234,251,.55) 14%,rgba(226,233,251,.47) 26%,rgba(224,231,250,.38) 42%,rgba(222,229,249,.28) 58%,rgba(220,228,249,.16) 76%,rgba(218,226,248,.06) 92%,rgba(218,226,248,0) 100%);
+  /* 【方案2】两层叠在一起，靠 background-clip:text 裁成数字形状：
+         · 上面那层：原来那层白色薄膜（数值跟以前一模一样，没动）；
+         · 下面那层：毛玻璃 —— 磨砂 + 提亮过的壁纸小图（由脚本按当前位置摆好）。
+     没设壁纸、或者老浏览器画不出来时，--lk-glass 是 none，第二层就不存在，数字完全还是原来的样子。 */
+  background-image:linear-gradient(180deg,rgba(230,236,252,.33) 0%,rgba(228,234,251,.31) 14%,rgba(226,233,251,.27) 26%,rgba(224,231,250,.22) 42%,rgba(222,229,249,.16) 58%,rgba(220,228,249,.09) 76%,rgba(218,226,248,.04) 92%,rgba(218,226,248,0) 100%),var(--lk-glass,none);   /* 【改】再调淡一档（0.45→0.33）：笔画更透，磨砂的云纹更明显 */
+  background-size:100% 100%,var(--lk-gw,100%) var(--lk-gh,100%);
+  background-position:0 0,var(--lk-gx,0px) var(--lk-gy,0px);
+  background-repeat:no-repeat;
   -webkit-background-clip:text;background-clip:text;
   -webkit-text-fill-color:transparent}                         /* 字身交给上面那层渐变：中间偏透、上面偏亮 */
 /* ③ 亮边层：很细的一圈亮白线（不做模糊，才够干脆），描在字的轮廓上。
    遮罩让白边只集中在最上面一小段（参考图就是这样：不是整圈都白），越往下越没有。 */
 .lktime .lktrim{color:transparent;-webkit-text-fill-color:transparent;
   -webkit-text-stroke:var(--lk-rim) rgba(255,255,255,.95);
-  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 10%,rgba(0,0,0,.62) 24%,rgba(0,0,0,.26) 40%,rgba(0,0,0,.07) 56%,rgba(0,0,0,0) 72%);
-  mask-image:linear-gradient(180deg,#000 0%,#000 10%,rgba(0,0,0,.62) 24%,rgba(0,0,0,.26) 40%,rgba(0,0,0,.07) 56%,rgba(0,0,0,0) 72%)}
+  /* 【改】亮边只留在数字顶上：原来要淡到 72% 才没（所以看着"长"），
+     现在收短到 40% 就没了；最顶上那一小截还是满的，往下很快淡掉。粗细没动。 */
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 5%,rgba(0,0,0,.6) 15%,rgba(0,0,0,.25) 24%,rgba(0,0,0,.06) 31%,rgba(0,0,0,0) 40%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 5%,rgba(0,0,0,.6) 15%,rgba(0,0,0,.25) 24%,rgba(0,0,0,.06) 31%,rgba(0,0,0,0) 40%)}
 /* 冒号：不用字体的冒号，自己画两个「小玻璃球」（照参考图的样子）：
-   球身是奶白半透明的（里面不是空的），左上角压一圈亮白高光，右下角柔柔的看不清边；
+   跟大数字用的是同一个做法 —— 白只是一层很薄的膜（上亮下淡），
+   主要靠里面那张磨砂小图透出来，所以看着是一小块磨砂玻璃、不是实心白球；
+   没有高光点和亮边（照冒号参考图：就是两颗干净通透的球）。
    再用遮罩让球的下面比上面淡一点，跟数字的「上亮下淡」保持一致。
    宽高都用 em 算，所以时间字放大缩小时，小球会跟着一起缩放。 */
 .lktime .lkc{display:inline-block;position:relative;width:.16em;height:.72em;margin:0 .03em;vertical-align:baseline}
-.lktime .lktbody .lkc::before,.lktime .lktbody .lkc::after{content:'';position:absolute;left:50%;box-sizing:border-box;width:.12em;height:.12em;border-radius:50%;
-  background:radial-gradient(circle at 42% 36%,rgba(255,255,255,.34) 0%,rgba(255,255,255,.24) 54%,rgba(255,255,255,.18) 100%);   /* 奶白玻璃球身（调淡了） */
-  box-shadow:inset var(--lk-stroke) var(--lk-stroke) .008em rgba(255,255,255,.7);   /* 左上角那圈亮白高光（粗细看 --lk-stroke） */
+.lktime .lktbody .lkc i{position:absolute;left:50%;box-sizing:border-box;display:block;overflow:hidden;width:.12em;height:.12em;border-radius:50%;
+  /* 【方案2·续】小球现在也是毛玻璃：两层背景 ——
+       上面那层还是原来那圈奶白球身；下面那层是毛玻璃（跟大数字用同一张磨砂小图，
+       只是小球的位置和缩放跟数字不一样，脚本会像量数字那样单独量一遍、换算好，见 lkGlassDots）。 */
+  background-image:radial-gradient(circle at 50% 30%,rgba(255,255,255,.38) 0%,rgba(255,255,255,.26) 55%,rgba(255,255,255,.12) 100%),var(--lk-glass,none);   /* 【改】白膜砍薄一半（0.56/0.42/0.24 → 0.38/0.26/0.12）：跟大数字一样，让里面的磨砂玻璃透出来 */
+  background-size:100% 100%,var(--lk-dgw,100%) var(--lk-dgh,100%);
+  background-position:0 0,var(--lk-dgx,0px) var(--lk-dgy,0px);
+  background-repeat:no-repeat;
+  box-shadow:inset 0 -.006em .012em rgba(6,16,30,.16);   /* 【改】球的下缘压一点点暗，看着才有立体感（调淡了一档，球更通透；不是白色的高光点/亮边） */
+  filter:brightness(1.18) saturate(1.05);   /* 【改】整颗球一起提亮一点：更透亮，但透明感不变（只作用在小球上，不动大数字） */
   -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 22%,rgba(0,0,0,.72) 62%,rgba(0,0,0,.55) 100%);   /* 下面比上面淡一点 */
   mask-image:linear-gradient(180deg,#000 0%,#000 22%,rgba(0,0,0,.72) 62%,rgba(0,0,0,.55) 100%);
   transform:translateX(-50%) scaleY(var(--lk-dot-uny))}
 /* 阴影层和亮边层不画圈（冒号的小球只在字身层画，免得叠出好几圈） */
-.lktime .lkshadow .lkc::before,.lktime .lkshadow .lkc::after,
-.lktime .lktrim .lkc::before,.lktime .lktrim .lkc::after{display:none}
-.lktime .lkc::before{bottom:.17em}
-.lktime .lkc::after{bottom:.52em}
+.lktime .lkshadow .lkc i,.lktime .lktrim .lkc i{display:none}
+.lktime .lkc i.kd1{bottom:.23em}   /* 【改】两个球靠近一点（照冒号参考图）：.17em → .23em（下面那颗往上收） */
+.lktime .lkc i.kd2{bottom:.46em}   /* 【改】.52em → .46em（上面那颗往下收）；两颗的中心没动，只是间距缩了约三分之一 */
 /* 底部中间那条小白条（仿手机的手势条）。原来那个「上滑提示小箭头」删掉了——
    小白条本身就在提示可以往上滑。 */
 .lkbar{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 8px);transform:translateX(-50%);
@@ -308,13 +335,18 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .lksb .sbvol .v-off{display:none}
 .lksb .sbvol.mute .v-on{display:none}
 .lksb .sbvol.mute .v-off{display:block}
-/* 电量：浅色小电池块（里面写数字）+ 右边一个小凸点，比之前小一圈、软一点。
-   能读到真实电量就显示真实值，读不到就一直是 31。 */
-.lksb .bat{position:relative;display:flex;align-items:center;justify-content:center;min-width:21px;height:10px;padding:0 2.5px;
-  border-radius:3px;background:rgba(255,255,255,.8);color:#3f434b;font-size:8.5px;font-weight:700;font-style:normal;letter-spacing:0;
-  box-shadow:0 0 .14em rgba(8,16,26,.2)}
-.lksb .bat::after{content:'';position:absolute;right:-2.5px;top:50%;transform:translateY(-50%);
-  width:1.6px;height:3.8px;border-radius:0 1.5px 1.5px 0;background:rgba(255,255,255,.8)}
+/* 电量：仿 iPhone 的「电池格子」——外面一圈细描边 + 右边小凸点，
+   里面那块白色填充的宽度跟着电量走：电多就宽、电少就窄（像苹果那样一眼看出剩多少）。
+   电量 ≤20% 且没充电时整块变红；左边小字显示百分比（读不到就不显示）。
+   【改】充电时不再变绿：参考图里电池一直是白的，所以原来那行「充电变绿」去掉了
+   （脚本里照旧会挂 chg 标记，只是没有样式再用它，不影响别的功能）。 */
+.lksb .bat{display:flex;align-items:center;gap:3px}
+.lksb .bat .bpct{font-size:10px;font-weight:600;font-style:normal;font-variant-numeric:tabular-nums;letter-spacing:0;opacity:.95}
+.lksb .bat svg{width:auto;height:11px;fill:none;opacity:1}
+.lksb .bat .bbody{stroke:currentColor;stroke-width:1.1;opacity:.5}
+.lksb .bat .bcap{fill:currentColor;opacity:.5}
+.lksb .bat .bfill{fill:currentColor;opacity:.95}
+.lksb .bat.low svg{color:#ff453a}
 /* 底部两个圆按钮：半透明深色玻璃圈 + 白图标 */
 .lkbtn{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 34px);width:15vw;height:15vw;
   min-width:50px;max-width:68px;min-height:50px;max-height:68px;
@@ -329,7 +361,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* ---------- 【新】锁屏上的音乐气泡（和「音乐」小应用共用播放状态） ---------- */
 .lkmu{position:absolute;z-index:5;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 20vh);
   padding:12px 14px 8px;border-radius:22px;color:#fff;
-  background:rgba(122,134,160,.34);border:1px solid rgba(255,255,255,.2);
+  background:rgba(122,134,160,.22);border:1px solid rgba(255,255,255,.2);   /* 【改】底色更透一点（原来 .34） */
   -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
   box-shadow:0 14px 34px rgba(0,0,0,.3);
   opacity:0;transform:translateY(16px);pointer-events:none;
@@ -356,6 +388,119 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .lkmb svg{width:24px;height:24px;display:block}
 .lkmb.big svg{width:31px;height:31px}
 .lkmb:active{transform:scale(.9)}
+/* 【新】屏幕矮的时候（比如键盘弹出来），现代款的时间/日期跟着缩一点 */
+@media (max-height:620px){
+  .lkclock{height:44%;padding-top:3vh}
+  .lktime{font-size:64px}
+  .lkdate{font-size:12px}
+}
+</style>
+<!-- ================================================================
+     锁屏方案：搞笑款
+     做法：这一段只在 #lock[data-lk="funny"] 时才生效（选择器前面都带这个前缀）。
+     它是「现代款的布局 + 下面这些覆盖样式」——所以按钮／音乐组件／小白条
+     的位置都跟现代款一样，只是颜色和效果换了。现代款完全看不到这段。
+     ================================================================ -->
+<style id="lkCSS-funny">
+/* ① 左上角「中国移动」→「中国电动」：字号不变，颜色改成彩虹色。
+      （HTML 里的文字两款共用，没法只改一处的字；就把原来的字缩成 0 藏起来，
+        再用 ::before 写上「中国电动」。现代款没有 data-lk="funny"，看不到这一步。） */
+#lock[data-lk="funny"] .lksb .sbl b{font-size:0;letter-spacing:0;text-shadow:none}
+#lock[data-lk="funny"] .lksb .sbl b::before{
+  content:'中国电动';font-size:12px;letter-spacing:.5px;font-weight:700;
+  background-image:linear-gradient(90deg,#ff3b30,#ff9500,#ffd60a,#34c759,#00c7be,#0a84ff,#af52de);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+/* ② 顶部状态栏整条改成彩虹色：百分比数字用「彩虹渐变填字」；
+     图标（喇叭／信号／WiFi／电池）用上面那个 SVG 彩虹渐变当填色和线条色。 */
+#lock[data-lk="funny"] .lksb .bpct{
+  text-shadow:none;
+  background-image:linear-gradient(90deg,#ff3b30,#ff9500,#ffd60a,#34c759,#00c7be,#0a84ff,#af52de);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+#lock[data-lk="funny"] .lksb svg{fill:url(#lkRainbowG)}
+#lock[data-lk="funny"] .lksb .sbw{fill:none;stroke:url(#lkRainbowG)}
+#lock[data-lk="funny"] .lksb .bat svg{fill:none}
+#lock[data-lk="funny"] .lksb .bat .bbody{stroke:url(#lkRainbowG)}
+#lock[data-lk="funny"] .lksb .bat .bcap,
+#lock[data-lk="funny"] .lksb .bat .bfill{fill:url(#lkRainbowG)}
+/* ③ 日期那行小字：改成「火红色」+ 火光（上橙下红，像烧起来那样）。 */
+#lock[data-lk="funny"] .lkdate{
+  opacity:1;color:#ff4a22;
+  background-image:linear-gradient(180deg,#ff8a3d 0%,#ff4a22 45%,#c81608 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  text-shadow:0 0 .55em rgba(255,124,52,.95),0 0 .2em rgba(255,196,130,.8),0 0 1.15em rgba(255,62,20,.75),0 0 1.9em rgba(214,28,8,.55)}
+/* 中间那个「·」：单独处理 —— 把透明度拉满、写成实心火红，再给它自己的强火光，
+   不然它会比两边的字暗、也不亮（父级那套「透明填充 + 发光」对它不生效）。 */
+#lock[data-lk="funny"] .lkdate .lkd{
+  opacity:1;color:#ff4a22;-webkit-text-fill-color:#ff4a22;background-image:none;
+  text-shadow:0 0 .5em rgba(255,134,62,1),0 0 .16em rgba(255,204,150,.9),0 0 1.1em rgba(255,62,20,.85),0 0 1.8em rgba(214,28,8,.6)}
+/* ④ 时间大字：彩虹渐变（红→橙→黄→绿→蓝→紫，从上往下铺）。
+     颜色更深、更浓，透明度也基本拉满（调的这几个数是「颜色的深浅 + 透明度」，越大越实）。 */
+#lock[data-lk="funny"] .lktime .lktbody{
+  background-image:linear-gradient(180deg,rgba(205,18,38,1) 0%,rgba(226,96,0,1) 14%,rgba(226,176,0,.98) 26%,rgba(18,166,74,.94) 42%,rgba(12,112,226,.88) 58%,rgba(64,52,222,.8) 76%,rgba(122,40,208,.66) 92%,rgba(122,40,208,.5) 100%)}
+/* 大字外面那道「越往下越淡」的遮罩：搞笑款放松一点 —— 这样字的下半截不会化开，
+     整块字更实、更显眼（现代款那道遮罩不动）。 */
+#lock[data-lk="funny"] .lktime{
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.9) 78%,rgba(0,0,0,.72) 90%,rgba(0,0,0,.6) 100%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.9) 78%,rgba(0,0,0,.72) 90%,rgba(0,0,0,.6) 100%)}
+/* 冒号那两个小玻璃球：也换成（更深的）彩虹色，像两颗彩色玻璃珠。
+   【方案2·续】小球改成真元素（i.kd1 / i.kd2）了，这里跟着改一下选择器；
+   background 简写会把「毛玻璃」那层一起去掉，所以搞笑款还是原来的彩虹玻璃珠。 */
+#lock[data-lk="funny"] .lktime .lktbody .lkc i{
+  background:linear-gradient(140deg,rgba(205,18,38,.98) 0%,rgba(226,176,0,.95) 26%,rgba(18,166,74,.92) 52%,rgba(12,112,226,.9) 76%,rgba(122,40,208,.88) 100%);
+  box-shadow:inset 0 -.007em .012em rgba(6,16,30,.22)}   /* 【改】跟现代款一样：不要高光点/亮边，只在下缘压一点暗做立体感 */
+/* 数字上半段那圈细亮边：配彩虹用的暖白高光（这一圈只出现在字的最上面一小段） */
+#lock[data-lk="funny"] .lktime .lktrim{-webkit-text-stroke:var(--lk-rim) rgba(255,242,224,.92)}
+/* ⑤ 音乐小组件：整体改成彩色（卡片底、歌名／歌手、波形、进度条、时间、按钮）。
+     位置、大小、圆角、模糊全部沿用现代款，只换颜色 —— 现代款看不到这一段。 */
+/* 卡片：彩虹色的玻璃底 + 亮一点的描边和白光晕 */
+#lock[data-lk="funny"] .lkmu{
+  background:linear-gradient(135deg,rgba(226,38,58,.42) 0%,rgba(238,124,18,.38) 24%,rgba(240,196,0,.36) 44%,rgba(34,186,92,.36) 62%,rgba(28,138,236,.38) 80%,rgba(140,62,222,.42) 100%);
+  border:1px solid rgba(255,255,255,.34);
+  box-shadow:0 14px 34px rgba(0,0,0,.3),0 0 24px rgba(255,255,255,.16)}
+/* 歌名：彩虹渐变填字 */
+#lock[data-lk="funny"] .lkmuTitle{
+  background-image:linear-gradient(90deg,#ff5a6e,#ffa03c,#ffe14d,#5ce08a,#5cb8ff,#b38cff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+/* 歌手名：淡一点的四色渐变，不抢歌名 */
+#lock[data-lk="funny"] .lkmuArtist{
+  background-image:linear-gradient(90deg,#ffb894,#ffdd94,#a6f0c6,#a8d6ff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+/* 右边那三根跳动的波形：一根一个颜色 */
+#lock[data-lk="funny"] .lkmuEq{opacity:.95}
+#lock[data-lk="funny"] .lkmuEq i:nth-child(1){background:#ffa03c}
+#lock[data-lk="funny"] .lkmuEq i:nth-child(2){background:#5ce08a}
+#lock[data-lk="funny"] .lkmuEq i:nth-child(3){background:#5cb8ff}
+/* 进度条：整条淡彩虹，走过的那段是亮彩虹 */
+#lock[data-lk="funny"] .lkmuBar{
+  background:linear-gradient(90deg,rgba(226,38,58,.5),rgba(238,124,18,.5),rgba(240,196,0,.5),rgba(34,186,92,.5),rgba(28,138,236,.5),rgba(140,62,222,.5))}
+#lock[data-lk="funny"] .lkmuBar i{
+  background:linear-gradient(90deg,#e2263a,#ee7c12,#f0c400,#22ba5c,#1c8aec,#8c3ede)}
+/* 两端的时间数字：淡彩虹（从整条上取色，所以左边偏暖、右边偏冷） */
+#lock[data-lk="funny"] .lkmuNums{
+  background-image:linear-gradient(90deg,#ffb08a,#ffe08a,#9ff0c0,#9fd4ff);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+/* 底部三个按钮：每个一种颜色。
+     图标本身就是「用文字颜色上色」的，所以直接改按钮的颜色最稳、不会出错。 */
+#lock[data-lk="funny"] .lkmu .lkmb{opacity:1}
+#lock[data-lk="funny"] .lkmu .lkmb:nth-of-type(1){color:#ffa03c}
+#lock[data-lk="funny"] .lkmu .lkmb:nth-of-type(2){color:#5ce08a}
+#lock[data-lk="funny"] .lkmu .lkmb:nth-of-type(3){color:#5cb8ff}
+/* ⑥ 左右下角那两个圆按钮：搞笑款换成图片图标。
+     · 原来的图标（线框 svg）在搞笑款里藏起来，改贴图片；
+     · 图片放在和 index.HTML 同一个文件夹里（lk-icon-flash.png / lk-icon-cam.png）；
+     · 圆按钮本身的位置、大小、玻璃底都没动，现代款照旧用原来的线框图标。 */
+#lock[data-lk="funny"] .lkbtn svg{display:none}
+#lock[data-lk="funny"] .lkbtn::before{
+  content:'';display:block;width:74%;height:74%;
+  background-repeat:no-repeat;background-position:center center;background-size:contain}
+#lock[data-lk="funny"] .lkbtn.l::before{background-image:url("lk-icon-flash.png")}
+#lock[data-lk="funny"] .lkbtn.r::before{background-image:url("lk-icon-cam.png")}
+</style>
+<!-- ================================================================
+     锁屏：公共部分（所有方案共用；别在这里写某一款的皮肤样式）
+     只管：容器怎么显示/隐藏、上滑手势、密码框、进锁屏藏掉全屏小按钮。
+     ================================================================ -->
+<style id="lkCSS-core-lock">
 /* 第二屏：上滑之后才出现的密码框（放偏上一点，键盘弹出来也看得见）
    【新】z-index 提到最高：不然会被新加的「前景层」和暗角层盖住 */
 .lkpass{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;
@@ -374,11 +519,10 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 body.locked #fsBtn{display:none!important}
 /* 屏幕矮的时候（比如键盘弹出来）自动调整，别把密码框顶出去 */
 @media (max-height:620px){
-  .lkclock{height:44%;padding-top:3vh}
-  .lktime{font-size:64px}
   .lkpass{padding-top:calc(env(safe-area-inset-top) + 15vh)}
-  .lkdate{font-size:12px}
 }
+</style>
+<style>
 /* 弹层顶部标签（角色设定 / 记忆） */
 .tabs{display:flex;gap:8px;margin:0 0 14px}
 .tabs button{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:14px;padding:9px 0;border-radius:12px;font-weight:700;box-shadow:none}
@@ -869,23 +1013,31 @@ html.chatwall #msgs .tsep>span{padding:3px 11px;opacity:1;background:var(--panel
 </nav>
 <div class="modal" id="modal"><button class="sheetclose" onclick="closeSheet()" aria-label="关闭">✕</button><div class="sheet" id="sheet"></div></div>
 <div id="lock">
-  <div class="lkbase" aria-hidden="true"></div>
-  <div class="lktint" aria-hidden="true"></div>
-  <div class="lkwall" id="lkWall"></div>
-  <div class="lkhome">
+  <!-- 搞笑款顶部状态栏图标用的「彩虹渐变」（本身没有尺寸、看不见；现代款不受影响） -->
+  <svg class="lkrainbow" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="lkRainbowG" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ff3b30"/><stop offset="17%" stop-color="#ff9500"/><stop offset="33%" stop-color="#ffd60a"/><stop offset="50%" stop-color="#34c759"/><stop offset="67%" stop-color="#00c7be"/><stop offset="83%" stop-color="#0a84ff"/><stop offset="100%" stop-color="#af52de"/>
+      </linearGradient>
+    </defs>
+  </svg>
+  <div class="lkbase" data-lk-only="modern funny" aria-hidden="true"></div>
+  <div class="lktint" data-lk-only="modern funny" aria-hidden="true"></div>
+  <div class="lkwall" id="lkWall" data-lk-only="modern funny"></div>
+  <div class="lkhome" data-lk-only="modern funny">
     <div class="lkclock" id="lkClock">
       <div class="lkdate" id="lkDate"></div>
       <div class="lktime" id="lkTime">--:--</div>
     </div>
   </div>
   <!-- 【新】前景层：把锁屏壁纸再铺一遍，只留下面的山脊和树，正好把数字挡在身后 -->
-  <div class="lkfg" id="lkFg" aria-hidden="true"></div>
-  <div class="lkscrim" aria-hidden="true"></div>
-  <div class="lkvig" aria-hidden="true"></div>
+  <div class="lkfg" id="lkFg" data-lk-only="modern funny" aria-hidden="true"></div>
+  <div class="lkscrim" data-lk-only="modern funny" aria-hidden="true"></div>
+  <div class="lkvig" data-lk-only="modern funny" aria-hidden="true"></div>
   <!-- 【新】锁屏上的音乐气泡：和「音乐」小应用共用同一套播放状态 -->
-  <div class="lkmu" id="lkMusic" aria-hidden="true"></div>
+  <div class="lkmu" id="lkMusic" data-lk-only="modern funny" aria-hidden="true"></div>
   <!-- 【新】仿参考图的锁屏外壳：顶部状态栏 + 底部手电筒/相机按钮 + 手势小白条（纯装饰，按了没反应） -->
-  <div class="lkchrome" aria-hidden="true">
+  <div class="lkchrome" data-lk-only="modern funny" aria-hidden="true">
     <div class="lksb">
       <span class="sbl">
         <b>中国移动</b>
@@ -897,7 +1049,7 @@ html.chatwall #msgs .tsep>span{padding:3px 11px;opacity:1;background:var(--panel
       <span class="sbr">
         <svg viewBox="0 0 24 24"><rect x="3" y="14.9" width="2.9" height="6.6" rx="1.1"/><rect x="8.2" y="11.5" width="2.9" height="10" rx="1.1"/><rect x="13.4" y="8" width="2.9" height="13.5" rx="1.1"/><rect x="18.6" y="4.5" width="2.9" height="17" rx="1.1"/></svg>
         <svg viewBox="0 0 24 24"><path class="sbw" d="M4 9.6a12.6 12.6 0 0 1 16 0"/><path class="sbw" d="M7.1 13.1a8.3 8.3 0 0 1 9.8 0"/><circle cx="12" cy="17.3" r="1.5"/></svg>
-        <i class="bat">31</i>
+        <span class="bat" id="lkBat"><i class="bpct" id="lkBatPct"></i><svg viewBox="0 0 25 14" aria-hidden="true"><rect class="bbody" x="1" y="1.2" width="21" height="11.6" rx="3.4"/><rect class="bcap" x="22" y="4.6" width="2.2" height="4.8" rx="1.1"/><rect class="bfill" id="lkBatFill" x="2.8" y="3" width="18.6" height="8" rx="1.9"/></svg></span>
       </span>
     </div>
     <div class="lkbtn l"><svg viewBox="0 0 24 24" fill-rule="evenodd"><path d="M8.3 2.5h7.4a.85.85 0 0 1 .85.85v.9a.9.9 0 0 1-.33.7l-1.7 1.15a.85.85 0 0 0-.37.7V19.6a1.75 1.75 0 0 1-1.75 1.75h-.8a1.75 1.75 0 0 1-1.75-1.75V6.8a.85.85 0 0 0-.37-.7l-1.7-1.15A.9.9 0 0 1 7.45 4.25v-.9a.85.85 0 0 1 .85-.85zM8.9 4.35h6.2v.75H8.9zM12 11.65a1.85 1.85 0 1 0 0 3.7 1.85 1.85 0 0 0 0-3.7zm0 .9a.95.95 0 1 1 0 1.9.95.95 0 0 1 0-1.9z"/></svg></div>
@@ -9484,6 +9636,9 @@ function cfgLookCardHTML(){
   '<label class="f">主题</label><select id="c_theme">'+Object.keys(THEMES).map(k=>'<option value="'+k+'"'+(cfg.theme===k?' selected':'')+'>'+esc(THEMES[k].label)+'</option>').join('')+'</select>'+
   '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
   '<input id="c_fs" type="range" min="13" max="20" value="'+cfg.fs+'">'+
+  '<label class="f">锁屏方案</label>'+
+  '<select id="c_lkscheme">'+lkSchemes().map(s=>'<option value="'+s.k+'"'+(lkSchemeCur()===s.k?' selected':'')+'>'+esc(s.n)+'</option>').join('')+'</select>'+
+  '<div class="dim" style="font-size:12px;margin-top:4px" id="c_lkhint">'+esc(lkSchemeHint())+'</div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>让角色知道时间</b><div class="dim" style="font-size:12px">每条消息带「月/日 时:分」，并告诉它「现在」是几号几点</div></div>'+
   '<input type="checkbox" id="c_time" '+((cfg.timeOn!==false)?'checked':'')+'></div>'+
@@ -9656,6 +9811,12 @@ function bindCfgThemeControls(){
     applyTheme();                       /* 统一在这里刷 html 上的 nothink 类 */
     if(view==='chat')renderChat();
     toast(cfg.showThink?'已开启：显示思考过程按钮':'已关闭：思考过程按钮已隐藏');
+  };
+  /* 【新】锁屏方案：换一下 #lock 上挂的标记，锁屏就换皮肤（现代款不动样式） */
+  const lks=$('#c_lkscheme');
+  if(lks)lks.onchange=e=>{
+    setLkScheme(e.target.value);
+    const hint=$('#c_lkhint');if(hint)hint.textContent=lkSchemeHint();
   };
 }
 /* 设置页：开发者模式、自动消息、备份频率。 */
@@ -10273,20 +10434,23 @@ function lockSkinWrite(c){
     }
     const s=(c&&typeof c==='object')?c:(cfg||{});
     const w=(s.wall&&typeof s.wall==='object')?s.wall:{};
-    const out={theme:s.theme||'dark',font:s.font||'sys',img:w.lImg||'',op:(w.lOp==null?1:w.lOp)};
+    const out={theme:s.theme||'dark',font:s.font||'sys',sch:s.lkScheme||'modern',img:w.lImg||'',op:(w.lOp==null?1:w.lOp)};
     try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify(out))}
     catch(e){                        /* 图太大存不下：至少把主题和字体存对，锁屏别变成原始深蓝 */
-      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,img:'',op:1}))}catch(e2){}
+      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,sch:out.sch,img:'',op:1}))}catch(e2){}
     }
   }catch(e){}
 }
 /* 把 "15:53" 变成「15 + 两个小玻璃球 + 53」：
    冒号不用字体的冒号，改成用 CSS 画的两个小玻璃球（球身奶白、左上角有高光）。
    同一个时间叠三层（见下面的 CSS 注释）：① lkshadow 只出「字边一点点淡影」；
-   ② lktbody 是字身（上面亮、往下越来越透）；③ lktrim 是一圈很细的轮廓亮边（只在上半段）。
+   ② lktbody 是字身（上面亮、往下越来越透）；③ lktrim 是一圈很细的轮廓亮边（只在顶上露一小截）。
    三层文字一模一样，位置完全重合。 */
 function lkTimeHTML(t){
-  const s=String(t).replace(':','<span class="lkc"></span>');
+  /* 【方案2·续】冒号里那两个小球改成真元素（i.kd1 / i.kd2）。
+     原来是 CSS 直接画的「替身」，没法往里铺毛玻璃；改成真元素以后，
+     脚本就能像量大数字那样，量出它俩在屏幕上的位置（见 lkGlassDots）。 */
+  const s=String(t).replace(':','<span class="lkc"><i class="kd1"></i><i class="kd2"></i></span>');
   return '<span class="lkshadow" aria-hidden="true">'+s+'</span>'+
          '<span class="lktbody">'+s+'</span>'+
          '<span class="lktrim" aria-hidden="true">'+s+'</span>';
@@ -10401,7 +10565,10 @@ function lockFace(){
   const te=document.getElementById('lkTime');
   if(te){
     const t=p2(d.getHours())+':'+p2(d.getMinutes());
-    if(te.dataset.t!==t){te.innerHTML=lkTimeHTML(t);te.dataset.t=t}
+    if(te.dataset.t!==t){
+      te.innerHTML=lkTimeHTML(t);te.dataset.t=t;
+      try{lkGlassFit()}catch(e){}   /* 【方案2·续】冒号小球被重新画出来了：毛玻璃要再铺一次 */
+    }
   }
   const de=document.getElementById('lkDate');
   if(de){const s=lkDateText(d);if(de.dataset.d!==s){de.innerHTML=s;de.dataset.d=s}}
@@ -10430,8 +10597,8 @@ function lkDateText(d){
   }catch(e){}
   return lun?base+'<span class="lkd">·</span>'+lun:base;   /* 中间那个「·」用小 span，好把两边的空当收窄 */
 }
-/* 顶部状态栏那格电量：能读到真实电量就显示真实数字；
-   读不到（老浏览器 / 本地打开）就一直显示 HTML 里写好的 31。纯装饰，不影响别的功能。 */
+/* 顶部状态栏那格电量：能读到真实电量，就把电池里的填充块按比例画出来（见 lkBattery / batPaint）；
+   读不到（老浏览器 / 本地打开）就保持 HTML 里那个普通电池样子。纯装饰，不影响别的功能。 */
 /* 顶部状态栏那个小喇叭：跟着「音乐」的音量走。
    音量大于 0 → 显示「有声」（喇叭 + 声波）；音量调到 0 → 显示「静音」（喇叭 + 斜杠）。
    （网页读不到手机自己的音量，只能同步 App 里音乐的音量。） */
@@ -10447,13 +10614,31 @@ function sbVol(){
   el.classList.toggle('mute',!on);
 }
 function lkBattery(){
-  const el=document.querySelector('.lksb .bat');
-  if(!el||!navigator.getBattery)return;
+  const box=document.getElementById('lkBat');
+  if(!box)return;
+  const fill=document.getElementById('lkBatFill');
+  const pct=document.getElementById('lkBatPct');
+  const FMAX=18.6;                       /* 满电量时填充块的最大宽度（跟 HTML 里那个 rect 一致） */
+  const paint=function(b){
+    try{
+      const lv=Math.max(0,Math.min(1,(b&&typeof b.level==='number')?b.level:0));
+      const ch=!!(b&&b.charging);
+      if(pct)pct.textContent=Math.round(lv*100)+'%';
+      let w=FMAX*lv;                     /* 填充宽度 = 最大宽度 × 电量：电少就短一截 */
+      if(lv>0&&w<2.6)w=2.6;              /* 还剩一点点电时留一小截，别彻底看不见 */
+      if(fill)fill.setAttribute('width',w.toFixed(2));
+      box.classList.toggle('chg',ch);            /* 充电：绿 */
+      box.classList.toggle('low',!ch&&lv<=.2);   /* 低电（≤20%）且没充电：红 */
+    }catch(e){}
+  };
+  if(!navigator.getBattery)return;       /* 浏览器不给读，就保持普通的电池样子 */
   try{
     navigator.getBattery().then(function(b){
-      const up=function(){try{el.textContent=Math.round(b.level*100)}catch(e){}};
-      up();
-      if(b.addEventListener)b.addEventListener('levelchange',up);
+      paint(b);
+      if(b.addEventListener){
+        b.addEventListener('levelchange',function(){paint(b)});
+        b.addEventListener('chargingchange',function(){paint(b)});
+      }
     }).catch(function(){});
   }catch(e){}
 }
@@ -10508,20 +10693,24 @@ function lkTintPair(r,g,b){         /* 把平均色变成「数字色 + 柔光�
 }
 function lkApplyTint(el,img){
   if(!el)return;
+  _lkGlassWant=img||'';             /* 【方案2】记下这张壁纸：锁屏显示出来以后，毛玻璃那张小图要靠它做 */
   if(!img){                         /* 没设壁纸：用默认的冷蓝白 */
     _lkTintSrc=null;
     el.style.setProperty('--lk-tint','228,234,248');
     el.style.setProperty('--lk-glow','250,252,255');
+    try{lkGlassClear(el)}catch(e){}  /* 【方案2】没壁纸：毛玻璃一起清掉，数字回到原样 */
     return;
   }
   if(img===_lkTintSrc){             /* 还是同一张图：直接用上次算好的颜色 */
     el.style.setProperty('--lk-tint',_lkTintRGB);
     el.style.setProperty('--lk-glow',_lkTintGlow);
+    try{lkGlassBuild(img)}catch(e){}   /* 【方案2】顺手确认磨砂小图已经做好 */
     return;
   }
   _lkTintSrc=img;
   el.style.setProperty('--lk-tint',_lkTintRGB);   /* 先挂上色，别让数字闪一下没颜色 */
   el.style.setProperty('--lk-glow',_lkTintGlow);
+  try{lkGlassBuild(img)}catch(e){}   /* 【方案2】顺便把这张壁纸磨砂好，给大数字当玻璃 */
   try{
     var im=new Image();
     im.onload=function(){
@@ -10542,6 +10731,195 @@ function lkApplyTint(el,img){
     };
     im.src=img;
   }catch(e){}
+}
+/* ---------- 【方案2】毛玻璃大数字 ----------
+   做法：把锁屏壁纸先「磨砂（模糊）+ 提亮」做成一张小图，
+        再把它当填充色铺在数字笔画里面（靠 background-clip:text 裁成数字形状）。
+   效果：笔画里面透出来的是磨过的、提亮过的背景 —— 就是参考图那种玻璃质感。
+   放在哪：数字三层里最下面那层（.lktbody），压在原来那层白薄膜底下。
+   安全兜底：没设壁纸 / 老浏览器画不出来时，这张图根本不会出现，
+            数字就还是原来那个样子，不会出错；觉得卡也可以一句话关掉。 */
+var LKGLASS={
+  blur:12,         /* 磨砂强度：越大越糊【改】9 → 12，云纹更明显 */
+  bright:1.45,     /* 提亮：越大玻璃越亮、越"透亮"【改】1.32 → 1.45（白薄膜调淡后，靠玻璃本身的亮度顶上来） */
+  sat:1.05,        /* 颜色稍微浓一点，免得磨完发灰 */
+  max:1024,        /* 那张小图最长边最多多少像素（只为省内存，不影响效果） */
+  margin:3         /* 裁掉模糊虚边时多留的余量（按磨砂强度的倍数算） */
+};
+var _lkGlassWant='',_lkGlassSrc='',_lkGlassUrl='',_lkGlassBusy=false,_lkGlassFitSig='',_lkGlassNoFilter=false,_lkGlassKey='';
+/* 【改】「这张壁纸 + 现在这几个参数」配成一把钥匙。
+   这样以后调磨砂/提亮，不用重新载入页面也会把那张小图重做一遍（不会一直用旧的）。 */
+function lkGlassKey(img){return img+'|'+LKGLASS.blur+'|'+LKGLASS.bright+'|'+LKGLASS.sat}
+function lkGlassClear(el){
+  _lkGlassSrc='';_lkGlassUrl='';_lkGlassBusy=false;_lkGlassFitSig='';_lkGlassKey='';
+  var lock=el||document.getElementById('lock');if(!lock)return;
+  lock.style.removeProperty('--lk-glass');
+  lock.style.removeProperty('--lk-gw');lock.style.removeProperty('--lk-gh');
+  lock.style.removeProperty('--lk-gx');lock.style.removeProperty('--lk-gy');
+}
+/* 做那张「磨砂小图」：只在换壁纸的时候做一次（要画一次 canvas，别每次开机都做） */
+function lkGlassBuild(img){
+  if(_lkGlassNoFilter)return;              /* 这台浏览器不支持 canvas 模糊：干脆不做，保持数字原样 */
+  if(!img||_lkGlassBusy)return;
+  var key=lkGlassKey(img);
+  if(key===_lkGlassKey)return;             /* 同一张图、同一套参数：不用重做 */
+  var wall=document.getElementById('lkWall');if(!wall)return;
+  var r=wall.getBoundingClientRect();
+  var bw=Math.round(r.width),bh=Math.round(r.height);
+  if(bw<4||bh<4)return;      /* 锁屏还没显示、量不到尺寸：等锁屏出来再补做（见 lkGlassFit） */
+  _lkGlassBusy=true;
+  var im=new Image();
+  im.onload=function(){
+    _lkGlassBusy=false;
+    try{
+      var iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
+      if(!iw||!ih)return;
+      var k=Math.min(1,LKGLASS.max/Math.max(bw,bh));     /* 导出倍率：够用就好，反正要糊 */
+      var s=Math.max(bw/iw,bh/ih);                        /* cover：跟壁纸层一样的铺法，位置才对得上 */
+      var dw=iw*s,dh=ih*s,ox=(bw-dw)/2,oy=(bh-dh)/2;      /* 图在屏幕上多大、左上角落在哪 */
+      var m=Math.round(LKGLASS.blur*LKGLASS.margin);      /* 多留一圈，免得模糊虚边露出来 */
+      var cv=document.createElement('canvas');
+      cv.width=Math.max(8,Math.round((bw+m*2)*k));cv.height=Math.max(8,Math.round((bh+m*2)*k));
+      var g=cv.getContext('2d');if(!g)return;
+      if(typeof g.filter!=='string'){_lkGlassNoFilter=true;return}   /* 不支持模糊：放弃，数字保持原样 */
+      g.filter='blur('+(LKGLASS.blur*k).toFixed(2)+'px) brightness('+LKGLASS.bright+') saturate('+LKGLASS.sat+')';
+      g.drawImage(im,(ox+m)*k,(oy+m)*k,dw*k,dh*k);
+      g.filter='none';
+      var ow=Math.max(4,Math.round(bw*k)),oh=Math.max(4,Math.round(bh*k));   /* 裁掉四周多留的那圈 */
+      var out=document.createElement('canvas');out.width=ow;out.height=oh;
+      var g2=out.getContext('2d');if(!g2)return;
+      g2.drawImage(cv,Math.round(m*k),Math.round(m*k),ow,oh,0,0,ow,oh);
+      _lkGlassUrl=out.toDataURL('image/jpeg',.85);
+      _lkGlassSrc=img;_lkGlassKey=key;_lkGlassFitSig='';
+      var lock=document.getElementById('lock');
+      if(lock)lock.style.setProperty('--lk-glass','url("'+_lkGlassUrl+'")');
+      try{lkGlassFit()}catch(e){}
+    }catch(e){}      /* 画不出来（比如老浏览器）：就不显示玻璃，数字保持原样 */
+  };
+  im.onerror=function(){_lkGlassBusy=false};
+  im.src=img;
+}
+/* 把那张小图「对准」数字：数字被横向压窄、纵向拉高过，
+   所以要把图按相反的比例放回数字自己的坐标系里，笔画内外的背景才能接上，看着才像一整块玻璃。 */
+function lkGlassFit(){
+  var lock=document.getElementById('lock'),wall=document.getElementById('lkWall'),t=document.getElementById('lkTime');
+  if(!lock||!wall||!t)return;
+  if(!lock.classList.contains('on'))return;    /* 锁屏没显示的时候量不准，跳过 */
+  if(_lkGlassWant&&lkGlassKey(_lkGlassWant)!==_lkGlassKey){try{lkGlassBuild(_lkGlassWant)}catch(e){}return}
+  if(!_lkGlassUrl)return;
+  /* 冒号小球每分钟会跟着时间重画一次（元素是新的），所以每次都重新铺一遍。
+     它跟数字用的是同一张图，位置换算只跟"框子"有关、跟图无关，重算很便宜。 */
+  try{lkGlassDots()}catch(e){}
+  var r=wall.getBoundingClientRect(),q=t.getBoundingClientRect();
+  var lw=t.offsetWidth,lh=t.offsetHeight;
+  if(!lw||!lh||r.width<4||q.width<4)return;
+  var sx=q.width/lw,sy=q.height/lh;            /* 实际被压窄 / 拉高的倍数 */
+  if(!isFinite(sx)||!isFinite(sy)||sx<=0||sy<=0)return;
+  var sig=[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height),
+           Math.round(q.left),Math.round(q.top),Math.round(q.width),Math.round(q.height),Math.round(lh)].join(',');
+  if(sig===_lkGlassFitSig)return;              /* 位置没变就别重复写 */
+  _lkGlassFitSig=sig;
+  var clx=q.left+q.width/2,cly=q.top+q.height/2;   /* 数字在屏幕上的中心 */
+  var olx=lw/2,oly=lh/2;                           /* 数字自己盒子里的中心 */
+  lock.style.setProperty('--lk-gw',(r.width/sx).toFixed(2)+'px');
+  lock.style.setProperty('--lk-gh',(r.height/sy).toFixed(2)+'px');
+  lock.style.setProperty('--lk-gx',(olx+(r.left-clx)/sx).toFixed(2)+'px');
+  lock.style.setProperty('--lk-gy',(oly+(r.top-cly)/sy).toFixed(2)+'px');
+}
+/* 【方案2·续】把毛玻璃铺进冒号的两个小球里。
+   小球不是文字，没法用「裁进文字笔画」那招，所以单独量一次：
+   它俩各自被缩放过（scaleY 0.4 抵消压窄），量出实际缩放再反过来换算，
+   铺的还是同一张磨砂小图，所以笔画内外、小球里外都是同一块背景，接得上。
+   注意：时间每分钟会重画一次，小球元素是新的，所以每次重画后都会再铺一遍（见 lockFace）。 */
+function lkGlassDots(){
+  var lock=document.getElementById('lock'),wall=document.getElementById('lkWall');
+  if(!lock||!wall||!_lkGlassUrl)return;
+  if(!lock.classList.contains('on'))return;
+  var ds=document.querySelectorAll('#lkTime .lktbody .lkc i');
+  if(!ds||!ds.length)return;
+  var r=wall.getBoundingClientRect();
+  if(r.width<4)return;
+  for(var i=0;i<ds.length;i++){
+    var d=ds[i],dw=d.offsetWidth,dh=d.offsetHeight;
+    if(!dw||!dh)continue;
+    var q=d.getBoundingClientRect();
+    if(q.width<1||q.height<1)continue;
+    var u=q.width/dw,v=q.height/dh;              /* 这颗球实际被缩放的倍数（含它自己的 scaleY 和整体的压窄/拉高） */
+    if(!isFinite(u)||!isFinite(v)||u<=0||v<=0)continue;
+    var cx=q.left+q.width/2,cy=q.top+q.height/2; /* 这颗球在屏幕上的中心 */
+    var olx=dw/2,oly=dh/2;                       /* 它自己盒子里的中心 */
+    d.style.setProperty('--lk-dgw',(r.width/u).toFixed(2)+'px');
+    d.style.setProperty('--lk-dgh',(r.height/v).toFixed(2)+'px');
+    d.style.setProperty('--lk-dgx',(olx+(r.left-cx)/u).toFixed(2)+'px');
+    d.style.setProperty('--lk-dgy',(oly+(r.top-cy)/v).toFixed(2)+'px');
+  }
+}
+/* ---------- 锁屏方案（皮肤） ----------
+   每一款都各放各的，互不影响：
+     ① 样式：每款一张自己的样式表（id 是 lkCSS-款式的k，现代款就是 lkCSS-modern）。
+        切换时，脚本把「不是当前款」的样式表整张关掉（见 lkApplyScheme），
+        所以某一款的样式绝不可能串到另一款身上。
+     ② 界面：只属于某一款的块，在 HTML 里标 data-lk-only="款式的k"，
+        不是当前款就隐藏。
+     ③ 名字：在下面 lkSchemes() 的表里加一行。
+   现在只有一项「现代款」，就是目前这套外观（大数字时钟 + 顶部状态栏 + 底部手电筒/相机）。
+   选中的方案存在 cfg.lkScheme 里，跟设置一起加密保存、跟着备份走。 */
+function lkSchemes(){
+  return [
+    /* base:1 = 这一款还当「底座」：别的款（搞笑款）在它的布局上换皮肤，所以它始终开着 */
+    {k:'modern',n:'现代款',base:1,hint:'就是现在这个样子：超大的数字时钟 + 顶部状态栏（运营商／信号／电量）+ 底部手电筒、相机按钮。'},
+    {k:'funny',n:'搞笑款',hint:'在现代款的布局上换皮肤：顶部状态栏整条变彩虹色、左上角改成「中国电动」、日期变白金色发光、时间大字变绿色透明。'}
+  ];
+}
+function lkSchemeCur(){
+  const k=(cfg&&cfg.lkScheme)||'modern';
+  const list=lkSchemes();
+  for(let i=0;i<list.length;i++)if(list[i].k===k)return k;
+  return 'modern';                 /* 存的值对不上就退回默认款 */
+}
+function lkSchemeName(k){
+  const list=lkSchemes();
+  for(let i=0;i<list.length;i++)if(list[i].k===k)return list[i].n;
+  return k;
+}
+function lkSchemeHint(){
+  const k=lkSchemeCur(),list=lkSchemes();
+  for(let i=0;i<list.length;i++)if(list[i].k===k)return list[i].hint;
+  return '';
+}
+/* 开关某一款的整张样式表：on=true 打开，false 关掉。
+   disabled 是标准写法；media="not all" 是老浏览器也认的兜底。 */
+function lkSheetOn(id,on){
+  const el=document.getElementById(id);if(!el)return;
+  try{el.disabled=!on}catch(e){}
+  try{el.media=on?'all':'not all'}catch(e){}
+}
+/* 把选中的方案生效：① 在 #lock 上记下当前方案名；② 只显示属于这一款的界面块；
+   ③ 只打开属于这一款的样式表（别的款整张关掉，互相不干扰）。 */
+function lkApplyScheme(){
+  const el=document.getElementById('lock');if(!el)return;
+  const k=lkSchemeCur();
+  try{el.dataset.lk=k}catch(e){el.setAttribute('data-lk',k)}
+  /* ② 只属于某一款的界面块：不是当前款就藏起来 */
+  let nodes=[];
+  try{nodes=Array.prototype.slice.call(el.querySelectorAll('[data-lk-only]'))}catch(e){}
+  for(let i=0;i<nodes.length;i++){
+    /* data-lk-only 里可以写多款（用空格隔开，比如 "modern funny"），写着当前款才显示 */
+    const owner=' '+(nodes[i].getAttribute('data-lk-only')||'')+' ';
+    nodes[i].style.display=(owner.indexOf(' '+k+' ')>=0)?'':'none';
+  }
+  /* ③ 样式表：当前款那张打开；另外「底座款」（现代款，lkSchemes 里标了 base:1）
+        始终保留，因为它提供的是布局，搞笑款只是在它上面换皮肤。
+        所以现代款自己那张，仍旧只在选现代款时才起作用 —— 现代款界面一点没变。 */
+  const list=lkSchemes();
+  for(let i=0;i<list.length;i++)lkSheetOn('lkCSS-'+list[i].k,!!list[i].base||list[i].k===k);
+}
+function setLkScheme(k){
+  if(!cfg)cfg={};
+  cfg.lkScheme=k;
+  save(LS.cfg,cfg);
+  try{lkApplyScheme()}catch(e){}
+  toast('锁屏方案：'+lkSchemeName(k));
 }
 function applyLockWall(){
   const el=document.getElementById('lock'),wall=document.getElementById('lkWall'),fg=document.getElementById('lkFg');
@@ -10633,6 +11011,7 @@ function lockFitTime(){
   if(boxH)s=Math.min(s,boxH*0.82);         /* 横屏 / 屏幕很矮时按高度再收一收 */
   s=Math.max(40,Math.min(260,s));
   el.style.fontSize=s.toFixed(1)+'px';
+  try{lkGlassFit()}catch(e){}      /* 【方案2】字号定了：把毛玻璃那张小图对准数字（大小、位置一起算） */
 }
 function lockArmFit(){
   if(window.__lkFitArmed)return;
@@ -10733,6 +11112,7 @@ function lockShow(){
         const s=lockSkinRead();
         if(s){
           cfg={theme:s.theme||'dark',font:s.font||'sys',fs:15,dev:false,showThink:true,__lockskin:true,
+               lkScheme:s.sch||'modern',
                wall:{lImg:s.img||'',lOp:(s.op==null?1:s.op),lOn:!!s.img}};
         }
       }
@@ -10740,9 +11120,10 @@ function lockShow(){
     }
   }catch(e){}
   try{applyLockWall()}catch(e){}
+  try{lkApplyScheme()}catch(e){}   /* 【新】按设置里选的「锁屏方案」给锁屏挂上标记 */
   try{lockFace()}catch(e){}
   try{lkMusicPaint()}catch(e){}   /* 【新】锁屏一出来就把音乐气泡刷新好 */
-  try{lkBattery()}catch(e){}      /* 【新】顺手把顶部状态栏的电量刷一下（读不到就保持 31） */
+  try{lkBattery()}catch(e){}      /* 【新】顺手把顶部状态栏的电量刷一下（读不到就保持普通的电池样子） */
   try{sbVol()}catch(e){}          /* 【新】顺手把顶部那个小喇叭刷成当前音量的样子 */
   lkGoPass(false);                    /* 每次都从「看时间」那一屏开始 */
   el.classList.add('on');
@@ -10832,6 +11213,8 @@ function fixCfg(){
   if(!cfg.wall||typeof cfg.wall!=='object')cfg.wall={};
   if(cfg.wall.dOp==null)cfg.wall.dOp=.45;
   if(cfg.wall.cOp==null)cfg.wall.cOp=.45;
+  /* ↓ 【新】锁屏方案：没设过就默认「现代款」（就是目前这套外观） */
+  if(!cfg.lkScheme)cfg.lkScheme='modern';
   /* ↓ 补丁5：万一默认模型是空的，兜一个默认值，避免请求里没有 model 字段 */
   if(!cfg.model)cfg.model='gpt-4o-mini';
 }
@@ -10934,6 +11317,7 @@ function openDeepLink(){
 async function initApp(){
   loadInitialState();
   finishAppStart();
+  try{lkApplyScheme()}catch(e){}   /* 【新】按设置里的「锁屏方案」把锁屏样式/界面切换到位 */
   /* 【新增】开机后跟 IndexedDB 里的安全副本对一次：本地存储里缺的消息补回来 */
   try{await recoverFromMirror(false)}catch(e){}
 }
