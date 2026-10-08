@@ -219,6 +219,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .thm-chips{display:flex;flex-wrap:wrap;gap:8px}
 .thm-chip{flex:1 1 46%;min-width:104px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);padding:10px 8px;border-radius:14px;box-shadow:none;font-size:13.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .thm-chip.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);font-weight:600}
+.thm-chips.t3 .thm-chip{flex:1 1 30%;min-width:0}   /* 【新】三个一排（桌面文字颜色） */
 .thm-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--line)}
 .thm-row:last-child{border-bottom:0}
 .thm-thumb{width:46px;height:46px;flex:0 0 46px;border-radius:13px;background:var(--bg2);border:1px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--dim)}
@@ -245,6 +246,16 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .thm-quick button:active{transform:scale(.9)}
 .thm-mini{margin-left:6px;padding:3px 9px;border-radius:999px;background:var(--accdim);border:1px solid var(--acc);color:var(--acc);font-size:11px;line-height:1.4;box-shadow:none}
 .thm-mini:active{transform:scale(.94)}
+/* 【新】桌面 UI 风格：两个可点的小预览卡 */
+.thm-dopts{display:flex;gap:10px}
+.thm-dopt{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 8px 9px;border-radius:16px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);box-shadow:none;text-align:center;overflow:hidden}
+.thm-dopt.on{border-color:var(--acc);background:var(--accdim)}
+.thm-dopt .thm-dnm{font-size:13.5px;font-weight:600;color:var(--txt)}
+.thm-dopt .thm-dhint{font-size:10.5px;line-height:1.4;max-width:100%}
+.thm-dmini{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px;border-radius:13px;background:linear-gradient(160deg,#a6c7e6,#5d84ab);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.thm-dmini i{display:block;width:22px;height:22px;border-radius:7px}
+.thm-dmini i.s{background:linear-gradient(160deg,#63b0ff,#0a6fd6);box-shadow:0 3px 8px rgba(0,0,0,.2)}
+.thm-dmini i.g{background:linear-gradient(150deg,rgba(255,255,255,.62),rgba(255,255,255,.22));border:1px solid rgba(255,255,255,.8);box-shadow:0 3px 8px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.9);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 /* ---------- 锁屏大字：调节区的「竖屏手机」预览 + 滑块行 ----------
    预览按真锁屏的比例缩放：竖屏、状态栏、日期、撑满宽度的大时间、底部两个圆钮 + 手势条。
    字号由脚本按「数字大约占屏宽 93%」算出来（和真锁屏 lockFitTime 一个算法）。 */
@@ -269,11 +280,13 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) var(--lk-f0,44%),rgba(0,0,0,.78) calc(var(--lk-f0,44%) + 30%),rgba(0,0,0,.55) calc(var(--lk-f0,44%) + 48%),rgba(0,0,0,.4) 100%);
   mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) var(--lk-f0,44%),rgba(0,0,0,.78) calc(var(--lk-f0,44%) + 30%),rgba(0,0,0,.55) calc(var(--lk-f0,44%) + 48%),rgba(0,0,0,.4) 100%)}
 /* 音乐卡片：照真锁屏那张玻璃卡缩小的版本（位置也照真机：卡片底边在屏幕 80% 处） */
-.lkfx-card{position:absolute;left:6%;right:6%;bottom:20%;height:15%;border-radius:12px;
-  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:7px 9px;display:flex;flex-direction:column;justify-content:space-between}
-.lkfx-ct{font-size:8.5px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lkfx-cs{font-size:7px;color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 预览里的卡片也跟着「音乐卡片」的参数走（尺寸按预览的缩放比例折算：约 0.55 / 0.33 倍） */
+.lkfx-card{position:absolute;left:6%;right:6%;bottom:20%;height:15%;border-radius:calc(var(--lkmu-r,22px) * .55);
+  background:rgba(122,134,160,var(--lkmu-bg,.22));border:1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter:blur(calc(var(--lkmu-blur,18px) * .33));backdrop-filter:blur(calc(var(--lkmu-blur,18px) * .33));
+  padding:7px 9px;display:flex;flex-direction:column;justify-content:space-between}
+.lkfx-ct{font-size:calc(8.5px * var(--lkmu-fs,1));font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lkfx-cs{font-size:calc(7px * var(--lkmu-fs,1));color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lkfx-cbar{height:2.5px;border-radius:2px;background:rgba(255,255,255,.28);margin-top:5px}
 .lkfx-cbar i{display:block;height:100%;width:0;border-radius:2px;background:rgba(255,255,255,.9)}
 .lkfx-cctl{display:flex;align-items:center;justify-content:space-between;padding:0 12%}
@@ -445,7 +458,14 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
    所以数字的笔画变细了，小球还是原来那种圆滚滚的样子。 */
 .lktime>span{display:block}
 .lktime>.lktbody,.lktime>.lktrim,.lktime>.lkdots{margin-top:-1em}
-.lktime>.lkshadow,.lktime>.lktbody,.lktime>.lktrim{-webkit-filter:url(#lkThin);filter:url(#lkThin)}   /* 【新】把字的笔画瘦一圈；浏览器不认识就自动忽略，字还是原来的粗细 */
+/* 【改】这里原来给字身套了「瘦身」滤镜（feMorphology erode 1.2）。
+   实测（用截图逐像素量过）：它把笔画只削细大约 4%（基本看不出来），
+   但会把「字身边缘」整体往里缩约 1 个像素；而亮边是描在原来轮廓上的，
+   于是两者之间空出一条约 1 像素的缝 —— 缝里是纯背景色，看着就是「亮边分层了」。
+   为了这么点削细换来一条看得见的缝不划算，所以取消瘦身：笔画粗细几乎没变化，
+   亮边就能紧紧贴着字身了。（想让笔画细一点，现在用「亮边」那层的观感也够干净。）
+   如果哪天想恢复：把下面这行前面的 // 去掉即可。 */
+/* .lktime>.lkshadow,.lktime>.lktbody{-webkit-filter:url(#lkThin);filter:url(#lkThin)} */
 .lktime>.lkdots{color:transparent;-webkit-text-fill-color:transparent}   /* 这一层只用来放小球，文字本身不画出来 */
 /* ① 阴影层：字身全透明，只在字边留一点点淡影（数字看着才不飘）。
    注意这个透明度：影子会从半透明的字身里透出来，数值一大整块字就发灰发黑，所以只留 0.06。 */
@@ -546,10 +566,13 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .lkbtn.l svg{width:60%;height:60%}   /* 手电筒单独放大一点（参考图里它占按钮直径的一大半） */
 .lkbtn.r svg{width:60%;height:60%}   /* 相机也一样放大，两个按钮才对称 */
 /* ---------- 【新】锁屏上的音乐气泡（和「音乐」小应用共用播放状态） ---------- */
-.lkmu{position:absolute;z-index:5;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 20vh);
-  padding:12px 14px 8px;border-radius:22px;color:#fff;
-  background:rgba(122,134,160,.22);border:1px solid rgba(255,255,255,.2);   /* 【改】底色更透一点（原来 .34） */
-  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+/* 【新】卡片的几个数值都改成可调变量（在「主题 → 音乐卡片」里调，默认值和原来完全一样）：
+   --lkmu-pos 离底多高 / --lkmu-mx 左右边距 / --lkmu-r 圆角 / --lkmu-bg 底色不透明度
+   --lkmu-blur 磨砂强度 / --lkmu-fs 文字大小 */
+.lkmu{position:absolute;z-index:5;left:var(--lkmu-mx,16px);right:var(--lkmu-mx,16px);bottom:calc(env(safe-area-inset-bottom) + var(--lkmu-pos,20vh));
+  padding:12px 14px 8px;border-radius:var(--lkmu-r,22px);color:#fff;
+  background:rgba(122,134,160,var(--lkmu-bg,.22));border:1px solid rgba(255,255,255,.2);   /* 【改】底色更透一点（原来 .34） */
+  -webkit-backdrop-filter:blur(var(--lkmu-blur,18px));backdrop-filter:blur(var(--lkmu-blur,18px));
   box-shadow:0 14px 34px rgba(0,0,0,.3);
   opacity:0;transform:translateY(16px);pointer-events:none;
   transition:opacity .3s ease,transform .45s cubic-bezier(.22,.75,.25,1);
@@ -558,8 +581,8 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 #lock.pass .lkmu{opacity:0;transform:translateY(14%);pointer-events:none}
 .lkmuHead{display:flex;align-items:center;gap:10px}
 .lkmuTxt{flex:1 1 auto;min-width:0}
-.lkmuTitle{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lkmuArtist{font-size:12px;opacity:.78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px;min-height:15px}
+.lkmuTitle{font-size:calc(14px * var(--lkmu-fs,1));font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lkmuArtist{font-size:calc(12px * var(--lkmu-fs,1));opacity:.78;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px;min-height:15px}
 .lkmuEq{flex:0 0 auto;display:flex;align-items:flex-end;gap:2.5px;height:16px;opacity:.5}
 .lkmuEq i{display:block;width:2.5px;height:7px;border-radius:2px;background:currentColor;animation:lkmuEq .9s ease-in-out infinite}
 .lkmuEq:not(.on) i{animation:none;transform:scaleY(.45)}   /* 没在播的时候：三根线定住不动（不抖） */
@@ -569,7 +592,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 @keyframes lkmuEq{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1.2)}}
 .lkmuBar{height:4px;border-radius:3px;background:rgba(255,255,255,.26);margin:12px 0 5px;overflow:hidden}
 .lkmuBar i{display:block;height:100%;width:0;border-radius:3px;background:rgba(255,255,255,.92);transition:width .35s linear}
-.lkmuNums{display:flex;justify-content:space-between;font-size:11px;opacity:.82;font-variant-numeric:tabular-nums}
+.lkmuNums{display:flex;justify-content:space-between;font-size:calc(11px * var(--lkmu-fs,1));opacity:.82;font-variant-numeric:tabular-nums}
 .lkmuCtl{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 0}
 .lkmb{background:none;border:0;box-shadow:none;padding:6px 10px;color:#fff;opacity:.92;line-height:0;border-radius:12px}
 .lkmb svg{width:24px;height:24px;display:block}
@@ -1381,6 +1404,7 @@ function applyWall(){
     }else{el.style.backgroundImage='none';el.style.opacity='0'}
   }catch(e){}
   try{applyLockWall()}catch(e){}   /* 【新增】锁屏那张壁纸一起刷新 */
+  try{if(window.homeWallTone)window.homeWallTone()}catch(e){}   /* 【新】桌面文字按壁纸深浅自动换色（补丁14提供） */
 }
 /* 设置页：背景图卡片 */
 function cfgWallCardHTML(){
@@ -10649,10 +10673,11 @@ function lockSkinWrite(c){
          · para ——「锁屏视差」开关（默认开）
          锁屏是靠着这份影子重建配置的，影子没有的字段就会退回默认值。 */
       fx:(s.lkfx&&typeof s.lkfx==='object')?s.lkfx:{},
-      para:(s.lkPara!==false)};
+      para:(s.lkPara!==false),
+      mus:(s.lkmfx&&typeof s.lkmfx==='object')?s.lkmfx:{}};   /* 音乐卡片的参数（同上，锁屏也要读得到） */
     try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify(out))}
     catch(e){                        /* 图太大存不下：至少把主题和字体存对，锁屏别变成原始深蓝 */
-      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,sch:out.sch,img:'',op:1,acc:out.acc,on:out.on,fx:out.fx,para:out.para}))}catch(e2){}
+      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,sch:out.sch,img:'',op:1,acc:out.acc,on:out.on,fx:out.fx,para:out.para,mus:out.mus}))}catch(e2){}
     }
   }catch(e){}
 }
@@ -11424,6 +11449,7 @@ function lockShow(){
                /* 【修】把影子里记的「锁屏大字参数」和「视差开关」还原回去：
                   以前这两项没记，所以你在主题里调好的大字效果一到锁屏就变回默认。 */
                lkfx:(s.fx&&typeof s.fx==='object')?s.fx:{},
+               lkmfx:(s.mus&&typeof s.mus==='object')?s.mus:{},
                lkPara:(s.para!==false),
                /* 【修】开关以影子里记的为准；老数据没这个字段才退回「有图就算开」 */
                wall:{lImg:s.img||'',lOp:(s.op==null?1:s.op),lOn:(s.on==null?!!s.img:!!s.on)}};
@@ -11501,6 +11527,8 @@ function fixCfg(){
   if(cfg.dev==null)cfg.dev=false;
   if(!THEMES[cfg.theme])cfg.theme='dark';
   if(!cfg.fs)cfg.fs=15;
+  if(cfg.deskStyle!=='glass')cfg.deskStyle='retro';   /* 【新】桌面 UI 风格：'retro' 复古（默认）/ 'glass' 玻璃 */
+  if(cfg.deskText!=='white'&&cfg.deskText!=='dark')cfg.deskText='auto';   /* 【新】桌面文字颜色：'auto' 自动（默认）/ 'white' 白 / 'dark' 深 */
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
   if(cfg.autoSum==null)cfg.autoSum=false;
   if(cfg.ctx==null)cfg.ctx=30;
@@ -12214,9 +12242,14 @@ function thmHTML(){
   thmFontsHTML(fkey)+
   '<div class="thm-sec">字号</div>'+
   thmSizeHTML(fs)+
+  '<div class="thm-sec">桌面 UI 风格</div>'+
+  thmDeskHTML()+
+  '<div class="thm-sec">桌面文字颜色</div>'+
+  thmTextHTML()+
   '<div class="thm-sec">锁屏</div>'+
   thmLkHTML()+
   lkfxHTML()+
+  lkmfxHTML()+
   '<div class="thm-sec">背景图</div>'+
   thmWallHTML()+
   '<p class="fic-sub">改完立刻生效，不用点保存。</p>'+
@@ -12262,6 +12295,39 @@ function thmSizeHTML(fs){
       'oninput="thmSetSize(this.value,0)" onchange="thmSetSize(this.value,1)"></div>'+
     '<div class="thm-sample"><div class="thm-prev-t">预览</div>'+
     '<p>她推开门，风铃叮当响了一声——今天也要好好的。</p></div>';
+}
+/* 【新】桌面 UI 风格：复古（彩色方块）/ 玻璃（半透明磨砂玻璃） */
+function thmDeskHTML(){
+  const cur=((cfg&&cfg.deskStyle)==='glass')?'glass':'retro';
+  const opt=(k,n,h)=>{
+    const mini=(k==='glass')
+      ? '<span class="thm-dmini"><i class="g"></i><i class="g"></i><i class="g"></i></span>'
+      : '<span class="thm-dmini"><i class="s"></i><i class="s"></i><i class="s"></i></span>';
+    return '<button type="button" class="thm-dopt'+(k===cur?' on':'')+'" onclick="thmSetDesk(\''+k+'\')">'+mini+
+      '<span class="thm-dnm">'+n+'</span><span class="thm-dhint">'+h+'</span></button>';
+  };
+  return '<div class="thm-dopts">'+
+    opt('retro','复古','彩色方块，就是现在这样')+
+    opt('glass','玻璃','半透明磨砂玻璃，透出壁纸')+
+    '</div>'+
+    '<p class="fic-sub">'+esc(cur==='glass'
+      ?'现在是「玻璃」：应用方块和上下两条组件都是半透明玻璃，能透出后面的壁纸纹理；方块外面一圈很细的深色边，里面上下各有一条白色高光，图标线条用的是主题色。'
+      :'现在是「复古」：彩色圆角方块 + 白色线条，看着更鲜艳、更“实”。')+'</p>';
+}
+/* 【新】桌面文字颜色：自动 / 白色 / 深色（只影响桌面上的字：状态栏 + 图标名字） */
+function thmTextHTML(){
+  const cur=(cfg&&(cfg.deskText==='white'||cfg.deskText==='dark'))?cfg.deskText:'auto';
+  const opts=[['auto','自动'],['white','白色'],['dark','深色']];
+  return '<div class="thm-chips t3">'+opts.map(o=>
+    '<button type="button" class="thm-chip'+(o[0]===cur?' on':'')+'" onclick="thmSetText(\''+o[0]+'\')">'+o[1]+'</button>'
+  ).join('')+'</div>'+
+  '<p class="fic-sub">'+esc(
+    cur==='auto'
+      ?'现在是「自动」：会量一下桌面壁纸是深是浅（只看上面 70% 那一条，也就是状态栏和图标名字所在的位置）——深色壁纸用白字，浅色壁纸用深色字。'
+      :(cur==='white'
+        ?'现在是「白色」：桌面上的字固定用白色（适合深色、或者上亮下暗的壁纸）。没设桌面壁纸时不受影响，还是跟着主题走。'
+        :'现在是「深色」：桌面上的字固定用深色（适合浅色壁纸）。没设桌面壁纸时不受影响，还是跟着主题走。')
+  )+'</p>';
 }
 function thmLkHTML(){
   const cur=lkSchemeCur();
@@ -12315,6 +12381,20 @@ function thmWallRow(tag,label,hint,w){
 }
 
 /* ---------- 交互（全部即时生效） ---------- */
+/* 【新】切桌面 UI 风格：存进配置 → 让桌面外壳重新上样式 → 重画这一页（那个小勾才会动） */
+function thmSetDesk(k){
+  cfg.deskStyle=(k==='glass')?'glass':'retro';
+  save(LS.cfg,cfg);
+  try{if(window.setHomeStyle)window.setHomeStyle(cfg.deskStyle)}catch(e){}
+  thmRender();
+}
+/* 【新】切桌面文字颜色：自动 / 白色 / 深色（立刻生效，不用关面板） */
+function thmSetText(k){
+  cfg.deskText=(k==='white'||k==='dark')?k:'auto';
+  save(LS.cfg,cfg);
+  try{if(window.homeWallTone)window.homeWallTone()}catch(e){}
+  thmRender();
+}
 function thmSetTheme(k){
   if(!THEMES[k])return;
   cfg.theme=k;save(LS.cfg,cfg);
@@ -12428,6 +12508,7 @@ function lkFxApply(){
     /* 磨砂玻璃那两个参数用的是全局的 LKGLASS（补丁里 var 出来的），统一从 window 取，取不到就跳过 */
     const GL=window.LKGLASS;
     if(GL){GL.blur=lkfxGet('blur');GL.bright=lkfxGet('bright')}
+    try{lkmuFxApply()}catch(e){}   /* 音乐卡片那几个参数一起挂上 */
   }catch(e){}
 }
 function lkfxSet(k,val,commit){
@@ -12526,6 +12607,85 @@ function lkfxHTML(){
   for(let i=0;i<LKFX_SPEC.length;i++)h+=lkfxRow(LKFX_SPEC[i][0]);
   h+='<button class="ghost" type="button" style="width:100%;margin-top:10px" onclick="lkfxResetAll()">恢复锁屏大字的默认效果</button>';
   h+='<p class="fic-sub">只影响锁屏那颗大时间（数字＋冒号小球），改完自动保存。想看真机效果：点右上角 ✕ 关掉，再锁一次屏。</p>';
+  return h;
+}
+
+/* ---------- 锁屏上的「音乐卡片」参数 ----------
+   和锁屏大字一样：默认值存在 LKMFX_DEF 里，用户的改动存在 cfg.lkmfx，恢复默认＝清空它。 */
+const LKMFX_DEF={pos:20,mx:16,r:22,bg:22,blur:18,fs:1};
+const LKMFX_SPEC=[
+  ['pos','离屏幕底部的高度',0,40,0.5,'vh'],
+  ['mx','左右边距',0,60,1,'px'],
+  ['r','圆角',0,40,1,'px'],
+  ['bg','底色不透明度',0,60,1,'%'],
+  ['blur','卡片磨砂强度',0,40,1,''],
+  ['fs','文字大小',0.8,1.5,0.02,'倍']
+];
+function lkmfxSpec(k){for(let i=0;i<LKMFX_SPEC.length;i++)if(LKMFX_SPEC[i][0]===k)return LKMFX_SPEC[i];return null}
+function lkmfxCfg(){
+  if(!cfg)return {};
+  if(!cfg.lkmfx||typeof cfg.lkmfx!=='object')cfg.lkmfx={};
+  return cfg.lkmfx;
+}
+function lkmfxGet(k){
+  const v=Number(lkmfxCfg()[k]);
+  let n=Number.isFinite(v)?v:LKMFX_DEF[k];
+  const s=lkmfxSpec(k);
+  if(s)n=Math.min(s[3],Math.max(s[2],n));
+  return n;
+}
+function lkmfxUnit(k){const s=lkmfxSpec(k);return s?s[5]:''}
+function lkmuFxApply(){
+  try{
+    const V={
+      '--lkmu-pos':lkmfxGet('pos')+'vh',
+      '--lkmu-mx':lkmfxGet('mx')+'px',
+      '--lkmu-r':lkmfxGet('r')+'px',
+      '--lkmu-bg':String((lkmfxGet('bg')/100).toFixed(3)),   /* 滑块是 0~60(%)，CSS 里要 0~0.6 */
+      '--lkmu-blur':lkmfxGet('blur')+'px',
+      '--lkmu-fs':String(lkmfxGet('fs'))
+    };
+    const r=document.documentElement.style;
+    for(const k in V)r.setProperty(k,V[k]);
+    const lock=document.getElementById('lock');
+    if(lock)for(const k in V)lock.style.setProperty(k,V[k]);
+  }catch(e){}
+}
+function lkmfxSet(k,val,commit){
+  const spec=lkmfxSpec(k);
+  let n=Number(val);
+  if(!Number.isFinite(n))n=LKMFX_DEF[k];
+  if(spec)n=Math.min(spec[3],Math.max(spec[2],n));
+  lkmfxCfg()[k]=n;
+  lkmuFxApply();
+  const lb=document.getElementById('lkmfxv_'+k);
+  if(lb)lb.textContent=lkfxShow(n,lkmfxUnit(k));
+  if(commit){save(LS.cfg,cfg);thmRender()}
+}
+function lkmfxReset1(k){delete lkmfxCfg()[k];save(LS.cfg,cfg);lkmuFxApply();thmRender()}
+function lkmfxResetAll(){
+  if(!confirm('把音乐卡片恢复成默认样子吗？\n（其它设置不受影响）'))return;
+  cfg.lkmfx={};
+  save(LS.cfg,cfg);
+  lkmuFxApply();
+  thmRender();
+  try{toast('音乐卡片已恢复默认')}catch(e){}
+}
+function lkmfxRow(k){
+  const spec=lkmfxSpec(k);if(!spec)return '';
+  const v=lkmfxGet(k),unit=spec[5],def=LKMFX_DEF[k];
+  return '<div class="lkfx-sl"><label><span>'+esc(spec[1])+'</span>'+
+    '<span><b id="lkmfxv_'+k+'">'+lkfxShow(v,unit)+'</b>'+
+    (Math.abs(v-def)>1e-9?('<button class="thm-mini" type="button" onclick="lkmfxReset1(\''+k+'\')">默认 '+lkfxShow(def,unit)+'</button>'):'')+
+    '</span></label>'+
+    '<input type="range" min="'+spec[2]+'" max="'+spec[3]+'" step="'+spec[4]+'" value="'+v+'" '+
+    'oninput="lkmfxSet(\''+k+'\',this.value,0)" onchange="lkmfxSet(\''+k+'\',this.value,1)"></div>';
+}
+function lkmfxHTML(){
+  let h='<div class="thm-sec">音乐卡片（锁屏上的歌名卡）</div>';
+  h+='<p class="fic-sub" style="margin:0 2px 8px">只在锁屏上「有正在播放的歌」时才会出现；下面这些只影响那张卡。</p>';
+  for(let i=0;i<LKMFX_SPEC.length;i++)h+=lkmfxRow(LKMFX_SPEC[i][0]);
+  h+='<button class="ghost" type="button" style="width:100%;margin-top:10px" onclick="lkmfxResetAll()">恢复音乐卡片的默认样子</button>';
   return h;
 }
 function thmPick(tag){
@@ -19055,6 +19215,97 @@ function hexA(h,a){
   return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
 function isLocked(){var l=D.getElementById('lock');return !!(l&&getComputedStyle(l).display!=='none')}
+/* 把颜色往亮／暗方向调一点，用来做图标的上下渐变（iOS 图标那种亮顶暗底） */
+function mixc(h,to,t){
+  h=String(h||'').trim().replace('#','');
+  if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+  if(h.length!==6)return '#8a8a8a';
+  var n=parseInt(h,16);if(isNaN(n))return '#8a8a8a';
+  var r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  var R=Math.round(r+(to[0]-r)*t),Gx=Math.round(g+(to[1]-g)*t),B=Math.round(b+(to[2]-b)*t);
+  return '#'+('0'+R.toString(16)).slice(-2)+('0'+Gx.toString(16)).slice(-2)+('0'+B.toString(16)).slice(-2);
+}
+/* ---------- 桌面 UI 风格：'retro' 复古（默认）/ 'glass' 玻璃 ---------- */
+function homeStyle(){
+  try{return ((cfg&&cfg.deskStyle)==='glass')?'glass':'retro'}catch(e){return 'retro'}
+}
+function applyHomeStyle(){
+  try{D.documentElement.setAttribute('data-home',homeStyle())}catch(e){}
+}
+window.setHomeStyle=function(k){
+  try{cfg.deskStyle=(k==='glass')?'glass':'retro';save(LS.cfg,cfg)}catch(e){}
+  applyHomeStyle();
+  try{if(view==='home')renderHome()}catch(e){}
+};
+/* ---------- 桌面文字深浅：壁纸是深色的，状态栏和图标名字自动换成白色 ----------
+   壁纸是「按透明度叠在主题底色上」的，所以这里算的是叠完之后的实际亮度，
+   再决定用白字还是原来的深色字。量出来的结果会缓存，不会每次都重算。 */
+var _toneUrl='',_toneLum=null,_tonePend=false;
+function themeBgLum(){
+  try{
+    var h=String(getComputedStyle(D.documentElement).getPropertyValue('--bg')||'').replace('#','').trim();
+    if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+    if(h.length!==6)return 0;
+    var n=parseInt(h,16)||0;
+    return .299*((n>>16)&255)+.587*((n>>8)&255)+.114*(n&255);
+  }catch(e){return 0}
+}
+function wallImgLum(url,cb){
+  try{
+    var im=new Image();
+    im.onload=function(){
+      try{
+        var c=D.createElement('canvas');c.width=24;c.height=24;
+        var g=c.getContext('2d');
+        var iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
+        if(iw&&ih){
+          /* 壁纸是用 background-size:cover + 居中的方式铺的，这里按同样的方式裁一刀，
+             量到的才是屏幕上真正看得见的那一块 */
+          var W=window.innerWidth||360,H=window.innerHeight||780;
+          var k=Math.max(W/iw,H/ih),vw=W/k,vh=H/k,sx=(iw-vw)/2,sy=(ih-vh)/2;
+          g.drawImage(im,sx,sy,vw,vh,0,0,24,24);
+        }else{
+          g.drawImage(im,0,0,24,24);        /* 读不到尺寸就整张量，不影响成不成 */
+        }
+        var d=g.getImageData(0,0,24,24).data,s=0,n=0,x,y;
+        /* 只看上面 70% 那一条：状态栏和三行图标名字都在这里，
+           下面那截壁纸再暗也不参与判断 */
+        for(y=0;y<17;y++)for(x=0;x<24;x++){
+          var o=(y*24+x)*4;
+          s+=.299*d[o]+.587*d[o+1]+.114*d[o+2];n++;
+        }
+        cb(n?s/n:null);
+      }catch(e){cb(null)}
+    };
+    im.onerror=function(){cb(null)};
+    im.src=url;
+  }catch(e){cb(null)}
+}
+function homeWallTone(){
+  try{
+    var put=function(dark){try{D.documentElement.classList.toggle('home-dark',!!dark)}catch(e){}};
+    var w=wallCfg(),url=(w.dOn&&w.dImg)?w.dImg:'';
+    if(!url){_toneUrl='';_toneLum=null;_tonePend=false;put(false);return}   /* 没设壁纸：跟着主题走 */
+    var mode=(cfg&&cfg.deskText==='white')?'white':((cfg&&cfg.deskText==='dark')?'dark':'auto');
+    if(mode==='white'){put(true);return}      /* 手动选了「白色」：桌面上的字一直用白的 */
+    if(mode==='dark'){put(false);return}       /* 手动选了「深色」：一直用深色的 */
+    var op=Math.max(.05,Math.min(1,w.dOp||.45));
+    var mix=function(l){return l*op+themeBgLum()*(1-op)};
+    if(_toneUrl!==url){_toneUrl=url;_toneLum=null}     /* 换图了：旧结果作废 */
+    if(_toneLum==null&&!_tonePend){                    /* 这张图还没量过、也没在量 → 量一次 */
+      _tonePend=true;
+      wallImgLum(url,function(l){
+        _tonePend=false;
+        if(_toneUrl!==url)return;                      /* 量完之前又换图了，这次结果丢掉 */
+        _toneLum=(l==null?-1:l);                       /* -1 表示量不出来，以后不再重试 */
+        if(l!=null)put(mix(l)<140);                    /* 量不出来就保持原来（深色字） */
+      });
+      return;
+    }
+    if(_toneLum!=null&&_toneLum>=0)put(mix(_toneLum)<140);   /* 亮度只跟图有关，透明度变了直接重算 */
+  }catch(e){}
+}
+window.homeWallTone=homeWallTone;
 function pad2(n){return (n<10?'0':'')+n}
 var WK=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
 
@@ -19084,24 +19335,25 @@ var BATT='<svg viewBox="0 0 24 24"><rect x="2.6" y="7.6" width="16.4" height="8.
 var BOLT='<svg id="sbBolt" viewBox="0 0 24 24" style="display:none"><path d="M3.9 13.6 14.4 2.3 12.2 10.5h8.2L9.8 21.7l2.2-8.1H3.9Z"/></svg>';
 
 /* ---------- ② 应用清单：桌面上放的图标 ---------- */
+/* c 是图标的主色（照着 iOS 系统应用的配色挑的），画出来会变成亮顶暗底的圆角方块 */
 var GRID=[
-  {k:'me',    n:'我的资料', g:'me'},
-  {k:'todo',  n:'待办',     g:'todo'},
-  {k:'group', n:'群聊',     g:'group'},
-  {k:'moments',n:'朋友圈',  g:'moments'},
-  {k:'fun',   n:'小工具',   g:'fun'},
-  {k:'music', n:'音乐',     g:'music'},
-  {k:'toy',   n:'互动',     g:'toy'},
-  {k:'act',   n:'演绎',     g:'act'},
-  {k:'world', n:'世界书',   g:'world'},
-  {k:'fic',   n:'番外',     g:'fic'},
-  {k:'thm',   n:'主题',     g:'thm'},
-  {k:'palace',n:'记忆宫殿', g:'palace'}
+  {k:'me',    n:'我的资料', g:'me',     c:'#0A84FF'},
+  {k:'todo',  n:'待办',     g:'todo',   c:'#FF9500'},
+  {k:'group', n:'群聊',     g:'group',  c:'#30B0C7'},
+  {k:'moments',n:'朋友圈',  g:'moments',c:'#FF375F'},
+  {k:'fun',   n:'小工具',   g:'fun',    c:'#5E5CE6'},
+  {k:'music', n:'音乐',     g:'music',  c:'#FF2D55'},
+  {k:'toy',   n:'互动',     g:'toy',    c:'#FFCC00'},
+  {k:'act',   n:'演绎',     g:'act',    c:'#BF5AF2'},
+  {k:'world', n:'世界书',   g:'world',  c:'#34C759'},
+  {k:'fic',   n:'番外',     g:'fic',    c:'#00C7BE'},
+  {k:'thm',   n:'主题',     g:'thm',    c:'#A2845E'},
+  {k:'palace',n:'记忆宫殿', g:'palace', c:'#64D2FF'}
 ];
 var DOCK=[
-  {k:'chat',  n:'聊天', g:'chat'},
-  {k:'roles', n:'角色', g:'roles'},
-  {k:'cfg',   n:'设置', g:'cfg'}
+  {k:'chat',  n:'聊天', g:'chat', c:'#34C759'},
+  {k:'roles', n:'角色', g:'roles',c:'#AF52DE'},
+  {k:'cfg',   n:'设置', g:'cfg',  c:'#8E8E93'}
 ];
 
 /* ---------- ③ 样式 ---------- */
@@ -19109,7 +19361,7 @@ var CSS=`nav{display:none!important}
 .appbar{display:none!important}
 
 body.home{background:radial-gradient(44% 26% at 16% 6%,var(--p14acc,rgba(120,170,255,.16)) 0%,transparent 70%),radial-gradient(48% 30% at 88% 88%,var(--p14acc,rgba(120,170,255,.16)) 0%,transparent 72%),var(--grad)}
-body.home #main{max-width:560px;padding-top:8px}
+body.home #main{max-width:560px;padding-top:6px}
 
 #statusbar{display:none;flex:0 0 auto;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 9px) 20px 5px;font-size:12.5px;font-weight:600;color:var(--txt);letter-spacing:.3px}
 body.home #statusbar{display:flex}
@@ -19140,29 +19392,114 @@ header .hback{width:34px;height:34px;flex:0 0 34px;display:none;align-items:cent
 header .hback:active{background:var(--bg2)}
 header.p8chat .hback{align-self:center;margin-top:0}
 
-.hcard{display:flex;align-items:center;gap:12px;margin:6px 0 16px;padding:15px 17px;border-radius:22px;background:var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.10);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+/* 桌面上方：一叠「组件」（时钟组件 + 正在播放组件） */
+.hw{display:flex;flex-direction:column;gap:12px;margin:2px 0 14px}
+.hcard{display:flex;align-items:center;gap:12px;margin:0;padding:16px 18px;border-radius:26px;background:var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.10);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+/* 正在播放组件：左边封面、中间歌名/歌手/进度条、右边三个按钮 */
+.musw{display:flex;align-items:center;gap:12px;margin:0;padding:13px 15px;border-radius:26px;background:var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.10);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:var(--txt);cursor:pointer}
+.mw-art{width:52px;height:52px;flex:0 0 52px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:linear-gradient(150deg,var(--acc2),var(--acc));box-shadow:0 4px 12px var(--p8accSh,rgba(63,169,216,.22))}
+.mw-art svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.musw.off .mw-art{background:linear-gradient(150deg,var(--p14glass2,rgba(127,127,127,.2)),var(--p14glass,rgba(127,127,127,.14)));box-shadow:none}
+.musw.off .mw-art svg{stroke:var(--dim)}
+.mw-info{flex:1;min-width:0}
+.mw-t{font-size:14.5px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mw-s{font-size:11.5px;color:var(--meta);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mw-bar{position:relative;height:3px;border-radius:2px;background:var(--p14glass2,rgba(127,127,127,.2));margin-top:8px;overflow:hidden}
+.mw-bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:2px;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .3s linear}
+.mw-ctl{display:flex;align-items:center;gap:2px;flex:0 0 auto}
+.mw-b{width:36px;height:36px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;box-shadow:none;color:var(--txt)}
+.mw-b:active{background:var(--p14glass2,rgba(127,127,127,.18))}
+.mw-b svg{width:19px;height:19px;fill:currentColor;stroke:none;display:block}
+.mw-play{width:42px;height:42px;background:var(--p14glass2,rgba(127,127,127,.16));color:var(--acc)}
+.mw-play svg{width:21px;height:21px}
 .hc-l{flex:1;min-width:0}
-.hc-t{font-size:34px;font-weight:700;line-height:1.05;letter-spacing:.5px;font-variant-numeric:tabular-nums}
-.hc-d{font-size:12px;color:var(--meta);margin-top:2px}
+.hc-t{font-size:38px;font-weight:700;line-height:1;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.hc-d{font-size:12px;color:var(--meta);margin-top:4px}
 .hc-av{display:flex;align-items:center;gap:8px;flex:0 0 auto;max-width:46%;background:transparent;border:0;box-shadow:none;padding:4px;border-radius:16px;color:var(--txt)}
 .hc-av:active{background:var(--p14glass2,rgba(127,127,127,.12))}
 .hc-avbox{width:38px;height:38px;flex:0 0 38px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--accdim);color:var(--acc);font-size:20px;line-height:1;overflow:hidden}
 .hc-avbox img{width:100%;height:100%;object-fit:cover;display:block}
 .hc-avnm{font-size:12px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
 
-.hgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 8px;padding:2px 0 10px}
-.happ{display:flex;flex-direction:column;align-items:center;gap:7px;background:transparent;border:0;box-shadow:none;padding:0;color:var(--txt);min-width:0}
-.happ:active .hico{transform:scale(.93)}
-.hico{width:58px;height:58px;border-radius:19px;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(160deg,var(--p14glass2,rgba(255,255,255,.10)),transparent 72%),var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.10);transition:transform .12s ease}
-.hico svg{width:26px;height:26px;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.hnm{font-size:11.5px;color:var(--txt);opacity:.9;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hdot{position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:#ff4d5e;box-shadow:0 0 0 2px var(--panel),0 0 8px rgba(255,77,94,.7);display:none}
+/* 应用网格：4 列、排列更紧凑（像 iOS 桌面）；图标是彩色圆角方块 + 白色线条 */
+.hgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px 8px;padding:2px 0 8px}
+.happ{display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;border:0;box-shadow:none;padding:0;color:var(--txt);min-width:0}
+.happ:active .hico{transform:scale(.9)}
+.hico{width:54px;height:54px;border-radius:15px;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(160deg,var(--ic1,#8a8a8a),var(--ic2,#5f5f5f));border:0;box-shadow:0 5px 13px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.28);transition:transform .12s ease}
+.hico svg{width:27px;height:27px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px .5px rgba(0,0,0,.22))}
+.hnm{font-size:11px;color:var(--txt);opacity:.92;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#ff4d5e;box-shadow:0 0 0 2px var(--panel),0 0 8px rgba(255,77,94,.7);display:none}
 .hdot.on{display:block;animation:pulse 1.6s infinite}
 
 #homedock{display:none;flex:0 0 auto;padding:4px 14px calc(env(safe-area-inset-bottom) + 12px)}
 body.home #homedock{display:flex}
 .dockbar{flex:1;display:flex;align-items:flex-start;justify-content:space-around;gap:8px;padding:9px 12px;border-radius:28px;background:var(--p14glass,rgba(127,127,127,.14));border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.14);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-.dockbar .hico{width:54px;height:54px;border-radius:18px}`;
+.dockbar .hico{width:56px;height:56px;border-radius:16px}
+.dockbar .hnm{display:none}
+
+/* ================================================================
+   桌面 UI 风格：「玻璃」（玻璃拟态）
+   应用方块和上下两条组件都是半透明玻璃：能透出后面的壁纸纹理。
+   方块外面是一圈深色边（竖着的两边略粗、到上下变细），
+   里面上／下各一条白色高光（往拐角延伸、越拐越淡直到看不见），
+   方块整体比周围「亮」是靠把后面的画面提亮（brightness）做出来的，
+   不是盖一层白膜，所以纹理透得清楚；磨砂也很轻。
+   图标线条用主题色（--acc），大小用默认的 27px。
+   这些规则都挂在 html[data-home="glass"] 下面，「复古」完全不受影响。
+   ================================================================ */
+/* 应用方块（照参考图做的「玻璃边」）：
+   ① 深色边：先一圈很细的底边，左右两侧再各加厚一点——两段加厚的部分
+      顺着圆角走，走到上下就会自然收细、消失（所以是「竖粗横细」）。
+   ② 白色高光：贴着上／下两条边的一条亮线，它同样顺着圆角往拐角延伸，
+      越拐越淡，转到竖边就看不见了（所以是「横粗竖无」）。
+   这些都是贴着圆角的阴影，浏览器自己会顺着圆角算，不用额外画图。
+   ③ 磨砂很轻，背景纹理透得清楚。 */
+/* 玻璃的「亮」主要靠把后面的画面整体提亮（brightness），只留一点点很淡的白，
+   这样方块明显比周围亮、但背景的纹理不会被白膜冲淡。 */
+html[data-home="glass"] .hico{background:linear-gradient(150deg,rgba(255,255,255,.11),rgba(255,255,255,.04));box-shadow:0 0 0 .4px rgba(0,0,0,.18),.5px 0 0 0 rgba(0,0,0,.12),-.5px 0 0 0 rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.14),inset 0 .8px 0 rgba(255,255,255,1),inset 0 -.7px 0 rgba(255,255,255,.45);backdrop-filter:blur(.8px) brightness(1.2) saturate(1.25);-webkit-backdrop-filter:blur(.8px) brightness(1.2) saturate(1.25)}
+/* 图标：比默认稍大（27 → 33px），线宽按比例回调到 1.55，
+   所以线条粗细和以前几乎一样、不会变粗。
+   再给线条加一层很淡的白光和一点点向下的影子，看起来像「磨砂白塑料刻出来的」。 */
+html[data-home="glass"] .hico svg{stroke:var(--acc);width:33px;height:33px;stroke-width:1.55;filter:drop-shadow(0 0 .7px rgba(255,255,255,.38)) drop-shadow(0 1px .8px rgba(0,0,0,.22))}
+/* 上下两个组件 + 底部 Dock：和图标同一套「玻璃边」（原先那圈 1px 白边去掉了，
+   border:0 是为了让里面的高光能贴在最外沿，不再往里缩 1 像素）。
+   【重要】Dock 这条栏杆自己不带 backdrop-filter ——带了的话，里面的图标就看不到
+   外面的壁纸了（浏览器规定：带模糊的容器会把它里面的背景「关起来」），
+   结果就是那三个图标发灰、跟上面的图标不一样。所以这里只留半透明的白，
+   让里面三个图标自己去把壁纸提亮。 */
+html[data-home="glass"] .hcard,
+html[data-home="glass"] .musw{background:linear-gradient(150deg,rgba(255,255,255,.2),rgba(255,255,255,.08));border:0;box-shadow:0 0 0 .5px rgba(0,0,0,.22),.7px 0 0 0 rgba(0,0,0,.14),-.7px 0 0 0 rgba(0,0,0,.14),0 10px 28px rgba(0,0,0,.13),inset 0 .8px 0 rgba(255,255,255,.9),inset 0 -.8px 0 rgba(255,255,255,.45);backdrop-filter:blur(5px) brightness(1.12) saturate(1.25);-webkit-backdrop-filter:blur(5px) brightness(1.12) saturate(1.25)}
+html[data-home="glass"] .dockbar{position:relative;background:linear-gradient(150deg,rgba(255,255,255,.22),rgba(255,255,255,.09));border:0;box-shadow:0 0 0 .5px rgba(0,0,0,.22),.7px 0 0 0 rgba(0,0,0,.14),-.7px 0 0 0 rgba(0,0,0,.14),0 10px 28px rgba(0,0,0,.15),inset 0 .8px 0 rgba(255,255,255,.85),inset 0 -.8px 0 rgba(255,255,255,.4)}
+/* 栏杆的「磨砂」放在这层薄片上：它只负责把后面的壁纸糊一点，
+   不加亮度，所以里面那三个图标提亮时不会被叠加两次，亮度就跟上面一样了。 */
+html[data-home="glass"] .dockbar::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;backdrop-filter:blur(7px) saturate(1.25);-webkit-backdrop-filter:blur(7px) saturate(1.25)}
+html[data-home="glass"] .hnm{text-shadow:0 1px 3px rgba(0,0,0,.3)}
+html[data-home="glass"].p6light .hnm{text-shadow:0 1px 2px rgba(255,255,255,.85)}
+html[data-home="glass"] .hdot{box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 8px rgba(255,77,94,.7)}
+/* 音乐组件里那个封面小方块：也跟着做成同样的玻璃（原来是实心青色的）。
+   它在组件「里面」，背光是组件那层白、不是壁纸，所以这里不靠提亮，
+   直接把白给足一点，看着就和别的玻璃方块一样亮。 */
+html[data-home="glass"] .mw-art{background:linear-gradient(150deg,rgba(255,255,255,.34),rgba(255,255,255,.15));box-shadow:0 0 0 .4px rgba(0,0,0,.18),.5px 0 0 0 rgba(0,0,0,.12),-.5px 0 0 0 rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.16),inset 0 .8px 0 rgba(255,255,255,1),inset 0 -.7px 0 rgba(255,255,255,.45)}
+html[data-home="glass"] .mw-art svg{stroke:var(--acc)}
+html[data-home="glass"] .mw-bar{background:rgba(127,127,127,.3)}
+html[data-home="glass"] .mw-play{background:rgba(255,255,255,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(255,255,255,.25)}
+html[data-home="glass"] .mw-b:active{background:rgba(255,255,255,.5)}
+html[data-home="glass"] .hc-av:active{background:rgba(255,255,255,.5)}
+
+/* ================================================================
+   桌面壁纸是「深色」的时候（<html> 上会挂 home-dark），
+   桌面上直接压在壁纸上的字自动换成白色 + 一层深色阴影：
+   就是左上角的状态栏，和图标下面的名字。
+   浅色壁纸、或者没设壁纸时，还是原来的深色字（这套规则不生效）。
+   注：组件里面的字不用动——那些字压在亮的玻璃上，深色反而清楚。
+   ================================================================ */
+html.home-dark #statusbar{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+html.home-dark #statusbar .sb-r{opacity:.95}
+html.home-dark #statusbar .sbpct{color:#fff}
+html.home-dark #statusbar .sb-media{color:#fff;opacity:.85}
+html.home-dark #statusbar .sb-media.on{color:#fff;opacity:1}
+html.home-dark .hnm,
+html.home-dark.p6light .hnm{color:#fff;opacity:.96;text-shadow:0 1px 3px rgba(0,0,0,.5)}`;
 (function(){var s=D.createElement('style');s.id='p14css';s.textContent=CSS;var h=D.head||D.documentElement;h.appendChild(s)})();
 
 /* ---------- ④ 主题色换算（毛玻璃用） ---------- */
@@ -19179,25 +19516,86 @@ function syncGlass(){
 
 /* ---------- ⑤ 桌面渲染 ---------- */
 function svgOf(g){return '<svg viewBox="0 0 24 24">'+G[g]+'</svg>'}
+/* 「正在播放」组件里的小按钮图案（实心，更像手机播放器） */
+var MIC={
+  play:'<svg viewBox="0 0 24 24"><path d="M8.2 5.6c0-.9 1-1.4 1.7-.9l9 5.9c.6.4.6 1.3 0 1.7l-9 5.9c-.7.5-1.7 0-1.7-.9Z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24"><rect x="7.2" y="5.4" width="3.6" height="13.2" rx="1.5"/><rect x="13.2" y="5.4" width="3.6" height="13.2" rx="1.5"/></svg>',
+  prev:'<svg viewBox="0 0 24 24"><rect x="5.8" y="5.8" width="2.2" height="12.4" rx="1.1"/><path d="M18.6 6.6v10.8c0 .8-.9 1.3-1.6.9l-8.1-5.4a1.1 1.1 0 0 1 0-1.8l8.1-5.4c.7-.4 1.6.1 1.6.9Z"/></svg>',
+  next:'<svg viewBox="0 0 24 24"><rect x="16" y="5.8" width="2.2" height="12.4" rx="1.1"/><path d="M5.4 6.6v10.8c0 .8.9 1.3 1.6.9l8.1-5.4a1.1 1.1 0 0 1 0-1.8L7 5.7c-.7-.4-1.6.1-1.6.9Z"/></svg>'
+};
+function musicWidHTML(){
+  return '<div class="mw-art" id="mwArt">'+svgOf('music')+'</div>'+
+    '<div class="mw-info">'+
+      '<div class="mw-t" id="mwT">还没有在放歌</div>'+
+      '<div class="mw-s" id="mwS">打开「音乐」加一首吧</div>'+
+      '<div class="mw-bar"><i id="mwProg"></i></div>'+
+    '</div>'+
+    '<div class="mw-ctl">'+
+      '<button type="button" class="mw-b" onclick="P14.mprev(event)" aria-label="上一首">'+MIC.prev+'</button>'+
+      '<button type="button" class="mw-b mw-play" id="mwPlay" onclick="P14.mplay(event)" aria-label="播放或暂停">'+MIC.play+'</button>'+
+      '<button type="button" class="mw-b" onclick="P14.mnext(event)" aria-label="下一首">'+MIC.next+'</button>'+
+    '</div>';
+}
+/* 把「正在播放」组件刷新一遍（歌名、歌手、播放状态、进度条） */
+var _mwKey='';
+function musicWidPaint(){
+  var el=D.getElementById('musW');if(!el)return;
+  var s=null,playing=false,manual=null,prog=-1;
+  try{
+    if(!isLocked()&&typeof musicEnsure==='function')musicEnsure();
+    if(typeof musicNow==='function')s=musicNow();
+    playing=!!MUSIC.playing;
+    if(MUSIC.manual&&MUSIC.manual.on&&MUSIC.manual.title)manual=MUSIC.manual;
+    var a=MUSIC.audio;
+    if(a&&isFinite(a.duration)&&a.duration>0)prog=Math.max(0,Math.min(1,a.currentTime/a.duration));
+  }catch(e){}
+  var title,sub;
+  if(s){title=s.title||'未命名';sub=s.artist||(playing?'正在播放':'已暂停');}
+  else if(manual){title=manual.title;sub=(manual.artist?manual.artist+' · ':'')+'在别的 App 里听';}
+  else{title='还没有在放歌';sub='打开「音乐」加一首吧';}
+  var key=[title,sub,playing?'1':'0',s?'1':'0'].join('|');
+  if(key!==_mwKey){
+    _mwKey=key;
+    var t=D.getElementById('mwT');if(t)t.textContent=title;
+    var ss=D.getElementById('mwS');if(ss)ss.textContent=sub;
+    var pb=D.getElementById('mwPlay');if(pb)pb.innerHTML=(s&&playing)?MIC.pause:MIC.play;
+    el.classList.toggle('off',!s&&!manual);
+  }
+  var pr=D.getElementById('mwProg');
+  if(pr){var w=prog<0?0:prog;if(pr._w!==w){pr._w=w;pr.style.width=(w*100).toFixed(1)+'%'}}
+}
+/* 组件里三个按钮：先挡住点击冒泡，免得连带打开「音乐」应用 */
+function mwStop(e){try{e.stopPropagation()}catch(x){}}
+function mwPrev(e){mwStop(e);try{musicPrev()}catch(x){}}
+function mwPlay(e){mwStop(e);try{musicToggle()}catch(x){}}
+function mwNext(e){mwStop(e);try{musicNext()}catch(x){}}
 function tile(a,dock){
   var dot='';
   if(dock&&a.k==='chat')dot='<i class="hdot" id="homeDot"></i>';
   if(!dock&&a.k==='moments')dot='<i class="hdot" id="homeDotM"></i>';
+  var st=a.c?(' style="--ic1:'+mixc(a.c,[255,255,255],.3)+';--ic2:'+mixc(a.c,[0,0,0],.16)+'"'):'';
   return '<button class="happ" type="button" onclick="P14.open(\''+a.k+'\')" aria-label="'+a.n+'">'+
-    '<span class="hico">'+svgOf(a.g)+dot+'</span>'+
+    '<span class="hico"'+st+'>'+svgOf(a.g)+dot+'</span>'+
     '<span class="hnm">'+a.n+'</span></button>';
 }
 function renderHome(){
   var m=D.getElementById('main');if(!m)return;
+  applyHomeStyle();                /* 【新】按当前选择切换桌面风格（复古 / 玻璃） */
   m.innerHTML=
-    '<div class="hcard">'+
-      '<div class="hc-l"><div class="hc-t" id="homeClock">--:--</div><div class="hc-d" id="homeDate"></div></div>'+
-      '<button class="hc-av" type="button" id="homeAv" aria-label="继续聊天"><span class="hc-avbox" id="homeAvBox"></span><span class="hc-avnm" id="homeAvNm"></span></button>'+
+    '<div class="hw">'+
+      '<div class="hcard">'+
+        '<div class="hc-l"><div class="hc-t" id="homeClock">--:--</div><div class="hc-d" id="homeDate"></div></div>'+
+        '<button class="hc-av" type="button" id="homeAv" aria-label="继续聊天"><span class="hc-avbox" id="homeAvBox"></span><span class="hc-avnm" id="homeAvNm"></span></button>'+
+      '</div>'+
+      '<div class="musw" id="musW" role="button" tabindex="0" aria-label="音乐">'+musicWidHTML()+'</div>'+
     '</div>'+
     '<div class="hgrid">'+GRID.map(function(a){return tile(a,false)}).join('')+'</div>';
   var av=D.getElementById('homeAv');
   if(av)av.onclick=function(){open2('chat')};
-  tick();dots();
+  var mw=D.getElementById('musW');
+  if(mw)mw.onclick=function(){open2('music')};
+  _mwKey='';                       /* 重画了，让组件把内容重新写一遍 */
+  tick();dots();musicWidPaint();
 }
 function tick(){
   var d=new Date(),t=pad2(d.getHours())+':'+pad2(d.getMinutes());
@@ -19217,6 +19615,7 @@ function tick(){
       nm.textContent=ch.name||'';
     }
   }
+  musicWidPaint();                 /* 顺手把「正在播放」组件也刷一下 */
 }
 function dots(){
   var d=D.getElementById('homeDot');
@@ -19228,6 +19627,7 @@ function dots(){
 /* ---------- ⑥ 页面外壳：状态栏 / 顶栏返回键 / Dock ---------- */
 function chrome(){
   var home=(view==='home');
+  applyHomeStyle();                /* 【新】桌面风格标记，随时保持和配置一致 */
   try{D.body.classList.toggle('home',home)}catch(e){}
   var sb=D.getElementById('statusbar');if(sb)sb.style.display=home?'flex':'none';
   var hb=D.getElementById('hback');if(hb)hb.style.display=home?'none':'flex';
@@ -19273,7 +19673,7 @@ function open2(k){
   try{if(W.openApp)W.openApp(k)}catch(e){}
   go('tools');
 }
-W.P14={open:open2,home:function(){go('home')}};
+W.P14={open:open2,home:function(){go('home')},mprev:mwPrev,mplay:mwPlay,mnext:mwNext};
 window.syncGlass=syncGlass; window.renderHome=renderHome;   /* 挂到全局：主程序里的 applyTheme 要用 */
 
 /* ---------- ⑧ 把外壳挂到原来的 go / draw / 主题 / 红点上 ---------- */
@@ -19358,6 +19758,7 @@ function batPaint(b){
 syncGlass();
 try{if(cfg&&typeof applyTheme==='function')applyTheme()}catch(e){}
 setInterval(tick,15000);
+setInterval(function(){if(view==='home')try{musicWidPaint()}catch(e){}},1000);   /* 桌面上的「正在播放」组件：每秒跟着播放状态刷一次 */
 D.addEventListener('visibilitychange',function(){if(!D.hidden)tick()});
 setTimeout(function(){if(!isLocked()){bootHome=true;goHome()}},0);
 })();
