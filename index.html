@@ -1317,7 +1317,7 @@ const THEMES={
   dusk:{label:'暮紫（暗紫）',v:{'--bg':'#0f0d15','--bg2':'#161320','--panel':'#1b1826','--line':'#2a2536','--txt':'#eae4f8','--dim':'#9488b6','--meta':'#a196c0','--acc':'#a97cf0','--acc2':'#cda6f9','--accdim':'#33245c','--accline':'#5b4694','--warn':'#e07070','--grad':'linear-gradient(160deg,#1d1830 0%,#0f0d15 60%)','--shadow':'0 1px 2px rgba(0,0,0,.3)','--bubme':'#432c73'}}
 };
 function applyTheme(){
-  const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
+  const t=THEMES[(cfg&&cfg.theme)]||THEMES.light;   /* 【改】读不到主题时也按「浅色」兜底 */
   const r=document.documentElement.style;
   for(const k in t.v)r.setProperty(k,t.v[k]);
   /* 【新】自定义主题色：用户在「主题」应用里自己挑的颜色，会盖掉主题自带的强调色。
@@ -10664,7 +10664,7 @@ function lockSkinWrite(c){
     }
     const s=(c&&typeof c==='object')?c:(cfg||{});
     const w=(s.wall&&typeof s.wall==='object')?s.wall:{};
-    const out={theme:s.theme||'dark',font:s.font||'sys',sch:s.lkScheme||'modern',img:w.lImg||'',op:(w.lOp==null?1:w.lOp),
+    const out={theme:s.theme||'light',font:s.font||'sys',sch:s.lkScheme||'modern',img:w.lImg||'',op:(w.lOp==null?1:w.lOp),
       acc:s.acc||'',
       on:!!w.lOn,                     /* 【修】把「锁屏背景图开关」也记下来：以前只记了有没有图，
                                          结果你在主题里把开关关掉后，锁屏重建配置时又按「有图＝开」重新打开了 */
@@ -11208,7 +11208,7 @@ function setLkScheme(k){
    再叠两团更亮的主题色柔光、底部一点天光，看着就像手机那种渐变壁纸。
    换了主题、或者自己挑了自定义色，这里都会跟着重新算。 */
 function lkSkyColors(){
-  const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
+  const t=THEMES[(cfg&&cfg.theme)]||THEMES.light;   /* 【改】同上：兜底用浅色 */
   const v=(t&&t.v)||{};
   const cu=(typeof customAccColors==='function')?customAccColors(t):null;
   const A=thmHex2rgb((cu&&cu['--acc'])||v['--acc'])||{r:77,g:155,b:240};
@@ -11444,7 +11444,7 @@ function lockShow(){
       }else{
         const s=lockSkinRead();
         if(s){
-          cfg={theme:s.theme||'dark',font:s.font||'sys',fs:15,dev:false,showThink:true,__lockskin:true,
+          cfg={theme:s.theme||'light',font:s.font||'sys',fs:15,dev:false,showThink:true,__lockskin:true,
                lkScheme:s.sch||'modern',acc:s.acc||'',
                /* 【修】把影子里记的「锁屏大字参数」和「视差开关」还原回去：
                   以前这两项没记，所以你在主题里调好的大字效果一到锁屏就变回默认。 */
@@ -11525,9 +11525,9 @@ function fixCfg(){
   if(cfg.userNote==null)cfg.userNote='';
   if(cfg.timeOn==null)cfg.timeOn=true;
   if(cfg.dev==null)cfg.dev=false;
-  if(!THEMES[cfg.theme])cfg.theme='dark';
+  if(!THEMES[cfg.theme])cfg.theme='light';   /* 【改】默认主题色：浅色（用户没调过才用得上） */
   if(!cfg.fs)cfg.fs=15;
-  if(cfg.deskStyle!=='glass')cfg.deskStyle='retro';   /* 【新】桌面 UI 风格：'retro' 复古（默认）/ 'glass' 玻璃 */
+  if(cfg.deskStyle!=='retro')cfg.deskStyle='glass';   /* 【改】桌面 UI 风格：'glass' 玻璃（默认）/ 'retro' 复古 */
   if(cfg.deskText!=='white'&&cfg.deskText!=='dark')cfg.deskText='auto';   /* 【新】桌面文字颜色：'auto' 自动（默认）/ 'white' 白 / 'dark' 深 */
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
   if(cfg.autoSum==null)cfg.autoSum=false;
@@ -11605,7 +11605,7 @@ function bindAppControls(){
 }
 /* 启动：读取配置和角色，补默认字段，载入上次角色。 */
 function loadInitialState(){
-  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'dark',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
+  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'light',deskStyle:'glass',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
     histMode:'auto',fullLimit:20000,sumWrite:'append',userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:''});
   fixCfg();
   chars=load(LS.chars,[]);
@@ -12096,7 +12096,7 @@ function customAccColors(t){
   return thmAccSet(hex,t);
 }
 function thmCurBase(){
-  return THEMES[(cfg&&cfg.theme)||'dark']||THEMES.dark;
+  return THEMES[(cfg&&cfg.theme)||'light']||THEMES.light;   /* 【改】兜底用浅色 */
 }
 function thmCustomHTML(){
   const on=!!(cfg&&cfg.acc);
@@ -12105,7 +12105,7 @@ function thmCustomHTML(){
     '<span class="thm-cdot" id="thmCustDot"'+(on?(' style="background:'+esc(cur)+'"'):'')+'></span>'+
     '<span class="thm-cn">'+(on?'自定义颜色':'在颜料盘里挑一个颜色')+'</span>'+
     '<span class="thm-cc">'+(on?esc(cur.toUpperCase()):'🎨')+'</span></button>'+
-    (on?('<p class="fic-sub" style="margin-top:6px">自定义颜色盖在「'+esc(thmShort((cfg&&cfg.theme)||'dark'))+
+    (on?('<p class="fic-sub" style="margin-top:6px">自定义颜色盖在「'+esc(thmShort((cfg&&cfg.theme)||'light'))+
       '」这套底色上；换底色主题它也会留着，想还原就点下面的「恢复成主题自带的颜色」。</p>'):'')+
     (THMUI.open?thmPickerHTML():'');
 }
@@ -12224,7 +12224,7 @@ function thmRender(){
 
 /* ---------- 界面 ---------- */
 function thmHTML(){
-  const curTheme=(cfg&&cfg.theme&&THEMES[cfg.theme])?cfg.theme:'dark';
+  const curTheme=(cfg&&cfg.theme&&THEMES[cfg.theme])?cfg.theme:'light';   /* 【改】兜底用浅色 */
   const lib=thmFontLib();
   const fkey=(lib&&lib.fontKey)?lib.fontKey():((cfg&&cfg.font)||'sys');
   const fs=(cfg&&cfg.fs)||15;
@@ -12298,7 +12298,7 @@ function thmSizeHTML(fs){
 }
 /* 【新】桌面 UI 风格：复古（彩色方块）/ 玻璃（半透明磨砂玻璃） */
 function thmDeskHTML(){
-  const cur=((cfg&&cfg.deskStyle)==='glass')?'glass':'retro';
+  const cur=((cfg&&cfg.deskStyle)==='retro')?'retro':'glass';   /* 【改】没设置过就显示「玻璃」选中 */
   const opt=(k,n,h)=>{
     const mini=(k==='glass')
       ? '<span class="thm-dmini"><i class="g"></i><i class="g"></i><i class="g"></i></span>'
@@ -19227,7 +19227,7 @@ function mixc(h,to,t){
 }
 /* ---------- 桌面 UI 风格：'retro' 复古（默认）/ 'glass' 玻璃 ---------- */
 function homeStyle(){
-  try{return ((cfg&&cfg.deskStyle)==='glass')?'glass':'retro'}catch(e){return 'retro'}
+  try{return ((cfg&&cfg.deskStyle)==='retro')?'retro':'glass'}catch(e){return 'glass'}   /* 【改】没设置过就是玻璃 */
 }
 function applyHomeStyle(){
   try{D.documentElement.setAttribute('data-home',homeStyle())}catch(e){}
@@ -19456,7 +19456,7 @@ body.home #homedock{display:flex}
    ③ 磨砂很轻，背景纹理透得清楚。 */
 /* 玻璃的「亮」主要靠把后面的画面整体提亮（brightness），只留一点点很淡的白，
    这样方块明显比周围亮、但背景的纹理不会被白膜冲淡。 */
-html[data-home="glass"] .hico{background:linear-gradient(150deg,rgba(255,255,255,.11),rgba(255,255,255,.04));box-shadow:0 0 0 .4px rgba(0,0,0,.18),.5px 0 0 0 rgba(0,0,0,.12),-.5px 0 0 0 rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.14),inset 0 .8px 0 rgba(255,255,255,1),inset 0 -.7px 0 rgba(255,255,255,.45);backdrop-filter:blur(.8px) brightness(1.2) saturate(1.25);-webkit-backdrop-filter:blur(.8px) brightness(1.2) saturate(1.25)}
+html[data-home="glass"] .hico{background:linear-gradient(150deg,rgba(255,255,255,.11),rgba(255,255,255,.04));box-shadow:0 0 0 .4px rgba(0,0,0,.18),.5px 0 0 0 rgba(0,0,0,.12),-.5px 0 0 0 rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.14),inset 0 .8px 0 rgba(255,255,255,1),inset 0 -.7px 0 rgba(255,255,255,.45);backdrop-filter:blur(.8px) brightness(1.1) saturate(1.25);-webkit-backdrop-filter:blur(.8px) brightness(1.1) saturate(1.25)}
 /* 图标：比默认稍大（27 → 33px），线宽按比例回调到 1.55，
    所以线条粗细和以前几乎一样、不会变粗。
    再给线条加一层很淡的白光和一点点向下的影子，看起来像「磨砂白塑料刻出来的」。 */
