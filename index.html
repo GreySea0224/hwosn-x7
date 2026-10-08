@@ -148,6 +148,161 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* 全屏弹层：记忆宫殿从桌面图标直接打开时铺满整屏，像个小应用 */
 .modal.full{align-items:stretch}
 .sheet.full{max-height:100vh;height:100vh;border-radius:0;padding-top:calc(env(safe-area-inset-top) + 16px)}
+/* ---------- 番外：阅读卡片式界面（颜色全部跟着主题走） ---------- */
+#fic{padding-bottom:6px}
+.fic-top{display:flex;justify-content:center;margin:2px 0 14px}
+.fic-pill{display:inline-flex;align-items:center;gap:9px;max-width:100%;padding:9px 15px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:12.5px;color:var(--meta);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.fic-pill .fic-pav{width:22px;height:22px;flex:0 0 22px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--accdim);color:var(--acc);font-size:12px;line-height:1}
+.fic-pill .fic-pav img{width:100%;height:100%;object-fit:cover;display:block}
+.fic-pill b{color:var(--txt);font-weight:600}
+.fic-pill .fic-sep{opacity:.45}
+.fic-pill .fic-q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44vw;color:var(--dim)}
+.fic-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;margin:0 0 14px;box-shadow:0 10px 30px rgba(0,0,0,.09);overflow:hidden}
+.fic-inner{padding:16px 16px 18px}
+.fic-head{display:flex;gap:11px}
+.fic-bar{flex:0 0 4px;border-radius:4px;background:var(--acc)}
+.fic-hcol{flex:1;min-width:0}
+.fic-t1{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:12.5px;font-weight:600;color:var(--meta);letter-spacing:.3px}
+.fic-t1 .fic-r{flex:0 0 auto;color:var(--dim);font-weight:500}
+.fic-t2{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:12px;color:var(--dim)}
+.fic-t2 .fic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fic-t2 .fic-r2{flex:0 0 auto;font-variant-numeric:tabular-nums;letter-spacing:.4px;color:var(--meta)}
+.fic-body{margin-top:18px;font-size:var(--fs);line-height:1.95;color:var(--txt);word-break:break-word}
+.fic-body .fic-p{text-indent:2em;margin:0 0 13px}
+.fic-body .fic-p:last-child{margin-bottom:0}
+.fic-flat{white-space:pre-wrap;word-break:break-word}
+.fic-cursor{display:inline-block;width:2px;height:1em;vertical-align:-2px;margin-left:1px;background:var(--acc);animation:ficblink 1s steps(1) infinite}
+@keyframes ficblink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+.fic-chat{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.fic-ln{display:flex;flex-direction:column;max-width:88%}
+.fic-ln.me{align-self:flex-end;align-items:flex-end}
+.fic-who{font-size:10.5px;color:var(--dim);margin:0 4px 3px;letter-spacing:.3px}
+.fic-bub{padding:9px 13px;border-radius:16px;background:var(--bg2);border:1px solid var(--line);font-size:var(--fs);line-height:1.7;box-shadow:0 1px 3px rgba(0,0,0,.06);word-break:break-word;white-space:pre-wrap}
+.fic-bub.me{background:var(--bubme);border-color:transparent}
+.fic-nar{align-self:center;text-align:center;font-size:12.5px;color:var(--dim);padding:2px 10px;max-width:92%;line-height:1.7}
+.fic-sec{font-size:11.5px;letter-spacing:1px;color:var(--meta);margin:0 2px 7px}
+.fic-seg{display:flex;gap:8px}
+.fic-seg button{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--dim);padding:11px 6px;border-radius:14px;box-shadow:none;display:flex;flex-direction:column;gap:3px;align-items:center}
+.fic-seg button .fic-s1{font-size:13.5px;font-weight:600}
+.fic-seg button .fic-s2{font-size:10.5px;opacity:.85}
+.fic-seg button.on{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
+.fic-go{width:100%;padding:14px;border-radius:16px;font-size:15px}
+.fic-sub{margin:8px 2px 0;font-size:11.5px;color:var(--dim);line-height:1.6}
+.fic-tools{display:flex;gap:8px;flex-wrap:wrap}
+.fic-tools button{flex:1 1 0;min-width:70px}
+.fic-tok{margin-top:12px;padding:9px 12px;border:1px dashed var(--line);border-radius:12px;font-size:11.5px;color:var(--dim);line-height:1.75;word-break:break-word;background:var(--bg2)}
+.fic-tok b{color:var(--acc);font-weight:700}
+.fic-tok:empty{display:none}
+.fic-empty{text-align:center;color:var(--dim);font-size:12.5px;padding:16px 0}
+.fic-li{display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line)}
+.fic-li:last-child{border-bottom:0}
+.fic-lm{flex:1;min-width:0}
+.fic-lt{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fic-ld{font-size:11px;color:var(--dim);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ---------- 主题应用（外观 / 字体 / 字号 / 锁屏 / 背景图） ---------- */
+#thm{padding-bottom:6px}
+.thm-prev{border-radius:22px;background:var(--grad);border:1px solid var(--line);padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);margin-bottom:6px}
+.thm-prev-top{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--dim);letter-spacing:.4px;margin-bottom:10px}
+.thm-prev-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:11px 12px;box-shadow:var(--shadow)}
+.thm-prev-t{font-size:13px;font-weight:600;color:var(--acc);letter-spacing:.3px}
+.thm-prev-b{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.thm-prev-bub{max-width:84%;padding:7px 11px;border-radius:13px;font-size:12.5px;line-height:1.55;background:var(--bg2);border:1px solid var(--line);color:var(--txt)}
+.thm-prev-bub.me{margin-left:auto;background:var(--bubme);border-color:transparent}
+.thm-sec{margin:16px 2px 9px;font-size:11.5px;letter-spacing:1px;color:var(--meta)}
+.thm-swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px}
+.thm-sw{background:transparent;border:0;box-shadow:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--dim)}
+.thm-sw .thm-dot{position:relative;width:44px;height:44px;border-radius:16px;border:1px solid var(--line);box-shadow:0 3px 10px rgba(0,0,0,.10);transition:transform .12s ease,box-shadow .12s ease}
+.thm-sw:active .thm-dot{transform:scale(.93)}
+.thm-sw.on .thm-dot{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--acc)}
+.thm-sw .thm-n{font-size:10.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thm-sw.on .thm-n{color:var(--txt);font-weight:600}
+.thm-chips{display:flex;flex-wrap:wrap;gap:8px}
+.thm-chip{flex:1 1 46%;min-width:104px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);padding:10px 8px;border-radius:14px;box-shadow:none;font-size:13.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thm-chip.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);font-weight:600}
+.thm-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--line)}
+.thm-row:last-child{border-bottom:0}
+.thm-thumb{width:46px;height:46px;flex:0 0 46px;border-radius:13px;background:var(--bg2);border:1px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--dim)}
+.thm-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thm-rm{flex:1;min-width:0}
+.thm-rm .thm-rt{font-size:13.5px}
+.thm-rm .thm-rd{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.5}
+.thm-sl label{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--dim);margin:0 0 4px}
+.thm-sample{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 13px;margin-top:10px;box-shadow:var(--shadow)}
+.thm-sample p{margin:7px 0 0;line-height:1.8}
+.thm-cust{width:100%;display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);border-radius:14px;padding:10px 12px;box-shadow:none;font-size:13.5px;text-align:left;margin-top:10px}
+.thm-cust.on{border-color:var(--acc);background:var(--accdim)}
+.thm-cdot{width:26px;height:26px;flex:0 0 26px;border-radius:50%;border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);background:conic-gradient(#ff5d5d,#ffc93d,#7ed957,#5df0ff,#6f8cff,#d76dff,#ff5d5d)}
+.thm-cust .thm-cn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thm-cust .thm-cc{flex:0 0 auto;font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+.thm-pick{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--bg2)}
+.thm-sv{position:relative;height:148px;border-radius:12px;border:1px solid var(--line);overflow:hidden;touch-action:none;cursor:crosshair;background-image:linear-gradient(to top,#000,rgba(0,0,0,0)),linear-gradient(to right,#fff,#f00)}
+.thm-sv i{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.35);pointer-events:none}
+.thm-hue{-webkit-appearance:none;appearance:none;width:100%;height:22px;padding:0;margin-top:12px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)}
+.thm-hue::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.thm-hue::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,.35)}
+.thm-quick{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.thm-quick button{width:30px;height:30px;flex:0 0 30px;border-radius:50%;border:1px solid var(--line);padding:0;box-shadow:0 2px 6px rgba(0,0,0,.14)}
+.thm-quick button:active{transform:scale(.9)}
+.thm-mini{margin-left:6px;padding:3px 9px;border-radius:999px;background:var(--accdim);border:1px solid var(--acc);color:var(--acc);font-size:11px;line-height:1.4;box-shadow:none}
+.thm-mini:active{transform:scale(.94)}
+/* ---------- 锁屏大字：调节区的「竖屏手机」预览 + 滑块行 ----------
+   预览按真锁屏的比例缩放：竖屏、状态栏、日期、撑满宽度的大时间、底部两个圆钮 + 手势条。
+   字号由脚本按「数字大约占屏宽 93%」算出来（和真锁屏 lockFitTime 一个算法）。 */
+.lkfx-stage{display:flex;flex-direction:column;align-items:center;margin:2px 0 14px}
+.lkfx-prev{position:relative;width:min(56vw,200px);aspect-ratio:9/20;border-radius:24px;overflow:hidden;
+  border:1px solid var(--line);box-shadow:0 12px 30px rgba(0,0,0,.3);
+  background:linear-gradient(165deg,#1b2b40,#0d1a2c);background-size:cover;background-position:center center}
+.lkfx-scrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(2,8,14,.44) 0%,rgba(2,8,14,.12) 42%,rgba(2,8,14,.36) 100%)}
+.lkfx-sb{position:absolute;top:1.6%;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 8%}
+.lkfx-sb .g{display:flex;align-items:center;gap:4px}
+.lkfx-sb i{display:block;border-radius:2px;background:rgba(255,255,255,.62)}
+.lkfx-sb i.l{width:22px;height:5px}
+.lkfx-sb i.w{width:7px;height:6px}
+.lkfx-sb i.b{width:13px;height:6px}
+.lkfx-date{font-size:8px;letter-spacing:.02em;color:rgba(255,255,255,.85);margin:0 0 6px;text-shadow:0 1px 3px rgba(0,0,0,.5);white-space:nowrap}
+.lkfx-date .lkd{margin:0 .12em;font-size:.94em;opacity:.8}
+.lkfx-clock{position:absolute;top:6%;left:0;right:0;display:flex;flex-direction:column;align-items:center}
+.lkfx-time{position:relative;display:inline-block;font-family:"Barlow Num","Barlow Condensed",system-ui,"Roboto",Arial,sans-serif;
+  font-weight:700;line-height:1;font-size:112px;font-variant-numeric:tabular-nums;white-space:nowrap;
+  transform:scaleX(var(--lk-sx,.62)) scaleY(var(--lk-sy,1.55));transform-origin:50% 50%;
+  opacity:var(--lk-op,1);letter-spacing:var(--lk-ls,-.02em);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) var(--lk-f0,44%),rgba(0,0,0,.78) calc(var(--lk-f0,44%) + 30%),rgba(0,0,0,.55) calc(var(--lk-f0,44%) + 48%),rgba(0,0,0,.4) 100%);
+  mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) var(--lk-f0,44%),rgba(0,0,0,.78) calc(var(--lk-f0,44%) + 30%),rgba(0,0,0,.55) calc(var(--lk-f0,44%) + 48%),rgba(0,0,0,.4) 100%)}
+/* 音乐卡片：照真锁屏那张玻璃卡缩小的版本（位置也照真机：卡片底边在屏幕 80% 处） */
+.lkfx-card{position:absolute;left:6%;right:6%;bottom:20%;height:15%;border-radius:12px;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:7px 9px;display:flex;flex-direction:column;justify-content:space-between}
+.lkfx-ct{font-size:8.5px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lkfx-cs{font-size:7px;color:rgba(255,255,255,.75);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lkfx-cbar{height:2.5px;border-radius:2px;background:rgba(255,255,255,.28);margin-top:5px}
+.lkfx-cbar i{display:block;height:100%;width:0;border-radius:2px;background:rgba(255,255,255,.9)}
+.lkfx-cctl{display:flex;align-items:center;justify-content:space-between;padding:0 12%}
+.lkfx-cctl b{display:block;width:2px;height:7px;border-radius:1px;background:rgba(255,255,255,.9)}
+.lkfx-cctl b.pl{width:0;height:0;background:none;border-radius:0;
+  border-left:7px solid rgba(255,255,255,.92);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.lkfx-chrome{position:absolute;left:0;right:0;bottom:1.6%;display:flex;justify-content:space-between;padding:0 9%}
+.lkfx-chrome i{width:15%;aspect-ratio:1/1;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.18)}
+.lkfx-bar{position:absolute;left:50%;bottom:.6%;transform:translateX(-50%);width:34%;height:2.5px;border-radius:2px;background:rgba(255,255,255,.85)}
+.lkfx-cap{margin-top:7px;font-size:11px;color:var(--dim)}
+.lkfx-body{color:transparent;-webkit-text-fill-color:transparent;
+  background-image:linear-gradient(180deg,rgba(232,238,253,.62) 0%,rgba(228,235,252,.44) 40%,rgba(220,228,250,.14) 100%);
+  -webkit-background-clip:text;background-clip:text}
+.lkfx-time>span{display:block}
+.lkfx-time>.lkfx-trim{margin-top:-1em}
+/* 【新】亮边单独一层、纯白，和真锁屏同一套遮罩（只亮在数字上方） */
+.lkfx-trim{color:transparent;-webkit-text-fill-color:transparent;
+  -webkit-text-stroke:var(--lk-rim,.004em) #fff;
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 8%,rgba(0,0,0,.82) 18%,rgba(0,0,0,.45) 28%,rgba(0,0,0,.16) 36%,rgba(0,0,0,0) 46%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 8%,rgba(0,0,0,.82) 18%,rgba(0,0,0,.45) 28%,rgba(0,0,0,.16) 36%,rgba(0,0,0,0) 46%)}
+.lkfx-dots{display:inline-block;position:relative;width:.16em;height:.72em;vertical-align:baseline;margin:0 .03em}
+.lkfx-dots b{position:absolute;left:50%;display:block;border-radius:50%;background:rgba(236,242,255,.66);
+  width:calc(.12em * var(--lk-dot-s,1));height:calc(.12em * var(--lk-dot-s,1));
+  transform:translateX(-50%) scaleY(var(--lk-dot-uny,.4))}   /* 【修】抵消「压窄＋拉高」，小球才是正圆而不是竖椭圆 */
+.lkfx-dots b:nth-child(1){bottom:.23em}
+.lkfx-dots b:nth-child(2){bottom:.46em}
+.lkfx-sl{margin:0 0 10px}
+.lkfx-sl label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11.5px;color:var(--dim);margin:0 0 3px}
+.lkfx-sl label b{color:var(--txt);font-variant-numeric:tabular-nums}
 /* ---------- 全屏按钮：只在「退出了全屏」时出现 ---------- */
 #fsBtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 108px);z-index:50;width:42px;height:42px;border-radius:50%;display:none;align-items:center;justify-content:center;background:var(--scbg,rgba(10,22,32,.82));border:1px solid var(--line);color:var(--scfg,#eaf3f8);box-shadow:0 6px 18px rgba(0,0,0,.28);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:0;transition:transform .12s ease,opacity .15s ease}
 #fsBtn.on{display:flex}
@@ -200,10 +355,20 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
           所以搞笑款开着的时候，这张样式表也会保留（见 lkSchemes 里的 base:1）。
      ================================================================ -->
 <style id="lkCSS-modern">
-/* 深色底 */
-.lkbase{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,#0c1620 0%,#070e15 55%,#04080d 100%)}
+/* 底色：没选壁纸时就是它。
+   【改】以前是近黑的深蓝（#0c1620 → #04080d），看着「黑乎乎的」、几乎看不出主题色。
+   现在改成一片「按主题色算出来的天空渐变」：顶部偏亮、往下渐渐加深，
+   再叠两团主题色柔光和底部一点天光，像手机锁屏那类渐变壁纸。
+   这几个颜色都是脚本按主题色算好、挂上来的（见 lkPaintBase）：
+   时间还是白色玻璃字，所以底色停在「中亮」这一档，再亮字就看不见了。 */
+.lkbase{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(120% 58% at 50% 114%,var(--lk-horizon,rgba(255,255,255,.2)) 0%,transparent 62%),
+    radial-gradient(118% 66% at 12% -8%,var(--lk-glow1,rgba(120,170,255,.5)) 0%,transparent 58%),
+    radial-gradient(128% 70% at 92% 14%,var(--lk-glow2,rgba(90,140,230,.4)) 0%,transparent 60%),
+    linear-gradient(180deg,var(--lk-sky1,#1b2b40) 0%,var(--lk-sky2,#14243a) 48%,var(--lk-sky3,#0d1a2c) 100%)}
 /* 两团主题色的柔光：换成别的主题，这里的颜色也跟着变（【新】调淡一点，整体更冷更素） */
-.lktint{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.16;
+.lktint{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.10;
   background:radial-gradient(85% 52% at 16% 4%,var(--acc),transparent 62%),
              radial-gradient(92% 56% at 88% 98%,var(--acc2),transparent 66%)}
 /* 锁屏背景图（在「设置 → 背景图 → 锁屏背景」里可以自己传一张）
@@ -227,13 +392,21 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   mask-image:linear-gradient(184deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0) var(--lk-mask-a),rgba(0,0,0,.5) calc((var(--lk-mask-a) + var(--lk-mask-b))/2),#000 var(--lk-mask-b),#000 100%)}
 /* 照片上的压暗（没传图就不显示）。
    这层只管把壁纸压暗（数字在它上面，所以不会被压灰）。 */
-.lkscrim{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .3s ease;background:linear-gradient(180deg,rgba(2,8,14,.34) 0%,rgba(2,8,14,.14) 34%,rgba(2,8,14,.07) 56%,rgba(2,8,14,.44) 100%)}
+.lkscrim{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .3s ease;background:linear-gradient(180deg,rgba(2,8,14,.14) 0%,rgba(2,8,14,.05) 34%,rgba(2,8,14,.02) 56%,rgba(2,8,14,.18) 100%)}
+/* 【改】这层以前压得很重（顶部 34%、底部 44% 的黑），就算你把「透明度」拉到 100%，
+   壁纸还是被压掉三到六成亮度。现在只留一点点（顶部 14%、底部 18%），
+   够让顶部状态栏和底部那两个圆钮看清楚就行，壁纸本身回到明亮。 */
 #lock.hasimg .lkscrim{opacity:1}
 /* 冷蓝灰调 + 四角暗角（vignette）：上一层是「中间不动、四角变暗」，
    下一层是很淡的冷色。这两层都只作用在壁纸上（数字在它们上面，不会被压灰）。 */
-.lkvig{position:absolute;inset:0;z-index:4;pointer-events:none;
-  background:radial-gradient(128% 92% at 50% 44%,rgba(6,14,22,0) 40%,rgba(6,14,22,.28) 74%,rgba(2,7,12,.62) 100%),
-             linear-gradient(180deg,rgba(104,132,164,.22) 0%,rgba(76,104,132,.11) 46%,rgba(12,24,38,.3) 100%)}   /* 稍浓一点：补上滤镜拿掉后少的那点冷调 */
+.lkvig{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .3s ease;
+  background:radial-gradient(128% 92% at 50% 44%,rgba(6,14,22,0) 48%,rgba(6,14,22,.12) 76%,rgba(2,7,12,.28) 100%),
+             linear-gradient(180deg,rgba(104,132,164,.10) 0%,rgba(76,104,132,.04) 46%,rgba(12,24,38,.12) 100%)}
+/* 【改】暗角也一起调淡了：四角原来最多压 62% 的黑，现在最多 28%；中间那层灰蓝薄纱也减到一半以下。
+   这样壁纸的中间和四角都亮起来了，只保留一点点边缘层次。 */
+/* 【改】这层暗角以前是「一直压着」的：就算没选壁纸，它也在上面叠一层灰蓝，把主题色压得更暗。
+   现在改成「只有传了壁纸才压」——没壁纸时锁屏就是上面那片干净的天空渐变。 */
+#lock.hasimg .lkvig{opacity:1}
 /* 第一屏：日期 + 超大时间。从上面开始排（不再垂直居中），日期就顶到上面的留白里。
    z-index 比「压暗层 / 暗角层」大：这两层只压壁纸，不再把数字一起压灰。
    【方案2】原来这里是 mix-blend-mode:screen（往背景上加光）。毛玻璃的「磨砂感」是靠
@@ -243,7 +416,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   padding:calc(env(safe-area-inset-top) + 12px) 0 calc(env(safe-area-inset-bottom) + 30px);   /* 【新】左右不留边距：数字才能贴到屏幕两边 */
   touch-action:none;transition:transform .52s cubic-bezier(.22,.75,.25,1),opacity .4s ease}
 #lock.pass .lkhome{transform:translateY(-19%) scale(.93);opacity:0;pointer-events:none}
-.lkclock{width:100%;height:46%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:2vh}
+.lkclock{width:100%;height:46%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:calc(2vh + var(--lk-ptop,0px))}   /* 【新】--lk-ptop：整块时间（日期+大字）上下挪 */
 /* 日期小字：照参考图的样子——不要太粗、也不要纯白地"钉"在画面上：
    字重降一档，外面加一层「很淡的暗影」，亮云上也压得住、又不会像白光那样把字冲淡。
   英文格式（例如 October 5,Monday），不需要像中文那样拉开字距。 */
@@ -257,17 +430,29 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
    ③ .lktrim   —— 一圈很细的亮边（描边）；用遮罩让它只在数字顶上露一小截就淡掉。
    字号由脚本量出来（见 lockFitTime），保证正好撑满屏幕宽。 */
 .lktime{position:relative;font-family:var(--lkfont);font-size:clamp(64px,26vw,220px);font-weight:700;line-height:1;
-  filter:url(#lkThin);   /* 【新】把字瘦一圈（见锁屏里那个叫 lkThin 的滤镜；浏览器不支持就自动忽略，字还是原来的粗细） */
-  letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;   /* 字距：负数越小越挤（现在留一点缝，不贴在一起） */
+  letter-spacing:var(--lk-ls,-.02em);font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;   /* 字距：负数越小越挤（现在留一点缝，不贴在一起）。【新】可在「主题 → 锁屏大字」里调 */
   transform:scaleX(var(--lk-sx)) scaleY(var(--lk-sy));transform-origin:50% 50%;
-  -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) 44%,rgba(0,0,0,.78) 74%,rgba(0,0,0,.55) 92%,rgba(0,0,0,.4) 100%);   /* 【改】放松一点：底部原来只剩 0.12，下半段看着偏暗 */
-  mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) 44%,rgba(0,0,0,.78) 74%,rgba(0,0,0,.55) 92%,rgba(0,0,0,.4) 100%)}
-/* 三层文字：每层都是一行 1em 高，后两层往上挪 1em，就正好盖在前一层上 */
+  opacity:var(--lk-op,1);   /* 【新】整体透明度（可在「主题 → 锁屏大字」里调） */
+  /* 【改】变淡的「起点」--lk-f0 可调。注意后面几个点必须跟着一起挪（用 calc 相对算），
+     不能像以前那样固定 74%/92%/100% —— 那样滑块只是在「1.0 和 0.95」之间换位置，
+     只差 5% 的透明度，肉眼根本看不出来。现在整条曲线随滑块平移：
+     --lk-f0=44% 时正好是 44/74/92/100，和原来的默认外观一模一样。 */
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) var(--lk-f0,44%),rgba(0,0,0,.78) calc(var(--lk-f0,44%) + 30%),rgba(0,0,0,.55) calc(var(--lk-f0,44%) + 48%),rgba(0,0,0,.4) 100%);
+  mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.95) var(--lk-f0,44%),rgba(0,0,0,.78) calc(var(--lk-f0,44%) + 30%),rgba(0,0,0,.55) calc(var(--lk-f0,44%) + 48%),rgba(0,0,0,.4) 100%)}
+/* 文字层：每层都是一行 1em 高，后几层往上挪 1em，就正好盖在前一层上。
+   【改】现在多了一层 .lkdots —— 专门用来放冒号那两个小球。
+   瘦身滤镜（lkThin）只加在前三层（也就是文字）上；小球那一层不加，
+   所以数字的笔画变细了，小球还是原来那种圆滚滚的样子。 */
 .lktime>span{display:block}
-.lktime>.lktbody,.lktime>.lktrim{margin-top:-1em}
+.lktime>.lktbody,.lktime>.lktrim,.lktime>.lkdots{margin-top:-1em}
+.lktime>.lkshadow,.lktime>.lktbody,.lktime>.lktrim{-webkit-filter:url(#lkThin);filter:url(#lkThin)}   /* 【新】把字的笔画瘦一圈；浏览器不认识就自动忽略，字还是原来的粗细 */
+.lktime>.lkdots{color:transparent;-webkit-text-fill-color:transparent}   /* 这一层只用来放小球，文字本身不画出来 */
 /* ① 阴影层：字身全透明，只在字边留一点点淡影（数字看着才不飘）。
    注意这个透明度：影子会从半透明的字身里透出来，数值一大整块字就发灰发黑，所以只留 0.06。 */
-.lktime .lkshadow{color:transparent;-webkit-text-fill-color:transparent;text-shadow:0 .012em .03em rgba(4,10,18,.06)}
+.lktime .lkshadow{color:transparent;-webkit-text-fill-color:transparent;text-shadow:0 .012em .03em rgba(4,10,18,var(--lk-shadow-a,.1))}
+/* 【改】没壁纸时底色比以前亮（见 .lkbase），影子从 .06 提到 .1，字边更清楚一点（只提一点点：
+   这层影子会从半透明的字身里透出来，调大了整块字会发灰，原作者特意压着）；传了壁纸就回到原来的 .06。 */
+#lock.hasimg .lktime .lkshadow{text-shadow:0 .012em .03em rgba(4,10,18,.06)}
 /* ② 字身层：一层「浅藕荷色」的薄膜（不是纯白，带一点蓝紫），数字因此比背景亮、又不会白成灰。
    这几个数就是「亮多少」：往大调更亮更实，往小调更透更接近背景。 */
 .lktime .lktbody{color:#fff;                                   /* 兜底：不支持下面那层渐变的浏览器就是实心白 */
@@ -284,11 +469,12 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* ③ 亮边层：很细的一圈亮白线（不做模糊，才够干脆），描在字的轮廓上。
    遮罩让白边只集中在最上面一小段（参考图就是这样：不是整圈都白），越往下越没有。 */
 .lktime .lktrim{color:transparent;-webkit-text-fill-color:transparent;
-  -webkit-text-stroke:var(--lk-rim) rgba(255,255,255,.95);
-  /* 【改】亮边只留在数字顶上：原来要淡到 72% 才没（所以看着"长"），
-     现在收短到 40% 就没了；最顶上那一小截还是满的，往下很快淡掉。粗细没动。 */
-  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 5%,rgba(0,0,0,.6) 15%,rgba(0,0,0,.25) 24%,rgba(0,0,0,.06) 31%,rgba(0,0,0,0) 40%);
-  mask-image:linear-gradient(180deg,#000 0%,#000 5%,rgba(0,0,0,.6) 15%,rgba(0,0,0,.25) 24%,rgba(0,0,0,.06) 31%,rgba(0,0,0,0) 40%)}
+  -webkit-text-stroke:var(--lk-rim) #fff;   /* 【改】以前是 rgba(255,255,255,.95)，直接改成纯白 */
+  /* 【改】亮边只留在数字上方（照参考图）。以前那道遮罩淡得太快
+     （5% → 15% 就只剩 0.6 → 24% 只剩 0.25），所以「白色」被稀释成了灰白。
+     现在让它在数字上方保持接近满白，再往下才淡出 —— 看着就是一条白线了。 */
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 8%,rgba(0,0,0,.82) 18%,rgba(0,0,0,.45) 28%,rgba(0,0,0,.16) 36%,rgba(0,0,0,0) 46%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 8%,rgba(0,0,0,.82) 18%,rgba(0,0,0,.45) 28%,rgba(0,0,0,.16) 36%,rgba(0,0,0,0) 46%)}
 /* 冒号：不用字体的冒号，自己画两个「小玻璃球」（照参考图的样子）：
    跟大数字用的是同一个做法 —— 白只是一层很薄的膜（上亮下淡），
    主要靠里面那张磨砂小图透出来，所以看着是一小块磨砂玻璃、不是实心白球；
@@ -296,7 +482,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
    再用遮罩让球的下面比上面淡一点，跟数字的「上亮下淡」保持一致。
    宽高都用 em 算，所以时间字放大缩小时，小球会跟着一起缩放。 */
 .lktime .lkc{display:inline-block;position:relative;width:.16em;height:.72em;margin:0 .03em;vertical-align:baseline}
-.lktime .lktbody .lkc i{position:absolute;left:50%;box-sizing:border-box;display:block;overflow:hidden;width:.136em;height:.16em;border-radius:50%;   /* 【改】原来 .12em 见方；现在数字外面套了一圈"瘦身"滤镜（见 lkThin），小球也会被磨掉一点点，所以放大一点补回来 —— 磨完还是圆的、大小跟原来差不多 */
+.lktime .lkdots .lkc i{position:absolute;left:50%;box-sizing:border-box;display:block;overflow:hidden;width:calc(.12em * var(--lk-dot-s,1));height:calc(.12em * var(--lk-dot-s,1));border-radius:50%;   /* 【改】小球回到原来的 .12em 见方；【新】--lk-dot-s 可以整体放大／缩小 */
   /* 【方案2·续】小球现在也是毛玻璃：两层背景 ——
        上面那层还是原来那圈奶白球身；下面那层是毛玻璃（跟大数字用同一张磨砂小图，
        只是小球的位置和缩放跟数字不一样，脚本会像量数字那样单独量一遍、换算好，见 lkGlassDots）。 */
@@ -310,8 +496,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.9) 35%,rgba(0,0,0,.68) 72%,rgba(0,0,0,.5) 100%);   /* 【改】下半也柔一点（原来 0.72/0.55），更贴近数字的「上亮下淡」 */
   mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.9) 35%,rgba(0,0,0,.68) 72%,rgba(0,0,0,.5) 100%);
   transform:translateX(-50%) scaleY(var(--lk-dot-uny))}
-/* 阴影层和亮边层不画圈（冒号的小球只在字身层画，免得叠出好几圈） */
-.lktime .lkshadow .lkc i,.lktime .lktrim .lkc i{display:none}
+/* 【改】冒号的小球现在单独一层（.lkdots），别的层里根本没有小球，所以原来那句「不画圈」不需要了 */
 .lktime .lkc i.kd1{bottom:.23em}   /* 【改】两个球靠近一点（照冒号参考图）：.17em → .23em（下面那颗往上收） */
 .lktime .lkc i.kd2{bottom:.46em}   /* 【改】.52em → .46em（上面那颗往下收）；两颗的中心没动，只是间距缩了约三分之一 */
 /* 底部中间那条小白条（仿手机的手势条）。原来那个「上滑提示小箭头」删掉了——
@@ -447,7 +632,7 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 /* 冒号那两个小玻璃球：也换成（更深的）彩虹色，像两颗彩色玻璃珠。
    【方案2·续】小球改成真元素（i.kd1 / i.kd2）了，这里跟着改一下选择器；
    background 简写会把「毛玻璃」那层一起去掉，所以搞笑款还是原来的彩虹玻璃珠。 */
-#lock[data-lk="funny"] .lktime .lktbody .lkc i{
+#lock[data-lk="funny"] .lktime .lkdots .lkc i{
   background:linear-gradient(140deg,rgba(205,18,38,.98) 0%,rgba(226,176,0,.95) 26%,rgba(18,166,74,.92) 52%,rgba(12,112,226,.9) 76%,rgba(122,40,208,.88) 100%);
   box-shadow:inset 0 -.007em .012em rgba(6,16,30,.22)}   /* 【改】跟现代款一样：不要高光点/亮边，只在下缘压一点暗做立体感 */
 /* 数字上半段那圈细亮边：配彩虹用的暖白高光（这一圈只出现在字的最上面一小段） */
@@ -1112,15 +1297,19 @@ function applyTheme(){
   const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
   const r=document.documentElement.style;
   for(const k in t.v)r.setProperty(k,t.v[k]);
+  /* 【新】自定义主题色：用户在「主题」应用里自己挑的颜色，会盖掉主题自带的强调色。
+     没挑过就是 null，一切照旧（下面的 || 会走原来的值）。 */
+  const cu=(typeof customAccColors==='function')?customAccColors(t):null;
+  if(cu)for(const k in cu)r.setProperty(k,cu[k]);
   /* 【新】三个跟着主题走的颜色：按钮上的字色 / 发送键图标色 / 发光色。
      每个主题都要设一次，不然换主题时会留下上一个主题的值。（没写就用原来的蓝色） */
-  r.setProperty('--onacc',t.v['--onacc']||'#02131c');
-  r.setProperty('--onsend',t.v['--onsend']||'#fff');
+  r.setProperty('--onacc',(cu&&cu['--onacc'])||t.v['--onacc']||'#02131c');
+  r.setProperty('--onsend',(cu&&cu['--onsend'])||t.v['--onsend']||'#fff');
   /* 【新】复选框的勾色：主题里没单独写，就还用这个主题的强调色（和以前一样） */
-  r.setProperty('--chk',t.v['--chk']||t.v['--acc']||'#3fa9d8');
-  r.setProperty('--accglow',t.v['--accglow']||'rgba(63,169,216,.55)');
+  r.setProperty('--chk',(cu&&cu['--chk'])||t.v['--chk']||t.v['--acc']||'#3fa9d8');
+  r.setProperty('--accglow',(cu&&cu['--accglow'])||t.v['--accglow']||'rgba(63,169,216,.55)');
   /* 【新】markdown 的强调色：主题里没写就用主题色；黑白主题写了高对比的那套 */
-  r.setProperty('--em',t.v['--em']||t.v['--acc']||'#3fa9d8');
+  r.setProperty('--em',(cu&&cu['--em'])||t.v['--em']||t.v['--acc']||'#3fa9d8');
   r.setProperty('--embg',t.v['--embg']||'transparent');
   r.setProperty('--empad',t.v['--embg']?'0 2px':'0');   /* 只有带底色的主题才留一点内边距 */
   r.setProperty('--fs',(((cfg&&cfg.fs)||15))+'px');
@@ -1145,6 +1334,10 @@ function applyTheme(){
   try{window.paintThemeBits()}catch(e){}
   /* ↓ 补丁10-A：字体也跟着换 */
   try{if(window.P6&&P6.applyFont)P6.applyFont()}catch(e){}
+  /* 【新】锁屏默认底色（按主题色算的天空渐变）也跟着一起刷新 */
+  try{lkPaintBase()}catch(e){}
+  /* 【新】锁屏大字的自定义参数（字高／字宽／透明度…）也跟着一起刷新 */
+  try{lkFxApply()}catch(e){}
   /* ↓ 补丁14：手机外壳的玻璃质感 + 桌面重画 */
   if(window.syncGlass)window.syncGlass();       /* 补丁14 装上之前没有这层，所以要先判断 */
   if(view==='home'&&window.renderHome)try{window.renderHome()}catch(e){}
@@ -9642,12 +9835,12 @@ function cfgMeCardHTML(){
 /* 设置页：外观与交互卡片。 */
 function cfgLookCardHTML(){
   return '<div class="card"><div class="ttl">外观与交互</div>'+
-  '<label class="f">主题</label><select id="c_theme">'+Object.keys(THEMES).map(k=>'<option value="'+k+'"'+(cfg.theme===k?' selected':'')+'>'+esc(THEMES[k].label)+'</option>').join('')+'</select>'+
-  '<label class="f">字号：<span id="fsv">'+cfg.fs+'</span> px</label>'+
-  '<input id="c_fs" type="range" min="13" max="20" value="'+cfg.fs+'">'+
-  '<label class="f">锁屏方案</label>'+
-  '<select id="c_lkscheme">'+lkSchemes().map(s=>'<option value="'+s.k+'"'+(lkSchemeCur()===s.k?' selected':'')+'>'+esc(s.n)+'</option>').join('')+'</select>'+
-  '<div class="dim" style="font-size:12px;margin-top:4px" id="c_lkhint">'+esc(lkSchemeHint())+'</div>'+
+  /* 【改】主题色 / 字体 / 字号 / 锁屏方案 / 背景图 / 锁屏视差 都搬到「主题」应用了，
+     这里只留一个入口，免得设置页又长又乱。 */
+  '<div class="row" style="align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px dashed var(--line)">'+
+  '<div class="col"><b>主题、字体、字号、锁屏、背景图</b>'+
+  '<div class="dim" style="font-size:12px">这些外观设置已经搬进「主题」应用，点开就能改，还能实时看到效果</div></div>'+
+  '<button class="ghost" onclick="thmOpen()">🎨 打开</button></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>让角色知道时间</b><div class="dim" style="font-size:12px">每条消息带「月/日 时:分」，并告诉它「现在」是几号几点</div></div>'+
   '<input type="checkbox" id="c_time" '+((cfg.timeOn!==false)?'checked':'')+'></div>'+
@@ -9734,8 +9927,6 @@ function renderCfg(){
   cfgAutoSumCardHTML()+
   cfgMeCardHTML()+
   cfgLookCardHTML()+
-  cfgWallCardHTML()+                 /* 【新增】自定义背景图（桌面 / 聊天） */
-  cfgLockCardHTML()+                 /* 【新】锁屏：视差效果开关 */
   cfgRemindCardHTML()+               /* 【新增】待办提醒：提示音 / 振动 */
   cfgPrivRoleCardHTML()+
   cfgSecurityCardHTML()+
@@ -9808,11 +9999,17 @@ function renderCfg(){
 /* 绑定设置页的控件事件；必须在 innerHTML 生成后调用。 */
 /* 设置页：主题、字号、时间开关。 */
 function bindCfgThemeControls(){
-  const themeSel=$('#c_theme');  /* 同一个下拉框只查一次 */
-  themeSel.value=cfg.theme;
-  themeSel.onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
-  $('#c_fs').oninput=e=>{cfg.fs=+e.target.value;$('#fsv').textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
-  $('#c_time').onchange=e=>{cfg.timeOn=e.target.checked;save(LS.cfg,cfg);toast(cfg.timeOn?'已开启：角色能看到时间':'已关闭时间注入')};
+  /* 【改】主题色 / 字号 / 锁屏方案 这几个控件已经搬到「主题」应用，
+     设置页里没有它们了，所以这里都要先判断在不在，免得报错。 */
+  const themeSel=$('#c_theme');
+  if(themeSel){
+    themeSel.value=cfg.theme;
+    themeSel.onchange=e=>{cfg.theme=e.target.value;save(LS.cfg,cfg);applyTheme()};
+  }
+  const fsEl=$('#c_fs');
+  if(fsEl)fsEl.oninput=e=>{cfg.fs=+e.target.value;const v=$('#fsv');if(v)v.textContent=cfg.fs;applyTheme();save(LS.cfg,cfg)};
+  const timeEl=$('#c_time');
+  if(timeEl)timeEl.onchange=e=>{cfg.timeOn=e.target.checked;save(LS.cfg,cfg);toast(cfg.timeOn?'已开启：角色能看到时间':'已关闭时间注入')};
   /* 【新增】显不显示气泡上那个「灯泡 + 思考过程」小按钮：开关存在 cfg.showThink 里 */
   const sth=$('#c_showthink');
   if(sth)sth.onchange=e=>{
@@ -10443,10 +10640,19 @@ function lockSkinWrite(c){
     }
     const s=(c&&typeof c==='object')?c:(cfg||{});
     const w=(s.wall&&typeof s.wall==='object')?s.wall:{};
-    const out={theme:s.theme||'dark',font:s.font||'sys',sch:s.lkScheme||'modern',img:w.lImg||'',op:(w.lOp==null?1:w.lOp)};
+    const out={theme:s.theme||'dark',font:s.font||'sys',sch:s.lkScheme||'modern',img:w.lImg||'',op:(w.lOp==null?1:w.lOp),
+      acc:s.acc||'',
+      on:!!w.lOn,                     /* 【修】把「锁屏背景图开关」也记下来：以前只记了有没有图，
+                                         结果你在主题里把开关关掉后，锁屏重建配置时又按「有图＝开」重新打开了 */
+      /* 【修】这两项以前漏了，所以锁屏上根本读不到：
+         · fx   ——「主题 → 锁屏大字」里调的字高／字宽／透明度／亮边／冒号… （存在 cfg.lkfx 里，很小）
+         · para ——「锁屏视差」开关（默认开）
+         锁屏是靠着这份影子重建配置的，影子没有的字段就会退回默认值。 */
+      fx:(s.lkfx&&typeof s.lkfx==='object')?s.lkfx:{},
+      para:(s.lkPara!==false)};
     try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify(out))}
     catch(e){                        /* 图太大存不下：至少把主题和字体存对，锁屏别变成原始深蓝 */
-      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,sch:out.sch,img:'',op:1}))}catch(e2){}
+      try{localStorage.setItem(LOCK_SKIN_KEY,JSON.stringify({theme:out.theme,font:out.font,sch:out.sch,img:'',op:1,acc:out.acc,on:out.on,fx:out.fx,para:out.para}))}catch(e2){}
     }
   }catch(e){}
 }
@@ -10458,11 +10664,15 @@ function lockSkinWrite(c){
 function lkTimeHTML(t){
   /* 【方案2·续】冒号里那两个小球改成真元素（i.kd1 / i.kd2）。
      原来是 CSS 直接画的「替身」，没法往里铺毛玻璃；改成真元素以后，
-     脚本就能像量大数字那样，量出它俩在屏幕上的位置（见 lkGlassDots）。 */
-  const s=String(t).replace(':','<span class="lkc"><i class="kd1"></i><i class="kd2"></i></span>');
+     脚本就能像量大数字那样，量出它俩在屏幕上的位置（见 lkGlassDots）。
+     【改】小球现在单独放一层（.lkdots）：前三层是文字（要套「瘦身」滤镜），
+     这一层只放小球、不套滤镜，小球才能保持圆滚滚。 */
+  const s=String(t).replace(':','<span class="lkc"></span>');                       /* 文字层里的冒号：只留一个同样宽度的空位 */
+  const d=String(t).replace(':','<span class="lkc"><i class="kd1"></i><i class="kd2"></i></span>');   /* 小球那一层 */
   return '<span class="lkshadow" aria-hidden="true">'+s+'</span>'+
          '<span class="lktbody">'+s+'</span>'+
-         '<span class="lktrim" aria-hidden="true">'+s+'</span>';
+         '<span class="lktrim" aria-hidden="true">'+s+'</span>'+
+         '<span class="lkdots" aria-hidden="true">'+d+'</span>';
 }
 /* ---------- 【新】锁屏上的音乐气泡 ----------
    和「音乐」小应用共用同一套状态：在这按暂停，音乐页里也是暂停；
@@ -10881,7 +11091,7 @@ function lkGlassDots(){
   var lock=document.getElementById('lock'),wall=document.getElementById('lkWall');
   if(!lock||!wall||!_lkGlassUrl)return;
   if(!lock.classList.contains('on'))return;
-  var ds=document.querySelectorAll('#lkTime .lktbody .lkc i');
+  var ds=document.querySelectorAll('#lkTime .lkdots .lkc i');   /* 【改】小球挪到 .lkdots 这一层了 */
   if(!ds||!ds.length)return;
   var r=wall.getBoundingClientRect();
   if(r.width<4)return;
@@ -10967,9 +11177,57 @@ function setLkScheme(k){
   try{lkApplyScheme()}catch(e){}
   toast('锁屏方案：'+lkSchemeName(k));
 }
+/* ---------- 锁屏默认底色：按主题色算一片「天空渐变」 ----------
+   没选背景图时锁屏就用这几个颜色，全部由主题色推导：
+   顶部＝主题色掺一点夜色（偏亮、一眼看得出是哪个主题），往下越来越深；
+   再叠两团更亮的主题色柔光、底部一点天光，看着就像手机那种渐变壁纸。
+   换了主题、或者自己挑了自定义色，这里都会跟着重新算。 */
+function lkSkyColors(){
+  const t=THEMES[(cfg&&cfg.theme)]||THEMES.dark;
+  const v=(t&&t.v)||{};
+  const cu=(typeof customAccColors==='function')?customAccColors(t):null;
+  const A=thmHex2rgb((cu&&cu['--acc'])||v['--acc'])||{r:77,g:155,b:240};
+  const A2=thmHex2rgb((cu&&cu['--acc2'])||v['--acc2'])||thmMix(A,{r:255,g:255,b:255},.25);
+  const NIGHT={r:10,g:14,b:22},W={r:255,g:255,b:255};
+  /* 顶部这块正好是「白色时间字」待的地方，所以自动把它压进一个亮度区间：
+     太暗（黑白色主题那种主色接近黑）就提亮，太亮（极简那种接近白）就压暗。
+     中、下两档跟着做同样的调整，整条渐变才不会走形。 */
+  const lum=c=>{const f=x=>{x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)};return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b)};
+  let top=thmMix(A,NIGHT,.40),fix=0,near=NIGHT;
+  while(lum(top)<.045&&fix<14){top=thmMix(top,W,.12);fix++;near=W}
+  if(fix===0){
+    let k=0;
+    while(lum(top)>.16&&k<14){top=thmMix(top,NIGHT,.12);k++}
+    fix=k;near=NIGHT;
+  }
+  const adj=c=>{let x=c;for(let i=0;i<fix;i++)x=thmMix(x,near,.12);return x};
+  const sky2=adj(thmMix(A,NIGHT,.53)),sky3=adj(thmMix(A,NIGHT,.66));
+  return {
+    sky1:top,
+    sky2:sky2,
+    sky3:sky3,
+    glow1:thmMix(A,W,.34),
+    glow2:thmMix(A2,W,.20),
+    horizon:thmMix(A,W,.55)
+  };
+}
+function lkPaintBase(){
+  try{
+    const c=lkSkyColors(),r=document.documentElement.style;
+    const hx=thmRgb2hex,rg=function(x,a){return 'rgba('+x.r+','+x.g+','+x.b+','+a+')'};
+    r.setProperty('--lk-sky1',hx(c.sky1));
+    r.setProperty('--lk-sky2',hx(c.sky2));
+    r.setProperty('--lk-sky3',hx(c.sky3));
+    r.setProperty('--lk-glow1',rg(c.glow1,.52));
+    r.setProperty('--lk-glow2',rg(c.glow2,.40));
+    r.setProperty('--lk-horizon',rg(c.horizon,.22));
+  }catch(e){}
+}
 function applyLockWall(){
   const el=document.getElementById('lock'),wall=document.getElementById('lkWall'),fg=document.getElementById('lkFg');
   if(!el||!wall)return;
+  try{lkPaintBase()}catch(e){}   /* 【新】锁屏一出来就把默认底色按当前主题色算好 */
+  try{lkFxApply()}catch(e){}     /* 【新】锁屏一出来就把大字的自定义参数挂上 */
   let img='',op=1;
   try{
     const w=wallCfg();
@@ -11044,7 +11302,11 @@ function lockFitTime(){
   if(!el||!box)return;
   const avail=box.clientWidth;
   if(!avail)return;                        /* 锁屏没显示的时候量不了，跳过 */
-  const SQUEEZE=0.62;                      /* 必须跟 #lock 上的 --lk-sx 一样 */
+  /* 【改】这里固定用 0.62 当「基准宽窄」来算字号，不再跟着用户调的字宽走。
+     原因：字号要是跟着字宽一起补偿，用户把字宽调细，字号就被放大 → 宽度没变、只有高矮变了，
+     滑块看着就不直观。现在字号只跟屏幕宽度有关，字宽滑块就是纯粹控制「数字占屏幕多宽」。
+     （字宽最大 0.66 → 数字最多占屏宽 99%，不会溢出。） */
+  const SQUEEZE=0.62;
   const keep=el.innerHTML;
   el.innerHTML=lkTimeHTML('00:00');        /* 按最宽的样子量：之后时间怎么变都不会撑破 */
   el.style.fontSize='100px';
@@ -11158,8 +11420,13 @@ function lockShow(){
         const s=lockSkinRead();
         if(s){
           cfg={theme:s.theme||'dark',font:s.font||'sys',fs:15,dev:false,showThink:true,__lockskin:true,
-               lkScheme:s.sch||'modern',
-               wall:{lImg:s.img||'',lOp:(s.op==null?1:s.op),lOn:!!s.img}};
+               lkScheme:s.sch||'modern',acc:s.acc||'',
+               /* 【修】把影子里记的「锁屏大字参数」和「视差开关」还原回去：
+                  以前这两项没记，所以你在主题里调好的大字效果一到锁屏就变回默认。 */
+               lkfx:(s.fx&&typeof s.fx==='object')?s.fx:{},
+               lkPara:(s.para!==false),
+               /* 【修】开关以影子里记的为准；老数据没这个字段才退回「有图就算开」 */
+               wall:{lImg:s.img||'',lOp:(s.op==null?1:s.op),lOn:(s.on==null?!!s.img:!!s.on)}};
         }
       }
       try{applyTheme()}catch(e){}
@@ -11697,6 +11964,1143 @@ function wbDel(id){
   toast('已删除');
 }
 
+/* ================================================================
+   主题：把原来散在「设置」里的外观选项收进一个小应用
+   ・主题色（色块直接点，不用下拉框）
+   ・字体 / 字号（带实时预览）
+   ・锁屏方案 + 锁屏视差
+   ・背景图（桌面 / 聊天 / 锁屏：换图、开关、透明度）
+   所有改动即时生效，不需要点「保存」。这一段全是新增函数。
+   ================================================================ */
+const THM_SHORT={dark:'深海',light:'浅色',mono:'极简',paper:'明亮',cyan:'浅青',
+  sea:'青碧',sakura:'樱雪',matcha:'抹茶',ink:'墨夜',dusk:'暮紫'};
+function thmShort(k){
+  if(THM_SHORT[k])return THM_SHORT[k];
+  try{return String(THEMES[k].label||k).replace(/（.*?）/g,'')}catch(e){return k}
+}
+/* 字体那套（FONTS / fontKey / setFont）在补丁里，统一从这里取，取不到也不报错 */
+function thmFontLib(){
+  try{return (typeof window!=='undefined'&&window.P6)?window.P6:null}catch(e){return null}
+}
+/* 这个主题底色算不算「浅色」（用来把色块分成深浅两组） */
+function thmIsLightTheme(k){
+  let h='';
+  try{h=String((THEMES[k].v||{})['--bg']||'#000').replace('#','')}catch(e){return false}
+  if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+  if(h.length!==6)return false;
+  const n=parseInt(h,16);if(!Number.isFinite(n))return false;
+  return (((n>>16)&255)*.299+((n>>8)&255)*.587+(n&255)*.114)>140;
+}
+
+/* ---------- 自定义主题色（用户在颜料盘里自己挑的颜色） ----------
+   思路：底色（深色/浅色）还是用原来那套主题，只把「强调色」换成你挑的颜色。
+   这样字色、亮度对比都不会崩。挑的颜色存在 cfg.acc 里；空着＝不用自定义。 */
+const THMUI={open:false,h:210,s:.72,v:.95};
+const THM_QUICK=['#ff5d5d','#ff8a3d','#ffc93d','#7ed957','#2fb3a8','#3fa9d8',
+  '#4d7cf0','#8b6cf0','#d76dff','#ff6fae','#c98a5a','#8a94a6'];
+function thmHex2rgb(h){
+  h=String(h==null?'':h).trim().replace('#','');
+  if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+  if(!/^[0-9a-f]{6}$/i.test(h))return null;
+  const n=parseInt(h,16);
+  return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+}
+function thmRgb2hex(c){
+  const f=n=>{n=Math.max(0,Math.min(255,Math.round(n)));return (n<16?'0':'')+n.toString(16)};
+  return '#'+f(c.r)+f(c.g)+f(c.b);
+}
+function thmMix(a,b,t){                       /* t=0 全是 a，t=1 全是 b */
+  const f=(x,y)=>Math.round(x+(y-x)*t);
+  return {r:f(a.r,b.r),g:f(a.g,b.g),b:f(a.b,b.b)};
+}
+function thmIsLightColor(c){return (.299*c.r+.587*c.g+.114*c.b)>140}
+function thmLum(c){
+  const f=v=>{v/=255;return v<=.03928?(v/12.92):Math.pow((v+.055)/1.055,2.4)};
+  return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b);
+}
+function thmContrast(a,b){const l1=thmLum(a),l2=thmLum(b);return (Math.max(l1,l2)+.05)/(Math.min(l1,l2)+.05)}
+/* HSV → #hex（调色盘用） */
+function thmHsvHex(h,s,v){
+  h=((Number(h)||0)%360+360)%360;s=Math.max(0,Math.min(1,Number(s)||0));v=Math.max(0,Math.min(1,Number(v)||0));
+  const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;
+  let r=0,g=0,b=0;
+  if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}
+  else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}
+  return thmRgb2hex({r:(r+m)*255,g:(g+m)*255,b:(b+m)*255});
+}
+/* #hex → HSV（打开调色盘时，定位到当前颜色） */
+function thmHex2hsv(hex){
+  const c=thmHex2rgb(hex)||{r:63,g:169,b:216};
+  const r=c.r/255,g=c.g/255,b=c.b/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;
+  if(d){ if(mx===r)h=60*(((g-b)/d)%6); else if(mx===g)h=60*((b-r)/d+2); else h=60*((r-g)/d+4); }
+  if(h<0)h+=360;
+  return {h:h,s:mx?(d/mx):0,v:mx};
+}
+/* 由「挑好的颜色」＋当前主题，算出一整套强调色变量 */
+function thmAccSet(hex,t){
+  const A=thmHex2rgb(hex);if(!A||!t||!t.v)return null;
+  const bg=thmHex2rgb(t.v['--bg'])||{r:0,g:0,b:0};
+  const panel=thmHex2rgb(t.v['--panel'])||bg;
+  const lightBase=thmIsLightColor(bg);
+  const base=lightBase?panel:bg;
+  const on=thmIsLightColor(A)?'#0d0d0d':'#ffffff';    /* 叠在这个颜色上的字：亮底用黑字，暗底用白字 */
+  return {
+    '--acc':thmRgb2hex(A),
+    '--acc2':thmRgb2hex(thmMix(A,{r:255,g:255,b:255},lightBase?.2:.24)),
+    '--accdim':thmRgb2hex(thmMix(base,A,lightBase?.16:.26)),
+    '--accline':thmRgb2hex(thmMix(base,A,lightBase?.45:.5)),
+    '--accglow':'rgba('+A.r+','+A.g+','+A.b+',.5)',
+    '--chk':thmRgb2hex(A),
+    '--em':thmRgb2hex(A),
+    /* 「我」的聊天气泡：深色底就往底色压暗、浅色底就往底色提亮，
+       和各个主题自带 --bubme 的做法保持一致，这样气泡永远好看、字也看得清 */
+    '--bubme':thmRgb2hex(thmMix(A,base,lightBase?.68:.6)),
+    '--onacc':on,
+    '--onsend':on
+  };
+}
+/* applyTheme 会调它：挑过颜色就返回那一套，没挑过返回 null（一切照旧） */
+function customAccColors(t){
+  const hex=String((cfg&&cfg.acc)||'').trim();
+  if(!/^#[0-9a-f]{6}$/i.test(hex))return null;
+  return thmAccSet(hex,t);
+}
+function thmCurBase(){
+  return THEMES[(cfg&&cfg.theme)||'dark']||THEMES.dark;
+}
+function thmCustomHTML(){
+  const on=!!(cfg&&cfg.acc);
+  const cur=on?String(cfg.acc):'';
+  return '<button type="button" class="thm-cust'+(on?' on':'')+'" onclick="thmTogglePicker()">'+
+    '<span class="thm-cdot" id="thmCustDot"'+(on?(' style="background:'+esc(cur)+'"'):'')+'></span>'+
+    '<span class="thm-cn">'+(on?'自定义颜色':'在颜料盘里挑一个颜色')+'</span>'+
+    '<span class="thm-cc">'+(on?esc(cur.toUpperCase()):'🎨')+'</span></button>'+
+    (on?('<p class="fic-sub" style="margin-top:6px">自定义颜色盖在「'+esc(thmShort((cfg&&cfg.theme)||'dark'))+
+      '」这套底色上；换底色主题它也会留着，想还原就点下面的「恢复成主题自带的颜色」。</p>'):'')+
+    (THMUI.open?thmPickerHTML():'');
+}
+function thmPickerHTML(){
+  const hex=thmHsvHex(THMUI.h,THMUI.s,THMUI.v);
+  const t=thmCurBase();
+  const panel=thmHex2rgb((t.v||{})['--panel'])||{r:255,g:255,b:255};
+  const c=thmHex2rgb(hex)||{r:0,g:0,b:0};
+  const warn=thmContrast(c,panel)<2.2;
+  return '<div class="thm-pick">'+
+    '<div class="thm-sv" id="thmSV" style="background-image:linear-gradient(to top,#000,rgba(0,0,0,0)),'+
+      'linear-gradient(to right,#fff,hsl('+Math.round(THMUI.h)+',100%,50%))">'+
+      '<i id="thmDot" style="left:'+(THMUI.s*100)+'%;top:'+((1-THMUI.v)*100)+'%;background:'+hex+'"></i></div>'+
+    '<input class="thm-hue" id="thmHue" type="range" min="0" max="360" step="1" value="'+Math.round(THMUI.h)+'">'+
+    '<div class="thm-quick">'+THM_QUICK.map(q=>
+      '<button type="button" style="background:'+q+'" aria-label="'+q+'" onclick="thmQuick(\''+q+'\')"></button>').join('')+'</div>'+
+    '<div class="thm-row" style="border:0;padding:10px 0 0">'+
+      '<span class="thm-cdot" id="thmPickDot" style="background:'+hex+'"></span>'+
+      '<div class="thm-rm"><div class="thm-rt" id="thmHexTxt">'+hex.toUpperCase()+'</div>'+
+      '<div class="thm-rd" id="thmHexHint">'+(warn?'⚠️ 这个颜色和你现在的底色太接近，文字可能看不清':'按住上面的方块拖动，或拉下面的彩虹条')+'</div></div>'+
+      '<button class="pri" type="button" onclick="thmCommitAcc()">用这个颜色</button>'+
+    '</div>'+
+    ((cfg&&cfg.acc)?'<button class="ghost" type="button" style="margin-top:10px;width:100%" onclick="thmResetAcc()">恢复成主题自带的颜色</button>':'')+
+  '</div>';
+}
+function thmTogglePicker(){
+  THMUI.open=!THMUI.open;
+  if(THMUI.open){
+    const hsv=thmHex2hsv((cfg&&cfg.acc)||((thmCurBase().v||{})['--acc'])||'#3fa9d8');
+    THMUI.h=hsv.h;THMUI.s=hsv.s;THMUI.v=hsv.v;
+  }
+  thmRender();
+}
+/* 拖动时只改调色盘本身和页面变量，不整页重画，拖起来才跟手 */
+function thmPaintPicker(){
+  const hex=thmHsvHex(THMUI.h,THMUI.s,THMUI.v);
+  const box=document.getElementById('thmSV');
+  if(box)box.style.backgroundImage='linear-gradient(to top,#000,rgba(0,0,0,0)),linear-gradient(to right,#fff,hsl('+Math.round(THMUI.h)+',100%,50%))';
+  const dot=document.getElementById('thmDot');
+  if(dot){dot.style.left=(THMUI.s*100)+'%';dot.style.top=((1-THMUI.v)*100)+'%';dot.style.background=hex}
+  const pd=document.getElementById('thmPickDot');if(pd)pd.style.background=hex;
+  const cd=document.getElementById('thmCustDot');if(cd)cd.style.background=hex;
+  const tx=document.getElementById('thmHexTxt');if(tx)tx.textContent=hex.toUpperCase();
+  const hh=document.getElementById('thmHexHint');
+  if(hh){
+    const panel=thmHex2rgb((thmCurBase().v||{})['--panel'])||{r:255,g:255,b:255};
+    const warn=thmContrast(thmHex2rgb(hex)||{r:0,g:0,b:0},panel)<2.2;
+    hh.textContent=warn?'⚠️ 这个颜色和你现在的底色太接近，文字可能看不清':'按住上面的方块拖动，或拉下面的彩虹条';
+  }
+  const t=thmCurBase(),set=thmAccSet(hex,t);
+  if(set){const r=document.documentElement.style;for(const k in set)r.setProperty(k,set[k])}
+  return hex;
+}
+/* 画完之后把调色盘的手势接上 */
+function thmWirePicker(){
+  const box=document.getElementById('thmSV');if(!box)return;
+  let drag=false;
+  const move=ev=>{
+    const r=box.getBoundingClientRect();
+    if(!r.width||!r.height)return;
+    THMUI.s=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width));
+    THMUI.v=1-Math.max(0,Math.min(1,(ev.clientY-r.top)/r.height));
+    thmPaintPicker();
+  };
+  box.addEventListener('pointerdown',function(e){
+    drag=true;
+    try{box.setPointerCapture(e.pointerId)}catch(err){}
+    move(e);
+    try{e.preventDefault()}catch(err){}
+  });
+  box.addEventListener('pointermove',function(e){if(drag)move(e)});
+  const stop=function(){if(!drag)return;drag=false;thmCommitAcc()};
+  box.addEventListener('pointerup',stop);
+  box.addEventListener('pointercancel',stop);
+  const hue=document.getElementById('thmHue');
+  if(hue){
+    hue.oninput=function(){THMUI.h=+this.value;thmPaintPicker()};
+    hue.onchange=function(){THMUI.h=+this.value;thmCommitAcc()};
+  }
+}
+function thmQuick(q){
+  const hsv=thmHex2hsv(q);
+  THMUI.h=hsv.h;THMUI.s=hsv.s;THMUI.v=hsv.v;
+  thmCommitAcc();
+}
+function thmCommitAcc(){
+  cfg.acc=thmHsvHex(THMUI.h,THMUI.s,THMUI.v).toLowerCase();
+  save(LS.cfg,cfg);
+  try{applyTheme()}catch(e){}
+  thmRender();
+}
+function thmResetAcc(){
+  cfg.acc='';
+  save(LS.cfg,cfg);
+  try{applyTheme()}catch(e){}
+  thmRender();
+}
+
+/* ---------- 打开 / 刷新 ---------- */
+function thmOpen(){
+  if(typeof THEMES==='undefined')return;
+  showSheet('<div id="thm"></div>');
+  sheetFull(true);
+  thmRender();
+}
+window.thmOpen=thmOpen;
+function thmRender(){
+  const el=document.getElementById('thm');if(!el)return;
+  const sc=document.getElementById('sheet');
+  const top=sc?sc.scrollTop:0;
+  try{el.innerHTML=thmHTML()}catch(e){el.innerHTML='<p class="dim">主题应用出错了：'+esc((e&&e.message)||e)+'</p>'}
+  if(sc&&top)try{sc.scrollTop=top}catch(e2){}
+  try{thmWirePicker()}catch(e3){}
+  try{lkfxPreviewFit()}catch(e4){}   /* 预览里的字号要按当前宽度量一遍 */
+}
+
+/* ---------- 界面 ---------- */
+function thmHTML(){
+  const curTheme=(cfg&&cfg.theme&&THEMES[cfg.theme])?cfg.theme:'dark';
+  const lib=thmFontLib();
+  const fkey=(lib&&lib.fontKey)?lib.fontKey():((cfg&&cfg.font)||'sys');
+  const fs=(cfg&&cfg.fs)||15;
+  const keys=Object.keys(THEMES);
+  const darks=keys.filter(k=>!thmIsLightTheme(k));
+  const lights=keys.filter(k=>thmIsLightTheme(k));
+  return ''+
+  '<div class="fic-top"><div class="fic-pill"><b>主题</b><span class="fic-sep">｜</span><span class="fic-q">外观、字体、锁屏、背景</span></div></div>'+
+  thmPrevHTML()+
+  '<div class="thm-sec">主题色</div>'+
+  (darks.length?thmSwatchesHTML(darks,curTheme):'')+
+  (lights.length?('<div style="height:10px"></div>'+thmSwatchesHTML(lights,curTheme)):'')+
+  thmCustomHTML()+
+  '<div class="thm-sec">字体</div>'+
+  thmFontsHTML(fkey)+
+  '<div class="thm-sec">字号</div>'+
+  thmSizeHTML(fs)+
+  '<div class="thm-sec">锁屏</div>'+
+  thmLkHTML()+
+  lkfxHTML()+
+  '<div class="thm-sec">背景图</div>'+
+  thmWallHTML()+
+  '<p class="fic-sub">改完立刻生效，不用点保存。</p>'+
+  '<div class="row" style="margin-top:12px"><button class="ghost col" type="button" onclick="closeSheet()">关闭</button></div>';
+}
+/* 顶部预览卡：用当前主题实实在在画一遍，所见即所得 */
+function thmPrevHTML(){
+  let nm='角色';
+  try{const c=curChar();if(c&&c.name)nm=c.name}catch(e){}
+  const t=new Date();
+  const hm=(t.getHours()<10?'0':'')+t.getHours()+':'+(t.getMinutes()<10?'0':'')+t.getMinutes();
+  return '<div class="thm-prev">'+
+    '<div class="thm-prev-top"><span>'+hm+'</span><span>深蓝海域</span></div>'+
+    '<div class="thm-prev-card"><div class="thm-prev-t">'+esc(nm)+'</div>'+
+    '<div class="thm-prev-b">'+
+      '<div class="thm-prev-bub">今天天气真好，要出去走走吗？</div>'+
+      '<div class="thm-prev-bub me">好呀，等我收拾一下～</div>'+
+    '</div></div></div>';
+}
+function thmSwatchesHTML(keys,cur){
+  return '<div class="thm-swatches">'+keys.map(k=>{
+    const v=(THEMES[k]&&THEMES[k].v)||{};
+    const bg=v['--bg']||'#222', panel=v['--panel']||bg, acc=v['--acc']||'#888';
+    return '<button type="button" class="thm-sw'+(k===cur?' on':'')+'" onclick="thmSetTheme(\''+k+'\')">'+
+      '<span class="thm-dot" style="background:linear-gradient(150deg,'+esc(panel)+' 0%,'+esc(bg)+' 100%);border-color:'+esc(acc)+'">'+
+      '<span style="position:absolute;right:5px;bottom:5px;width:13px;height:13px;border-radius:50%;background:'+esc(acc)+'"></span></span>'+
+      '<span class="thm-n">'+esc(thmShort(k))+'</span></button>';
+  }).join('')+'</div>';
+}
+function thmFontsHTML(cur){
+  const lib=thmFontLib();
+  const F=(lib&&lib.fonts)||null;
+  if(!F)return '<p class="fic-sub">暂时读不到字体列表。</p>';
+  return '<div class="thm-chips">'+Object.keys(F).map(k=>{
+    const ff=String((F[k]&&F[k].v)||'').replace(/"/g,"'");   /* 字体名里本来带双引号，换成单引号免得撞坏属性 */
+    return '<button type="button" class="thm-chip'+(k===cur?' on':'')+'" onclick="thmSetFont(\''+k+'\')" style="font-family:'+ff+'">'+esc(F[k].n)+'</button>';
+  }).join('')+'</div>';
+}
+function thmSizeHTML(fs){
+  return '<div class="thm-sl">'+
+    '<label><span>字号大小</span><span>当前 <b id="thmFsV">'+fs+'</b> px</span></label>'+
+    '<input id="thmFs" type="range" min="13" max="20" step="1" value="'+fs+'" '+
+      'oninput="thmSetSize(this.value,0)" onchange="thmSetSize(this.value,1)"></div>'+
+    '<div class="thm-sample"><div class="thm-prev-t">预览</div>'+
+    '<p>她推开门，风铃叮当响了一声——今天也要好好的。</p></div>';
+}
+function thmLkHTML(){
+  const cur=lkSchemeCur();
+  const on=(!cfg||cfg.lkPara!==false);
+  return '<div class="thm-chips">'+lkSchemes().map(s=>
+    '<button type="button" class="thm-chip'+(s.k===cur?' on':'')+'" onclick="thmSetLk(\''+s.k+'\')">'+esc(s.n)+'</button>'
+  ).join('')+'</div>'+
+  '<p class="fic-sub">'+esc(lkSchemeHint())+'</p>'+
+  '<div class="thm-row"><div class="thm-rm"><div class="thm-rt">视差效果</div>'+
+  '<div class="thm-rd">手机轻轻倾斜时，时间和壁纸会错开一点点，看着有前后层次。iPhone 第一次要在锁屏上点一下才会问你要不要授权。</div></div>'+
+  '<input type="checkbox" '+(on?'checked':'')+' onchange="setLkPara(this.checked)"></div>';
+}
+function thmWallHTML(){
+  const w=wallCfg();
+  return thmWallRow('desk','桌面背景','手机桌面（首页）后面那张图',w)+
+         thmWallRow('chat','聊天背景','聊天页消息区后面那张图',w)+
+         thmWallRow('lock','锁屏背景','锁屏那张整屏壁纸',w)+
+         '<p class="fic-sub">左边小方块会跟着透明度实时变化；想看真正的效果，点右上角 ✕ 关掉就能看到桌面（聊天背景要进聊天页看）。图片只存你手机本地（跟着备份走），太大时会自动压小。</p>';
+}
+function thmWallRow(tag,label,hint,w){
+  const isLock=(tag==='lock');
+  const on=isLock?!!w.lOn:(tag==='desk'?!!w.dOn:!!w.cOn);
+  const img=isLock?(w.lImg||''):(tag==='desk'?(w.dImg||''):(w.cImg||''));
+  const cur=isLock?(w.lOp==null?1:w.lOp):(tag==='desk'?(w.dOp||.45):(w.cOp||.45));
+  /* 【修】这里以前写成了 Math.max(5,Math.min(1,cur))*100 —— cur 是 0~1 的小数，
+     先和 1 取小、再和 5 取大，结果永远是 5，乘 100 就成了 500%。
+     也就是说滑块永远显示 500%（被浏览器夹到最右端 100%），看着是满的、
+     可只要你手指碰到轨道，它就会按点的位置改写数值 —— 壁纸于是被悄悄压暗。
+     正确写法：先换算成百分比，再夹到 5~100。 */
+  const pct=Math.round(Math.min(100,Math.max(5,cur*100)));
+  const sub=img?(on?'正在使用':'已选图，但开关是关的'):hint;
+  return '<div class="thm-row" style="flex-wrap:wrap">'+
+    '<div class="thm-thumb" style="background-image:linear-gradient(160deg,var(--accdim),transparent)">'+
+      (img?('<img id="tprev_'+tag+'" src="'+esc(img)+'" alt="" style="opacity:'+cur+'">'):'🖼')+'</div>'+
+    '<div class="thm-rm"><div class="thm-rt">'+esc(label)+'</div><div class="thm-rd">'+esc(sub)+'</div></div>'+
+    '<input type="checkbox" '+(on?'checked':'')+(img?'':' disabled')+' onchange="thmSetOn(\''+tag+'\',this.checked)">'+
+    '<button class="ghost" type="button" onclick="thmPick(\''+tag+'\')">'+(img?'换图':'选图')+'</button>'+
+    (img?('<button class="ghost" type="button" style="color:var(--warn)" onclick="thmClear(\''+tag+'\')">删</button>'):'')+
+    '<div style="flex:1 1 100%">'+
+      '<label style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--dim);margin:8px 0 2px">'+
+      '<span>透明度</span><span id="twop_'+tag+'">'+pct+'%</span></label>'+
+      '<input type="range" min="5" max="100" step="5" value="'+pct+'"'+(img?'':' disabled')+
+      ' oninput="thmSetOp(\''+tag+'\',this.value,0)" onchange="thmSetOp(\''+tag+'\',this.value,1)">'+
+      /* 不是 100% 就是在压暗壁纸：明说 + 一键调回来，省得以后又被手指划到不知道 */
+      (pct<100?('<div class="thm-rd" style="margin-top:4px;color:var(--warn)">⚠️ 现在是 '+pct+'%，壁纸被压暗了'+
+        '<button class="thm-mini" type="button" onclick="thmSetOpFull(\''+tag+'\')">调回 100%</button></div>'):'')+
+      (isLock?'<div class="thm-rd" style="margin-top:3px">100% ＝ 壁纸最亮；往左调就是把它压暗。</div>':'')+
+    '</div>'+
+    '<input type="file" accept="image/*" id="thmIn_'+tag+'" style="display:none" onchange="thmWallFile(this,\''+tag+'\')">'+
+  '</div>';
+}
+
+/* ---------- 交互（全部即时生效） ---------- */
+function thmSetTheme(k){
+  if(!THEMES[k])return;
+  cfg.theme=k;save(LS.cfg,cfg);
+  try{applyTheme()}catch(e){}
+  thmRender();
+}
+function thmSetFont(k){
+  const lib=thmFontLib();
+  if(lib&&lib.fonts&&lib.fonts[k]){
+    if(lib.setFont)lib.setFont(k);
+    else{cfg.font=k;save(LS.cfg,cfg);if(lib.applyFont)lib.applyFont()}
+  }else{cfg.font=k;save(LS.cfg,cfg)}
+  thmRender();
+}
+function thmSetSize(v,commit){
+  const n=Math.max(13,Math.min(20,parseInt(v,10)||15));
+  cfg.fs=n;
+  try{applyTheme()}catch(e){}
+  const lb=document.getElementById('thmFsV');if(lb)lb.textContent=n;
+  if(commit)save(LS.cfg,cfg);
+}
+function thmSetLk(k){
+  try{setLkScheme(k)}catch(e){cfg.lkScheme=k;save(LS.cfg,cfg)}
+  thmRender();
+}
+function thmSetOn(tag,on){
+  const w=wallCfg();
+  if(tag==='desk')w.dOn=!!on;else if(tag==='lock')w.lOn=!!on;else w.cOn=!!on;
+  save(LS.cfg,cfg);
+  try{applyWall()}catch(e){}
+  thmRender();
+}
+function thmSetOp(tag,val,persist){
+  const w=wallCfg();
+  const n=Math.max(5,Math.min(100,parseInt(val,10)||45))/100;
+  if(tag==='desk')w.dOp=n;else if(tag==='lock')w.lOp=n;else w.cOp=n;
+  const lb=document.getElementById('twop_'+tag);if(lb)lb.textContent=Math.round(n*100)+'%';
+  const pv=document.getElementById('tprev_'+tag);if(pv)pv.style.opacity=String(n);
+  try{applyWall()}catch(e){}
+  if(persist){save(LS.cfg,cfg);thmRender()}   /* 松手才存、才重画：拖的时候不会被重画打断 */
+}
+/* 一键把某个背景图的透明度调回 100%（＝壁纸最亮，不再被压暗） */
+function thmSetOpFull(tag){
+  const w=wallCfg();
+  if(tag==='desk')w.dOp=1;else if(tag==='lock')w.lOp=1;else w.cOp=1;
+  save(LS.cfg,cfg);
+  try{applyWall()}catch(e){}
+  thmRender();
+}
+
+/* ---------- 锁屏大字（时间数字＋冒号）的参数 ----------
+   真锁屏那套效果全靠 #lock 上的一组 CSS 变量（--lk-sx / --lk-sy / --lk-op / --lk-rim …）。
+   这里把它们开放出来：拖滑块 → 立刻写到变量上（真锁屏 + 上面的预览一起变），松手才存盘。
+   用户的改动存在 cfg.lkfx 里；「恢复默认」＝把 cfg.lkfx 清空，回到 LKFX_DEF 这套原版参数。 */
+const LKFX_DEF={sy:1.55,sx:.62,op:1,rim:.004,dot:1,ls:-.02,f0:44,ptop:0,blur:12,bright:1.45};
+const LKFX_SPEC=[
+  ['sy','字高（数字的高矮）',0.8,2.2,0.01,''],
+  ['sx','字宽（数字占屏幕的宽窄）',0.3,0.66,0.01,''],
+  ['op','整体透明度',0.15,1,0.01,''],
+  ['rim','字边亮线粗细',0,0.02,0.001,'em'],
+  ['dot','冒号小球大小',0.5,1.6,0.02,'倍'],
+  ['ls','字间距',-0.06,0.04,0.002,'em'],
+  ['f0','下半截淡出的位置（越小＝越早开始变透）',20,70,1,'%'],
+  ['ptop','上下位置',-8,10,0.5,'vh'],
+  ['blur','玻璃磨砂强度',0,24,0.5,''],
+  ['bright','玻璃亮度',1,2,0.02,'倍']
+];
+function lkfxSpec(k){
+  for(let i=0;i<LKFX_SPEC.length;i++)if(LKFX_SPEC[i][0]===k)return LKFX_SPEC[i];
+  return null;
+}
+function lkfxCfg(){
+  if(!cfg)return {};
+  if(!cfg.lkfx||typeof cfg.lkfx!=='object')cfg.lkfx={};
+  return cfg.lkfx;
+}
+function lkfxGet(k){
+  const v=Number(lkfxCfg()[k]);
+  let n=Number.isFinite(v)?v:LKFX_DEF[k];
+  /* 读的时候也夹一下范围：万一存着老版本留下的越界值（比如字宽曾经能到 1），
+     也不会让数字跑到屏幕外面去。 */
+  const spec=lkfxSpec(k);
+  if(spec)n=Math.min(spec[3],Math.max(spec[2],n));
+  return n;
+}
+function lkfxShow(v,unit){return (Math.round(Number(v)*1000)/1000)+(unit||'')}
+function lkfxUnit(k){const s=lkfxSpec(k);return s?s[5]:''}
+/* 写到 CSS 变量上：html 上写一份（预览用），#lock 上再写一份
+   （#lock 自己声明了这些变量的默认值，会盖住继承来的，所以必须单独写一遍） */
+function lkFxApply(){
+  try{
+    const V={
+      '--lk-sx':String(lkfxGet('sx')),
+      '--lk-sy':String(lkfxGet('sy')),
+      '--lk-op':String(lkfxGet('op')),
+      '--lk-rim':lkfxGet('rim')+'em',
+      '--lk-dot-s':String(lkfxGet('dot')),
+      '--lk-ls':lkfxGet('ls')+'em',
+      '--lk-f0':lkfxGet('f0')+'%',
+      '--lk-ptop':lkfxGet('ptop')+'vh',
+      /* 【新】冒号小球的「抵消拉伸」系数：
+         数字整体被横向压窄 sx 倍、纵向拉高 sy 倍，所以小球也要纵向补 sy 才能保持正圆。
+         原来是写死的 0.4（＝0.62÷1.55），只对默认值成立；你一改字高／字宽它就歪了。
+         现在按当前的值实时算 → 不管怎么调，冒号永远是圆的。 */
+      '--lk-dot-uny':String((lkfxGet('sx')/Math.max(0.05,lkfxGet('sy'))).toFixed(4))
+    };
+    const r=document.documentElement.style;
+    for(const k in V)r.setProperty(k,V[k]);
+    const lock=document.getElementById('lock');
+    if(lock)for(const k in V)lock.style.setProperty(k,V[k]);
+    /* 磨砂玻璃那两个参数用的是全局的 LKGLASS（补丁里 var 出来的），统一从 window 取，取不到就跳过 */
+    const GL=window.LKGLASS;
+    if(GL){GL.blur=lkfxGet('blur');GL.bright=lkfxGet('bright')}
+  }catch(e){}
+}
+function lkfxSet(k,val,commit){
+  const spec=lkfxSpec(k);
+  let n=Number(val);
+  if(!Number.isFinite(n))n=LKFX_DEF[k];
+  if(spec)n=Math.min(spec[3],Math.max(spec[2],n));
+  lkfxCfg()[k]=n;
+  lkFxApply();
+  if(k==='sx')try{lkfxPreviewFit()}catch(e){}   /* 字宽变了：预览里的字号要跟着重新量 */
+  const lb=document.getElementById('lkfxv_'+k);
+  if(lb)lb.textContent=lkfxShow(n,lkfxUnit(k));
+  if(commit){                              /* 松手才存、才重画：拖的时候不被重画打断 */
+    save(LS.cfg,cfg);
+    if(k==='blur'||k==='bright')try{lkGlassBuild(_lkGlassWant)}catch(e){}
+    if(k==='sx')try{lockFitTime()}catch(e){}   /* 改了字宽：重新量一次字号，免得数字被裁掉 */
+    thmRender();
+  }
+}
+function lkfxReset1(k){delete lkfxCfg()[k];save(LS.cfg,cfg);lkFxApply();thmRender()}
+function lkfxResetAll(){
+  if(!confirm('把锁屏大字恢复成默认效果吗？\n（其它设置不受影响）'))return;
+  cfg.lkfx={};
+  save(LS.cfg,cfg);
+  lkFxApply();
+  try{lkGlassBuild(_lkGlassWant)}catch(e){}
+  thmRender();
+  try{toast('锁屏大字已恢复默认')}catch(e){}
+}
+/* 竖屏预览：照着真锁屏的样子搭一遍（状态栏 / 日期 / 大时间 / 底部圆钮 + 手势条）。
+   用的还是同一套 CSS 变量，所以拖滑块它立刻跟着变。 */
+function lkfxPreviewHTML(){
+  const w=wallCfg();
+  const img=(w.lOn&&w.lImg)?w.lImg:'';
+  const d=new Date();
+  const p2=n=>(n<10?'0':'')+n;
+  const tm=p2(d.getHours())+':'+p2(d.getMinutes());
+  let dateTxt='';
+  try{dateTxt=lkDateText(d)}catch(e){dateTxt=(d.getMonth()+1)+'月'+d.getDate()+'日'}
+  const dots='<i class="lkfx-dots"><b></b><b></b></i>';
+  const digits=p2(d.getHours())+dots+p2(d.getMinutes());
+  return '<div class="lkfx-stage">'+
+    '<div class="lkfx-prev"'+(img?(' style="background-image:url(&quot;'+esc(img)+'&quot;)"'):'')+'>'+
+      '<div class="lkfx-scrim"></div>'+
+      '<div class="lkfx-sb"><span class="g"><i class="l"></i></span>'+
+        '<span class="g"><i class="w"></i><i class="w"></i><i class="b"></i></span></div>'+
+      '<div class="lkfx-clock">'+
+        '<div class="lkfx-date">'+dateTxt+'</div>'+   /* 【修】lkDateText 返回的是带 <span class="lkd"> 的 HTML，不能再转义，否则会把标签当文字显示 */
+        '<div class="lkfx-time" id="lkfxTime">'+
+          '<span class="lkfx-body">'+digits+'</span>'+
+          '<span class="lkfx-trim">'+digits+'</span>'+   /* 【新】白色亮边层（和真锁屏一样只亮在上方） */
+        '</div>'+
+      '</div>'+
+      '<div class="lkfx-card"><div class="lkfx-ct">Salvatore</div><div class="lkfx-cs">Lana Del Rey</div>'+
+        '<div class="lkfx-cbar"><i></i></div>'+
+        '<div class="lkfx-cctl"><b></b><b class="pl"></b><b></b></div></div>'+
+      '<div class="lkfx-chrome"><i></i><i></i></div>'+
+      '<div class="lkfx-bar"></div>'+
+    '</div>'+
+    '<div class="lkfx-cap">预览 · 按真锁屏比例缩小</div>'+
+  '</div>';
+}
+/* 预览里的字号：和真锁屏一样，让数字大约占屏宽的 93%（所以预览看着就是真机的比例） */
+function lkfxPreviewFit(){
+  try{
+    const el=document.getElementById('lkfxTime');
+    if(!el)return;
+    const pv=el.closest ? el.closest('.lkfx-prev') : null;
+    if(!pv)return;
+    const avail=pv.clientWidth;
+    if(!avail)return;
+    const keep=el.innerHTML;
+    el.style.fontSize='100px';
+    el.innerHTML='<span class="lkfx-body">00<i class="lkfx-dots"><b></b><b></b></i>00</span>'+
+                 '<span class="lkfx-trim">00<i class="lkfx-dots"><b></b><b></b></i>00</span>';   /* 按最宽的样子量 */
+    const w=el.offsetWidth;      /* offsetWidth 不受 transform 缩放影响 */
+    el.innerHTML=keep;
+    if(!w)return;
+    const s=100*(avail*0.93)/(w*0.62);   /* 和真锁屏一样：字号只按「基准宽窄 0.62」算，字宽滑块另外控制实际宽度 */
+    if(!isFinite(s)||s<=0)return;
+    el.style.fontSize=Math.max(10,Math.min(220,s)).toFixed(1)+'px';
+  }catch(e){}
+}
+function lkfxRow(k){
+  const spec=lkfxSpec(k);if(!spec)return '';
+  const v=lkfxGet(k),unit=spec[5],def=LKFX_DEF[k];
+  return '<div class="lkfx-sl"><label><span>'+esc(spec[1])+'</span>'+
+    '<span><b id="lkfxv_'+k+'">'+lkfxShow(v,unit)+'</b>'+
+    (Math.abs(v-def)>1e-9?('<button class="thm-mini" type="button" onclick="lkfxReset1(\''+k+'\')">默认 '+lkfxShow(def,unit)+'</button>'):'')+
+    '</span></label>'+
+    '<input type="range" min="'+spec[2]+'" max="'+spec[3]+'" step="'+spec[4]+'" value="'+v+'" '+
+    'oninput="lkfxSet(\''+k+'\',this.value,0)" onchange="lkfxSet(\''+k+'\',this.value,1)"></div>';
+}
+function lkfxHTML(){
+  let h='<div class="thm-sec">锁屏大字（时间数字和冒号）</div>'+lkfxPreviewHTML();
+  for(let i=0;i<LKFX_SPEC.length;i++)h+=lkfxRow(LKFX_SPEC[i][0]);
+  h+='<button class="ghost" type="button" style="width:100%;margin-top:10px" onclick="lkfxResetAll()">恢复锁屏大字的默认效果</button>';
+  h+='<p class="fic-sub">只影响锁屏那颗大时间（数字＋冒号小球），改完自动保存。想看真机效果：点右上角 ✕ 关掉，再锁一次屏。</p>';
+  return h;
+}
+function thmPick(tag){
+  const el=document.getElementById('thmIn_'+tag);
+  if(el)el.click();
+}
+async function thmWallFile(inp,tag){
+  try{await wallFile(inp,tag)}catch(e){}
+  thmRender();
+}
+function thmClear(tag){
+  wallClear(tag);
+  thmRender();
+}
+
+/* ================================================================
+   番外：给角色写一段小故事（从桌面「番外」图标进来）
+   ・填一段番外背景（比如「陪我去公园玩」）
+   ・选输出形式：对话聊天式 / 第三人称文章
+   ・选角色能看到的记忆：只用基础人设 / 完整（热层＋常驻层＋记忆宫殿）
+   ・填硬性要求（字数、必须包含什么、禁止什么…）
+   写好的存在 wh_fic 里，跟着备份一起走。这一段全是新增函数，
+   不改动原来任何功能。
+   ================================================================ */
+const LS_FIC='wh_fic';
+const FIC={cid:'',bg:'',mode:'chat',mem:'base',req:'',text:'',busy:false,view:'form',id:'',gen:0};
+let ficAbort=null;
+
+/* ---------- 小工具 ---------- */
+function ficFmt(s){
+  s=String(s==null?'':s);
+  try{if(typeof mdInline==='function')return mdInline(s)}catch(e){}
+  return esc(s).replace(/\n/g,'<br>');
+}
+function ficCount(t){
+  const s=String(t||'');
+  const cn=(s.match(/[\u4e00-\u9fa5]/g)||[]).length;
+  const en=(s.match(/[A-Za-z0-9]+/g)||[]).length;
+  return cn+en;
+}
+function ficNum(n){return String(Math.round(Number(n)||0)).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+/* 这一次生成到底花了多少 token：接口给了就用接口的，没给就用估算的 */
+function ficTokOf(usage,out,msgs2){
+  const ctok=(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out);
+  const ptok=(usage&&usage.prompt_tokens)?usage.prompt_tokens:
+    estTokens((msgs2||[]).map(m=>String((m&&m.content)||'')).join('\n'));
+  const total=(usage&&usage.total_tokens)?usage.total_tokens:(Number(ptok||0)+Number(ctok||0));
+  return {ptok:Math.round(Number(ptok)||0),ctok:Math.round(Number(ctok)||0),
+    total:Math.round(Number(total)||0),
+    real:!!(usage&&(usage.total_tokens!=null||usage.completion_tokens!=null))};
+}
+/* 番外卡片下面那行「花了多少 token」的统计 */
+function ficTokHTML(t){
+  t=t||FIC.tok;
+  if(!t||FIC.busy)return '';
+  const est=t.real?'':'（估算）';
+  let h='<div class="fic-tok">本次生成：上下文 '+ficNum(t.ptok)+' ＋ 生成 '+ficNum(t.ctok)+
+    ' ＝ <b>'+ficNum(t.total)+'</b> token'+est;
+  const runs=Number(FIC.tokRuns||0);
+  if(runs>1)h+='<br>这一篇累计：<b>'+ficNum(FIC.tokSum||0)+'</b> token（'+runs+' 次生成）';
+  return h+'</div>';
+}
+function ficAvaInner(c){
+  try{return (c&&c.avatar)?('<img src="'+esc(c.avatar)+'" alt="">'):esc((c&&c.emoji)||'📖')}catch(e){return '📖'}
+}
+function ficStore(){
+  try{const a=load(LS_FIC,[]);return Array.isArray(a)?a:[]}catch(e){return []}
+}
+function ficPut(list){
+  try{save(LS_FIC,list);scheduleBackup()}catch(e){}
+}
+function ficChar(){
+  let c=null;
+  try{c=(chars||[]).find(x=>x.id===FIC.cid)||null}catch(e){}
+  if(!c){try{c=curChar()}catch(e){}}
+  return c||null;
+}
+function ficTitleOf(x){
+  const s=String((x&&x.bg)||'').replace(/\s+/g,' ').trim();
+  if(s)return (s.length>20)?(s.slice(0,20)+'…'):s;
+  return (x&&x.name)?(x.name+' 的番外'):'未命名番外';
+}
+
+/* ---------- 打开 / 关闭 ---------- */
+function ficOpen(){
+  if(!chars||!chars.length){alert('先去「角色」里建一个角色，再来写番外。');return}
+  if(!FIC.cid||!chars.some(x=>x.id===FIC.cid)){
+    let c=null;try{c=curChar()}catch(e){}
+    FIC.cid=c?c.id:chars[0].id;
+  }
+  FIC.gen++;                                   /* 让上一次还没写完的写作作废 */
+  FIC.busy=false;
+  try{if(ficAbort)ficAbort.abort()}catch(e){}
+  ficAbort=null;
+  FIC.text='';FIC._live='';FIC.id='';           /* 重新打开＝开一篇新的，不留上一次的正文 */
+  FIC.bg='';FIC.req='';
+  FIC.view='form';
+  showSheet('<div id="fic"></div>');
+  sheetFull(true);                 /* 铺满整屏，像个小应用 */
+  ficRender();
+}
+window.ficOpen=ficOpen;
+
+/* ---------- 界面 ---------- */
+function ficRender(){
+  const el=document.getElementById('fic');if(!el)return;
+  if(FIC.view==='read')el.innerHTML=ficReadHTML();
+  else el.innerHTML=ficFormHTML();
+}
+function ficSeg(mode){
+  return '<div class="fic-seg">'+
+    '<button type="button" class="'+(FIC.mode==='chat'?'on':'')+'" onclick="ficSetMode(\'chat\')"><span class="fic-s1">对话聊天</span><span class="fic-s2">像聊天记录</span></button>'+
+    '<button type="button" class="'+(FIC.mode!=='chat'?'on':'')+'" onclick="ficSetMode(\'story\')"><span class="fic-s1">第三人称</span><span class="fic-s2">直接读文章</span></button>'+
+    '</div>';
+}
+function ficSegMem(){
+  return '<div class="fic-seg">'+
+    '<button type="button" class="'+(FIC.mem!=='full'?'on':'')+'" onclick="ficSetMem(\'base\')"><span class="fic-s1">基础人设</span><span class="fic-s2">只用人设</span></button>'+
+    '<button type="button" class="'+(FIC.mem==='full'?'on':'')+'" onclick="ficSetMem(\'full\')"><span class="fic-s1">完整配置</span><span class="fic-s2">记忆全带上</span></button>'+
+    '</div>';
+}
+function ficFormHTML(){
+  const c=ficChar();
+  const opts=(chars||[]).map(x=>'<option value="'+esc(x.id)+'"'+(x.id===FIC.cid?' selected':'')+'>'+esc(((x.emoji||'')+' '+(x.name||'未命名')).trim())+'</option>').join('');
+  const list=ficStore();
+  return ''+
+  '<div class="fic-top"><div class="fic-pill"><span class="fic-pav">'+ficAvaInner(c)+'</span><b>番外</b><span class="fic-sep">｜</span><span class="fic-q">给角色写一段小故事</span></div></div>'+
+  '<div class="fic-card"><div class="fic-inner">'+
+    '<div class="fic-head"><div class="fic-bar"></div><div class="fic-hcol">'+
+      '<div class="fic-t1"><span>新建番外</span><span class="fic-r">'+esc(c?(c.name||''):'未选角色')+'</span></div>'+
+      '<div class="fic-t2"><span class="fic-name">由角色根据人设和记忆来写</span><span class="fic-r2">'+(FIC.mode==='chat'?'对话':'文章')+'</span></div>'+
+    '</div></div>'+
+  '</div></div>'+
+  '<div class="fic-sec">角色</div>'+
+  '<select id="ficCid" onchange="ficSetChar(this.value)">'+opts+'</select>'+
+  '<div class="fic-sec" style="margin-top:14px">番外背景（写你想让故事发生的事）</div>'+
+  '<textarea id="ficBg" placeholder="例如：写一段我和她去公园玩的一天，春天，樱花开着。" oninput="ficIn(\'bg\',this)">'+esc(FIC.bg)+'</textarea>'+
+  '<div class="fic-sec" style="margin-top:14px">形式</div>'+
+  ficSeg()+
+  '<div class="fic-sec" style="margin-top:14px">角色能看到的记忆</div>'+
+  ficSegMem()+
+  '<p class="fic-sub">完整配置＝聊天时那套：热层（最近的聊天）＋常驻层（长期记忆）＋记忆宫殿（翻旧档案）。</p>'+
+  '<div class="fic-sec" style="margin-top:14px">番外要求（可选）</div>'+
+  '<textarea id="ficReq" placeholder="例如：必须超过一万字；只允许两个人出现；结尾要是甜的。" oninput="ficIn(\'req\',this)">'+esc(FIC.req)+'</textarea>'+
+  '<button class="pri fic-go" style="margin-top:14px" onclick="ficGen()">✨ 开始写</button>'+
+  '<p class="fic-sub">「开始写」永远是从头写一篇新的；要是嫌写得太短，就在那一篇里点「续写」接着写。</p>'+
+  (list.length?('<div class="fic-sec" style="margin-top:18px">以前写过的</div>'+ficListHTML()):'')+
+  '<div class="row" style="margin-top:14px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
+}
+function ficListHTML(){
+  const list=ficStore();
+  if(!list.length)return '<div class="fic-empty">还没有写过番外</div>';
+  return list.map(x=>{
+    const d=new Date(x.t||Date.now());
+    let when=(d.getMonth()+1)+'月'+d.getDate()+'日';
+    try{when+=' '+fmtTime(d.getTime())}catch(e){}
+    return '<div class="fic-li">'+
+      '<div class="fic-lm" onclick="ficOpenSaved(\''+esc(x.id)+'\')">'+
+        '<div class="fic-lt">'+esc(ficTitleOf(x))+'</div>'+
+        '<div class="fic-ld">'+esc(((x.name||'')+' · '+(x.mode==='chat'?'对话':'文章')+' · '+ficCount(x.text)+' 字 · '+when).replace(/^ · /,''))+
+          ((x.tokSum||(x.tok&&x.tok.total))?(' · '+esc(ficNum(x.tokSum||x.tok.total))+' tok'):'')+'</div>'+
+      '</div>'+
+      '<button class="ghost" type="button" onclick="ficOpenSaved(\''+esc(x.id)+'\')">看</button>'+
+      '<button class="ghost" type="button" style="color:var(--warn)" onclick="ficDel(\''+esc(x.id)+'\')">删</button>'+
+    '</div>';
+  }).join('');
+}
+function ficReadHTML(){
+  const c=ficChar();
+  const name=(c&&c.name)||'角色';
+  const d=new Date();
+  const dateStr=(d.getMonth()+1)+'月'+d.getDate()+'日';
+  return ''+
+  '<div class="fic-top"><div class="fic-pill"><span class="fic-pav">'+ficAvaInner(c)+'</span><b>'+esc(name)+'</b><span class="fic-sep">｜</span><span class="fic-q">番外</span></div></div>'+
+  '<div class="fic-card"><div class="fic-inner">'+
+    '<div class="fic-head"><div class="fic-bar"></div><div class="fic-hcol">'+
+      '<div class="fic-t1"><span>'+(FIC.busy?'正在写作…':('番外 · '+(FIC.mode==='chat'?'对话':'文章')))+'</span><span class="fic-r">'+dateStr+'</span></div>'+
+      '<div class="fic-t2"><span class="fic-name">'+esc(ficTitleOf({bg:FIC.bg,name:name}))+'</span><span class="fic-r2" id="ficCount">'+ficCount(FIC.text)+' 字</span></div>'+
+    '</div></div>'+
+    '<div class="fic-body" id="ficBody">'+ficBodyHTML()+'</div>'+
+  '</div></div>'+
+  (FIC.busy
+    ? '<div class="fic-tools"><button class="ghost" type="button" onclick="ficStop()">⏹ 停下来</button></div>'
+    : '<div class="fic-tools">'+
+        '<button class="ghost" type="button" onclick="ficMore()">续写</button>'+
+        '<button class="ghost" type="button" onclick="ficCopy()">复制</button>'+
+        '<button class="ghost" type="button" onclick="ficRewrite()">重写</button>'+
+        '<button class="ghost" type="button" onclick="ficBack()">改设定</button>'+
+        '<button class="ghost" type="button" onclick="ficNew()">＋新开一篇</button>'+
+      '</div>')+
+  ficTokHTML()+
+  '<p class="fic-sub">写好的会自动存在本地（跟着备份走）。要长文多点几次「续写」；想写新的就点「＋新开一篇」，这一篇会留在下面的列表里。</p>'+
+  '<div class="row" style="margin-top:12px"><button class="ghost col" type="button" onclick="closeSheet()">关闭</button></div>';
+}
+function ficBodyHTML(){
+  const t=String(FIC.text||'');
+  const empty=!t.trim();
+  let h=empty?(FIC.busy?'':(FIC.mode==='chat'?'<div class="fic-nar">（还没有内容）</div>':'<p class="fic-p" style="text-indent:0;color:var(--dim)">（还没有内容）</p>')):(FIC.mode==='chat'?ficChatHTML(t):ficProseHTML(t));
+  if(FIC.busy)h+='<div class="fic-flat"><span id="ficStream"></span><span class="fic-cursor"></span></div>';
+  return h;
+}
+function ficProseHTML(text){
+  const out=[];
+  String(text||'').split(/\n+/).forEach(s=>{
+    const t=s.trim();
+    if(!t)return;
+    if(/^[-–—*·_\s]{3,}$/.test(t))return;
+    out.push('<p class="fic-p">'+ficFmt(t)+'</p>');
+  });
+  return out.join('');
+}
+function ficParseChat(text,cn,un){
+  const items=[];
+  String(text||'').split('\n').forEach(raw=>{
+    const s=raw.trim();
+    if(!s)return;
+    if(/^[-–—*·_\s]{3,}$/.test(s))return;
+    const m=/^【?([^：:】]{1,18})】?\s*[：:]\s*([\s\S]*)$/.exec(s);
+    if(m){
+      const who=m[1].trim().replace(/[*_`\s]/g,'').replace(/^[「『"“']|[」』"”']$/g,'');
+      const body=(m[2]||'').trim();
+      const cn2=String(cn).replace(/\s/g,'');
+      if(who&&(who===cn2||who===cn))items.push({k:'char',t:body});
+      else if(who==='我'||who===un)items.push({k:'me',t:body});
+      else items.push({k:'nar',t:s});
+    }else{
+      items.push({k:'nar',t:s});
+    }
+  });
+  return items;
+}
+function ficChatHTML(text){
+  const c=ficChar()||{};
+  const cn=(c&&c.name)||'角色';
+  const un=(cfg&&cfg.userName)||'我';
+  const items=ficParseChat(text,cn,un);
+  if(!items.length)return '';
+  let h='<div class="fic-chat">';
+  items.forEach(it=>{
+    if(it.k==='nar'){h+='<div class="fic-nar">'+ficFmt(it.t)+'</div>';return}
+    const me=(it.k==='me');
+    h+='<div class="fic-ln'+(me?' me':'')+'">'+
+       '<div class="fic-who">'+esc(me?(un||'我'):cn)+'</div>'+
+       '<div class="fic-bub'+(me?' me':'')+'">'+ficFmt(it.t)+'</div></div>';
+  });
+  return h+'</div>';
+}
+function ficPushDelta(d){
+  const el=document.getElementById('ficStream');
+  if(el)el.appendChild(document.createTextNode(String(d||'')));
+  else{
+    const body=document.getElementById('ficBody');
+    if(body)body.appendChild(document.createTextNode(String(d||'')));
+  }
+  const n=document.getElementById('ficCount');
+  if(n){FIC._live=(FIC._live||'')+String(d||'');n.textContent=ficCount(FIC.text+'\n'+FIC._live)+' 字'}
+}
+
+/* ---------- 交互 ---------- */
+function ficIn(k,el){try{FIC[k]=el?el.value:''}catch(e){}}
+function ficSyncForm(){
+  const g=document.getElementById('ficBg');if(g)FIC.bg=g.value||'';
+  const r=document.getElementById('ficReq');if(r)FIC.req=r.value||'';
+  const s=document.getElementById('ficCid');if(s)FIC.cid=s.value||FIC.cid;
+}
+function ficSetChar(id){FIC.cid=id||FIC.cid;ficRender()}
+function ficSetMode(m){ficSyncForm();FIC.mode=(m==='story')?'story':'chat';ficRender()}
+function ficSetMem(m){ficSyncForm();FIC.mem=(m==='full')?'full':'base';ficRender()}
+function ficBack(){FIC.view='form';ficRender()}
+
+/* ---------- 拼提示词 ---------- */
+/* 取「热层」的范围：完全照抄聊天页 historySlice 的规则（auto 按轮数 / full 按字数甚至全部 / sum 只留 4 条），
+   这样番外里角色记得的聊天记录，和聊天时是一样多的。 */
+function ficHistSlice(c){
+  let list;
+  try{list=(c.id===curId&&Array.isArray(msgs))?msgs.slice():(load(LS.msg(c.id),[])||[])}catch(e){return []}
+  if(!Array.isArray(list))return [];
+  const mode=(cfg&&cfg.histMode)||'auto';
+  if(mode==='full'){
+    const lim=(cfg&&cfg.fullLimit==null?20000:cfg.fullLimit);
+    if(lim<=0)return list;                       /* 0 = 不限制：整段聊天记录全带上 */
+    let total=0,start=0;
+    for(let i=list.length-1;i>=0;i--){total+=String((list[i]&&list[i].content)||'').length+12;if(total>lim){start=i+1;break}}
+    return list.slice(start);
+  }
+  if(mode==='sum')return list.slice(-4);
+  return list.slice(-(hotRoundCount()*2));
+}
+/* 把热层聊天记录写成一段文字给角色看（和聊天一样，当成它真实经历过的记忆） */
+function ficHotBlock(c,lite){
+  let list=ficHistSlice(c);
+  if(lite)list=list.slice(-12);                  /* 精简版：热层只留最近几条 */
+  if(!list.length)return '';
+  const un=(cfg&&cfg.userName)||'她';
+  const useT=!(cfg&&cfg.timeOn===false);
+  const lines=[];
+  list.forEach(m=>{
+    if(!m||(m.role!=='user'&&m.role!=='assistant'))return;
+    const t=String(m.content||'').replace(/\s+/g,' ').trim();
+    if(!t)return;
+    const who=(m.role==='user')?un:(c.name||'角色');
+    const pre=(useT&&m.role==='user'&&m.t)?('（'+stampOf(m.t)+'）'):'';
+    lines.push(who+'：'+pre+t);
+  });
+  if(!lines.length)return '';
+  const mode=(cfg&&cfg.histMode)||'auto';
+  let head='【你和她的聊天记录 · 这些是你亲身经历过的事】\n'+
+    '下面是你和她过去的聊天，是你真实经历过、真实记得的事（里面有你们的共同经历、约定、称呼、情绪和她的喜好）。'+
+    '写番外时，你的性格、说话方式、和她的关系、以及提到旧事，都要以这些为准。如果番外背景和她提过的事有关，就接着那些事写。\n';
+  if(lite)head+='（这次只带了最近一小段聊天；更早的事如果被提到、你又想不起来，就自然地说记不太清、让她提醒，不要编造。）\n';
+  else if(mode==='full')head+='（下面尽量完整，按时间先后排列，请像亲历者一样记得里面的细节。）\n';
+  else if(mode==='sum')head+='（较早的聊天没有逐条给你，只保留在记忆总结里；想不起很早以前的具体细节时，就自然地说记不太清、让她提醒，不要编造。）\n';
+  let body=lines.join('\n');
+  if(lite&&body.length>4000)body=body.slice(-4000);
+  return head+body;
+}
+/* 记忆宫殿「按什么去翻旧记忆」：用番外背景 ＋ 最近几条聊天（和聊天页的检索口径一致） */
+function ficQuery(c){
+  const bits=[];
+  try{
+    const list=(c.id===curId&&Array.isArray(msgs))?msgs:(load(LS.msg(c.id),[])||[]);
+    let n=0;
+    for(let i=list.length-1;i>=0&&n<3;i--){
+      const t=String((list[i]&&list[i].content)||'').trim();
+      if(t&&t.length>1){bits.push(t);n++}
+    }
+  }catch(e){}
+  const head=(String(FIC.bg||'')+'\n'+(FIC.req||'')).trim();
+  return (head+'\n'+bits.reverse().join('\n')).slice(-900);
+}
+/* 记忆宫殿的说明 ＋ 她打过的记忆标签清单（和聊天页给的一样） */
+function ficPalaceNote(c){
+  if(typeof palaceOn==='function'&&!palaceOn())return '';
+  const out=[];
+  out.push('【记忆说明】很早以前的聊天记录和旧档案没有全部给你，它们存在你的「记忆宫殿」里。系统这次会按番外的背景，把最相关的几段翻出来放在上面（见【记忆宫殿】）。没被翻出来的部分不代表没发生过——如果你想不起某个细节，就自然地说记不太清、让她提醒你，绝对不要编造没发生过的事。');
+  try{
+    const cnt=mtagCountFor(c.id);
+    if(cnt&&Object.keys(cnt).length){
+      const groups=[];let shown=0;
+      MTAG_CATS.forEach(cat=>{
+        const arr=mtagByCatMap(cat,cnt).slice(0,25);
+        if(arr.length){shown+=arr.length;groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'))}
+      });
+      if(groups.length){
+        const allN=Object.keys(cnt).length;
+        out.push('【记忆标签】她给记忆打的标签（按分类，只列了最常用的）：\n'+groups.join('\n')+
+          (allN>shown?('\n（还有 '+(allN-shown)+' 个标签没列出来，一共 '+allN+' 个。）'):'')+
+          '\n这些标签底下都是你真实经历过的事；番外里写到相关的事时，可以自然地想起来。');
+      }
+    }
+  }catch(e){}
+  return out.join('\n\n');
+}
+function ficTask(){
+  const c=ficChar()||{};
+  const name=(c.name||'角色');
+  const L=[];
+  L.push('【这次的任务】写一篇「番外」：一段独立发生的小故事，不是聊天回复，而是完整的作品。');
+  L.push('【番外背景 / 剧情】\n'+String(FIC.bg||'').trim());
+  if(String(FIC.req||'').trim())L.push('【硬性要求（必须严格遵守）】\n'+String(FIC.req).trim());
+  if(FIC.mode==='chat'){
+    L.push('【输出形式：对话聊天】把这篇番外用两个人聊天的形式写出来，读者看到的是一段聊天记录。');
+    L.push('格式：每条消息单独占一行，写成「说话人：内容」。说话人只会是「'+name+'」或「我」，两人要来回交替，像真的在聊天；'+
+      '写场景、动作、心理活动时单独占一行、不要带「说话人：」，这些会显示成一行旁白。');
+  }else{
+    L.push('【输出形式：第三人称文章】用第三人称写，像一篇小说。');
+    L.push('要求：不要用「我」这个视角；每段单独占一行，段落清楚；像一篇可以安静读下去的文章。');
+  }
+  L.push('【通用】只用中文；只输出正文；不要写小标题、不要写「番外」这两个字、不要加任何解释、不要用代码块和 markdown 标题；不要在结尾写作者的话。');
+  return L.join('\n\n');
+}
+function ficSystem(c,lite){
+  const L=[];
+  L.push(String(c.persona||('你是'+(c.name||'角色')+'。')));
+  L.push('【你的名字】'+(c.name||'角色'));
+  if(c.scenario)L.push('【情境 / 世界观】'+c.scenario);
+  if(c.style)L.push('【说话风格】'+c.style);
+  if(c.sysPrompt)L.push(c.sysPrompt);
+  if(c.examples)L.push('【对话示例（模仿语气）】\n'+c.examples);
+  try{const ub=userBlock();if(ub)L.push(ub)}catch(e){}
+  if(FIC.mem==='full'){
+    /* ① 常驻层（角色设置页「记忆」里那套）：和聊天完全一样 */
+    try{
+      const m=(c.id===curId&&mem)?mem:Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
+      const mb=memBlock(m);if(mb)L.push(mb);
+    }catch(e){}
+    /* ② 群聊记忆 / 演绎记忆：和聊天完全一样 */
+    try{const gb=groupMemBlock(c);if(gb)L.push(gb)}catch(e){}
+    try{const amb=actMemBlock(c);if(amb)L.push(amb)}catch(e){}
+    /* ③ 世界书 */
+    try{const wb=wbForChar(c);if(wb)L.push(wb)}catch(e){}
+    /* ④ 热层：按她设置的「带多少聊天记录」来（和聊天一致，不再砍成一小段） */
+    try{const hot=ficHotBlock(c,lite);if(hot)L.push(hot)}catch(e){}
+    /* ⑤ 记忆宫殿：按番外背景去翻旧记忆（和聊天同一套检索） */
+    try{const ab=archiveBlock(ficQuery(c),c);if(ab)L.push(ab)}catch(e){}
+    /* ⑥ 记忆宫殿说明 ＋ 她打过的记忆标签清单 */
+    if(!lite)try{const pn=ficPalaceNote(c);if(pn)L.push(pn)}catch(e){}
+  }
+  L.push(ficTask());
+  return L.join('\n\n');
+}
+
+/* ---------- 生成 ---------- */
+/* 开始写：永远从头开始一篇全新的番外（绝不会把上一篇的正文接在后面） */
+async function ficGen(){
+  if(FIC.busy)return;
+  ficSyncForm();
+  const c=ficChar();
+  if(!c)return toast('先去「角色」里选一个角色');
+  if(!String(FIC.bg||'').trim())return toast('先写一段番外背景');
+  FIC.text='';FIC._live='';
+  FIC.tok=null;FIC.tokSum=0;FIC.tokRuns=0;        /* 新的一篇：token 统计从零开始 */
+  FIC.id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  FIC.view='read';FIC.busy=true;
+  FIC.gen++;const my=FIC.gen;
+  ficRender();
+  await ficRun(my);
+}
+/* 重写：同样的设定再写一遍，覆盖这一篇（不会多出一篇） */
+async function ficRewrite(){
+  if(FIC.busy)return;
+  if(!String(FIC.bg||'').trim())return toast('这一篇没有背景设定，回填写页新建一篇吧');
+  FIC.text='';FIC._live='';
+  FIC.tok=null;FIC.tokSum=0;FIC.tokRuns=0;        /* 重写这一篇：token 统计也重新开始 */
+  if(!FIC.id)FIC.id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  FIC.view='read';FIC.busy=true;
+  FIC.gen++;const my=FIC.gen;
+  ficRender();
+  await ficRun(my);
+}
+/* 新开一篇：清空设定，回到空白的填写页（旧的那篇已经存在下面的列表里） */
+function ficNew(){
+  if(FIC.busy)return toast('等这次写完再新建吧');
+  FIC.text='';FIC._live='';FIC.id='';FIC.bg='';FIC.req='';
+  FIC.view='form';
+  ficRender();
+}
+async function ficMore(){
+  if(FIC.busy)return;
+  if(!String(FIC.text||'').trim())return ficRewrite();
+  FIC.busy=true;
+  FIC.gen++;const my=FIC.gen;
+  ficRender();
+  await ficRun(my);
+}
+function ficStop(){try{if(ficAbort)ficAbort.abort()}catch(e){}}
+/* 发一次请求。lite=true 表示「精简版上下文」（记忆还在，热层只留最近一段） */
+async function ficCall(c,committed,lite){
+  const msgs2=[{role:'system',content:ficSystem(c,lite)},
+    {role:'user',content:(committed?'接着把你正在写的这篇番外写完。':'现在开始写这篇番外。')}];
+  if(committed){
+    const tail=committed.length>4000?committed.slice(-4000):committed;
+    msgs2.push({role:'assistant',content:tail});
+    msgs2.push({role:'user',content:'接着上面最后一句继续往下写。不要重复已经写过的话，不要重新开头，保持同样的风格、视角和格式。'});
+  }
+  let out='',usage=null;
+  try{
+    const tp=thinkParams(c);
+    const maxtok=Math.min(8000,Math.max(Number(tp.maxtok)||900,2048));
+    const ret=await callAPI(msgs2,{stream:true,model:modelOf(c),signal:(ficAbort?ficAbort.signal:undefined),temp:tp.temp,maxtok:maxtok,
+      onDelta:d=>{out+=d;ficPushDelta(d)},
+      onReasoning:()=>{},
+      onUsage:u=>{usage=u}});      /* 把接口报的 token 用量收下来 */
+    if(!String(out).trim())out=String(ret==null?'':ret);   /* 万一接口没按流式回，就用整体内容兜底 */
+  }catch(e){
+    if(!String(out).trim())throw e;
+    /* 已经吐了一部分又断了：保留这部分，按成功处理 */
+  }
+  return {out:out,usage:usage,msgs:msgs2};
+}
+async function ficRun(my){
+  const c=ficChar();
+  if(!c){if(my===FIC.gen){FIC.busy=false;ficRender()}return}
+  const committed=String(FIC.text||'');
+  FIC._live='';
+  let out='',usage=null,msgs2=null,lite=false;
+  ficAbort=new AbortController();
+  try{
+    const r=await ficCall(c,committed,false);
+    out=r.out;usage=r.usage;msgs2=r.msgs;
+    if(!String(out).trim())throw new Error('模型返回空内容');
+  }catch(e){
+    const errMsg=String((e&&e.message)||e||'');
+    const aborted=!!(e&&(e.name==='AbortError'||/abort/i.test(errMsg)));
+    /* 只有「像是内容太长/上下文超限」的报错，才值得自动精简重试一次 */
+    const lookLong=/(context|maximum|too\s*long|length|tokens?\b|413|HTTP 400|超出|过长|太长|超限)/i.test(errMsg);
+    /* 多半是提示词太长被接口挡了：自动精简记忆（热层只留最近一段）再试一次 */
+    if(!aborted&&lookLong&&FIC.mem==='full'&&!lite&&my===FIC.gen){
+      lite=true;out='';usage=null;msgs2=null;
+      const el=document.getElementById('ficStream');if(el)el.innerHTML='';
+      try{toast('内容有点长，正在自动精简记忆重试…')}catch(e3){}
+      try{
+        const r2=await ficCall(c,committed,true);
+        out=r2.out;usage=r2.usage;msgs2=r2.msgs;
+        if(!String(out).trim())throw new Error('模型返回空内容');
+      }catch(e2){
+        const ab2=!!(e2&&(e2.name==='AbortError'||/abort/i.test(String(e2.message||e2))));
+        if(!ab2)try{toast('没写成：'+((e2&&e2.message)||String(e2)))}catch(e4){}
+      }
+    }else if(!aborted){
+      try{toast('没写成：'+(errMsg||String(e)))}catch(e2){}
+    }
+  }finally{
+    if(my===FIC.gen){                          /* 还是当前这一次，才把内容落下来 */
+      const add=String(out||'').trim();
+      if(add)FIC.text=(committed.replace(/\s+$/,'')?(committed.replace(/\s+$/,'')+'\n\n'):'')+add;
+      else FIC.text=committed;
+      /* 统计这次生成花了多少 token（接口没给就估算），同篇续写会累加 */
+      const tk=ficTokOf(usage,(add||out),msgs2);
+      FIC.tok=tk;
+      FIC.tokSum=Math.round(Number(FIC.tokSum||0)+tk.total);
+      FIC.tokRuns=Math.round(Number(FIC.tokRuns||0)+1);
+      FIC._live='';
+      FIC.busy=false;ficAbort=null;
+      ficSaveCur();
+      ficRender();
+      if(add)try{toast('写完了 · 本次消耗 '+ficNum(tk.total)+' token'+(tk.real?'':'（估算）'))}catch(e2){}
+    }
+  }
+}
+function ficSaveCur(){
+  if(!String(FIC.text||'').trim())return;
+  const c=ficChar()||{};
+  try{
+    const list=ficStore();
+    const rec={id:FIC.id||('f'+Date.now().toString(36)),cid:FIC.cid,name:(c.name||''),
+      mode:FIC.mode,mem:FIC.mem,bg:FIC.bg,req:FIC.req,text:FIC.text,t:Date.now(),
+      tok:FIC.tok||null,tokSum:FIC.tokSum||0,tokRuns:FIC.tokRuns||0};
+    FIC.id=rec.id;
+    const i=list.findIndex(x=>x.id===rec.id);
+    if(i>=0)list[i]=rec;else list.unshift(rec);
+    ficPut(list.slice(0,80));
+  }catch(e){}
+}
+function ficOpenSaved(id){
+  const rec=ficStore().find(x=>x.id===id);if(!rec)return;
+  FIC.id=rec.id;FIC.cid=rec.cid||FIC.cid;
+  FIC.bg=rec.bg||'';FIC.req=rec.req||'';
+  FIC.mode=(rec.mode==='story')?'story':'chat';
+  FIC.mem=(rec.mem==='full')?'full':'base';
+  FIC.text=rec.text||'';FIC._live='';
+  FIC.tok=rec.tok||null;FIC.tokSum=rec.tokSum||0;FIC.tokRuns=rec.tokRuns||0;
+  FIC.busy=false;FIC.view='read';
+  ficRender();
+}
+function ficDel(id){
+  if(!confirm('删掉这篇番外吗？删了就找不回来了。'))return;
+  ficPut(ficStore().filter(x=>x.id!==id));
+  if(FIC.id===id){FIC.id='';FIC.text=''}
+  ficRender();
+  toast('已删除');
+}
+function ficCopy(){
+  const t=String(FIC.text||'');
+  if(!t.trim())return toast('还没有内容');
+  const done=()=>toast('已复制，去粘贴吧');
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(done).catch(()=>ficCopyFallback(t,done));
+      return;
+    }
+  }catch(e){}
+  ficCopyFallback(t,done);
+}
+function ficCopyFallback(t,done){
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=t;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(done)done();
+  }catch(e){toast('复制不了，长按文字手动复制吧')}
+}
+
 /* ================= 补丁3：应用 / 隐私群聊 / 私聊同步 / 上下文token / 联网搜索 ================= */
 
 /* ---------- ⑥ 应用：手机桌面式宫格 ---------- */
@@ -11714,7 +13118,11 @@ const APPS=[
   {k:'music',n:'音乐',d:'一起听歌 · 歌单',
    ic:'<svg viewBox="0 0 24 24"><path d="M9.4 18.2V6.4l9-1.8v11.6"/><circle cx="6.6" cy="18.2" r="2.8"/><circle cx="15.6" cy="16.2" r="2.8"/></svg>'},
   {k:'world',n:'世界书',d:'多角色共用的设定',
-   ic:'<svg viewBox="0 0 24 24"><path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/></svg>'}
+   ic:'<svg viewBox="0 0 24 24"><path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/></svg>'},
+  {k:'fic',n:'番外',d:'给角色写一段小故事',
+   ic:'<svg viewBox="0 0 24 24"><path d="M6.6 3.6h7.4l3.4 3.4v13.4H6.6Z"/><path d="M14 3.6v3.4h3.4"/><path d="M9.4 11.4h5.2M9.4 14.6h5.2M9.4 17.8h3"/></svg>'},
+  {k:'thm',n:'主题',d:'主题色 · 字体 · 锁屏 · 背景',
+   ic:'<svg viewBox="0 0 24 24"><path d="M12 3.2c3.4 3.6 5.6 6.4 5.6 9.2a5.6 5.6 0 0 1-11.2 0c0-2.8 2.2-5.6 5.6-9.2Z"/><path d="M9.3 13.4a2.7 2.7 0 0 0 2.7 2.7"/></svg>'}
 ];
 let appOpen=false;
 renderTools=function(){
@@ -11736,6 +13144,18 @@ function openApp(k){
   if(k==='palace'){
     try{palaceBrowse()}
     catch(e){alert('打不开记忆宫殿：'+((e&&e.message)||e))}
+    return;
+  }
+  /* 「番外」和记忆宫殿一样，是铺满整屏的小应用：直接打开它 */
+  if(k==='fic'){
+    try{if(window.ficOpen)ficOpen();else throw new Error('番外模块没加载')}
+    catch(e){alert('打不开番外：'+((e&&e.message)||e))}
+    return;
+  }
+  /* 「主题」也是铺满整屏的小应用 */
+  if(k==='thm'){
+    try{if(window.thmOpen)thmOpen();else throw new Error('主题模块没加载')}
+    catch(e){alert('打不开主题：'+((e&&e.message)||e))}
     return;
   }
   toolTab=k;appOpen=true;renderTools();
@@ -15081,7 +16501,9 @@ function injectFontSelect(){
 }
 /* 设置页注入：当前角色的思考强度。 */
 function injectThinkSelect(){
-  var fsx=document.getElementById('c_fs');
+  /* 【改】原来挂在「字号」输入框下面；字号搬到「主题」应用后这里就没有它了，
+     改成挂在「接口」卡的「最长回复」后面，位置一样顺手。 */
+  var fsx=document.getElementById('c_maxtok')||document.getElementById('c_fs');
   if(fsx&&!document.getElementById('c_think')){
     var c=safeV(function(){return curChar()},null);
     var cur=(c&&c.think!=null)?c.think:1;
@@ -17650,7 +19072,9 @@ var G={
   act:'<path d="M12 4.3c3.2 0 5.8 1 5.8 1v5.4c0 4.3-2.6 7.6-5.8 8.8-3.2-1.2-5.8-4.5-5.8-8.8V5.3s2.6-1 5.8-1Z"/><path d="M8.9 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M12.7 9.5a1.7 1.7 0 0 1 2.4 0"/><path d="M8.9 13.8c1.8 1.7 4.4 1.7 6.2 0"/>',
   palace:'<path d="M12 3.2 20.6 8.1H3.4Z"/><path d="M6 11.1v7.3M10 11.1v7.3M14 11.1v7.3M18 11.1v7.3"/><path d="M3.4 20.8h17.2"/>',
   cfg:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
-  world:'<path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/>'
+  world:'<path d="M12 6.4C10.3 5.2 8.2 4.7 5.4 4.7v11.4c2.8 0 4.9.5 6.6 1.7 1.7-1.2 3.8-1.7 6.6-1.7V4.7c-2.8 0-4.9.5-6.6 1.7Z"/><path d="M12 6.4v11.4"/>',
+  fic:'<path d="M6.6 3.6h7.4l3.4 3.4v13.4H6.6Z"/><path d="M14 3.6v3.4h3.4"/><path d="M9.4 11.4h5.2M9.4 14.6h5.2M9.4 17.8h3"/>',
+  thm:'<path d="M12 3.2c3.4 3.6 5.6 6.4 5.6 9.2a5.6 5.6 0 0 1-11.2 0c0-2.8 2.2-5.6 5.6-9.2Z"/><path d="M9.3 13.4a2.7 2.7 0 0 0 2.7 2.7"/>'
 };
 /* 状态栏右边的小图标（纯装饰） */
 var SIG='<svg class="f" viewBox="0 0 24 24"><rect x="3.2" y="13.4" width="3.2" height="6" rx="1"/><rect x="8.4" y="10.2" width="3.2" height="9.2" rx="1"/><rect x="13.6" y="7" width="3.2" height="12.4" rx="1"/><rect x="18.8" y="3.8" width="3.2" height="15.6" rx="1"/></svg>';
@@ -17670,6 +19094,8 @@ var GRID=[
   {k:'toy',   n:'互动',     g:'toy'},
   {k:'act',   n:'演绎',     g:'act'},
   {k:'world', n:'世界书',   g:'world'},
+  {k:'fic',   n:'番外',     g:'fic'},
+  {k:'thm',   n:'主题',     g:'thm'},
   {k:'palace',n:'记忆宫殿', g:'palace'}
 ];
 var DOCK=[
@@ -17830,6 +19256,18 @@ function open2(k){
   if(k==='palace'){
     try{palaceBrowse()}
     catch(e){try{alert('打不开记忆宫殿：'+((e&&e.message)||e))}catch(e2){}}
+    return;
+  }
+  /* 番外：和记忆宫殿一样，桌面上点它就直接弹出番外页面 */
+  if(k==='fic'){
+    try{if(window.ficOpen)ficOpen();else throw new Error('番外模块没加载')}
+    catch(e){try{alert('打不开番外：'+((e&&e.message)||e))}catch(e2){}}
+    return;
+  }
+  /* 主题：桌面上点它就直接弹出主题应用 */
+  if(k==='thm'){
+    try{if(window.thmOpen)thmOpen();else throw new Error('主题模块没加载')}
+    catch(e){try{alert('打不开主题：'+((e&&e.message)||e))}catch(e2){}}
     return;
   }
   try{if(W.openApp)W.openApp(k)}catch(e){}
