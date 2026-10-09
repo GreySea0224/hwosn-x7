@@ -19671,7 +19671,9 @@ function mcpAddr(s){
 }
 /* 请求头：基础两项 + 会话号 + 用户自定义（一行一个「名字: 值」） */
 function mcpHead(s){
-  var h={'Content-Type':'application/json','Accept':'application/json, text/event-stream'};
+  /* MCP-Protocol-Version：有些服务器（比如麦当劳文档里提到的）要求握手后每个请求都带上 */
+  var h={'Content-Type':'application/json','Accept':'application/json, text/event-stream',
+    'MCP-Protocol-Version':((s&&s._pv)||'2025-06-18')};
   if(s&&s._sid)h['Mcp-Session-Id']=s._sid;
   String((s&&s.headers)||'').split('\n').forEach(function(ln){
     var i=ln.indexOf(':');if(i<1)return;
@@ -19730,6 +19732,7 @@ async function mcpOpen(s){
   var tools=(r&&r.tools)||[];
   s._ready=true;s._tools=tools;
   s._info=(init&&init.serverInfo)||null;
+  if(init&&init.protocolVersion)s._pv=String(init.protocolVersion);
   var tgt=mcpById(s.id)||s;
   if(s._info&&s._info.name)tgt.serverName=String(s._info.name);
   tgt.toolsCache={at:Date.now(),tools:tools.map(function(t){
