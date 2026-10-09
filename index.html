@@ -77,6 +77,12 @@ button:disabled{opacity:.45;pointer-events:none}
 .ops button.hot{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
 .ops svg,.thinkhead svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 .thinkhead svg{width:13px;height:13px}
+/* 重新生成留下的多个版本：气泡下面那条「‹ 第x/y版 ›」小切换条 */
+.vsw{display:flex;align-items:center;gap:8px;margin:6px 0 9px 38px}
+.vsw button{display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;background:var(--panel);border:1px solid var(--line);color:var(--dim);font-size:16px;line-height:1;border-radius:999px;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:transform .1s ease,color .15s ease,border-color .15s ease}
+.vsw button:active{transform:scale(.93)}
+.vsw button:disabled{opacity:.4}
+.vsw .vsw-n{font-size:12px;color:var(--dim)}
 
 .tok{font-size:11px;color:var(--dim);margin:2px 0 6px}
 .tok.me{text-align:right}
@@ -199,6 +205,10 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .fic-lm{flex:1;min-width:0}
 .fic-lt{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fic-ld{font-size:11px;color:var(--dim);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 续写 · 附加指令：一键填入的小圆角按钮 */
+.fic-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 9px}
+.fic-chips button{flex:0 0 auto;padding:6px 11px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:12px;line-height:1.4;box-shadow:none}
+.fic-chips button:active{color:var(--acc);border-color:var(--acc);transform:scale(.96)}
 /* ---------- 主题应用（外观 / 字体 / 字号 / 锁屏 / 背景图） ---------- */
 #thm{padding-bottom:6px}
 .thm-prev{border-radius:22px;background:var(--grad);border:1px solid var(--line);padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.12);margin-bottom:6px}
@@ -2256,7 +2266,17 @@ function thinkParams(c){
    IndexedDB 里另留一份安全副本（本地存储写满时也不至于丢）。
    注意：删除/编辑过的消息会记一个「删除标记」，合并时不会自己复活。 */
 const _mirrorTimer={};
+/* 一条消息的「身份」：
+   · 带稳定编号（mid）的消息，用编号当身份——「重新生成」时改的只是内容，
+     身份不变，存盘合并时就不会冒出重复的两条；
+   · 老消息没编号，还是按「角色+时间+前 64 个字」算，和以前完全一样。 */
 function msgKeyOf(m){
+  if(!m)return '';
+  if(m.mid)return (m.role||'')+'#'+m.mid;
+  return msgContentKey(m);
+}
+/* 只按内容算的键：编辑 / 重说时，用它把「存盘里那份旧内容」标记成不要了 */
+function msgContentKey(m){
   if(!m)return '';
   return (m.role||'')+'|'+(m.t||0)+'|'+String(m.content==null?'':m.content).slice(0,64);
 }
@@ -2271,7 +2291,14 @@ function addDelKey(id,key){
   while(a.length>400)a.shift();          /* 只留最近 400 条，防止越攒越大 */
   save(LS.delmsg(id),a);
 }
-function markMsgDeleted(id,m){addDelKey(id,msgKeyOf(m))}
+/* 「这条的旧内容不要了」：编辑 / 重说时用（只按内容标记，不会误删整条） */
+function markMsgDeleted(id,m){addDelKey(id,msgContentKey(m))}
+/* 「整条都不要了」：删除时用（带编号的消息连编号一起标记，存盘里才真的消失） */
+function markMsgGone(id,m){
+  if(!m)return;
+  addDelKey(id,msgContentKey(m));
+  if(m.mid)addDelKey(id,(m.role||'')+'#'+m.mid);
+}
 /* 合并两份聊天记录：重复的去掉、缺的补上；都有时间就按时间排 */
 function mergeMsgs(oldArr,newArr,delKeys){
   const del={};(delKeys||[]).forEach(k=>{del[k]=1});
@@ -2281,9 +2308,14 @@ function mergeMsgs(oldArr,newArr,delKeys){
     const k=msgKeyOf(m);
     if(!k||del[k])return;
     if(seen[k]){
-      const i=seen[k]-1;
-      /* 「图片已清理」的那条永远胜出，免得清理过的图片又被旧副本合并回来 */
-      if(m.imgCleared&&!(out[i]&&out[i].imgCleared))out[i]=m;
+      const i=seen[k]-1,cur=out[i];
+      const um=Number(m.ut)||0,uc=Number(cur&&cur.ut)||0;
+      /* 【新】改过内容的（改动时间更晚的那份）胜出：切换版本、编辑后不会被旧副本盖回去 */
+      if(um>uc){out[i]=m;return}
+      if(um<uc)return;
+      /* 没记改动时间的老数据：保持原来的样子——「图片已清理」的胜出，
+         免得清理过的图片又被旧副本合并回来 */
+      if(m.imgCleared&&!(cur&&cur.imgCleared))out[i]=m;
       return;
     }
     seen[k]=out.length+1;out.push(m);
@@ -2413,7 +2445,15 @@ function pushMsgTo(id,m){
 function lastMsgOf(id){const a=msgsOf(id);return a.length?a[a.length-1]:null}
 /* 组装上下文时用哪份聊天记录和记忆：
    前台这一轮回复用 ctxAsk（开头拍好的快照），后台生成用 ctxBg，都没有就用当前打开的。 */
-function ctxMsgs(){if(ctxAsk&&Array.isArray(ctxAsk.msgs))return ctxAsk.msgs;return (ctxBg&&Array.isArray(ctxBg.msgs))?ctxBg.msgs:msgs}
+/* 【新】重说时，把「正在被重做的那条旧回复」从上下文里临时拿掉（ctxDropMid 存它的稳定编号 mid）。
+   这样新生成的这一版不会知道旧版说过什么，相当于那一次没发生过；
+   等你选定后，留下的那一版才正常参与后面的对话。 */
+let ctxDropMid=null;
+function ctxMsgs(){
+  const a=(ctxAsk&&Array.isArray(ctxAsk.msgs))?ctxAsk.msgs:((ctxBg&&Array.isArray(ctxBg.msgs))?ctxBg.msgs:msgs);
+  if(ctxDropMid&&Array.isArray(a))return a.filter(x=>!(x&&x.mid===ctxDropMid));
+  return a;
+}
 function ctxMem(){if(ctxAsk&&ctxAsk.mem)return ctxAsk.mem;return (ctxBg&&ctxBg.mem)?ctxBg.mem:mem}
 const saveMem=()=>{if(curId){save(LS.mem(curId),mem);scheduleBackup()}};
 function loadChar(id){
@@ -4421,24 +4461,28 @@ function appendChatMessage(box,x,i){
   if(needTimeSep(prev,x))appendTimeSep(box,x);
   const d=document.createElement('div');
   d.className='bub '+(isMe?'me':'ai');
-  /* 只有纯文字的消息才参与「变小」和「分条」；带图片/文件/图的还是老样子 */
+  /* 纯文字的消息：自动「变小」和「分条」；带图片/文件/图的：老样子一个气泡，
+     除非正文里明确写了 |||（那就照样分条，图片/附件跟着第一段走）。 */
   const imgs=msgImgs(x);
   const plain=!imgs.length&&!x.imgCleared&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
-  const parts=plain?splitBubbleParts(x.content,isMe):null;
+  const hasSep=String(x.content||'').indexOf(BUB_SEP)>=0;   /* 【新】正文里明确写了分条标记 */
+  const parts=(plain||hasSep)?splitBubbleParts(x.content,isMe):null;
+  /* 先把图片 / 「图片已清理」提示拼好，分条时放在第一段气泡里 */
+  let media='';
+  if(imgs.length>1){
+    media='<div class="msgimgs">'+imgs.map(u=>'<img class="msgimg" src="'+esc(u)+'" alt="图片" onclick="viewImg(this.src)">').join('')+'</div>';
+  }else if(imgs.length===1){
+    media='<img class="msgimg" src="'+esc(imgs[0])+'" alt="图片" onclick="viewImg(this.src)">';
+  }else if(x.imgCleared){
+    media='<div class="imgcleared">🖼 图片已清理（为了腾空间删掉了，文字还在）</div>';
+  }
+  const files=filesHTML(x.files,i);
   if(parts&&parts.length>1){
     d.className+=' multi';
-    d.innerHTML=parts.map(s=>('<div class="bsub">'+mdLite(s)+'</div>')).join('');
+    d.innerHTML=parts.map((s,idx)=>('<div class="bsub">'+((idx===0)?(media+files):'')+mdLite(s)+'</div>')).join('');
   }else{
     if(plain)d.className+=' narrow';
-    let media='';
-    if(imgs.length>1){
-      media='<div class="msgimgs">'+imgs.map(u=>'<img class="msgimg" src="'+esc(u)+'" alt="图片" onclick="viewImg(this.src)">').join('')+'</div>';
-    }else if(imgs.length===1){
-      media='<img class="msgimg" src="'+esc(imgs[0])+'" alt="图片" onclick="viewImg(this.src)">';
-    }else if(x.imgCleared){
-      media='<div class="imgcleared">🖼 图片已清理（为了腾空间删掉了，文字还在）</div>';
-    }
-    d.innerHTML=media+filesHTML(x.files,i)+mdLite(x.content||'');
+    d.innerHTML=media+files+mdLite(x.content||'');
   }
   /* 每条气泡都补一个 Telegram 小尾巴（分条的那种是每个小气泡都补） */
   ((parts&&parts.length>1)?Array.prototype.slice.call(d.querySelectorAll('.bsub')):[d]).forEach(function(b){addBubbleTail(b)});
@@ -4554,6 +4598,73 @@ function musicChipBind(el,mu){
   el.onclick=function(){try{P14.open('music')}catch(e){}};
   return el;
 }
+/* ================= 重新生成留下的「多个版本」 =================
+   场景：点「重新生成」不再是删掉旧回复，而是把旧的留着、新的接着存，
+   这一条消息下面会出现「‹ 第x/y版 ›」，可以来回切换挑最喜欢的那版。
+   只存最近这一段：等发出下一句（进入下一回合）时，没被选中的版本会自动清掉。 */
+const VER_FIELDS=['content','reasoning','tok','ptok','search','toys','art','music','sticker','files','img','imgs','imgCleared','text'];
+/* 给一条消息的当前样子拍张照（时间 t 和身份 mid 不属于某一版，不拍进去） */
+function snapMsg(m){
+  const o={};
+  if(m)VER_FIELDS.forEach(k=>{if(m[k]!==undefined)o[k]=m[k]});
+  return o;
+}
+/* 把某一版的样子贴回这条消息上（多出来的字段清掉，缺的补上） */
+function applySnap(m,s){
+  if(!m||!s)return;
+  VER_FIELDS.forEach(k=>{if(s[k]===undefined)delete m[k];else m[k]=s[k]});
+}
+function verCount(x){return (x&&Array.isArray(x.vs)&&x.vs.length)?x.vs.length:1}
+function verIndex(x){
+  const n=verCount(x);let k=x?(Number(x.vidx)||0):0;
+  if(k<0)k=0;if(k>=n)k=n-1;
+  return k;
+}
+/* 改动时间：切换版本 / 编辑后把它调大，存盘合并时「改过的那份」才会胜出 */
+function bumpUt(m){if(m)m.ut=Math.max(Date.now(),(Number(m.ut)||0)+1)}
+/* 保证这条消息的 vs 里，至少已经存着「当前显示的这一版」 */
+function keepVer(m){
+  if(!m)return;
+  if(!Array.isArray(m.vs)||!m.vs.length){m.vs=[snapMsg(m)];m.vidx=0;return}
+  m.vidx=verIndex(m);
+  m.vs[m.vidx]=snapMsg(m);
+}
+/* 往这条消息上再存一版，并切过去显示它 */
+function addVer(m,s){
+  if(!m)return;
+  if(!Array.isArray(m.vs)||!m.vs.length)m.vs=[snapMsg(m)];
+  m.vs.push(s);m.vidx=m.vs.length-1;
+  applySnap(m,m.vs[m.vidx]);   /* 把新这版贴上去显示 */
+  bumpUt(m);                   /* 标记「这条刚改过」，存盘时以内存这份为准 */
+}
+/* 编辑后把改动同步进当前这一版，免得切走再切回来还是旧样子 */
+function syncVer(m){if(m&&Array.isArray(m.vs)&&m.vs.length){m.vs[verIndex(m)]=snapMsg(m)}}
+/* 切换第 i 条消息的版本：dir=-1 上一版，dir=1 下一版 */
+function switchMsgVer(i,dir){
+  if(busy)return;
+  const x=msgs[i];
+  if(!x||!Array.isArray(x.vs)||x.vs.length<2)return;
+  const n=x.vs.length,cur=verIndex(x);
+  let k=cur+dir;if(k<0)k=0;if(k>=n)k=n-1;
+  if(k===cur){toast(dir<0?'已经是最早的一版了':'已经是最新的一版了');return}
+  x.vidx=k;applySnap(x,x.vs[k]);bumpUt(x);
+  persist();renderChat();
+  if(curId&&i===msgs.length-1)try{toast('第 '+(k+1)+' / '+n+' 版')}catch(e){}
+}
+/* 进入下一回合：把这一条没选中的版本清掉，只留当前选中的那版 */
+function pruneVersions(id){
+  const arr=msgsOf(id);let changed=false;
+  for(let i=0;i<arr.length;i++){
+    const x=arr[i];
+    if(x&&Array.isArray(x.vs)&&x.vs.length>1){
+      const k=verIndex(x);
+      applySnap(x,x.vs[k]);            /* 确保留下的就是当前选中的那版 */
+      delete x.vs;delete x.vidx;       /* 版本数据清掉，只留选中的这一版（稳定编号 mid 留着） */
+      bumpUt(x);changed=true;
+    }
+  }
+  if(changed){try{saveArrFor(id,arr)}catch(e){}}
+}
 function renderChatCore(){
   const c=curChar(),m=$('#main');
   if(!c){m.innerHTML='<div class="hint">还没有角色<br><br><button class="pri" onclick="newChar()">＋ 新建角色</button></div>';return}
@@ -4660,15 +4771,16 @@ function renderChat(){
           if(!x.art||!x.art.img)return;
           var b=bubs5[i];if(!b)return;
           if(b.querySelector('.p5artimg'))return;
+          var host=b.querySelector('.bsub')||b;   /* 【新】分条时，图放进第一段气泡里，别飘在外面 */
           var im=document.createElement('img');
           im.className='msgimg p5artimg';im.src=x.art.img;im.alt='角色画的图';
           im.onclick=function(){viewImg(x.art.img)};
-          b.insertBefore(im,b.firstChild);
+          host.insertBefore(im,host.firstChild);
           if(x.art.caption){
             var cp=document.createElement('div');
             cp.style.cssText='font-size:11.5px;color:var(--dim);margin:0 0 5px';
             cp.textContent='🖼 '+x.art.caption;
-            b.insertBefore(cp,im.nextSibling);
+            host.insertBefore(cp,im.nextSibling);
           }
         });
       }
@@ -4746,6 +4858,25 @@ function renderChat(){
       }
     });
     try{if(chatFollow)scrollDown()}catch(e){}
+  }catch(e){}
+  /* ↓ 重新生成留下的多个版本：在气泡下面画一条「‹ 第x/y版 ›」的切换条 */
+  try{
+    var boxV=document.getElementById('msgs');
+    var bubsV=boxV?Array.prototype.slice.call(boxV.querySelectorAll('.bub')):[];
+    if(bubsV.length===msgs.length){
+      msgs.forEach(function(x,i){
+        if(!x||x.role!=='assistant'||verCount(x)<2)return;
+        var b=bubsV[i];if(!b)return;
+        var n=verCount(x),k=verIndex(x);
+        var el=document.createElement('div');
+        el.className='vsw';
+        el.innerHTML='<button type="button" aria-label="上一版"'+(k<=0?' disabled':'')+' onclick="switchMsgVer('+i+',-1)">\u2039</button>'+
+          '<span class="vsw-n">第 '+(k+1)+' / '+n+' 版</span>'+
+          '<button type="button" aria-label="下一版"'+(k>=n-1?' disabled':'')+' onclick="switchMsgVer('+i+',1)">\u203a</button>';
+        if(b.nextSibling)b.parentNode.insertBefore(el,b.nextSibling);
+        else b.parentNode.appendChild(el);
+      });
+    }
   }catch(e){}
 }
 
@@ -4998,7 +5129,10 @@ function buildCtxLite(c){
 function buildApiRequest(messages,opt){
   const url=String(cfg.base||'').replace(/\/+$/,'')+'/chat/completions';
   const body={model:opt.model||cfg.model,messages:messages,
-    temperature:(opt.temp!=null?opt.temp:cfg.temp),max_tokens:opt.maxtok||cfg.maxtok,stream:!!opt.stream};
+    temperature:(opt.temp!=null?opt.temp:cfg.temp),stream:!!opt.stream};
+  /* 【新】显式传 0 表示「不限」：请求里就不放 max_tokens，让模型自己决定写到哪停。
+     其它情况（没传 / 传了正数）和以前完全一样。 */
+  if(opt.maxtok!==0)body.max_tokens=opt.maxtok||cfg.maxtok;
   if(opt.tools)body.tools=opt.tools;
   if(opt.tool_choice)body.tool_choice=opt.tool_choice;
   if(opt.stream)body.stream_options={include_usage:true};
@@ -5293,6 +5427,7 @@ async function send(){
   if(pendImgs.length){m.imgs=pendImgs.slice();m.img=m.imgs[0]}
   if(pendFile){m.files=[Object.assign({},pendFile)]}
   if(pendImgs.length||pendFile)clearPicked();
+  pruneVersions(cid);                  /* 【新】进入下一回合：上一轮没选中的「重说」版本清掉 */
   pushMsgTo(cid,m);
   if(view!=='chat')go('chat');else renderChat();
   /* 【新增】开了「自己决定什么时候回」的角色：先让它自己判断（秒回 / 等会儿回 / 不回）；
@@ -5326,10 +5461,35 @@ async function regen(){
   for(let k=msgs.length-1;k>=0;k--){if(msgs[k].role==='assistant'){i=k;break}}
   if(i<0)return alert('没有可重做的回复');
   if(i!==msgs.length-1)return alert('最后一条不是ta的回复，先删掉它');
-  if(!confirm('丢掉这条，让它重说一遍？'))return;
-  markMsgDeleted(curId,msgs[i]);
-  msgs.splice(i,1);persist();renderChat();
-  await askAndAppend();
+  if(!confirm('让ta重新说一遍？\n\n之前说的几版会先留着，可以在气泡下面的「‹ 第x/y版 ›」来回切换挑选；聊到下一轮时，没选中的那几版会自动清掉。'))return;
+  const cid=curId,M=msgs[i];
+  /* 把这条变成「可以存多版」的消息：
+     第一次做时登记一个稳定编号，并把存盘里那份旧内容标记掉，
+     免得它又被合并回来、变成重复的两条。 */
+  if(!M.mid){markMsgDeleted(cid,M);M.mid='m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+  keepVer(M);                       /* 确认当前这一版已经存进 vs */
+  bumpUt(M);                        /* 标记「这条刚改过」 */
+  persist();renderChat();
+  /* 【新】生成这一版期间，把这条旧回复从发给角色的上下文里拿掉，
+     这样新的一版不会知道旧版说过什么（当作那一次没发生过）。 */
+  ctxDropMid=M.mid;
+  try{await askAndAppend()}catch(e){}finally{ctxDropMid=null}
+  /* 新生成的那条并进这条消息，成为新的一版，然后把多余的那条从记录里去掉 */
+  try{
+    const arr=msgsOf(cid),last=arr.length?arr[arr.length-1]:null;
+    let target=null;
+    if(last&&last.role==='assistant'&&last.mid!==M.mid){
+      /* 按稳定编号把那一条找回来（万一你中途切过角色，内存里那份已经换人了） */
+      for(let j=arr.length-1;j>=0;j--){if(arr[j]&&arr[j].mid===M.mid){target=arr[j];break}}
+    }
+    if(target){
+      addVer(target,snapMsg(last));
+      markMsgGone(cid,last);
+      arr.splice(arr.length-1,1);
+      saveArrFor(cid,arr);
+      if(cid===curId)renderChat();
+    }
+  }catch(e){}
 }
 function editMsg(){
   if(busy||!msgs.length)return;
@@ -5344,13 +5504,14 @@ function saveEdit(){
   const v=$('#emv').value.trim();
   const m=msgs[msgs.length-1];
   if(!v&&!msgImgs(m).length)return alert('不能空着');
-  markMsgDeleted(curId,m);            /* 记一笔：这条的旧内容不要了 */
-  m.content=v;m.tok=estTokens(v);persist();closeSheet();renderChat();
+  if(m.mid)bumpUt(m);                 /* 【新】带版本的消息：按「改过时间更晚」胜过存盘里的旧内容 */
+  else markMsgDeleted(curId,m);       /* 记一笔：这条的旧内容不要了 */
+  m.content=v;m.tok=estTokens(v);syncVer(m);persist();closeSheet();renderChat();
 }
 function delMsg(){
   if(busy||!msgs.length)return;
   if(!confirm('删掉最后一条？'))return;
-  markMsgDeleted(curId,msgs[msgs.length-1]);
+  markMsgGone(curId,msgs[msgs.length-1]);
   msgs.pop();persist();renderChat();
 }
 
@@ -5478,11 +5639,13 @@ async function maybeAutoSummary(showToast){
   const every=autoSumEvery();
   const done=Math.min(autoSumMark(c.id),msgs.length);
   if(msgs.length-done<every)return;
-  const from=Math.max(0,msgs.length-every);
-  const slice=msgs.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
+  /* 【新】重说过程中，那条被重做的旧回复先不参与总结，免得旧版也被写进记忆 */
+  const live=ctxDropMid?msgs.filter(x=>!(x&&x.mid===ctxDropMid)):msgs;
+  const from=Math.max(0,live.length-every);
+  const slice=live.slice(from).map(x=>(x.role==='user'?'她':c.name)+'：'+msgBrief(x)).join('\n');
   setAutoSumMark(c.id,msgs.length);       /* 先记进度，防止重复总结 */
   saveMem();
-  if(showToast)toast('正在自动总结第 '+(from+1)+'~'+msgs.length+' 条…');
+  if(showToast)toast('正在自动总结第 '+(from+1)+'~'+live.length+' 条…');
   const hit=await runSummary(slice,true);
   if(hit){
     if(showToast)toast('✅ 已自动总结 '+hit+' 条，写进「长期聊天记录总结」（聊天记录没动）');
@@ -5846,7 +6009,7 @@ function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:true}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -5945,7 +6108,11 @@ function charPermissionCardsHTML(c){
   /* 【新增】音乐控制权限：它能不能帮你放歌 / 暂停 / 切下一首 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能控制我的音乐</b><div class="dim" style="font-size:12px">打开后，它聊天时可以帮你「继续播放 / 暂停 / 下一首」（前提是「音乐」里已经加过歌）。不想让某个角色动手，就把这个关掉</div></div>'+
-  '<input type="checkbox" id="e_musicperm" '+((c.musicPerm&&c.musicPerm.on===false)?'':'checked')+'></div></div>';
+  '<input type="checkbox" id="e_musicperm" '+((c.musicPerm&&c.musicPerm.on===false)?'':'checked')+'></div></div>'+
+  /* 【新增】MCP 权限：它能不能用你在「MCP」应用里接上的外部工具（比如一起玩游戏） */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>能用 MCP 工具</b><div class="dim" style="font-size:12px">允许它使用你在手机桌面「MCP」应用里接上的外部工具（比如和小机一起玩游戏）。不想让这个角色用，就把这个关掉</div></div>'+
+  '<input type="checkbox" id="e_mcpperm" '+((c.mcpPerm&&c.mcpPerm.on===false)?'':'checked')+'></div></div>';
 }
 function editChar(id,tema){
   const c=chars.find(x=>x.id===id);if(!c)return;
@@ -6197,6 +6364,10 @@ function applyCharInputs(id){
   const elMusP=document.getElementById('e_musicperm');
   if(elMusP)c.musicPerm={on:!!elMusP.checked};
   else if(!c.musicPerm)c.musicPerm={on:true};
+  /* ↓ 新增：MCP 权限（没这个开关的旧页面就当默认开着） */
+  const elMcpP=document.getElementById('e_mcpperm');
+  if(elMcpP)c.mcpPerm={on:!!elMcpP.checked};
+  else if(!c.mcpPerm)c.mcpPerm={on:true};
   return c;
 }
 function saveChar(id){
@@ -7812,6 +7983,7 @@ function renderToolPane(){
       else if(toolTab==='music')p.innerHTML=musicHTML();
       else if(toolTab==='moments')p.innerHTML=momentsHTML();
       else if(toolTab==='world')p.innerHTML=worldHTML();
+      else if(toolTab==='mcp')p.innerHTML=mcpHTML();   /* 【新增】MCP 工具服务器 */
       else p.innerHTML=funHTML();
     }
   }
@@ -11769,7 +11941,7 @@ function loadInitialState(){
       persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,priv:false,
-      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false},momentPerm:{on:true},ideaPerm:{on:true}}];
+      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true}}];
     save(LS.chars,chars);
   }
   /* 上次如果停在隐私角色上，重启后不自动进入它 */
@@ -12862,7 +13034,7 @@ function thmClear(tag){
    不改动原来任何功能。
    ================================================================ */
 const LS_FIC='wh_fic';
-const FIC={cid:'',bg:'',mode:'chat',mem:'base',req:'',text:'',busy:false,view:'form',id:'',gen:0};
+const FIC={cid:'',bg:'',mode:'chat',mem:'base',req:'',text:'',busy:false,view:'form',id:'',gen:0,extra:'',askMore:false};
 let ficAbort=null;
 
 /* ---------- 小工具 ---------- */
@@ -12920,6 +13092,37 @@ function ficTitleOf(x){
   return (x&&x.name)?(x.name+' 的番外'):'未命名番外';
 }
 
+/* ---------- 单次生成长度上限（只影响番外） ----------
+   填正数＝就用这个上限；填 0 ＝不限（请求里不带 max_tokens，让模型自己决定啥时候停）；
+   留空＝用原来的默认规则。设置存在 cfg.ficMaxtok 里，跟着备份走。 */
+function ficMaxTokVal(){
+  if(!cfg||cfg.ficMaxtok==null||cfg.ficMaxtok==='')return null;   /* 没设置过 */
+  const v=Number(cfg.ficMaxtok);
+  if(!Number.isFinite(v)||v<0)return null;
+  return Math.min(500000,Math.round(v));                          /* 0 保留（0＝不限） */
+}
+function ficLenFieldHTML(){
+  const v=(cfg&&cfg.ficMaxtok!=null)?String(cfg.ficMaxtok):'';
+  return '<div class="fic-sec" style="margin-top:14px">单次生成长度上限</div>'+
+    '<input id="ficMaxTok" type="number" min="0" step="200" inputmode="numeric" value="'+esc(v)+'" placeholder="不填＝默认" onchange="ficLenSync()">'+
+    '<p class="fic-sub">一次最多写多少 token（大致 1 个汉字 ≈ 1～2 token）。<b>填 0 就是不限</b>，让模型自己决定写到哪停；'+
+    '填个正数就当上限（比如 8000、16000）。留空＝用原来的默认值。要是总写到几千字就断，就把这里调大或者填 0。</p>';
+}
+/* 把输入框里的值读进设置（离开输入框、或点开始写 / 接着写时调用） */
+function ficLenSync(){
+  const el=document.getElementById('ficMaxTok');
+  if(!el)return;
+  const raw=String(el.value||'').trim();
+  try{
+    if(raw===''){try{delete cfg.ficMaxtok}catch(e){cfg.ficMaxtok=null}}
+    else{
+      const n=parseInt(raw,10);
+      if(Number.isFinite(n)&&n>=0)cfg.ficMaxtok=Math.min(500000,Math.round(n));
+    }
+    save(LS.cfg,cfg);
+  }catch(e){}
+}
+
 /* ---------- 打开 / 关闭 ---------- */
 function ficOpen(){
   if(!chars||!chars.length){alert('先去「角色」里建一个角色，再来写番外。');return}
@@ -12932,7 +13135,7 @@ function ficOpen(){
   try{if(ficAbort)ficAbort.abort()}catch(e){}
   ficAbort=null;
   FIC.text='';FIC._live='';FIC.id='';           /* 重新打开＝开一篇新的，不留上一次的正文 */
-  FIC.bg='';FIC.req='';
+  FIC.bg='';FIC.req='';FIC.extra='';FIC.askMore=false;
   FIC.view='form';
   showSheet('<div id="fic"></div>');
   sheetFull(true);                 /* 铺满整屏，像个小应用 */
@@ -12981,6 +13184,7 @@ function ficFormHTML(){
   '<p class="fic-sub">完整配置＝聊天时那套：热层（最近的聊天）＋常驻层（长期记忆）＋记忆宫殿（翻旧档案）。</p>'+
   '<div class="fic-sec" style="margin-top:14px">番外要求（可选）</div>'+
   '<textarea id="ficReq" placeholder="例如：必须超过一万字；只允许两个人出现；结尾要是甜的。" oninput="ficIn(\'req\',this)">'+esc(FIC.req)+'</textarea>'+
+  ficLenFieldHTML()+
   '<button class="pri fic-go" style="margin-top:14px" onclick="ficGen()">✨ 开始写</button>'+
   '<p class="fic-sub">「开始写」永远是从头写一篇新的；要是嫌写得太短，就在那一篇里点「续写」接着写。</p>'+
   (list.length?('<div class="fic-sec" style="margin-top:18px">以前写过的</div>'+ficListHTML()):'')+
@@ -13020,13 +13224,15 @@ function ficReadHTML(){
   '</div></div>'+
   (FIC.busy
     ? '<div class="fic-tools"><button class="ghost" type="button" onclick="ficStop()">⏹ 停下来</button></div>'
-    : '<div class="fic-tools">'+
-        '<button class="ghost" type="button" onclick="ficMore()">续写</button>'+
-        '<button class="ghost" type="button" onclick="ficCopy()">复制</button>'+
-        '<button class="ghost" type="button" onclick="ficRewrite()">重写</button>'+
-        '<button class="ghost" type="button" onclick="ficBack()">改设定</button>'+
-        '<button class="ghost" type="button" onclick="ficNew()">＋新开一篇</button>'+
-      '</div>')+
+    : (FIC.askMore
+        ? ficMoreAskHTML()
+        : '<div class="fic-tools">'+
+            '<button class="ghost" type="button" onclick="ficMoreAsk()">续写</button>'+
+            '<button class="ghost" type="button" onclick="ficCopy()">复制</button>'+
+            '<button class="ghost" type="button" onclick="ficRewrite()">重写</button>'+
+            '<button class="ghost" type="button" onclick="ficBack()">改设定</button>'+
+            '<button class="ghost" type="button" onclick="ficNew()">＋新开一篇</button>'+
+          '</div>'))+
   ficTokHTML()+
   '<p class="fic-sub">写好的会自动存在本地（跟着备份走）。要长文多点几次「续写」；想写新的就点「＋新开一篇」，这一篇会留在下面的列表里。</p>'+
   '<div class="row" style="margin-top:12px"><button class="ghost col" type="button" onclick="closeSheet()">关闭</button></div>';
@@ -13244,11 +13450,14 @@ function ficSystem(c,lite){
 async function ficGen(){
   if(FIC.busy)return;
   ficSyncForm();
+  ficLenSync();
   const c=ficChar();
   if(!c)return toast('先去「角色」里选一个角色');
   if(!String(FIC.bg||'').trim())return toast('先写一段番外背景');
   FIC.text='';FIC._live='';
   FIC.tok=null;FIC.tokSum=0;FIC.tokRuns=0;        /* 新的一篇：token 统计从零开始 */
+  FIC.extra='';                                    /* 新的一篇：不带上一次的附加指令 */
+  FIC.askMore=false;
   FIC.id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   FIC.view='read';FIC.busy=true;
   FIC.gen++;const my=FIC.gen;
@@ -13258,9 +13467,12 @@ async function ficGen(){
 /* 重写：同样的设定再写一遍，覆盖这一篇（不会多出一篇） */
 async function ficRewrite(){
   if(FIC.busy)return;
+  ficLenSync();
   if(!String(FIC.bg||'').trim())return toast('这一篇没有背景设定，回填写页新建一篇吧');
   FIC.text='';FIC._live='';
   FIC.tok=null;FIC.tokSum=0;FIC.tokRuns=0;        /* 重写这一篇：token 统计也重新开始 */
+  FIC.extra='';                                    /* 重写：不带上一次的附加指令 */
+  FIC.askMore=false;
   if(!FIC.id)FIC.id='f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   FIC.view='read';FIC.busy=true;
   FIC.gen++;const my=FIC.gen;
@@ -13270,13 +13482,87 @@ async function ficRewrite(){
 /* 新开一篇：清空设定，回到空白的填写页（旧的那篇已经存在下面的列表里） */
 function ficNew(){
   if(FIC.busy)return toast('等这次写完再新建吧');
-  FIC.text='';FIC._live='';FIC.id='';FIC.bg='';FIC.req='';
+  FIC.text='';FIC._live='';FIC.id='';FIC.bg='';FIC.req='';FIC.extra='';FIC.askMore=false;
   FIC.view='form';
   ficRender();
 }
 async function ficMore(){
   if(FIC.busy)return;
   if(!String(FIC.text||'').trim())return ficRewrite();
+  FIC.extra='';                    /* 直接调用（没走小窗）时，不带额外要求 */
+  FIC.askMore=false;
+  FIC.busy=true;
+  FIC.gen++;const my=FIC.gen;
+  ficRender();
+  await ficRun(my);
+}
+/* 「续写」前就地展开一个小面板：这次想额外加点什么要求？（可选，不填就直接续写） */
+function ficMoreAsk(){
+  if(FIC.busy)return;
+  if(!String(FIC.text||'').trim())return ficMore();    /* 还没正文时，点续写等于重写 */
+  FIC.askMore=!FIC.askMore;
+  ficRender();
+}
+function ficMoreCancel(){
+  FIC.askMore=false;
+  ficRender();
+}
+function ficMorePresets(){
+  return [
+    '多写一些环境描写（天气、光线、声音、气味）',
+    '多写一些心理活动（心里怎么想的、细微的情绪）',
+    '让她主动发一条聊天消息，和我聊两句',
+    '写得细腻一点、慢一点，动作和细节都展开',
+    '加快节奏，把剧情往前推进',
+    '给这一段收个尾，写得温柔一点'
+  ];
+}
+/* 续写面板的界面（展开在阅读页下方） */
+function ficMoreAskHTML(){
+  const presets=ficMorePresets();
+  return '<div class="fic-card"><div class="fic-inner">'+
+    '<div class="fic-sec" style="margin-top:0">续写 · 附加指令（可选）</div>'+
+    '<p class="fic-sub" style="margin:0 0 9px">这次接着往下写，想让它额外做点什么？点下面的例子就行（可以多选），也可以自己写。不填就直接续写。</p>'+
+    '<div class="fic-chips">'+
+      presets.map(t=>'<button type="button" onclick="ficMoreChip(this)" data-t="'+esc(t)+'">'+esc(t)+'</button>').join('')+
+    '</div>'+
+    '<textarea id="ficMoreReq" style="min-height:110px" placeholder="例如：多写一些环境描写；让她发一条聊天消息，和我聊两句。"></textarea>'+
+    ficLenFieldHTML()+
+    '<div class="row" style="margin-top:12px">'+
+      '<button class="pri col" type="button" onclick="ficMoreGo()">✨ 接着写</button>'+
+      '<button class="ghost col" type="button" onclick="ficMoreCancel()">取消</button>'+
+    '</div>'+
+    '<p class="fic-sub">附加指令只对这一次续写生效，不会改到上面的「番外要求」，也不会存进档案。</p>'+
+  '</div></div>';
+}
+/* 点一下例子：没有就加上，已经有了再点一下就去掉 */
+function ficMoreChip(el){
+  const ta=document.getElementById('ficMoreReq');
+  if(!ta||!el)return;
+  const t=String(el.getAttribute('data-t')||'');
+  if(!t)return;
+  const cur=String(ta.value||'');
+  if(cur.indexOf(t)>=0){
+    ta.value=cur.split('\n').filter(s=>String(s).trim()!==t).join('\n');
+  }else{
+    ta.value=(cur.trim()?cur.replace(/\s+$/,'')+'\n':'')+t;
+  }
+  try{ta.focus()}catch(e){}
+}
+/* 面板里点「接着写」：收起面板，带着这条要求去续写 */
+function ficMoreGo(){
+  ficLenSync();                                  /* 先把长度上限读进来（面板马上要被收起） */
+  const ta=document.getElementById('ficMoreReq');
+  const extra=ta?String(ta.value||'').trim():'';
+  FIC.askMore=false;
+  ficMoreExtra(extra);
+}
+/* 带附加指令续写 */
+async function ficMoreExtra(extra){
+  if(FIC.busy)return;
+  if(!String(FIC.text||'').trim())return ficMore();
+  FIC.extra=String(extra||'').trim();
+  FIC.askMore=false;
   FIC.busy=true;
   FIC.gen++;const my=FIC.gen;
   ficRender();
@@ -13290,12 +13576,18 @@ async function ficCall(c,committed,lite){
   if(committed){
     const tail=committed.length>4000?committed.slice(-4000):committed;
     msgs2.push({role:'assistant',content:tail});
-    msgs2.push({role:'user',content:'接着上面最后一句继续往下写。不要重复已经写过的话，不要重新开头，保持同样的风格、视角和格式。'});
+    let cont='接着上面最后一句继续往下写。不要重复已经写过的话，不要重新开头，保持同样的风格、视角和格式。';
+    /* 【新】这一次续写如果带了附加指令（比如「多写环境描写」），也一并交给它，只对这一次有效 */
+    const ex=String(FIC.extra||'').trim();
+    if(ex)cont+='\n\n【这一次续写的额外要求（要照做，但不要在正文里提到「要求」本身，别写解释）】\n'+ex;
+    msgs2.push({role:'user',content:cont});
   }
   let out='',usage=null;
   try{
     const tp=thinkParams(c);
-    const maxtok=Math.min(8000,Math.max(Number(tp.maxtok)||900,2048));
+    /* 长度上限：你在番外里设了就用它（0＝不限），没设过就用原来的默认规则 */
+    const um=(typeof ficMaxTokVal==='function')?ficMaxTokVal():null;
+    const maxtok=(um==null)?Math.min(8000,Math.max(Number(tp.maxtok)||900,2048)):um;
     const ret=await callAPI(msgs2,{stream:true,model:modelOf(c),signal:(ficAbort?ficAbort.signal:undefined),temp:tp.temp,maxtok:maxtok,
       onDelta:d=>{out+=d;ficPushDelta(d)},
       onReasoning:()=>{},
@@ -13375,6 +13667,7 @@ function ficOpenSaved(id){
   const rec=ficStore().find(x=>x.id===id);if(!rec)return;
   FIC.id=rec.id;FIC.cid=rec.cid||FIC.cid;
   FIC.bg=rec.bg||'';FIC.req=rec.req||'';
+  FIC.extra='';FIC.askMore=false;
   FIC.mode=(rec.mode==='story')?'story':'chat';
   FIC.mem=(rec.mem==='full')?'full':'base';
   FIC.text=rec.text||'';FIC._live='';
@@ -13416,6 +13709,8 @@ function ficCopyFallback(t,done){
 
 /* ---------- ⑥ 应用：手机桌面式宫格 ---------- */
 const APPS=[
+  {k:'mcp',n:'MCP',d:'给角色接外部工具',
+   ic:'<svg viewBox="0 0 24 24"><path d="M9 3.4v4.2M15 3.4v4.2"/><path d="M6.4 7.6h11.2v3.6a5.6 5.6 0 0 1-11.2 0Z"/><path d="M12 16.8v3.8"/></svg>'},
   {k:'palace',n:'记忆宫殿',d:'翻旧记忆 · 打标签',
    ic:'<svg viewBox="0 0 24 24"><path d="M12 3.2 20.6 8.1H3.4Z"/><path d="M6 11.1v7.3M10 11.1v7.3M14 11.1v7.3M18 11.1v7.3"/><path d="M3.4 20.8h17.2"/></svg>'},
   {k:'todo',n:'待办',d:'角色的小清单',
@@ -13833,7 +14128,8 @@ async function doSearchStep(c){
     try{scrollDown()}catch(e){}
   };
   box.appendChild(st);scrollDown();
-  const conv=(msgs||[]).slice(-6).map(m=>(m.role==='user'?'她':c.name)+'：'+(m.content||'')).join('\n');
+  /* 用和生成时同一份上下文（重说期间会自动排除被重做的旧回复） */
+  const conv=(ctxMsgs()||[]).slice(-6).map(m=>(m.role==='user'?'她':c.name)+'：'+(m.content||'')).join('\n');
   let r=null;
   try{r=await searchForChar(c,conv,setTxt)}catch(e){}
   if(!r){if(st.parentNode)st.remove();return}
@@ -14808,6 +15104,11 @@ if(P5_toysExec){
 /* execCharTool 是「私聊里用工具」的入口 */
 /* ↓ 这个函数是五层补丁合并后的样子：表情包 → 画图 → 好感度/提示 → 玩具 → 原来的工具分发 */
 execCharTool=function(name,args,cid){
+  /* ↓ MCP：名字带 mcp_ 前缀的，交给外面的工具服务器执行（异步，交回结果） */
+  if(name&&name.indexOf('mcp_')===0){
+    try{return execMcpTool(name,args,cid)}
+    catch(e){return {ok:false,msg:'调用 MCP 工具失败：'+((e&&e.message)||e)}}
+  }
   /* ↓ 补丁13-A：发表情包 */
   if(name==='send_sticker'){
     try{return window.execSticker(args)}
@@ -17125,7 +17426,10 @@ var I={
   raw:'<svg viewBox="0 0 24 24"><path d="M13.6 3.6H7.5c-.8 0-1.4.6-1.4 1.4v14c0 .8.6 1.4 1.4 1.4h9c.8 0 1.4-.6 1.4-1.4V8Z"/><path d="M13.6 3.6V8H18"/></svg>',
   mem:'<svg viewBox="0 0 24 24"><path d="M12 4.2c-2.4-1.6-5-1.5-7-1.1v13.2c2-.4 4.6-.5 7 1.1 2.4-1.6 5-1.5 7-1.1V3.1c-2-.4-4.6-.5-7 1.1Z"/><path d="M12 4.2v13.2"/></svg>',
   speak:'<svg viewBox="0 0 24 24"><path d="M4.4 9.6h2.9L11.4 6v12l-4.1-3.6H4.4Z"/><path d="M15.4 9.2a4 4 0 0 1 0 5.6"/><path d="M17.8 6.6a7.5 7.5 0 0 1 0 10.8"/></svg>',
-  multi:'<svg viewBox="0 0 24 24"><path d="M6 6.6h12M6 12h12M6 17.4h12"/><path d="M6 6.6v10.8"/></svg>'
+  multi:'<svg viewBox="0 0 24 24"><path d="M6 6.6h12M6 12h12M6 17.4h12"/><path d="M6 6.6v10.8"/></svg>',
+  prev:'<svg viewBox="0 0 24 24"><path d="M14.6 5.4 8 12l6.6 6.6"/></svg>',
+  next:'<svg viewBox="0 0 24 24"><path d="m9.4 5.4 6.6 6.6-6.6 6.6"/></svg>',
+  ver:'<svg viewBox="0 0 24 24"><path d="M4.6 7.4h9M4.6 12h9M4.6 16.6h9"/><path d="M17 6.4v11.2M14.6 9.4 17 7l2.4 2.4"/></svg>'
 };
 function mb(fn,ic,txt,warn){
   return '<button class="'+(warn?'warn':'')+'" onclick="P6.'+fn+'()">'+ic+'<span>'+esc(txt)+'</span></button>';
@@ -17142,19 +17446,23 @@ function openMsgSheet(i){
   curI=i;
   var isAI=(m.role==='assistant');
   var last=(i===msgs.length-1);
-  showSheet('<div class="ttl">这条消息</div>'+
+  var vn=isAI?verCount(m):1;
+  showSheet('<div class="ttl">这条消息'+(vn>1?('　第 '+(verIndex(m)+1)+' / '+vn+' 版'):'')+'</div>'+
     '<div class="p6prev">'+esc(msgTextOf(i).slice(0,600))+'</div>'+
     '<div class="p6grid">'+
       mb('copy',I.copy,'复制')+
       mb('quote',I.quote,'引用')+
       mb('edit',I.edit,'编辑')+
       (isAI&&last?mb('regen',I.regen,'重新生成'):'')+
+      (isAI&&vn>1&&verIndex(m)>0?mb('verPrev',I.prev,'上一版'):'')+
+      (isAI&&vn>1&&verIndex(m)<vn-1?mb('verNext',I.next,'下一版'):'')+
       (isAI?mb('raw',I.raw,'追加原文'):'')+
       mb('toMem',I.mem,'加入记忆')+
       mb('speak',I.speak,'朗读')+
       mb('del',I.del,'删除',true)+
       mb('multi',I.multi,'多选',true)+
     '</div>'+
+    (vn>1?'<p class="dim" style="font-size:12px;margin:10px 0 0">这是「重新生成」留下的第 '+(verIndex(m)+1)+' 版（一共 '+vn+' 版）。点「上一版 / 下一版」随便挑；聊到下一轮时，没选中的会自动清掉。</p>':'')+
     '<p class="dim" style="font-size:12px;margin:10px 0 0">以后想对某条消息做操作，<b>长按它</b>就行（电脑上是右键）。</p>'+
     '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="closeSheet()">取消</button></div>');
   blockNextClick();
@@ -17200,20 +17508,25 @@ P6.saveEdit=function(){
   var el=document.getElementById('p6ed');
   var v=el?String(el.value||'').trim():'';
   if(!v&&!msgImgs(m).length)return say('不能空着');
-  markMsgDeleted(curId,m);            /* 记一笔：这条的旧内容不要了 */
+  if(m.mid)bumpUt(m);                 /* 【新】带版本的消息：按「改过时间更晚」胜过存盘里的旧内容 */
+  else markMsgDeleted(curId,m);       /* 记一笔：这条的旧内容不要了 */
   m.content=v;m.tok=estTokens(v);
+  syncVer(m);                         /* 【新】改动同步进当前这一版 */
   persist();closeSheet();renderChat();say('已保存');
 };
 P6.del=function(){
   if(!msgs[curI])return;
   if(!confirm('删除这条消息？删了就找不回来了'))return;
-  markMsgDeleted(curId,msgs[curI]);
+  markMsgGone(curId,msgs[curI]);
   msgs.splice(curI,1);persist();closeSheet();renderChat();say('已删除');
 };
 P6.regen=function(){
   if(curI!==msgs.length-1||!msgs[curI]||msgs[curI].role!=='assistant')return say('只能重做最后一条回复');
   closeSheet();regen();
 };
+/* 【新】在长按菜单里切换「重新生成」留下的版本，切完把菜单重新打开，方便连续点 */
+P6.verPrev=function(){switchMsgVer(curI,-1);openMsgSheet(curI)};
+P6.verNext=function(){switchMsgVer(curI,1);openMsgSheet(curI)};
 P6.raw=function(){closeSheet();appendRaw()};
 P6.speak=function(){
   var t=msgTextOf(curI);
@@ -17279,7 +17592,7 @@ P6.selDel=function(){
   var idx=Object.keys(sel.set).map(Number).filter(function(i){return msgs[i]}).sort(function(a,b){return b-a});
   if(!idx.length)return say('先点几条消息选中');
   if(!confirm('删除选中的 '+idx.length+' 条消息？删了就找不回来了'))return;
-  idx.forEach(function(i){markMsgDeleted(curId,msgs[i]);msgs.splice(i,1)});
+  idx.forEach(function(i){markMsgGone(curId,msgs[i]);msgs.splice(i,1)});
   persist();var n=idx.length;selStop();renderChat();say('已删除 '+n+' 条');
 };
 /* 【新】把选中的这几条，按原来的先后顺序追加到「原文日志」里（不用管它们是不是连着的） */
@@ -19190,10 +19503,29 @@ function paintUserSticker(b,x){
     if(n.nodeType===1&&n.classList&&n.classList.contains('p6time')){time=n;return}
     b.removeChild(n);
   });
-  if(x.text){
+  b.classList.remove('multi');b.classList.remove('p13only');
+  var txt=String(x.text||'');
+  /* 【新】这条带表情，但文字里写了 |||：拆成几个小气泡，表情跟着第一段走 */
+  var parts=(txt.indexOf('|||')>=0)?txt.split('|||').map(function(s){return s.trim()}).filter(function(s){return s!==''}):null;
+  if(parts&&parts.length>1){
+    b.classList.add('multi');
+    parts.forEach(function(s,idx){
+      var sub=document.createElement('div');
+      sub.className='bsub';
+      if(idx===0)sub.appendChild(mkImg(x.sticker,'p13sk'));
+      var t=document.createElement('div');
+      t.className='p13utext';t.innerHTML=mdLite(s);
+      sub.appendChild(t);
+      b.appendChild(sub);
+    });
+    if(time)b.appendChild(time);
+    try{Array.prototype.slice.call(b.querySelectorAll('.bsub')).forEach(function(el){addBubbleTail(el)})}catch(e){}
+    return;
+  }
+  if(txt){
     b.classList.remove('p13only');
     var t=document.createElement('div');
-    t.className='p13utext';t.innerHTML=mdLite(String(x.text));
+    t.className='p13utext';t.innerHTML=mdLite(txt);
     b.insertBefore(t,b.firstChild);
   }else{
     b.classList.add('p13only');
@@ -19302,6 +19634,224 @@ var SEND_STICKER_TOOL={type:'function',function:{
     id:{type:'string',description:'表情编号，例如 2，见系统提示里的表情库列表'}
   },required:['id']}
 }};
+/* ================================================================
+   MCP：让角色接入外部「工具服务器」
+   浏览器直接当 MCP 客户端（JSON-RPC 2.0 · Streamable HTTP）。
+   拉到的工具会混进角色原本的工具列表（toolsFor），角色聊天时照常调用。
+   ================================================================ */
+var MCP_SEQ=0;
+var MCP_BOOT_CLEAN=false;
+function mcpCfg(){
+  if(!cfg.mcp||typeof cfg.mcp!=='object')cfg.mcp={on:true,servers:[]};
+  if(!Array.isArray(cfg.mcp.servers))cfg.mcp.servers=[];
+  /* 上一次打开页面留下的临时连接状态（会话号等）清掉，只保留「工具清单」缓存 */
+  if(!MCP_BOOT_CLEAN){
+    MCP_BOOT_CLEAN=true;
+    try{cfg.mcp.servers.forEach(function(s){delete s._ready;delete s._tools;delete s._sid;delete s._info})}catch(e){}
+  }
+  return cfg.mcp;
+}
+function mcpSaveCfg(){try{save(LS.cfg,cfg)}catch(e){}try{scheduleBackup()}catch(e){}}
+function mcpById(id){var l=mcpCfg().servers;for(var i=0;i<l.length;i++)if(l[i].id===id)return l[i];return null}
+function mcpSid(s){return String((s&&s.id)||'s').replace(/[^A-Za-z0-9]/g,'')||'s'}
+function mcpPrefix(s){return 'mcp_'+mcpSid(s)+'_'}
+function mcpWhen(t){
+  try{
+    var d=new Date(t||Date.now()),p=function(n){return (n<10?'0':'')+n};
+    return (d.getMonth()+1)+'月'+d.getDate()+'日 '+p(d.getHours())+':'+p(d.getMinutes());
+  }catch(e){return ''}
+}
+/* 服务器真实地址：填了令牌就按 toy 那类规则拼进地址（.../mcp → .../<token>） */
+function mcpAddr(s){
+  var u=String((s&&s.url)||'').trim();
+  if(!u)return '';
+  var tk=String((s&&s.token)||'').trim();
+  if(tk)u=u.replace(/\/+$/,'').replace(/\/mcp$/i,'')+'/'+encodeURIComponent(tk);
+  return u;
+}
+/* 请求头：基础两项 + 会话号 + 用户自定义（一行一个「名字: 值」） */
+function mcpHead(s){
+  var h={'Content-Type':'application/json','Accept':'application/json, text/event-stream'};
+  if(s&&s._sid)h['Mcp-Session-Id']=s._sid;
+  String((s&&s.headers)||'').split('\n').forEach(function(ln){
+    var i=ln.indexOf(':');if(i<1)return;
+    var k=ln.slice(0,i).trim(),v=ln.slice(i+1).trim();
+    if(k)h[k]=v;
+  });
+  return h;
+}
+/* 有些服务器用「流式」回话（text/event-stream），这里按 SSE 读出来 */
+async function mcpReadSSE(res,wantId){
+  var rd=res.body.getReader(),dec=new TextDecoder(),buf='';
+  for(;;){
+    var r=await rd.read();if(r.done)break;
+    buf+=dec.decode(r.value,{stream:true});
+    var parts=buf.split(/\r?\n\r?\n/);buf=parts.pop();
+    for(var i=0;i<parts.length;i++){
+      var lines=parts[i].split(/\r?\n/),data=[];
+      for(var k=0;k<lines.length;k++){var ln=lines[k];if(ln.indexOf('data:')===0)data.push(ln.slice(5).replace(/^ /,''))}
+      if(!data.length)continue;
+      var j=null;try{j=JSON.parse(data.join('\n'))}catch(e){continue}
+      if(!j)continue;
+      if(j.error)throw new Error((j.error&&j.error.message)||'服务器报错');
+      if(wantId!=null&&j.id===wantId)return j.result;
+    }
+  }
+  return null;
+}
+/* 发一条 JSON-RPC 请求，把结果取回来 */
+async function mcpRpc(s,method,params,notify){
+  var url=mcpAddr(s);
+  if(!url)throw new Error('还没填服务器地址');
+  var body={jsonrpc:'2.0',method:method};
+  if(!notify)body.id=(++MCP_SEQ);
+  if(params!==undefined)body.params=params;
+  var res=null;
+  try{res=await fetch(url,{method:'POST',headers:mcpHead(s),body:JSON.stringify(body)})}
+  catch(e){throw new Error('连不上这个地址（网络不通 / 跨域被拦 / 地址写错）：'+((e&&e.message)||e))}
+  try{var sid=res.headers.get('mcp-session-id');if(sid)s._sid=sid}catch(e){}
+  if(res.status===202||res.status===204)return null;
+  if(!res.ok){var t0='';try{t0=await res.text()}catch(e){};throw new Error('服务器返回 HTTP '+res.status+' '+String(t0).replace(/\s+/g,' ').slice(0,200))}
+  var ct=String(res.headers.get('content-type')||'').toLowerCase();
+  if(ct.indexOf('text/event-stream')>=0)return await mcpReadSSE(res,notify?null:body.id);
+  var raw='';try{raw=await res.text()}catch(e){}
+  var j=null;try{j=raw?JSON.parse(raw):null}catch(e){}
+  if(!j)throw new Error('服务器返回的内容不是标准格式：'+String(raw).slice(0,120));
+  if(j.error)throw new Error((j.error&&j.error.message)||'服务器报错');
+  return j.result;
+}
+/* 连上服务器：握手 → 拿工具清单 → 缓存到本地（给同步的 toolsFor 用） */
+async function mcpOpen(s){
+  if(s._ready&&s._tools)return s._tools;
+  var init=await mcpRpc(s,'initialize',{protocolVersion:'2025-06-18',capabilities:{},
+    clientInfo:{name:'shenlanhaiyu',version:'1.0'}});
+  try{await mcpRpc(s,'notifications/initialized',undefined,true)}catch(e){}
+  var r=await mcpRpc(s,'tools/list',{});
+  var tools=(r&&r.tools)||[];
+  s._ready=true;s._tools=tools;
+  s._info=(init&&init.serverInfo)||null;
+  var tgt=mcpById(s.id)||s;
+  if(s._info&&s._info.name)tgt.serverName=String(s._info.name);
+  tgt.toolsCache={at:Date.now(),tools:tools.map(function(t){
+    var o={name:String((t&&t.name)||''),description:String((t&&t.description)||'').slice(0,300)};
+    o.inputSchema=(t&&t.inputSchema)||{type:'object',properties:{}};
+    return o;
+  })};
+  /* 第一次连上：参数特别长的工具（比如账号管理）默认先关掉，省 token；想用再自己勾回来 */
+  if(!tgt.enabled||typeof tgt.enabled!=='object')tgt.enabled={};
+  if(!tgt.defDone){
+    tgt.defDone=true;
+    tools.forEach(function(t){
+      try{
+        if(JSON.stringify((t&&t.inputSchema)||{}).length>2000)tgt.enabled[String((t&&t.name)||'')]=false;
+      }catch(e){}
+    });
+  }
+  mcpSaveCfg();
+  return tools;
+}
+function mcpServerInfo(s){
+  var n=(s&&s._info&&s._info.name)||(s&&s.serverName)||'';
+  var c=(s&&s.toolsCache&&s.toolsCache.tools)||[];
+  return n?('服务器：'+n+(c.length?('（共 '+c.length+' 个工具）'):'')):'';
+}
+/* MCP 的工具参数也是标准的 JSON Schema，浅拷一份去掉个别模型不认的字段 */
+function mcpSchema(sc){
+  var o={};
+  try{o=(sc&&typeof sc==='object')?JSON.parse(JSON.stringify(sc)):{};}catch(e){o={};}
+  delete o.$schema;
+  if(o.type!=='object')o={type:'object',properties:o.properties||{},required:o.required};
+  if(!o.properties)o.properties={};
+  if(!o.type)o.type='object';
+  return o;
+}
+/* 把已连上的 MCP 工具，变成角色原本那套「工具」的样子发给模型 */
+function mcpToolDefs(c){
+  var out=[],g=mcpCfg();
+  if(!g.on)return out;
+  var list=g.servers||[];
+  for(var i=0;i<list.length;i++){
+    var s=list[i];
+    if(!s||s.on===false)continue;
+    var cache=(s.toolsCache&&s.toolsCache.tools)||[];
+    var en=(s.enabled&&typeof s.enabled==='object')?s.enabled:{};
+    for(var k=0;k<cache.length;k++){
+      var t=cache[k];
+      if(!t||!t.name)continue;
+      if(en[t.name]===false)continue;
+      out.push({type:'function',function:{
+        name:mcpPrefix(s)+String(t.name).replace(/[^A-Za-z0-9_-]/g,'').slice(0,60),
+        description:'【MCP·'+String(s.name||'工具服务器')+'】'+String(t.description||''),
+        parameters:mcpSchema(t.inputSchema)
+      }});
+    }
+  }
+  return out;
+}
+/* 角色点名要用的 MCP 工具，转发给对应的服务器去执行 */
+function mcpCharName(cid){
+  try{var a=chars||[];for(var i=0;i<a.length;i++)if(a[i]&&a[i].id===cid)return String(a[i].name||'')}catch(e){}
+  return '';
+}
+/* 游客身份要报的 player_id：服务器只收「字母+数字」，所以中文名字要转成安全写法 */
+function mcpGuestId(s,cid){
+  var raw=String((s&&s.guestId)||'').replace(/[^A-Za-z0-9]/g,'').slice(0,64);
+  if(raw)return raw;
+  var nm=mcpCharName(cid).replace(/[^A-Za-z0-9]/g,'').slice(0,16);
+  if(nm)return nm;
+  var id=String(cid||'').replace(/[^A-Za-z0-9]/g,'');
+  return id?('char'+id.slice(-8)):'guest';
+}
+async function execMcpTool(name,args,cid){
+  var list=mcpCfg().servers||[];
+  for(var i=0;i<list.length;i++){
+    var s=list[i];
+    var pre=mcpPrefix(s);
+    if(name.indexOf(pre)!==0)continue;
+    var tn=name.slice(pre.length);
+    var a={};
+    try{a=JSON.parse(JSON.stringify(args||{}))}catch(e){a=args||{}}
+    if(!a||typeof a!=='object')a={};
+    /* 玩具屋这类游戏：游客身份必须自报 player_id。这里自动补上，
+       免得角色不知道该报什么名字、跑来问你（角色自己填了就不动它）。 */
+    if(tn==='play'){
+      var hasId=(a.player_id!=null&&String(a.player_id)!=='')||
+        (a.params&&typeof a.params==='object'&&a.params.player_id!=null&&String(a.params.player_id)!=='');
+      if(!hasId){
+        a.player_id=mcpGuestId(s,cid);
+      }
+    }
+    try{
+      if(!s._ready)await mcpOpen(s);
+      var r=await mcpRpc(s,'tools/call',{name:tn,arguments:a});
+      var txt=mcpText(r);
+      if(r&&r.isError)return {ok:false,msg:'工具报错：'+txt};
+      return {ok:true,msg:txt};
+    }catch(e){
+      return {ok:false,msg:'调用 MCP 工具失败：'+((e&&e.message)||e)};
+    }
+  }
+  return null;
+}
+/* MCP 的回话可能有好几段，拼成一段文字给角色看 */
+function mcpText(r){
+  var c=(r&&r.content)||[],s='';
+  for(var i=0;i<c.length;i++){
+    var x=c[i];if(!x)continue;
+    if(x.type==='text')s+=(s?'\n':'')+String(x.text||'');
+    else if(x.type==='resource')s+=(s?'\n':'')+String((x.resource&&x.resource.text)||JSON.stringify(x.resource||{}));
+    else s+=(s?'\n':'')+JSON.stringify(x);
+  }
+  if(!s){try{s=JSON.stringify(r||{})}catch(e){s=''}}
+  if(s.length>6000)s=s.slice(0,6000)+'\n…（内容太长，已截断）';
+  return s;
+}
+/* 挂到全局：角色工具列表、「MCP」应用面板、按钮都要用 */
+window.mcpHTML=mcpHTML;
+window.execMcpTool=execMcpTool;
+window.mcpAdd=mcpAdd;window.mcpSaveServer=mcpSaveServer;window.mcpDelServer=mcpDelServer;
+window.mcpTestServer=mcpTestServer;window.mcpRefresh=mcpRefresh;
+window.mcpToggleServer=mcpToggleServer;window.mcpToggleTool=mcpToggleTool;window.mcpSetGlobal=mcpSetGlobal;
 /* ↓ 这个函数是四层补丁合并后的样子：基础工具 → 互动玩具 → 画图 → 表情包 */
 toolsFor=function(c){
   var t=[];
@@ -19332,8 +19882,129 @@ toolsFor=function(c){
   try{
     if(c&&!(c.ideaPerm&&c.ideaPerm.on===false)&&window.IDEA_TOOL)t.push(window.IDEA_TOOL);
   }catch(e){}
+  /* ↓ MCP：外面工具服务器给的工具（在桌面的「MCP」应用里添加、连上后自动出现在这里） */
+  try{
+    if(c&&!(c.mcpPerm&&c.mcpPerm.on===false))mcpToolDefs(c).forEach(function(x){t.push(x)});
+  }catch(e){}
   return t;
 };
+/* ---------- 桌面的「MCP」应用：面板 ---------- */
+function mcpCardHTML(s){
+  var id=mcpSid(s);
+  var cache=(s.toolsCache&&s.toolsCache.tools)||[];
+  var h='<div class="card"><div class="row" style="align-items:center">'+
+    '<div class="col"><b>'+esc(s.name||'未命名服务器')+'</b><div class="dim" style="font-size:11.5px">'+
+      (cache.length?('已连上 · '+cache.length+' 个工具'+(s.toolsCache.at?(' · '+esc(mcpWhen(s.toolsCache.at))):'')):'还没点「测试连接」')+
+    '</div></div>'+
+    '<input type="checkbox" '+(s.on!==false?'checked':'')+' onchange="mcpToggleServer(\''+id+'\',this.checked)" title="这个服务器用不用"></div>'+
+    '<label class="f">名字</label><input id="mcp_nm_'+id+'" value="'+esc(s.name||'')+'" placeholder="随便起个名，比如 玩具屋">'+
+    '<label class="f">服务器地址</label><input id="mcp_url_'+id+'" value="'+esc(s.url||'')+'" placeholder="https://toy.cedarstar.org/mcp">'+
+    '<label class="f">身份令牌（可选 · 不填就是游客身份）</label><input id="mcp_tk_'+id+'" value="'+esc(s.token||'')+'" placeholder="玩具屋的令牌会自动拼进地址">'+
+    '<label class="f">游客名字 player_id（没令牌时用 · 只能用字母和数字）</label><input id="mcp_gid_'+id+'" value="'+esc(s.guestId||'')+'" placeholder="留空＝自动按角色生成，一般不用管">'+
+    '<label class="f">自定义请求头（可选 · 一行一个）</label><textarea id="mcp_hd_'+id+'" rows="2" placeholder="Authorization: Bearer xxx">'+esc(s.headers||'')+'</textarea>'+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="mcpSaveServer(\''+id+'\')">保存</button>'+
+    '<button class="col" onclick="mcpTestServer(\''+id+'\')">测试连接</button></div>'+
+    '<div class="row" style="margin-top:6px"><button class="ghost col" onclick="mcpRefresh(\''+id+'\')">重新获取工具列表</button>'+
+    '<button class="ghost col" onclick="mcpDelServer(\''+id+'\')">删除</button></div>';
+  if(cache.length){
+    var en=(s.enabled&&typeof s.enabled==='object')?s.enabled:{};
+    h+='<div style="margin-top:10px"><b style="font-size:13px">允许角色用哪些工具</b>'+
+       '<p class="dim" style="font-size:11.5px;margin:4px 0 6px">勾上的才会发给角色。工具越多，每次聊天要发出去的字就越多（费 token），用不上的关掉；像「账号管理」这种特别长的，第一次连上时会帮你默认关掉。</p>';
+    for(var i=0;i<cache.length;i++){
+      var t=cache[i];
+      var tid=String(t.name||'').replace(/[^A-Za-z0-9_-]/g,'');
+      h+='<div class="li" style="display:flex;gap:8px;align-items:flex-start">'+
+         '<input type="checkbox" style="margin-top:3px;flex:0 0 auto" '+(en[t.name]===false?'':'checked')+
+         ' onchange="mcpToggleTool(\''+id+'\',\''+tid+'\',this.checked)">'+
+         '<span><b style="font-weight:500">'+esc(t.name)+'</b><br><span class="dim" style="font-size:11.5px">'+esc(String(t.description||'').slice(0,140))+'</span></span></div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+function mcpHTML(){
+  var g=mcpCfg();
+  var h='<div class="card"><div class="ttl">MCP 工具服务器</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">MCP 是「给 AI 用的统一工具接口」。把服务器网址填进来、点一次「测试连接」，它提供的功能就会变成角色能用的工具，角色聊天时会自己决定什么时候调用（和「画图」「发朋友圈」是同一套机制）。</p>'+
+    '<div class="row" style="align-items:center"><div class="col"><b>总开关</b><div class="dim" style="font-size:11.5px">关掉 = 所有角色都不再用 MCP 工具</div></div>'+
+    '<input type="checkbox" id="mcp_on" '+(g.on?'checked':'')+' onchange="mcpSetGlobal(this.checked)"></div>'+
+    '<p class="dim" style="font-size:11.5px;margin:8px 0 0">注意：这是「角色」用的工具——还要去「角色 → 编辑」把「能用 MCP 工具」打开，它才会用。</p></div>';
+  h+='<div class="card"><div class="ttl">关于身份（存档存在哪）</div>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 6px">不填令牌＝游客：服务器不知道你是谁，所以每次玩都要报一个「名字」（player_id）。这个名字可以随便起，你不用操心——留空时程序会自动用「当前角色的名字」，每个角色各存各的。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0">填了令牌＝正式账号：服务器自己认人，不用再报名字，存档永久保存。想注册：先把下面的「account」工具勾上，然后让角色去注册（见面板最后一段说明）。</p></div>';
+  var list=g.servers||[];
+  for(var i=0;i<list.length;i++)h+=mcpCardHTML(list[i]);
+  h+='<div class="card"><div class="ttl">添加服务器</div>'+
+    '<div class="row" style="margin-top:6px"><button class="pri col" onclick="mcpAdd(true)">＋ 玩具屋（toy.cedarstar.org）</button>'+
+    '<button class="col" onclick="mcpAdd(false)">＋ 空白服务器</button></div>'+
+    '<p class="dim" style="font-size:11.5px;margin:8px 0 0">「玩具屋」里有很多能和小机一起玩的小游戏、心理测试，游客身份就能玩。想要永久存档：把上面服务器卡片里的「account」勾上，然后在聊天里对它说「用 account 注册一个账号，用户名 xxx、密码 yyy，把 token 发给我」，再把拿到的 token 填进「身份令牌」。</p></div>'+
+    '<div style="height:16px"></div>';
+  return h;
+}
+function mcpSetGlobal(on){mcpCfg().on=!!on;mcpSaveCfg();toast(on?'MCP 总开关：开':'MCP 总开关：关')}
+/* 把面板上填的内容读回对象（按钮先读再重画，免得没保存的字丢） */
+function mcpReadForm(id){
+  var s=mcpById(id);if(!s)return null;
+  var get=function(p){var el=document.getElementById(p);return el?String(el.value||''):null};
+  var v=get('mcp_url_'+id);if(v!=null)s.url=v.trim();
+  v=get('mcp_tk_'+id);if(v!=null)s.token=v.trim();
+  v=get('mcp_hd_'+id);if(v!=null)s.headers=v;
+  v=get('mcp_nm_'+id);if(v!=null)s.name=v.trim()||'未命名服务器';
+  /* 服务器只收字母和数字，用户填了中文就自动过滤掉（空着＝按角色自动生成） */
+  v=get('mcp_gid_'+id);if(v!=null)s.guestId=String(v).replace(/[^A-Za-z0-9]/g,'').slice(0,64);
+  return s;
+}
+function mcpAdd(example){
+  var g=mcpCfg();
+  (g.servers||[]).forEach(function(x){try{mcpReadForm(x.id)}catch(e){}});
+  var s={id:'s'+Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36),
+    name:example?'玩具屋':'新服务器',
+    url:example?'https://toy.cedarstar.org/mcp':'',
+    token:'',guestId:'',headers:'',on:true,enabled:{}};
+  g.servers.push(s);mcpSaveCfg();renderToolPane();
+  if(example)setTimeout(function(){mcpTestServer(s.id)},80);
+}
+function mcpSaveServer(id){
+  var s=mcpReadForm(id);if(!s)return;
+  delete s._ready;delete s._tools;
+  mcpSaveCfg();toast('已保存');renderToolPane();
+}
+function mcpDelServer(id){
+  if(!confirm('确定删掉这个 MCP 服务器吗？（角色会立刻不能再用它的工具）'))return;
+  var g=mcpCfg();
+  (g.servers||[]).forEach(function(x){try{mcpReadForm(x.id)}catch(e){}});
+  g.servers=g.servers.filter(function(s){return s.id!==id});
+  mcpSaveCfg();renderToolPane();
+}
+function mcpToggleServer(id,on){var s=mcpById(id);if(!s)return;s.on=!!on;mcpSaveCfg()}
+function mcpToggleTool(id,name,on){
+  var s=mcpById(id);if(!s)return;
+  var cache=(s.toolsCache&&s.toolsCache.tools)||[],real=name;
+  for(var i=0;i<cache.length;i++){
+    if(String(cache[i].name||'').replace(/[^A-Za-z0-9_-]/g,'')===name){real=cache[i].name;break}
+  }
+  if(!s.enabled||typeof s.enabled!=='object')s.enabled={};
+  s.enabled[real]=!!on;mcpSaveCfg();
+}
+async function mcpTestServer(id){
+  var s=mcpReadForm(id);if(!s)return;
+  if(!s.url){alert('先填服务器地址');return}
+  delete s._ready;delete s._tools;
+  toast('正在连接…');
+  try{
+    var tools=await mcpOpen(s);
+    var info=mcpServerInfo(s);
+    mcpSaveCfg();renderToolPane();
+    alert('连接成功 ✅'+(info?('\n'+info):'')+'\n\n它提供 '+tools.length+' 个工具：\n'+
+      tools.map(function(t,i){return (i+1)+'. '+((t&&t.name)||'')}).join('\n')+
+      '\n\n下面可以勾选用哪几个。');
+  }catch(e){
+    renderToolPane();
+    alert('连接失败：'+((e&&e.message)||e)+'\n\n常见原因：\n· 地址写错了\n· 这个服务器不让网页直接连（跨域 / CORS）\n· 需要令牌\n· 手机网络访问不了它');
+  }
+}
+async function mcpRefresh(id){await mcpTestServer(id)}
 function execSticker(args){
   var list=all();
   if(!list.length)return {ok:false,msg:'表情库是空的，发不了表情，用文字说就行。'};
@@ -19501,6 +20172,7 @@ var G={
   fic:'<path d="M6.6 3.6h7.4l3.4 3.4v13.4H6.6Z"/><path d="M14 3.6v3.4h3.4"/><path d="M9.4 11.4h5.2M9.4 14.6h5.2M9.4 17.8h3"/>',
   thm:'<path d="M12 3.2c3.4 3.6 5.6 6.4 5.6 9.2a5.6 5.6 0 0 1-11.2 0c0-2.8 2.2-5.6 5.6-9.2Z"/><path d="M9.3 13.4a2.7 2.7 0 0 0 2.7 2.7"/>',
   game:'<rect x="2.6" y="7.6" width="18.8" height="9" rx="4.5"/><path d="M7.4 10.6v2.8M6 12h2.8"/><circle cx="16" cy="11.2" r="1"/><circle cx="18" cy="13" r="1"/>'
+  ,mcp:'<path d="M9 3.4v4.2M15 3.4v4.2"/><path d="M6.4 7.6h11.2v3.6a5.6 5.6 0 0 1-11.2 0Z"/><path d="M12 16.8v3.8"/>'
 ,'idea':'<path d="M9.3 16.9h5.4"/><path d="M10 19.6h4"/><path d="M12 3.5a5.5 5.5 0 0 0-3.3 9.9c.4.3.6.7.6 1.1v.6h5.4v-.6c0-.4.2-.8.6-1.1A5.5 5.5 0 0 0 12 3.5Z"/>'
 };
 /* 状态栏右边的小图标（纯装饰） */
@@ -19520,6 +20192,7 @@ var GRID=[
   {k:'fun',   n:'小工具',   g:'fun',    c:'#5E5CE6'},
   {k:'music', n:'音乐',     g:'music',  c:'#FF2D55'},
   {k:'game',  n:'游戏',     g:'game',   c:'#3A3F4B'},
+  {k:'mcp',   n:'MCP',      g:'mcp',    c:'#5AC8FA'},
   {k:'idea',  n:'创意',     g:'idea',   c:'#FF9F0A'},
   {k:'toy',   n:'互动',     g:'toy',    c:'#FFCC00'},
   {k:'act',   n:'演绎',     g:'act',    c:'#BF5AF2'},
@@ -19549,7 +20222,7 @@ body.home #statusbar{display:flex}
 #statusbar .sb-r svg.f,#statusbar .sb-r svg .f{fill:currentColor;stroke:none}
 #statusbar .sbpct{font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:0;min-width:0}
 #statusbar .sbpct:empty{display:none}
-#statusbar #sbBolt{width:11px;height:13px;margin-left:-3px;fill:#ffcf4d;stroke:rgba(0,0,0,.22);stroke-width:.6;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(255,207,77,.5))}
+#statusbar #sbBolt{width:11px;height:13px;margin-left:-3px;fill:var(--acc);stroke:rgba(0,0,0,.22);stroke-width:.6;stroke-linejoin:round;filter:drop-shadow(0 0 3px var(--accglow,rgba(63,169,216,.55)))}
 /* 状态栏中间的「正在播放」（放歌时才出现） */
 #statusbar .sb-media{flex:1;min-width:0;display:none;align-items:center;justify-content:center;gap:5px;font-size:11px;font-weight:600;color:var(--meta);opacity:.75}
 #statusbar .sb-media .sbm-t{max-width:44vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
@@ -20901,6 +21574,7 @@ function startGame(){
   var pair=pickPair();
   if(!pair)return toast('请先把平民词和卧底词都填上');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key，角色们才能开口');
+  tokStart('spy');
   MEMC={};
   var players=cids.map(function(cid,i){
     var c=chOf(cid)||{};
@@ -21209,6 +21883,7 @@ async function tsGen(){
 }
 function tsBegin(){
   var s=V.ts;
+  tokStart('turtle');
   s.qa=[];s.solved=false;s.revealed=false;s.hints=0;s.recId=null;s.draft='';s.surface='';s.truth='';
   s.busy=true;V.ts.msg=(s.src==='lib'?'正在抽题…':'出题人正在想题…');
   V.view='ts';render(true);
@@ -21483,6 +22158,7 @@ function murStart(){
   var cids=m.cids.filter(function(id){return !!chOf(id)});
   if(cids.length<3)return toast('至少选 3 个嫌疑人');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  tokStart('murder');
   m.players=cids.map(function(cid,i){var c=chOf(cid)||{};return {uid:'c'+i,cid:cid,gname:c.name||('角色'+(i+1))}});
   var seen={};
   m.players.forEach(function(p){var base=String(p.gname||'角色').trim()||'角色',n=base,k=1;while(seen[n]){k++;n=base+'·'+k}seen[n]=1;p.gname=n});
@@ -21734,6 +22410,7 @@ function tadStart(){
   var cids=t.cids.filter(function(id){return !!chOf(id)});
   if(cids.length<1)return toast('至少选 1 个角色一起玩');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  tokStart('tad');
   t.players=cids.map(function(cid,i){var c=chOf(cid)||{};return {uid:'c'+i,cid:cid,gname:c.name||('角色'+(i+1)),isUser:false}});
   var seen={};
   t.players.forEach(function(p){var base=String(p.gname||'角色').trim()||'角色',n=base,k=1;while(seen[n]){k++;n=base+'·'+k}seen[n]=1;p.gname=n});
@@ -21948,6 +22625,7 @@ async function mqStart(){
   if(!cids.length)return toast('至少选 1 个角色一起玩');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
   try{cfg.mqNotes=String(m.notes||'');save(LS.cfg,cfg)}catch(e){}
+  tokStart('mq');
   m.players=cids.map(function(cid,i){var c=chOf(cid)||{};return {uid:'c'+i,cid:cid,gname:c.name||('角色'+(i+1))}});
   var seen={};
   m.players.forEach(function(p){var base=String(p.gname||'角色').trim()||'角色',n=base,k=1;while(seen[n]){k++;n=base+'·'+k}seen[n]=1;p.gname=n});
@@ -22228,6 +22906,7 @@ function dgStart(){
   var cids=m.cids.filter(function(id){return !!chOf(id)});
   if(!cids.length)return toast('至少选 1 个角色来猜');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  tokStart('dg');
   m.players=cids.map(function(cid,i){var c=chOf(cid)||{};return {uid:'c'+i,cid:cid,gname:c.name||('角色'+(i+1))}});
   var seen={};
   m.players.forEach(function(p){var base=String(p.gname||'角色').trim()||'角色',n=base,k=1;while(seen[n]){k++;n=base+'·'+k}seen[n]=1;p.gname=n});
@@ -22296,6 +22975,8 @@ function wwCharBlock(p){
   var w=V.ww,c=p.isUser?null:chOf(p.cid);
   return c?charMemoryC(c,w.mem[p.cid]||'base'):('你是'+p.name+'。');
 }
+/* 给模型看的名字：真人玩家如果叫「我」，很容易被理解成角色自己，所以标清楚 */
+function wwName(p){return p?(p.isUser?('真人玩家「'+p.name+'」'):p.name):'?'}
 function wwMatch(txt,list){
   var s=String(txt||'').trim();
   for(var i=0;i<list.length;i++){if(s.indexOf(list[i].name)>=0)return list[i]}
@@ -22305,7 +22986,7 @@ function wwPublicLog(){
   var w=V.ww,L=[];
   w.log.slice(-70).forEach(function(e){
     if(e.k==='sys')L.push('【主持人】'+e.text);
-    else if(e.k==='say'){var p=wwPlayerByUid(e.who);L.push((p?p.name:'?')+'：'+e.text)}
+    else if(e.k==='say'){var p=wwPlayerByUid(e.who);L.push(wwName(p)+'：'+e.text)}
     else if(e.k==='vote')L.push('【投票】'+e.text);
   });
   return L.join('\n')||'（游戏刚刚开始）';
@@ -22328,7 +23009,7 @@ function wwSysFor(p,task){
     if(ck.length)L.push('你已经验过：'+ck.join('；'));
   }
   if(r==='witch')L.push('你的药：解药'+(w.witchSave?'还在':'已经用掉了')+'；毒药'+(w.witchPoison?'还在':'已经用掉了'));
-  L.push('【现在的局势】第 '+w.day+' 天 · '+(w.phase==='night'?'夜晚':'白天')+'\n【活着的玩家】'+wwAlive().map(function(x){return x.name}).join('、')+'\n【已经发生的事（所有人都知道）】\n'+wwPublicLog());
+  L.push('【现在的局势】第 '+w.day+' 天 · '+(w.phase==='night'?'夜晚':'白天')+'\n【活着的玩家】'+wwAlive().map(wwName).join('、')+'\n【已经发生的事（所有人都知道）】\n'+wwPublicLog());
   L.push('【铁规矩】你只知道上面这些，加上你自己的身份和能力让你知道的秘密。绝对不许说出你不知道的事；不许替别人说话；不要写旁白、不要写括号里的心理描写。');
   if(task)L.push(task);
   return L.join('\n\n');
@@ -22344,8 +23025,8 @@ async function wwWolfChoose(wolves){
   var w=V.ww,prey=wwAlive().filter(function(p){return !wwIsWolf(p)});
   if(!prey.length)return null;
   var sys=wolves.filter(function(p){return !p.isUser}).map(function(p){return wwCharBlock(p)}).join('\n\n')+
-    '\n\n你们是这一局「狼人杀」里的狼人（队友：'+wolves.map(function(p){return p.name}).join('、')+'）。现在要商量今晚刀谁。'+
-    '\n【活着的玩家】'+wwAlive().map(function(p){return p.name}).join('、')+
+    '\n\n你们是这一局「狼人杀」里的狼人（队友：'+wolves.map(wwName).join('、')+'）。现在要商量今晚刀谁。'+
+    '\n【活着的玩家】'+wwAlive().map(wwName).join('、')+
     '\n【已经发生的事】\n'+wwPublicLog()+
     '\n【输出格式】只输出你们要刀的那个人的名字，不要写别的。';
   var txt=await wwCall(sys,'请决定今晚刀谁。',40,.85);
@@ -22354,7 +23035,7 @@ async function wwWolfChoose(wolves){
 async function wwSeerChoose(seer){
   var w=V.ww,pool=wwAlive().filter(function(p){return p!==seer});
   if(!pool.length)return null;
-  var sys=wwSysFor(seer,'今晚你要验一个人，从这些玩家里面选（不能验自己）：'+pool.map(function(p){return p.name}).join('、')+
+  var sys=wwSysFor(seer,'今晚你要验一个人，从这些玩家里面选（不能验自己）：'+pool.map(wwName).join('、')+
     '\n【输出格式】只输出你要验的那个人的名字。');
   var txt=await wwCall(sys,'请决定今晚验谁。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
@@ -22393,7 +23074,7 @@ async function wwSpeech(p){
   return (await wwCall(sys,'请发言。',220,.9))||'（'+p.name+' 想了想，没说什么。）';
 }
 async function wwVoteAI(p,pool){
-  var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(function(x){return x.name}).join('、')+
+  var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
     '\n【输出格式】只输出你要投的那个人的名字。');
   var txt=await wwCall(sys,'请投票。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
@@ -22405,14 +23086,17 @@ async function wwLastWords(p){
 async function wwHunterShoot(p){
   var w=V.ww,pool=wwAlive();
   if(!pool.length)return null;
-  var sys=wwSysFor(p,'你是猎人，你出局了，可以开枪带走一个人。从这些活着的人里选（也可以放弃）：'+pool.map(function(x){return x.name}).join('、')+
+  var sys=wwSysFor(p,'你是猎人，你出局了，可以开枪带走一个人。从这些活着的人里选（也可以放弃）：'+pool.map(wwName).join('、')+
     '\n【输出格式】只输出你要带走的人的名字，或者只输出「放弃」。');
   var txt=await wwCall(sys,'请决定是否开枪。',40,.8);
   if(/放弃|不开/.test(txt))return null;
   return wwMatch(txt,pool)||null;
 }
 async function wwReact(p,result){
-  var sys=wwCharBlock(p)+'\n\n刚刚这局「狼人杀」结束了：'+result+'\n请说一句收尾的话（不超过 30 字）：可以不服气、可以得意、也可以吐槽自己刚才哪里想错了。直接说你这句话，不要写名字。';
+  var sys=wwCharBlock(p)+'\n\n【你在这局「狼人杀」里的身份】'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+'\n'+
+    '（请务必认清自己的身份：身份不是「狼人」的话，就不要说自己是狼。）\n\n'+
+    '刚刚这局结束了：'+result+'\n'+
+    '请用你自己的身份说一句收尾的话（不超过 30 字）：如果你是狼人，可以得意或者老实认账；如果你是好人，可以说说自己哪里被骗了、或者下一局想怎么打。直接说这句话，不要写名字。';
   return (await wwCall(sys,'请说。',150,.9))||'';
 }
 
@@ -22535,7 +23219,7 @@ async function wwNight(){
   var pz=w.night.poison;
   if(pz&&deaths.indexOf(pz)<0){pz.alive=false;pz.killedBy='poison';deaths.push(pz)}
   w.night.deaths=deaths;
-  w.log.push({k:'sys',text:'第 '+w.day+' 天早上：'+(deaths.length?('昨晚 '+deaths.map(function(p){return p.name}).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
+  w.log.push({k:'sys',text:'第 '+w.day+' 天早上：'+(deaths.length?('昨晚 '+deaths.map(wwName).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
 }
 
 /* ---------- 白天 ---------- */
@@ -22571,10 +23255,10 @@ async function wwHunterCheck(p){
   }
   if(tgt&&tgt.alive){
     tgt.alive=false;tgt.killedBy='shot';
-    w.log.push({k:'sys',text:'💥 猎人 '+p.name+' 开枪带走了 '+tgt.name+'。'});
+    w.log.push({k:'sys',text:'💥 猎人 '+wwName(p)+' 开枪带走了 '+wwName(tgt)+'。'});
     w.rec.push({d:w.day,t:'猎人开枪带走：'+tgt.name});
   }else{
-    w.log.push({k:'sys',text:'🔫 猎人 '+p.name+' 没有开枪。'});
+    w.log.push({k:'sys',text:'🔫 猎人 '+wwName(p)+' 没有开枪。'});
   }
   render(true);
 }
@@ -22617,12 +23301,12 @@ async function wwDay(){
       w.msg='「'+v.name+'」正在投票…';render(true);
       tgt=await wwVoteAI(v,pool);
     }
-    if(tgt){w.votes[v.uid]=tgt.uid;w.log.push({k:'sys',text:'🗳 '+v.name+' 投给了 '+tgt.name});render(true)}
+    if(tgt){w.votes[v.uid]=tgt.uid;w.log.push({k:'sys',text:'🗳 '+wwName(v)+' 投给了 '+wwName(tgt)});render(true)}
   }
   var ex=wwTally();
   if(ex&&ex.alive){
     ex.alive=false;ex.killedBy='vote';
-    w.log.push({k:'vote',text:'投票结果：'+ex.name+' 被放逐出局。'});
+    w.log.push({k:'vote',text:'投票结果：'+wwName(ex)+' 被放逐出局。'});
     w.rec.push({d:w.day,t:'被放逐：'+ex.name});
     render(true);
     if(ex.isUser)w.log.push({k:'sys',text:'你被放逐了……'});
@@ -22662,8 +23346,8 @@ async function wwLoop(){
 }
 async function wwFinish(){
   var w=V.ww;
-  var who=w.players.filter(wwIsWolf).map(function(p){return p.name}).join('、');
-  var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；狼人是：'+who+'。'+(w.endText||'');
+  var who=w.players.filter(wwIsWolf).map(wwName).join('、');
+  var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(w.endText||'');
   w.reacts=[];
   for(var i=0;i<w.players.length;i++){
     var p=w.players[i];
@@ -22697,6 +23381,7 @@ function wwStart(){
   var cids=w.cids.filter(function(id){return !!chOf(id)});
   if(cids.length<need)return toast('需要 '+need+' 个角色（现在选了 '+cids.length+' 个）');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  tokStart('ww');
   cids=cids.slice(0,need);
   var players=[];
   if(w.mode==='play')players.push({uid:'u',cid:null,name:userName(),isUser:true,alive:true,check:[]});
@@ -22708,17 +23393,19 @@ function wwStart(){
   players.forEach(function(p){var base=String(p.name||'角色').trim()||'角色',n=base,k=1;while(seen[n]){k++;n=base+'·'+k}seen[n]=1;p.name=n});
   var roles=wwShuffle(wwRoleList(w.count));
   if(w.mode==='play'&&w.pick&&w.pick!=='random'){
-    if(roles.indexOf(w.pick)<0)return toast('这个人数里没有「'+WW_ROLE_NAME[w.pick]+'」这个身份');
-    roles=roles.filter(function(x){return x!==w.pick});
+    var pk=roles.indexOf(w.pick);
+    if(pk<0)return toast('这个人数里没有「'+WW_ROLE_NAME[w.pick]+'」这个身份');
+    roles.splice(pk,1);      /* 只拿掉一张（狼人/村民本来就有好几张，别拿光） */
     roles.unshift(w.pick);
   }
+  while(roles.length<players.length)roles.push('villager');   /* 保险：数量对不上时补齐 */
   players.forEach(function(p,i){p.role=roles[i]});
   w.players=players;w.day=1;w.over=false;w.winner='';w.endText='';w.log=[];w.rec=[];
   w.votes={};w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
   w.witchSave=true;w.witchPoison=true;w.reacts=[];w.recId=null;w.busy=false;w.msg='';
   w.auto=(w.mode==='watch'&&w.autoWatch);
   w.phase='night';
-  w.log.push({k:'sys',text:'游戏开始：'+w.count+' 人局（'+players.map(function(p){return p.name}).join('、')+'）。'});
+  w.log.push({k:'sys',text:'游戏开始：'+w.count+' 人局（'+players.map(wwName).join('、')+'）。'});
   V.view='ww';render(true);
   wwLoop();
 }
@@ -22732,6 +23419,27 @@ function wwStop(){
 }
 
 /* ---------- 画界面 ---------- */
+/* ================================================================
+   游戏 token 统计：玩一局一共花了多少 token（结算时显示一行小字）
+   ================================================================ */
+var GTOK={game:'',ptok:0,ctok:0,total:0,runs:0,est:false};
+function tokStart(game){GTOK={game:game||'',ptok:0,ctok:0,total:0,runs:0,est:false}}
+function tokAdd(usage,out,msgs){
+  try{
+    var est=(typeof estTokens==='function')?estTokens:function(s){return Math.round(String(s||'').length/1.5)};
+    var ct=(usage&&usage.completion_tokens!=null)?usage.completion_tokens:est(String(out||''));
+    var pt=(usage&&usage.prompt_tokens!=null)?usage.prompt_tokens:(msgs?est(JSON.stringify(msgs)):0);
+    var total=(usage&&usage.total_tokens!=null)?usage.total_tokens:(Number(pt||0)+Number(ct||0));
+    if(!(usage&&(usage.total_tokens!=null||usage.completion_tokens!=null)))GTOK.est=true;
+    GTOK.ptok+=Number(pt||0);GTOK.ctok+=Number(ct||0);GTOK.total+=Number(total||0);GTOK.runs++;
+  }catch(e){}
+}
+function tokNum(n){return String(Math.round(Number(n)||0)).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function tokLine(){
+  if(!GTOK.runs||!GTOK.total)return '';
+  return '<p class="gx-hint" style="text-align:center;margin-top:12px">🪙 本局共消耗 '+(GTOK.est?'约 ':'')+
+    '<b style="color:var(--txt)">'+tokNum(GTOK.total)+'</b> token · 共 '+GTOK.runs+' 次请求</p>';
+}
 function hallHTML(){
   var h='';
   h+='<div class="gx-cover">'+
@@ -22958,6 +23666,7 @@ function playHTML(){
       h+='<button class="pri gx-go" onclick="GAME.next()">进入第 '+(s.round+1)+' 轮</button>';
     }else if(s.phase==='over'){
       h+=resultHTML();
+      h+=tokLine();
       h+='<details class="gx-log"><summary>本局回顾（每个人的发言和投票）</summary>'+roundsHTML(s.rounds)+'</details>';
       h+='<p class="gx-hint">这一局已经自动存进大厅的「历史记录」了。</p>';
       h+='<div class="gx-sec">赛后 · 和大家聊聊</div>';
@@ -23029,6 +23738,7 @@ function tsHTML(){
     h+='<div class="gx-verdict '+(s.solved?'win':'lose')+'"><div class="gx-vbig">'+(s.solved?'猜出来了':'揭晓答案')+'</div>'+
        '<div class="gx-vsub">出题人：'+esc(tsName())+' · 一共问了 '+(s.qa.length||0)+' 个问题</div></div>';
     h+='<div class="ts-truth"><span class="ts-tt">汤底 · 真相</span>'+nl2br(s.truth)+'</div>';
+    h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>';
     h+='<div class="gx-row"><button class="pri" onclick="GAME.tsNew()">再来一题</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
     return h;
@@ -23168,6 +23878,7 @@ function wwHTML(){
        w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(p.name)+'</b>：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x){return '第 '+x.d+' 天 · '+esc(x.t)}).join('<br>')+'</div></details>';
     if((w.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+w.reacts.map(function(x){return '<b>'+esc(x.name)+'</b>：'+esc(x.text)}).join('<br>')+'</div></div>';
+    h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>'+
        '<div class="gx-row"><button class="pri" onclick="GAME.wwAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   }else if(w.userAsk){
@@ -23340,6 +24051,7 @@ function dgGuessHTML(){
   if(m.busy)h+='<div class="gx-busy"><i></i><i></i><i></i><span>'+esc(m.msg||'正在想…')+'</span></div>';
   else if(m.phase==='over'){
     if((m.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+m.reacts.map(function(x){return '<b>'+esc(x.name)+'</b>：'+esc(x.text)}).join('<br>')+'</div></div>';
+    h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了（存的是缩小版的小图）。</p>';
     h+='<div class="gx-row"><button class="pri" onclick="GAME.dgAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   }
@@ -23444,6 +24156,7 @@ function mqOverHTML(){
      '<div class="gx-vsub">猜对 '+top.score+' / '+total+' 题 · 默契度 '+pct+'%</div></div>';
   h+='<div class="gx-sec">默契排行</div>'+mqTopRowsHTML(m.players,sc,total);
   if((m.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+m.reacts.map(function(x){return '<b>'+esc(x.name)+'</b>：'+esc(x.text)}).join('<br>')+'</div></div>';
+  h+=tokLine();
   h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>';
   h+='<div class="gx-row"><button class="pri" onclick="GAME.mqAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   return h;
@@ -23590,6 +24303,7 @@ function tadHTML(){
   }else if(t.needsNext){
     h+='<div class="gx-row"><button class="pri" onclick="GAME.tadNext()">下一位 ›</button></div>';
   }
+  h+=tokLine();
   h+='<div class="gx-row" style="margin-top:14px"><button class="warn" onclick="GAME.tadStop()">⏹ 结束游戏，回大厅</button></div>';
   return h;
 }
@@ -23680,6 +24394,7 @@ function murHTML(){
          '<br><b>他对外声称的行踪：</b>'+esc(r.alibi||'')+
          '<br><b>真实情况：</b><span class="mur-real">'+esc(r.truth||'（未填写）')+'</span></div></div>';
     });
+    h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>';
     h+='<div class="gx-sec">赛后 · 和大家聊聊</div>'+murChatHTML();
     h+='<div class="gx-row"><button class="pri" onclick="GAME.murNew()">再来一案</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
@@ -24045,7 +24760,7 @@ function shareRecSheet(){
 }
 
 window.GAME={
-  hall:function(){V.view='hall';V.sess=null;render(false)},
+  hall:function(){V.view='hall';V.sess=null;try{GTOK.game=''}catch(e){}render(false)},
   spySetup:function(){
     V.view='setup';
     if(!V.cids.length&&chars&&chars.length)V.cids=chars.slice(0,3).map(function(c){return c.id});
@@ -24228,6 +24943,30 @@ window.GAME={
     window.pickSheet=menuPickSheet;
     var pb=document.getElementById('plus');
     if(pb)pb.onclick=menuPickSheet;
+  }catch(e){}
+})();
+/* 包一层 callAPI：玩游戏期间自动统计 token 用量（不在游戏里时完全不干扰） */
+(function(){
+  try{
+    if(typeof window.callAPI!=='function')return;
+    var raw=window.callAPI;
+    var wrapped=function(msgs,opt){
+      if(!GTOK.game)return raw.apply(this,arguments);
+      var o=opt?Object.assign({},opt):{};
+      var pu=o.onUsage,usage=null;
+      o.onUsage=function(u){usage=u;if(pu){try{pu(u)}catch(e){}}};
+      var p=raw.call(this,msgs,o);
+      try{
+        if(p&&typeof p.then==='function'){
+          return p.then(function(txt){tokAdd(usage,String(txt==null?'':txt),msgs);return txt},
+                        function(err){tokAdd(usage,'',msgs);throw err});
+        }
+        tokAdd(usage,String(p==null?'':p),msgs);
+        return p;
+      }catch(e){return p}
+    };
+    window.callAPI=wrapped;
+    try{callAPI=wrapped}catch(e){}
   }catch(e){}
 })();
 })();
