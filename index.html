@@ -19855,6 +19855,7 @@ window.execMcpTool=execMcpTool;
 window.mcpAdd=mcpAdd;window.mcpSaveServer=mcpSaveServer;window.mcpDelServer=mcpDelServer;
 window.mcpTestServer=mcpTestServer;window.mcpRefresh=mcpRefresh;
 window.mcpToggleServer=mcpToggleServer;window.mcpToggleTool=mcpToggleTool;window.mcpSetGlobal=mcpSetGlobal;
+window.mcpToolsAll=mcpToolsAll;window.mcpToolsOnlyQuery=mcpToolsOnlyQuery;
 /* ↓ 这个函数是四层补丁合并后的样子：基础工具 → 互动玩具 → 画图 → 表情包 */
 toolsFor=function(c){
   var t=[];
@@ -19911,8 +19912,14 @@ function mcpCardHTML(s){
     '<button class="ghost col" onclick="mcpDelServer(\''+id+'\')">删除</button></div>';
   if(cache.length){
     var en=(s.enabled&&typeof s.enabled==='object')?s.enabled:{};
+    var onN=0;
+    for(var n=0;n<cache.length;n++){if(en[cache[n].name]!==false)onN++}
     h+='<div style="margin-top:10px"><b style="font-size:13px">允许角色用哪些工具</b>'+
-       '<p class="dim" style="font-size:11.5px;margin:4px 0 6px">勾上的才会发给角色。工具越多，每次聊天要发出去的字就越多（费 token），用不上的关掉；像「账号管理」这种特别长的，第一次连上时会帮你默认关掉。</p>';
+       '<p class="dim" style="font-size:11.5px;margin:4px 0 6px">勾上的才会发给角色。工具越多，每次聊天要发出去的字就越多（费 token），用不上的关掉；特别长的工具第一次连上时会帮你默认关掉。</p>'+
+       '<div class="row" style="margin:0 0 6px"><button class="ghost col" onclick="mcpToolsAll(\''+id+'\',true)">全部打开</button>'+
+       '<button class="ghost col" onclick="mcpToolsAll(\''+id+'\',false)">全部关闭</button>'+
+       '<button class="ghost col" onclick="mcpToolsOnlyQuery(\''+id+'\')">只留查询类</button></div>'+
+       '<div class="dim" style="font-size:11.5px;margin:0 0 6px">已开 '+onN+' / '+cache.length+' 个。「只留查询类」＝只留安全又省 token 的：名字里带 create / cancel / delete / bind / submit / set / add 这类字的（会真的下单、取消、改地址），以及参数特别长的，都会关掉。</div>';
     for(var i=0;i<cache.length;i++){
       var t=cache[i];
       var tid=String(t.name||'').replace(/[^A-Za-z0-9_-]/g,'');
@@ -19989,6 +19996,52 @@ function mcpToggleTool(id,name,on){
   }
   if(!s.enabled||typeof s.enabled!=='object')s.enabled={};
   s.enabled[real]=!!on;mcpSaveCfg();
+}
+/* 判断一个工具是不是「会真做事」的（下单 / 取消 / 改地址 / 领券…）。
+   按「整词」判断：名字用 - 或 _ 拆成词，只要有一个词是写操作动词，就算会做事。
+   （这样 query-addresses 不会被里面的 add 误判） */
+var MCP_WRITE_WORDS=['create','cancel','delete','update','set','add','bind','claim',
+  'submit','apply','book','pay','confirm','register','login','logout','remove',
+  'edit','modify','save','charge','refund','transfer'];
+function mcpIsWriteTool(name){
+  var words=String(name||'').toLowerCase().split(/[-_\s]+/);
+  for(var i=0;i<words.length;i++){
+    if(!words[i])continue;
+    if(MCP_WRITE_WORDS.indexOf(words[i])>=0)return true;
+  }
+  return false;
+}
+function mcpToolsAll(id,on){
+  var s=mcpReadForm(id)||mcpById(id);if(!s)return;      /* 先存下输入框里没保存的字 */
+  var cache=(s.toolsCache&&s.toolsCache.tools)||[];
+  if(!cache.length)return;
+  if(!s.enabled||typeof s.enabled!=='object')s.enabled={};
+  for(var i=0;i<cache.length;i++)s.enabled[String(cache[i].name||'')]=!!on;
+  mcpSaveCfg();renderToolPane();
+  toast(on?('已全部打开（'+cache.length+' 个）'):'已全部关闭');
+}
+function mcpToolsOnlyQuery(id){
+  var s=mcpReadForm(id)||mcpById(id);if(!s)return;
+  var cache=(s.toolsCache&&s.toolsCache.tools)||[];
+  if(!cache.length)return;
+  if(!s.enabled||typeof s.enabled!=='object')s.enabled={};
+  var off=[],big=[];
+  for(var i=0;i<cache.length;i++){
+    var t=cache[i],n=String(t.name||'');
+    var w=mcpIsWriteTool(n);
+    var tooLong=false;
+    try{tooLong=JSON.stringify(t.inputSchema||{}).length>2000}catch(e){}
+    s.enabled[n]=!(w||tooLong);
+    if(w)off.push(n);
+    else if(tooLong)big.push(n);
+  }
+  mcpSaveCfg();renderToolPane();
+  var msg='已只留查询类 ✅';
+  if(off.length)msg+='\n\n关掉了这 '+off.length+' 个「会真做事」的：\n· '+off.join('\n· ');
+  if(big.length)msg+='\n\n另外这几个参数特别长、很费 token，也没开：\n· '+big.join('\n· ');
+  if(!off.length&&!big.length)msg+='（这个服务器没有「会真做事」的工具）';
+  msg+='\n\n要用哪个，再自己勾上就行。';
+  alert(msg);
 }
 async function mcpTestServer(id){
   var s=mcpReadForm(id);if(!s)return;
