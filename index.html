@@ -21084,7 +21084,7 @@ var V={view:'hall',cids:[],mem:{},wordMode:'rand',w1:'',w2:'',msg:'',sess:null,
     players:[],day:1,phase:'setup',over:false,winner:'',endText:'',
     night:null,votes:{},log:[],rec:[],witchSave:true,witchPoison:true,
     userAsk:null,resolve:null,gate:{},gateResolve:null,
-    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',tips:{},marks:{},markMode:'',markUid:null,sayTok:0}};
+    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',tips:{},marks:{},markMode:'',markUid:null,sayTok:0,stopped:false}};
 var MEMC={};
 
 /* ---------- 对局记录（存在本地，跟着备份走） ---------- */
@@ -21467,6 +21467,9 @@ var CSS=[
 '@keyframes wwvig{0%,100%{opacity:.86}50%{opacity:1}}',
 '.ww-wrap.day:before{background:radial-gradient(70% 92% at 88% -10%,rgba(240,190,90,.24),transparent 68%),radial-gradient(62% 82% at 6% -6%,rgba(240,140,110,.14),transparent 70%)}',
 '.ww-dot{display:inline-block;width:7px;height:7px;flex:0 0 7px;border-radius:50%}',
+/* 赛后感想：狼人红名，好人用主题色 */
+'.ww-nm-wolf{color:#c0392b}',
+'.ww-nm-good{color:var(--acc)}',
 '.ww-say-t{border-left-width:3px}',
 '.ww-seat.out .gx-av{filter:grayscale(1)}',
 '.ww-seat-av .gx-av{box-shadow:0 2px 6px rgba(0,0,0,.10)}',
@@ -23367,7 +23370,7 @@ function wwSysFor(p,task){
   L.push('你正在玩一局「狼人杀」。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'普通好人，没有特殊能力，靠推理和投票找狼。':
      r==='seer'?'你每晚可以验一个人，知道他是好人还是狼人；你是好人阵营的关键，但白天说出来容易被狼刀。':
-     r==='witch'?'你有一瓶解药和一瓶毒药，各只能用一次（同一晚只能用一瓶）：解药能救当晚被狼刀的人，毒药能毒死一个人。':
+     r==='witch'?'你有一瓶解药和一瓶毒药，各只能用一次、而且同一晚只能用一瓶：解药能救当晚被狼刀的人（只有第一夜可以救自己，第二夜起不能自救），毒药能毒死一个人。':
      r==='hunter'?'你被狼人刀死、或被投票放逐时可以开枪带走一个人（被女巫毒死则不能开枪）。':
      '你和狼队友每晚一起刀一个人；白天要装成好人，别被投出去。'));
   if(r==='wolf'){
@@ -23430,11 +23433,13 @@ async function wwSeerChoose(seer){
 }
 async function wwWitchChoose(witch,victim){
   var w=V.ww,out={save:false,poison:null};
-  var maySave=!!(victim&&w.witchSave);
+  var selfKnife=!!(victim&&victim===witch);
+  var maySave=!!(victim&&w.witchSave&&!(selfKnife&&w.day!==1));   /* 第二夜起不能自救 */
   var mayPoison=!!w.witchPoison;
   if(!maySave&&!mayPoison)return out;
   var t='今晚狼人刀的人是：'+(victim?victim.name:'（没人被刀）')+'。';
   if(maySave)t+='你的解药还在，可以救 TA。';
+  if(selfKnife&&w.day!==1)t+='（规则：第二夜起女巫不能救自己，所以今晚你不能自救。）';
   if(maySave||mayPoison){
     t+='\n请按下面两行输出（不需要用药就写「不用」）：\n救：救 或 不用'+(mayPoison?('\n毒：要毒的人的编号或名字 或 不用'):'');
   }
@@ -23542,6 +23547,20 @@ function wwMvpPlayer(txt){
   for(i=0;i<w.players.length;i++){p=w.players[i];if(p.name&&m.indexOf(p.name)>=0)return p}
   return null;
 }
+/* 赛后感想：名字按阵营上色（狼人 = 红名，好人 = 主题色） */
+function wwCampCls(players,uid,name){
+  var a=players||[],i,p=null;
+  for(i=0;i<a.length;i++){if(a[i]&&uid&&a[i].uid===uid){p=a[i];break}}
+  if(!p&&name)for(i=0;i<a.length;i++){if(a[i]&&a[i].name===name){p=a[i];break}}
+  if(!p)return '';
+  return wwIsWolf(p)?'ww-nm-wolf':'ww-nm-good';
+}
+function wwReactHTML(list,players){
+  if(!list||!list.length)return '';
+  return list.map(function(x){
+    return '<b class="'+wwCampCls(players,x.uid,x.name)+'">'+esc(x.name)+'</b>：'+esc(x.text);
+  }).join('<br>');
+}
 function wwJudgeHTML(txt){
   var j=wwJudgeParse(txt);
   if(!j.sum&&!j.mvp)return '';
@@ -23637,6 +23656,7 @@ async function wwNight(){
       w.night.wolf=await wwWolfChoose(wolves);
     }
     if(w.night.wolf)w.rec.push({d:w.day,t:'狼人刀了 '+wwNum(w.night.wolf)+w.night.wolf.name});
+    if(wwAbort())return;
     /* 你自己是狼人时，也把「今晚刀谁」推到最下面留个记录 */
     if(w.night.wolf&&me&&me.alive&&wwIsWolf(me)){
       w.log.push({k:'me',text:'🐺 你和狼队友今晚刀的是 '+wwNum(w.night.wolf)+w.night.wolf.name+(wwIsWolf(w.night.wolf)?'（自刀）':'')});
@@ -23665,29 +23685,41 @@ async function wwNight(){
       if(seer.isUser){w.log.push({k:'me',text:'🔮 你查验了 '+wwNum(tgt)+tgt.name+'：'+(isW?'是狼人（查杀）':'是好人（金水）')});render(true)}
     }
   }
+  if(wwAbort())return;
   /* 女巫 */
   var witch=wwAlive().filter(function(p){return p.role==='witch'})[0];
   if(witch){
     if(me&&me.alive&&witch===me){
+      var selfKnife=!!(w.night.wolf&&w.night.wolf===me);
       if(w.night.wolf&&w.witchSave){
-        var r3=await wwAskOpt('🧪 你是女巫。今晚被刀的是「'+wwNum(w.night.wolf)+w.night.wolf.name+'」，要用解药救 TA 吗？',[['救 TA',1],['不救',0]]);
-        if(r3.val===1){
-          w.night.save=true;w.witchSave=false;
-          w.rec.push({d:w.day,t:'女巫用解药救了 '+wwNum(w.night.wolf)+w.night.wolf.name});
-          w.log.push({k:'me',text:'🧪 你用解药救了 '+wwNum(w.night.wolf)+w.night.wolf.name+'（TA 今晚是银水）'});
+        if(selfKnife&&w.day!==1){
+          w.log.push({k:'me',text:'🧪 今晚被刀的是你自己。规则上第二夜起女巫不能自救，所以救不了。'});
           render(true);
+        }else{
+          var r3=await wwAskOpt('🧪 你是女巫。今晚被刀的是「'+wwNum(w.night.wolf)+w.night.wolf.name+'」'+(selfKnife?'（你自己）':'')+'，要用解药救 TA 吗？',[['救 TA',1],['不救',0]]);
+          if(r3.val===1){
+            w.night.save=true;w.witchSave=false;
+            w.rec.push({d:w.day,t:'女巫用解药救了 '+wwNum(w.night.wolf)+w.night.wolf.name});
+            w.log.push({k:'me',text:'🧪 你用解药救了 '+wwNum(w.night.wolf)+w.night.wolf.name+'（TA 今晚是银水）'});
+            render(true);
+          }
         }
       }
       if(w.witchPoison){
-        var pool2=wwAlive().filter(function(p){return p!==witch});
-        var r4=await wwAsk('🧪 要用毒药毒一个人吗？（可以跳过）',pool2,{none:'不毒'});
-        if(r4.uid){
-          var t2=wwPlayerByUid(r4.uid);
-          if(t2){
-            w.night.poison=t2;w.witchPoison=false;
-            w.rec.push({d:w.day,t:'女巫毒了 '+wwNum(t2)+t2.name});
-            w.log.push({k:'me',text:'🧪 你用毒药毒了 '+wwNum(t2)+t2.name});
-            render(true);
+        if(w.night.save){
+          w.log.push({k:'me',text:'🧪 同一晚只能开一瓶药：你已经用了 解药，毒药留到下一次。'});
+          render(true);
+        }else{
+          var pool2=wwAlive().filter(function(p){return p!==witch});
+          var r4=await wwAsk('🧪 要用毒药毒一个人吗？（可以跳过）',pool2,{none:'不毒'});
+          if(r4.uid){
+            var t2=wwPlayerByUid(r4.uid);
+            if(t2){
+              w.night.poison=t2;w.witchPoison=false;
+              w.rec.push({d:w.day,t:'女巫毒了 '+wwNum(t2)+t2.name});
+              w.log.push({k:'me',text:'🧪 你用毒药毒了 '+wwNum(t2)+t2.name});
+              render(true);
+            }
           }
         }
       }
@@ -23699,6 +23731,7 @@ async function wwNight(){
       if(res.poison&&w.witchPoison){w.night.poison=res.poison;w.witchPoison=false;w.rec.push({d:w.day,t:'女巫毒了 '+wwNum(res.poison)+res.poison.name})}
     }
   }
+  if(wwAbort())return;
   /* 结算 */
   var deaths=[],v=w.night.wolf;
   if(v&&!w.night.save){v.alive=false;v.killedBy='wolf';deaths.push(v)}
@@ -23718,6 +23751,8 @@ function wwTallyTop(){
   Object.keys(cnt).forEach(function(k){if(cnt[k]===max)list.push(k)});
   return {max:max,list:list};
 }
+/* 中途「结束游戏」后：用来让各处循环赶紧收手，别再继续请求 AI */
+function wwAbort(){var w=V.ww;return !!(w&&(w.stopped||w.over))}
 function wwCheckOver(){
   var w=V.ww;if(w.over)return true;
   var alive=wwAlive(),wl=alive.filter(wwIsWolf).length,good=alive.length-wl;
@@ -23765,6 +23800,7 @@ async function wwDoVote(voters,targets){
   var w=V.ww;
   w.votes={};
   for(var i=0;i<voters.length;i++){
+    if(wwAbort())return;
     var v=voters[i];if(!v||!v.alive)continue;
     var pool=targets.filter(function(x){return x&&x.alive&&x!==v});
     if(!pool.length)continue;
@@ -23886,6 +23922,7 @@ async function wwLoop(){
 }
 async function wwFinish(){
   var w=V.ww;
+  if(w.stopped){w.msg='';wwSave(true);return}   /* 中途结束的局：不生成裁判复盘和赛后感想 */
   var who=w.players.filter(wwIsWolf).map(function(p){return wwNum(p)+p.name}).join('、');
   var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(w.endText||'');
   /* 先让中立裁判从上帝视角复盘这一局（顺便评个 MVP） */
@@ -23905,7 +23942,7 @@ async function wwFinish(){
     if(p.isUser)continue;
     w.msg='「'+p.name+'」正在说感想…';render(true);
     var t=await wwReact(p,result,brief);
-    if(t)w.reacts.push({name:p.name,text:t});
+    if(t)w.reacts.push({name:p.name,uid:p.uid,text:t});
   }
   w.msg='';
   wwSave(true);
@@ -23958,6 +23995,7 @@ function wwStart(){
   w.votes={};w.speaking=null;w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
   w.witchSave=true;w.witchPoison=true;w.reacts=[];w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';
   w.marks={};w.markMode='';w.markUid=null;
+  w.stopped=false;
   w.auto=(w.mode==='watch'&&w.autoWatch);
   w.phase='night';
   w.log.push({k:'sys',text:'游戏开始：'+w.count+' 人局（'+players.map(function(p){return wwNum(p)+p.name}).join('、')+'）。'});
@@ -23968,7 +24006,12 @@ function wwAgain(){var w=V.ww;if(w.running||w.busy)return;w.running=false;wwStar
 function wwStop(){
   var w=V.ww;
   if(w.running&&!confirm('现在离开会中断这一局（已存的历史记录不受影响），确定吗？'))return;
-  w.running=false;w.over=true;w.userAsk=null;w.resolve=null;w.gateResolve=null;
+  w.stopped=true;                     /* 这局作废：收尾时不再生成复盘和赛后感想 */
+  w.running=false;w.over=true;
+  var gr=w.gateResolve,ur=w.resolve;
+  w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
+  if(gr)try{gr()}catch(e){}                                  /* 叫醒正在等「继续」的那一步 */
+  if(ur)try{ur({uid:null,val:0,text:''})}catch(e){}          /* 叫醒正在等你发言/投票的那一步 */
   try{if(w.players&&w.players.length)wwSave(true)}catch(e){}
   V.view='hall';render(false);
 }
@@ -24490,7 +24533,7 @@ function wwHTML(){
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
        w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwNum(p)+p.name)+'</b>'+(p.uid===w.mvpUid?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x){return '第 '+x.d+' 天 · '+esc(x.t)}).join('<br>')+'</div></details>';
-    if((w.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+w.reacts.map(function(x){return '<b>'+esc(x.name)+'</b>：'+esc(x.text)}).join('<br>')+'</div></div>';
+    if((w.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(w.reacts,w.players)+'</div></div>';
     h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>'+
        '<div class="gx-row"><button class="pri" onclick="GAME.wwAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
@@ -24562,7 +24605,7 @@ function wwHistHTML(rec){
     }
     return '<div class="ww-sys'+(e.k==='me'?' me':'')+'">'+esc(e.text)+'</div>';
   }).join(''));
-  if((rec.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+rec.reacts.map(function(x){return '<b>'+esc(x.name)+'</b>：'+esc(x.text)}).join('<br>')+'</div></div>';
+  if((rec.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
   h+='<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button>'+
      '<button class="ghost" style="color:var(--warn)" onclick="GAME.histDel(\''+esc(rec.id)+'\')">删除这一局</button></div>';
   return h;
