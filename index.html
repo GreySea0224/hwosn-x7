@@ -23804,6 +23804,11 @@ async function wwLastWords(p){
     '时间够，把该交代的都说清楚，别只留一句话。提到别人时带上编号。只输出你要说的话。');
   return (await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+p.name+' 没留下什么。）';
 }
+/* 真人玩家留遗言：规则里第一轮出局能留遗言，就让「你」自己在发言框里说一段（不想说可以跳过） */
+async function wwUserLastWords(label){
+  var r=await wwAskSay(label||'你出局了，还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。','不留遗言');
+  return (r&&r.text)?String(r.text):'';
+}
 async function wwHunterShoot(p){
   var w=V.ww,pool=wwAlive();
   if(!pool.length)return null;
@@ -24166,8 +24171,15 @@ async function wwExile(p){
   render(true);
   var over=wwCheckOver();                    /* 这一票是不是直接把游戏结束了 */
   var mayWords=(w.day===1)&&!over;           /* 遗言只有第一轮才有；游戏已经结束就不留了 */
-  if(p.isUser)w.log.push({k:'sys',text:'你被放逐了……'});
-  else if(mayWords){
+  if(p.isUser){
+    w.log.push({k:'sys',text:'你被放逐了……'});
+    if(mayWords){                          /* 第一天被票出去，规则上可以留遗言：给「你」开输入框 */
+      var uw=await wwUserLastWords('你被放逐了……这是第一天，你还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。');
+      if(wwStaleG(gen))return;
+      if(uw)wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+uw});
+      else w.log.push({k:'sys',text:'你没有留遗言。'});
+    }
+  }else if(mayWords){
     await wwStep('轮到「'+wwTag(p)+'」留遗言');
     w.msg='「'+wwTag(p)+'」正在留遗言…';render(true);
     var lw=await wwLastWords(p);
@@ -24277,7 +24289,13 @@ async function wwDay(){
     var p=dead[i];if(!p)continue;
     if(wwStaleG(gen))return;
     if(firstNight){
-      if(p.isUser){w.log.push({k:'sys',text:'你出局了。'});render(true)}
+      if(p.isUser){                        /* 第一夜你死了，规则上可以留遗言：给「你」开输入框 */
+        w.log.push({k:'sys',text:'你出局了。'});render(true);
+        var uw=await wwUserLastWords('你出局了……这是第一夜，你还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。');
+        if(wwStaleG(gen))return;
+        if(uw)wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+uw});
+        else w.log.push({k:'sys',text:'你没有留遗言。'});
+      }
       else{await wwStep('轮到「'+wwTag(p)+'」留遗言');w.msg='「'+wwTag(p)+'」正在留遗言…';render(true);var t=await wwLastWords(p);if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+t,think:wwThinkOf(p)}))return;render(true)}
     }else{
       if(p.isUser)w.log.push({k:'sys',text:'你出局了（第二夜起，夜里出局没有遗言）。'});
