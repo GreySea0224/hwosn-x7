@@ -616,6 +616,22 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
   .lktime{font-size:64px}
   .lkdate{font-size:12px}
 }
+/* ================================================================
+   【新】没传锁屏背景图时：垫一层「水波纹」的底图，时间那些字照旧是白字。
+   这张图不是固定图片，而是按当前主题色在手机里现画一张（见脚本 lkWaterMake）：
+   选蓝色就是蓝水面、换主题/换强调色就跟着换色。
+   它铺在「壁纸那一层」（#lkWall）上，走的是和真壁纸完全同一套流程，
+   所以数字里那层磨砂玻璃也能对着它做出来，字才亮晶晶（见 lkWaterGlass）。
+   下面这条只管「水波图还没画好」那一瞬间的垫底，免得露黑底。 */
+#lock[data-lk="modern"]:not(.hasimg) .lkbase{
+  background-image:linear-gradient(180deg,var(--lk-sky1,#2b4770) 0%,var(--lk-sky2,#22375a) 100%)}
+/* 没壁纸时，水面的底比一般深色照片亮，所以把数字这层「白玻璃膜」加厚一档，
+   保证大字比背景明显亮一截（第二层还是那张磨砂玻璃图，不能丢）。有壁纸时这一档不动。 */
+#lock[data-lk="modern"]:not(.hasimg) .lktime .lktbody{
+  background-image:linear-gradient(180deg,rgba(255,255,255,.46) 0%,rgba(250,252,255,.42) 14%,rgba(246,250,255,.36) 26%,rgba(242,248,255,.29) 42%,rgba(238,246,255,.20) 58%,rgba(234,243,255,.11) 76%,rgba(232,241,255,.04) 92%,rgba(232,241,255,0) 100%),var(--lk-glass,none)}
+/* 冒号那两颗小球跟着一起加厚一点，跟数字一个浓淡 */
+#lock[data-lk="modern"]:not(.hasimg) .lktime .lkdots .lkc i{
+  background-image:radial-gradient(circle at 50% 30%,rgba(255,255,255,.38) 0%,rgba(255,255,255,.26) 55%,rgba(255,255,255,.12) 100%),var(--lk-glass,none)}
 </style>
 <!-- ================================================================
      锁屏方案：搞笑款
@@ -11633,10 +11649,165 @@ function lkSkyColors(){
     sky1:top,
     sky2:sky2,
     sky3:sky3,
+    acc:A,                       /* 【新】主题强调色：锁屏水波底图照它来画 */
     glow1:thmMix(A,W,.34),
     glow2:thmMix(A2,W,.20),
     horizon:thmMix(A,W,.55)
   };
+}
+/* ---------- 【新】锁屏水波底图：没传背景图时，按主题色现画一张 ----------
+   为什么现画、不配一张固定图片：用户换了主题 / 换了强调色，水面的颜色得跟着变。
+   画法：在一张很小的画布上（300×534）用「分层噪声」堆出水波纹理，再点几十个波光小亮点；
+   放到全屏时本来就是糊的，所以小图也够用（而且画得快、占内存小）。
+   画完转成图片，铺在「壁纸那一层」（#lkWall）上 —— 走的是和真壁纸完全同一条路，
+   所以数字里那层磨砂玻璃也能对着它做出来（见 lkWaterApply / lkWaterGlass）。 */
+var _lkWKey='',_lkWURL='',_lkWRun=false;
+function cl255(v){return v<0?0:(v>255?255:v)}
+/* 小而快的伪随机数（同一个种子每次结果一样，保证水面每次都长一个样） */
+function lkRnd(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296}}
+function lkLat(seed,n){var r=lkRnd(seed),g=new Float64Array(n*n),i;for(i=0;i<n*n;i++)g[i]=r();return g}
+/* 在格点之间做平滑插值取一个噪声值（左右上下都接得上，不会出现硬边）。
+   每层的格点表都用「2 的幂」大小 → 取余能改成位运算，手机上也跑得动；nm1 = 格点边长-1。 */
+function lkSamp(g,nm1,x,y){
+  var x0=x|0,y0=y|0,fx=x-x0,fy=y-y0;
+  var sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);
+  var n=nm1+1;
+  var x0m=x0&nm1,y0m=y0&nm1,x1m=(x0m+1)&nm1,y1m=(y0m+1)&nm1;
+  var p0=y0m*n,p1=y1m*n;
+  var a=g[p0+x0m],b=g[p0+x1m],c=g[p1+x0m],d=g[p1+x1m];
+  return (a+(b-a)*sx)*(1-sy)+(c+(d-c)*sx)*sy;
+}
+/* 把好几层不同粗细的噪声叠起来（越叠越像水面） */
+function lkFbm(seed,baseN,oct){
+  var L=[],n=baseN,o;for(o=0;o<oct;o++){L.push(lkLat(seed+o*7919,n));L.push(n-1);n*=2}
+  return function(x,y){
+    var s=0,amp=1,tot=0,f=1,i;
+    for(i=0;i<oct;i++){s+=amp*lkSamp(L[i*2],L[i*2+1],x*f,y*f);tot+=amp;amp*=0.5;f*=2}
+    return s/tot;
+  };
+}
+/* 水面的三个颜色（顶/中/底）：都从主题强调色推出来，再压进「中档亮度」——
+   太亮上面的白字看不清，太暗就成了黑漆漆的，都不行。 */
+function lkWaterColors(A){
+  var W={r:255,g:255,b:255},N={r:12,g:20,b:34};
+  var top=thmMix(thmMix(A,N,.36),W,.22);
+  var mid=thmMix(thmMix(A,N,.54),W,.08);
+  var bot=thmMix(thmMix(A,N,.72),W,.02);
+  function lum(c){var f=function(x){x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)};return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b)}
+  var to=lum(mid)>.30?N:(lum(mid)<.07?W:null),k=0;
+  while(to&&k<14){
+    var l=lum(mid);
+    if((to===N&&l<=.30)||(to===W&&l>=.07))break;
+    top=thmMix(top,to,.10);mid=thmMix(mid,to,.10);bot=thmMix(bot,to,.10);k++;
+  }
+  return {top:top,mid:mid,bot:bot};
+}
+/* 真的把这张图画出来。
+   为了不卡界面：不是一口气画完，而是每次画一小段（24 行），画一会儿就让浏览器喘口气，
+   再接着画下一段；全部画好才回调 done(图片)。 */
+function lkWaterDraw(acc,done){
+  var cv=document.createElement('canvas');
+  if(!cv||!cv.getContext){done('');return}
+  var W=300,H=534;cv.width=W;cv.height=H;
+  var ctx=cv.getContext('2d');if(!ctx){done('');return}
+  var img=ctx.createImageData(W,H),d=img.data,i=0,x,y;
+  var col=lkWaterColors(acc||{r:63,g:169,b:216});
+  var f1=lkFbm(101,4,4),f2=lkFbm(202,4,2),f3=lkFbm(303,8,3);
+  y=0;
+  function rows(){
+    var end=Math.min(H,y+24);
+    for(;y<end;y++){
+      var v=y/(H-1),t=v<.5?v*2:(v-.5)*2;
+      var a0=v<.5?col.top:col.mid,a1=v<.5?col.mid:col.bot;
+      var r0=a0.r+(a1.r-a0.r)*t,g0=a0.g+(a1.g-a0.g)*t,b0=a0.b+(a1.b-a0.b)*t;
+      for(x=0;x<W;x++){
+        var u=x/(W-1);
+        /* 主体波纹：横向拉宽 → 看着像缓坡上的水纹 */
+        var n1=f1(u*2.6,v*5.8),c=Math.pow(1-Math.abs(n1*2-1),3.8);
+        /* 再叠一层更大的缓波：让水面别那么「均匀」 */
+        var n4=f1(u*1.15+.37,v*2.5),t4=1-Math.abs(n4*2-1),c4=t4*t4*t4*.55;
+        /* 细碎的碎波 */
+        var n3=f3(u*6.4,v*13.5),t3=1-Math.abs(n3*2-1),t32=t3*t3,t34=t32*t32,c3=t34*t34*t3;
+        /* 大块明暗：有的地方亮、有的地方闷 */
+        var n2=f2(u*1.5,v*3.2),gl=.80+(n2-.5);
+        var lit=(c+c4)*40*gl+c3*25;
+        var sw=(f2(u*.9,v*2.1)-.5)*26;                 /* 整片水的起伏 */
+        var q=Math.abs(u-.5)*2,z=Math.max(0,v-.6)/.4;
+        var vig=1-.16*q*q-.10*z*z;
+        d[i++]=cl255((r0+lit+sw)*vig);
+        d[i++]=cl255((g0+lit*.97+sw)*vig);
+        d[i++]=cl255((b0+lit*.90+sw)*vig);
+        d[i++]=255;
+      }
+    }
+    if(y<H){setTimeout(rows,0);return}          /* 还没画完：先歇一下，别卡界面 */
+    ctx.putImageData(img,0,0);
+    /* 波光小亮点（就是参考图里那些一闪一闪的小白点） */
+    try{
+      var rnd=lkRnd(909),s,cx,cy,rad,al,g;
+      ctx.globalCompositeOperation='lighter';
+      for(s=0;s<46;s++){
+        cx=rnd()*W;cy=rnd()*H;rad=1.2+rnd()*3.4;al=.18+rnd()*.5;
+        g=ctx.createRadialGradient(cx,cy,0,cx,cy,rad*2.4);
+        g.addColorStop(0,'rgba(255,255,255,'+(al*.5).toFixed(3)+')');
+        g.addColorStop(1,'rgba(255,255,255,0)');
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,rad*2.4,0,6.2832);ctx.fill();
+      }
+      ctx.globalCompositeOperation='source-over';
+    }catch(e){}
+    var out='';try{out=cv.toDataURL('image/jpeg',.82)}catch(e){out=''}
+    done(out);
+  }
+  rows();
+}
+/* 【新】没壁纸时，数字那层「磨砂玻璃」就拿我们自己画的水波图来当底 ——
+   跟有壁纸时的做法一模一样：这样大字才是那种亮晶晶的玻璃字，
+   而不是一层发灰的白影子。有壁纸时不动（那层玻璃归壁纸）。 */
+function lkWaterGlass(){
+  try{
+    var lock=document.getElementById('lock');
+    if(!lock||lock.classList.contains('hasimg'))return;   /* 有壁纸：玻璃归壁纸，别抢 */
+    if(!_lkWURL)return;                                    /* 水波图还没画好：画好了会再叫一次 */
+    _lkGlassWant=_lkWURL;                                  /* 记成「现在该用的图」：锁屏一出来会自动补做、对准 */
+    lkGlassBuild(_lkWURL);
+  }catch(e){}
+}
+function lkWaterApply(){
+  /* 铺到「壁纸那一层」上（和真壁纸同一个位置、同一种铺法），这样数字里那层磨砂玻璃能跟它严丝合缝 */
+  try{
+    var wall=document.getElementById('lkWall'),el=document.getElementById('lock');
+    if(wall&&el&&!el.classList.contains('hasimg')){
+      if(_lkWURL){wall.style.backgroundImage='url("'+_lkWURL+'")';wall.style.opacity='1'}
+      else{wall.style.backgroundImage='none';wall.style.opacity='0'}
+    }
+  }catch(e){}
+  lkWaterGlass();                    /* 水波图好了：顺手把数字的磨砂玻璃也做上 */
+}
+function lkWaterMake(c){
+  var col;
+  try{col=(c&&c.acc)||lkSkyColors().acc}catch(e){return}
+  if(!col)return;
+  var key=col.r+','+col.g+','+col.b;
+  try{lkWaterApply()}catch(e){}
+  if(key===_lkWKey&&_lkWURL)return;         /* 这个颜色已经画好了：接着用 */
+  if(_lkWRun)return;                        /* 正在画：等这一张画完 */
+  _lkWRun=true;
+  /* 下一帧再画：先让锁屏正常出来，画好了自动挂上（不会卡着开机） */
+  try{
+    setTimeout(function(){
+      try{
+        lkWaterDraw(col,function(url){
+          _lkWURL=url||'';_lkWKey=key;_lkWRun=false;
+          try{lkWaterApply()}catch(e){}
+          /* 画这张图的工夫里用户又换主题了：按新颜色再补一张 */
+          try{
+            var now=(lkSkyColors().acc)||col;
+            if((now.r+','+now.g+','+now.b)!==key)lkWaterMake();
+          }catch(e){}
+        });
+      }catch(e){_lkWRun=false}
+    },0);
+  }catch(e){_lkWRun=false}
 }
 function lkPaintBase(){
   try{
@@ -11648,6 +11819,7 @@ function lkPaintBase(){
     r.setProperty('--lk-glow1',rg(c.glow1,.52));
     r.setProperty('--lk-glow2',rg(c.glow2,.40));
     r.setProperty('--lk-horizon',rg(c.horizon,.22));
+    lkWaterMake(c);                 /* 【新】顺手把锁屏那张「水波底图」按主题色准备好 */
   }catch(e){}
 }
 function applyLockWall(){
@@ -11671,10 +11843,10 @@ function applyLockWall(){
     el.classList.add('hasimg');
     try{lkApplyTint(el,img)}catch(e){}   /* 【新】照这张壁纸给数字上色 */
   }else{
-    wall.style.backgroundImage='none';wall.style.opacity='0';
     if(fg)fg.style.backgroundImage='none';
     el.classList.remove('hasimg');
     try{lkApplyTint(el,'')}catch(e){}    /* 【新】没壁纸：数字用默认冷蓝白 */
+    try{lkWaterApply()}catch(e){}        /* 【新】没壁纸：把我们画的水波图铺到壁纸那一层 */
   }
 }
 /* 翻到第二屏（输密码）／退回第一屏（看时间） */
@@ -23660,7 +23832,7 @@ async function wwCall(sys,usr,maxtok,temp){
     var txt=String(await callAPI([{role:'system',content:sys},{role:'user',content:usr}],
       {stream:false,model:cfg.model,temp:(temp==null?.8:temp),maxtok:mt,
        onReasoning:function(r){r1+=String(r||'')}})||'').trim();
-    WW_LAST={reason:r1.trim().slice(0,600)};
+    WW_LAST={reason:r1.trim()};          /* 思考链整条留着：游戏结束时点开能看到完整的 */
     return txt;
   }catch(e){return ''}
 }
@@ -23671,7 +23843,7 @@ function wwThinkOf(p){
   var out='';
   if(r)out+='【模型的思考过程】\n'+r;
   if(d)out+=(out?'\n\n':'')+'【它的草稿纸】\n'+d;
-  return out.slice(0,1200);
+  return out;              /* 不再砍字数：超过原来 1200 字的后半段也一并留着 */
 }
 /* 思考胶囊（展开/收起）：游戏结束后才显示，用来复盘它们当时在想什么 */
 function wwThinkHTML(key,txt,ns){
@@ -24447,6 +24619,19 @@ async function wwFinish(){
   wwSave(true);
 }
 /* ---------- 狼人杀：存档 / 接着玩 ---------- */
+/* 存档用：把发言里的「思考过程」和夜间行动的「想法」收一收。
+   界面上（游戏结束的透明模式）能看到完整的；但浏览器本地存储很小，
+   存进历史记录时只留前一段，免得记录越存越多把它撑爆、后面的局存不进去。 */
+function wwThinkCap(t){t=String(t||'');var n=2000;return t.length>n?(t.slice(0,n)+'\n…（存档只留了前一段，游戏结束时能看全）'):t}
+function wwTrimThink(arr,n){
+  return (arr||[]).slice(-n).map(function(e){
+    if(!e||(e.think==null&&e.tk==null))return e;
+    var o={},k;for(k in e){if(Object.prototype.hasOwnProperty.call(e,k))o[k]=e[k]}
+    if(o.think!=null)o.think=wwThinkCap(o.think);
+    if(o.tk!=null)o.tk=wwThinkCap(o.tk);
+    return o;
+  });
+}
 /* 把这一局的完整进度打包（中途退出时存起来，之后能接着玩） */
 function wwSnap(){
   var w=V.ww;
@@ -24463,7 +24648,7 @@ function wwSnap(){
       return {uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,
         killedBy:p.killedBy||'',revealed:!!p.revealed,check:(p.check||[]).map(function(c){return {uid:c.uid,isWolf:!!c.isWolf}}),scratch:p.scratch||''};
     }),
-    log:(w.log||[]).slice(-300),rec:(w.rec||[]).slice(-90),
+    log:wwTrimThink(w.log,300),rec:wwTrimThink(w.rec,90),
     votes:Object.assign({},w.votes||{}),
     witchSave:!!w.witchSave,witchPoison:!!w.witchPoison,witchLog:(w.witchLog||[]).slice(),
     mem:Object.assign({},w.mem||{}),tips:Object.assign({},w.tips||{}),
@@ -24561,7 +24746,7 @@ function wwSave(silent){
       return {uid:p.uid,name:p.name,seq:p.seq||0,isUser:!!p.isUser,cid:p.cid||null,role:p.role,alive:!!p.alive,
         npc:!!p.npc,emoji:p.isUser?userEmoji():((p.npc&&p.emoji)?p.emoji:((c&&c.emoji)||''))};
     }),
-    log:(w.log||[]).slice(-200),rec:(w.rec||[]).slice(-90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||''};
+    log:wwTrimThink(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||''};
   if(unfinished){
     try{var sp=wwSnap();sp.id=rec.id;save(LS_WWSAVE,sp)}catch(e){}          /* 存一份能接着玩的进度（只留最近一份） */
   }else{
