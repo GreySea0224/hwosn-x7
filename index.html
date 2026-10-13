@@ -22117,6 +22117,8 @@ var CSS=[
 '.ww-seat-nm{font-size:9.5px;line-height:1.18;color:var(--txt);max-width:52px;max-height:2.4em;overflow:hidden;word-break:break-word;text-align:center}',
 '.ww-badge{display:inline-block;margin-left:2px;font-size:10px;line-height:1;vertical-align:middle}',   /* 行内的小徽章（结算页 / 历史记录里的警长） */
 '.ww-badge svg{width:12.5px;height:12.5px;display:inline-block;vertical-align:-2px}',
+/* AI 复盘助手输出的那一大段文字：保留换行、可长按选中复制 */
+'.ww-audit{white-space:pre-wrap;word-break:break-word;font-size:12.5px;line-height:1.62;color:var(--txt);max-height:58vh;overflow:auto;-webkit-user-select:text;user-select:text}',
 /* 警长徽章：挂在头像右上角（金色圆牌 + 白星） */
 '.ww-sheriff{position:absolute;right:-6px;top:-5px;z-index:7;width:15px;height:15px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.32))}',
 '.ww-sheriff svg{width:15px;height:15px;display:block}',
@@ -24842,6 +24844,74 @@ async function wwRejudgeRec(id){
     try{toast('重新评选失败：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
   }
   V.histJudgeBusy=false;render(false);
+}
+/* ---------- 【新】AI 复盘助手：拿整局记录做「提示词体检」（默认不跑，用户点一下才跑） ---------- */
+function wwAuditSys(rec){
+  var result=wwResultLine(rec.players,rec.winner,rec.endText);
+  var roles=(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n');
+  var night=(rec.rec||[]).length?rec.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'（没有记录）';
+  var pub=wwPublicLogRec(rec,240);
+  var wolf=wwWolfChannelRec(rec,60);
+  var L=[];
+  L.push('你是一位「狼人杀 AI 提示词优化顾问」。你要做的不是复盘这一局，而是当一名严格的审计员：读完整局记录，找出这些 AI 玩家在「聪明程度」上暴露的问题，并给出可以直接拿去改系统提示词的建议。');
+  L.push('【这一局的对局资料】\n【本局】'+(rec.count||'?')+' 人局 · '+result+
+    '\n【每个人的真实身份】\n'+roles+
+    '\n【夜里的行动（上帝视角）】\n'+night+
+    (wolf?('\n【狼队频道（狼队夜里偷偷商量的）】\n'+wolf):'')+
+    '\n【白天的发言和投票（几乎全文）】\n'+pub);
+  L.push('【你要交付的东西】严格按下面五段输出。不要客套、不要复述规则、不要夸这一局：\n'+
+    '一、这一局的 AI 表现问题清单（按严重程度排序，最多 8 条）。每条写成三行：\n'+
+    '　· 问题：一句话说清毛病（例如「好人被查杀后只会喊冤，不会自证时间线」）。\n'+
+    '　· 证据：具体到几号、哪一步、说了什么（引用原话，20 字以内）。\n'+
+    '　· 影响：这让哪一方占了便宜 / 吃了亏。\n'+
+    '二、每条问题对应的「根因」：说明是系统提示词或流程哪里没写清楚（例如「角色提示词里没教被查杀怎么自证」「发言任务只要求给结论、没要求给时间线」「夜里狼队没有约定谁出来扛推」…）。\n'+
+    '三、系统提示词优化建议（最重要，要能直接抄去改）。逐条写成三行：\n'+
+    '　· 改哪里：预言家 / 女巫 / 猎人 / 守卫 / 狼人 / 白狼王 / 主持人 / 裁判 / 竞选发言 / 投票任务 / 公共规则（选一个）。\n'+
+    '　· 加/改什么：把要加的那句话【原文写出来】（中文，一行一句，越具体越好）。\n'+
+    '　· 为什么：一句话说明它能修掉上面哪个问题。\n'+
+    '四、如果只能改 3 处，你选哪 3 处？为什么。\n'+
+    '五、这一局做得不错、别改坏的地方（最多 3 条）。');
+  L.push('【硬规矩】\n'+
+    '① 必须基于这一局的具体记录说话，每条问题都要有「几号 + 当时的原话/行为」当证据；找不到证据的问题不要写。\n'+
+    '② 不许写空话（「要加强逻辑」「要更像人」这种一律不要）。\n'+
+    '③ 你只做「AI 提示词体检」，不要替这一局做复盘（那是裁判的活）。\n'+
+    '④ 不要假设你知道程序代码，只从「提示词该怎么写」的角度给建议。\n'+
+    '⑤ 直接输出正文，不要用 markdown 标题符号（不要 #、不要 **），就用上面「一、二、三…」这种编号。');
+  return L.join('\n\n');
+}
+async function wwAuditRec(id){
+  var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
+  if(!rec||rec.game!=='ww')return toast('这一局的记录找不到了');
+  if(V.histAuditBusy)return;
+  if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  V.histAuditBusy=true;render(false);
+  try{
+    var txt=String(await wwCall(wwAuditSys(rec),'请开始体检这一局。',1800,.7)||'').trim();
+    if(!txt)throw new Error('助手这次没写出内容');
+    rec.audit=txt;
+    var list=recStore(),i;
+    for(i=0;i<list.length;i++){if(list[i]&&list[i].id===rec.id){list[i]=rec;break}}
+    recPut(list);
+    try{toast('复盘助手写好了')}catch(e){}
+  }catch(e){
+    try{toast('助手出错了：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
+  }
+  V.histAuditBusy=false;render(false);
+}
+function wwCopyText(t){
+  t=String(t||'');if(!t.trim())return toast('还没有内容');
+  function done(){try{toast('已复制，去粘贴吧')}catch(e){}}
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){wwCopyFallback(t,done)});return}
+  }catch(e){}
+  wwCopyFallback(t,done);
+}
+function wwCopyFallback(t,done){
+  try{
+    var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    if(done)done();
+  }catch(e){try{toast('复制不了，长按下面的文字手动复制吧')}catch(x){}}
 }
 function wwJudgeParse(txt){
   var o={title:'',sum:'',mvp:'',best:'',worst:''},raw=String(txt||'').trim();
@@ -27679,6 +27749,19 @@ function wwHistHTML(rec){
     }
   }
   h+=wwTransRow();
+  /* 【新】AI 复盘助手（提示词体检）：默认不跑，点一下才跑；结果可以一键复制 */
+  if(rec.winner||rec.endText){
+    h+='<div class="gx-sec">AI 复盘助手 · 提示词体检</div>';
+    if(V.histAuditBusy){
+      h+='<div class="gx-card"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>🧠 复盘助手正在读整局记录、写优化建议…</span></div></div>';
+    }else if(rec.audit){
+      h+='<div class="gx-card"><div class="ww-audit">'+esc(rec.audit)+'</div>'+
+         '<div class="gx-row"><button class="pri" onclick="GAME.wwCopyAudit(\''+esc(rec.id)+'\')">📋 复制全部</button><button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">🔁 重新体检</button></div></div>';
+    }else{
+      h+='<div class="gx-card"><p class="gx-hint" style="margin:0 0 8px">让一个客观的 AI 读完整局记录，指出这局 AI 暴露了什么问题、并给出能直接抄去改的系统提示词优化建议。<b>默认不跑</b>，点下面的按钮才会开始（会花一次比较长的请求）。</p>'+
+         '<button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">🧠 让助手体检这一局</button></div>';
+    }
+  }
   h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+((rec.players||[]).map(function(p){
     return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>';
   }).join(''))+'</div>';
@@ -28754,6 +28837,8 @@ window.GAME={
   wwResayAsk:function(uid,idx){wwOpenResay(uid||'','',parseInt(idx,10))},
   wwResume:function(id){wwResume(id)},
   wwRejudge:function(id){wwRejudgeRec(id)},
+  wwAudit:function(id){wwAuditRec(id)},
+  wwCopyAudit:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});wwCopyText(rec?rec.audit:'')},
   wwBgm:function(){wwBgmToggle()},
   wwNpc:function(on){var w=V.ww;w.npcFill=!!on;render(false)},
   wwSheriffSet:function(on){var w=V.ww;w.sheriff=!!on;render(false)},
