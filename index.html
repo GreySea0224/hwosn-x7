@@ -24093,6 +24093,7 @@ var WW_TIPS=[
 '【三条底层逻辑】1 先站边、后推理：真预言家的金水必是好人、查杀必是狼；但狼也能发真查杀，狼查杀狼是成立的。',
 '2 正反逻辑都要盘：说完正逻辑（A查杀B、B出局，A像好人），再点一句反逻辑隐患（A可能是狼踩狼做高自己）。',
 '3 轮次意识：有查杀先出查杀，再是对跳的神职、明狼，最后抓倒钩狼。',
+'【辨真假预言家（最容易上当的一处）】别只看「他验得准不准」：狼悍跳最爱给「跟他一起上警的人、还没发言的人、或者大家觉得像预言家的人」发查杀，这叫搏力度，一点不难、也不稀奇。要反过来想：① 如果他是狼，他为什么敢这么干？② 如果对跳的那个才是真预，他给真预这一批查杀，是不是正好把真预打掉、顺便做实自己？③ 如果这个跳预言家的真是狼，他队友在哪、为什么就一个人挺他？另外「金水没站他、所以他是假预」也不成立——金水可能被唬住、可能没听明白，这只算一条参考、不能当铁证。',
 '【各角色要点】预言家：先报验人，再给狼坑，最后归票。女巫：有守卫的局**首夜就开解药**（守卫首夜空守，两边错开、防止「同守同救」把人奶穿），没有守卫的局首夜谨慎救人；别轻易暴露银水。守卫：**首夜空守**，之后重点护住预言家（别连守同一个人）。猎人：被票出去可以用开枪施压。村民：别只跟风，要有自己的狼坑和归票。狼人：队友悍跳成功就冲锋拉票，队友崩盘就倒钩保命，全场盯狼就打深水少说话。',
 '【提醒】这个游戏里没有铜水、拍刀这些规则，不要提。（有没有守卫、有没有白狼王自爆，看下面的补充。）'
 ].join('\n');
@@ -24253,6 +24254,10 @@ function wwSpeakTask(p,base){
     '比如「不要被带节奏」「发言要交代清楚」「大家理性分析」「不要复读别人的话」，写这些等于什么都没说；也不要重复别人刚说过的结论。'+
     '\n反例（别这样）：「我觉得大家先别急着站边，信息太少，我先听听。」'+
     '\n正例（这样才对）：「我怀疑 5号：他昨天说要投2号，今天又改投我，票型对不上。这轮我投5号。」'+
+    '\n【每轮必须有一个新点】不能整段都在重复「我不认他」「票型和话对不上」「这不是巧合」这类已经有人说过的老话——那等于没发言。你这一轮至少要拿出一个前面没人讲过的新东西：对某个号的新理由、新发现的时间线或票型、或者「谁是X的队友、狼队还剩谁藏哪」的推断。实在想不出新的，就少说两句、直接讲你盯谁。'+
+    '\n【别挨个点评所有人】挑最关键的 1~2 个号讲透就行，真人一轮发言也就几句话，不要从头到尾把每个人都点评一遍。'+
+    '\n【结尾要有全盘】说完「这轮我投X」，再补一句：如果X其实是好人，那你下一个最像狼的是谁。'+
+    '\n【别用模板腔】不要每轮都用同一套开场（比如「先认个错」「先把账算清楚」），也不要反复用那几句被用烂的话（比如「票和话对不上」「这不是巧合」）。可以有情绪、有口头禅、句子有长有短，像正常人说话；但不许骂人、不许发誓喊冤（贴脸）。'+
     '\n【没信息就别硬踩】手里真没信息时（比如第一天刚开局），直说「我没信息，先听」，再说清你在盯谁就行——不要为了显得有立场就随便挑一个号踩、去投；要投谁就得有理由。'+
     '\n【必须开口】再高冷也得说一两句——一句话不说会被当成狼投出去。'+
     '\n【不许写动作】想笑、想叹气都不许写出来（不许（冷笑）（想了想）），只写你说出口的话。'+
@@ -24374,13 +24379,13 @@ function wwSysFor(p,task){
      r==='hunter'?'你被狼人刀死、或被投票放逐时可以开枪带走一个人（被女巫毒死则不能开枪）。打法：白天不要主动跳出来说自己是猎人——说破等于告诉狼"别刀我、也别票我"，反而把你晾在场上；平时就当普通好人一样盘逻辑、藏好身份，只有被投票逼到快出局时，才用"我是猎人"来施压、说服大家改投你怀疑的人。':
      r==='idiot'?'你是「白痴」：你没有主动技能，但白天被大家投票放逐时不会死——主持人会让你翻牌，你继续留在场上、可以继续发言，但从那一刻起你不能再投票，也不能再被投票放逐（夜里被狼刀、被女巫毒、被猎人带走照样会死）。打法：因为你不怕被票，可以放开手脚去试探、去踩人、甚至主动接刀，帮好人把水搅出来；翻牌之后大家就知道你是好人，你说的话分量最重，用它给真预言家站台、把狼坑点出来。':
      r==='guard'?'你是【守卫】：每晚可以守一个人（包括你自己），被守的人当晚不会被狼刀死。要点：① 不能连续两晚守同一个人；② 你只管狼刀——被守的人如果被女巫毒、被猎人带走、被投票放逐，照样死；③ 同一晚你守的人、女巫又刚好用解药救了（而且狼刀的就是他），他反而会死（这叫「同守同救必死」，别踩这个坑）。打法：**主流打法是第一晚空守**——有女巫的局，女巫第一晚常常会直接开解药救人，你第一晚先不动，就不会撞上「同守同救」把被救的人奶穿；从第二晚起优先守你自己、以及像预言家的人；真预言家跳出来之后就重点护住 TA（记得错开、别连守同一个）；别死守一个位置，也要提防同守同救。白天尽量别主动亮明自己是守卫。':
-     r==='wolfking'?'你是【白狼王】：平时你就是一只狼——和狼队友一起刀人、互相认识，夜里没有额外能力。但你在白天可以【自爆】：自爆时立刻带走场上任意一个还活着的人，然后白天马上结束、直接进入黑夜（当天不再发言、不再投票）。自爆只能用一次。能炸的时机：竞选警长发言的时候、白天轮到你发言的时候、投票出结果之前——票一投完、确定要放逐你了就来不及炸了。打法：别急着炸——留到自己快被票出去、或者能炸掉一个关键神职（预言家 / 女巫 / 守卫 / 猎人）的时候再炸，收益最大；平时就照普通狼那样藏好、帮队友拉票。':
+     r==='wolfking'?'你是【白狼王】：平时你就是一只狼——和狼队友一起刀人、互相认识，夜里没有额外能力。但你在白天可以【自爆】：自爆时立刻带走场上任意一个还活着的人，然后白天马上结束、直接进入黑夜（当天不再发言、不再投票）。自爆只能用一次。能炸的时机：竞选警长发言的时候、白天轮到你发言的时候、投票出结果之前——票一投完、确定要放逐你了就来不及炸了。打法：别急着炸——留到自己快被票出去、或者能炸掉一个关键神职（预言家 / 女巫 / 守卫 / 猎人）的时候再炸，收益最大；平时就照普通狼那样藏好、帮队友拉票。**但如果现在全场风向已经站在你这边（大家正在踩真预言家、你带的节奏正顺、你指的人马上要被投出去），千万别炸——你一炸就等于当场自曝你是假预言家、坐实对方是真的，还把这条线一次送光；让它被票投出去，才是最赚的。**':
      '你和狼队友每晚一起刀一个人。白天你要装成好人、别被投出去，可以大胆撒谎（悍跳预言家、发假金水、把好人说成狼）。'+
      '【什么时候就该悍跳了（很重要，别再藏着）】出现下面任一条，狼队就该有人跳预言家：'+
      '① 真预言家已经起跳，而且他查杀到了你们狼队的人——再不跳，被查杀的那个人基本必出局；'+
      '② 真预言家已经起跳，而且他发言有力、好人开始明确站他这边——再晚你说话就没人信了；'+
      '③ 你们狼队处境危险（有队友快被投出去、眼看要被人扛推）——这一跳能帮队友续命。'+
-     '悍跳要点：报一个假的验人结果（给好人发金水，或者反手把真预言家/好人说成「查杀」），语气理直气壮别心虚；跳了就咬死这条线，别自己前后矛盾。没人怀疑你时可以当"深水狼"少说话；队友崩盘时可以"倒钩"（站边真预言家、反打队友来保命）。'));
+    '悍跳要点：报一个假的验人结果（给好人发金水，或者反手把真预言家/好人说成「查杀」），语气理直气壮别心虚；跳了就咬死这条线，别自己前后矛盾。没人怀疑你时可以当"深水狼"少说话；队友崩盘时可以"倒钩"（站边真预言家、反打队友来保命）。**还有：悍跳或带节奏已经成功、全场正在踩你指的那个人时，稳稳咬住就行，别急着加戏、别乱咬新目标——让票把人自己送出去，这一轮你就赢了。**'));
   if(wwIsWolf(p)){
     var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':'')});
     L.push('你的狼队友：'+(mates.join('、')||'（没有别人，只有你自己）'));
@@ -24414,8 +24419,10 @@ function wwSysFor(p,task){
     '★ 重要：主持人**只报「谁出局了」，绝不会说哪个是被女巫毒的、哪个是被狼刀的**——死因只能自己按上面这几条推。除非你是女巫（自己下的药）或者你是狼（自己刀的人），否则不许假装知道某个人是怎么死的，也不许拿「他是被毒死的」当事实去发言。'+
     '主持人公布的「猎人枪带走的人」要先扣掉，白天的票杀不算夜里。'+
     '② 口径：谁跳预言家、给谁金水/查杀，前后对不对得上；谁的视角不合理（没信息却异常肯定）。有人翻出「白痴」牌不算出局——还活着、还能发言，只是不能投票、也不能再被票。'+
-    '③ 结论：给出最怀疑的 1~2 个号＋理由，并明确这轮投谁；真没信息就直接说没信息、讲清你在盯谁，别硬编狼坑。'+
-    '④ 发言顺序每天随机开头，跟身份无关，别拿它当理由（这条也不用讲出来）。');
+    '★ ③ 两面都想一遍（最容易上当的地方，重点看）：碰到预言家对跳、或者有人发查杀/金水，先别急着信，把「他是真预言家」和「他是狼」两种可能各想一遍，再选更说得通的一边。别把「他一验就验中、查杀得很准」当真预言家的铁证——狼悍跳最爱给「跟他一起上警的人、还没发言的人、或者大家觉得像预言家的人」发查杀来搏力度，这一点都不难、也不稀奇。要反过来问：如果他是狼，他为什么敢这么干？如果对跳的才是真预，他这一手是不是正好把真预打掉、顺便做实自己？另外「金水/银水没站这个预言家、所以他是假预」也不成立——金水可能被唬住、可能没听明白，这只算一条参考、不能当铁证；要反过来问：如果这个跳预言家的真是狼，他队友在哪、为什么就一个人挺他？'+
+    '★ ④ 盘坑不是只拆一个人：聊到焦点牌时，顺带交代「如果TA是狼，狼队剩下谁、还藏在哪」；只说「他像狼」却不给整体，等于没盘。'+
+    '⑤ 结论：给出最怀疑的 1~2 个号＋理由，并明确这轮投谁；真没信息就直接说没信息、讲清你在盯谁，别硬编狼坑。'+
+    '⑥ 发言顺序每天随机开头，跟身份无关，别拿它当理由（这条也不用讲出来）。');
   if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
   if(wwTipsOn(p))L.push(wwTipsBlock());
   if(task)dyn.push(task);
@@ -24897,6 +24904,57 @@ async function wwAuditRec(id){
     try{toast('助手出错了：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
   }
   V.histAuditBusy=false;render(false);
+}
+/* 【新】把一整局（正在玩的 / 历史记录里的）所有文字整理成一大段纯文本，方便一键复制拿出去排查。
+   两边字段基本一样，只有 MVP 的字段名不同（局内 mvpUid / 记录里 mvp）。 */
+function wwDumpText(w){
+  if(!w||!((w.players||[]).length))return '';
+  var players=w.players,mvpUid=w.mvpUid||w.mvp||'',at=w.at||w.t||0,L=[],mi;
+  var winner=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':((w.winner||w.endText)?'平局':'还没打完')));
+  var find=function(uid){for(var i=0;i<players.length;i++){if(players[i].uid===uid)return players[i]}return null};
+  var tag=function(p){return p?((p.seq?p.seq+'号 · ':'')+p.name):'？'};
+  L.push('=== 狼人杀 · '+(w.count||players.length)+' 人局 · '+winner+' ===');
+  if(at)L.push('时间：'+fmtTime(at));
+  if(w.title)L.push('标题：'+w.title);
+  L.push('结局：'+winner+(w.endText?('（'+w.endText+'）'):''));
+  var wolves=players.filter(function(p){return p.role==='wolf'||p.role==='wolfking'});
+  if(wolves.length)L.push('本局狼人：'+wolves.map(function(p){return tag(p)+(p.role==='wolfking'?'（白狼王）':'')}).join('、'));
+  var me=find('u');
+  if(!me)for(mi=0;mi<players.length;mi++){if(players[mi].isUser){me=players[mi];break}}
+  if(me)L.push('我的身份：'+tag(me)+'（'+WW_ROLE_NAME[me.role]+'）');
+  L.push('');
+  L.push('【身份公开】');
+  players.forEach(function(p){L.push(tag(p)+'：'+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+(p.uid===mvpUid?' · MVP':''))});
+  if((w.rec||[]).length){
+    L.push('');
+    L.push('【夜间行动（上帝视角）】');
+    w.rec.forEach(function(x){
+      L.push('第 '+x.d+' 天 · '+x.t);
+      if(x.tk)L.push('    〔思考〕'+String(x.tk).replace(/\s+/g,' '));
+    });
+  }
+  var wf=[];
+  (w.log||[]).forEach(function(e){if(e&&e.k==='wolf'&&String(e.text||'').trim())wf.push('第 '+e.d+' 夜 · '+(e.seq?(e.seq+'号 · '):((e.nm||'？')+' · '))+String(e.text).replace(/\s+/g,' '))});
+  if(wf.length){L.push('');L.push('【狼队频道（夜里偷偷商量）】');wf.forEach(function(x){L.push(x)})}
+  L.push('');
+  L.push('【白天发言与投票（全文）】');
+  (w.log||[]).forEach(function(e){
+    if(!e)return;
+    var p=(e.who!=null)?find(e.who):null;
+    if(e.k==='sys')L.push('【主持人】'+e.text);
+    else if(e.k==='say'){L.push((p?tag(p):(e.nm||'？'))+'：'+e.text);if(e.think)L.push('    〔思考/草稿〕'+String(e.think).replace(/\s+/g,' '));}
+    else if(e.k==='vote')L.push('【投票】'+e.text);
+    else if(e.k==='me')L.push('【你】'+e.text);
+    else if(e.k==='wolf'){/* 狼队频道已经单独列过，这里不重复 */}
+    else L.push(String(e.text||''));
+  });
+  if(w.judge){L.push('');L.push('【赛后复盘 · 中立裁判】');L.push(String(w.judge))}
+  if((w.reacts||[]).length){
+    L.push('');
+    L.push('【赛后感想】');
+    w.reacts.forEach(function(r){var p=find(r&&r.uid);L.push((p?tag(p):((r&&r.name)||'？'))+'：'+((r&&r.text)||''))});
+  }
+  return L.join('\n');
 }
 function wwCopyText(t){
   t=String(t||'');if(!t.trim())return toast('还没有内容');
@@ -25446,6 +25504,7 @@ async function wwKingDecide(p){
   var w=V.ww;
   var sys=wwKingCtx(p)+'\n\n【现在请你决定】要不要现在就自爆？\n'+
     '· 值得炸的时机一般是：① 你马上要被投出去；② 场上跳出来一个关键神职（预言家 / 女巫 / 守卫 / 猎人），炸掉他收益最大；③ 狼队快顶不住了，需要强行换人、打断好人节奏。\n'+
+    '· 特别提醒（最容易犯的错）：如果现在全场风向已经站在你这边——大家正在踩真预言家、你带的节奏正顺、你指的那个人马上要被投出去——千万【别炸】。你一炸就等于当场自曝你是假的、坐实对方是真的，还把这条线一次性送光；让那个人被票投出去才是最赚的。\n'+
     '· 别急着炸：队友还稳、你自己也安全的时候，留着这一炸更值钱。\n'+
     '· 注意：投票一出结果、确定要放逐你了，就来不及炸了——要炸得赶在投票出结果之前（竞选发言、你自己发言、投票前这些时候都行）。\n'+
     '【输出格式】第一行只写：不自爆 或 自爆：X号（X 是你要带走的那个人的编号）。第二行另起一行写一张给自己的便签，格式「便签：…」，一句话记下你的策略、以及你打算什么时候再考虑自爆（不想写可以省略）。';
@@ -27630,6 +27689,7 @@ function wwHTML(){
     if((w.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(w.reacts,w.players)+'</div></div>';
     h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>'+
+       '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDump()">📋 复制整局文字（含思考过程）</button></div>'+
        '<div class="gx-row"><button class="pri" onclick="GAME.wwAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   }else{
    h+='<div class="ww-foot">';
@@ -27783,6 +27843,7 @@ function wwHistHTML(rec){
   if((rec.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
   if(rec.game==='ww'&&!rec.winner&&!rec.endText)
     h+='<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续这一局</button></div>';
+  h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDumpRec(\''+esc(rec.id)+'\')">📋 复制整局文字（含思考过程）</button></div>';
   h+='<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button>'+
      '<button class="ghost" style="color:var(--warn)" onclick="GAME.histDel(\''+esc(rec.id)+'\')">删除这一局</button></div>';
   return h;
@@ -28839,6 +28900,8 @@ window.GAME={
   wwRejudge:function(id){wwRejudgeRec(id)},
   wwAudit:function(id){wwAuditRec(id)},
   wwCopyAudit:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});wwCopyText(rec?rec.audit:'')},
+  wwCopyDump:function(){try{wwCopyText(wwDumpText(V.ww))}catch(e){try{toast('复制失败：'+String((e&&e.message)||e).slice(0,40))}catch(x){}}},
+  wwCopyDumpRec:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});if(!rec)return toast('这一局的记录找不到了');wwCopyText(wwDumpText(rec))},
   wwBgm:function(){wwBgmToggle()},
   wwNpc:function(on){var w=V.ww;w.npcFill=!!on;render(false)},
   wwSheriffSet:function(on){var w=V.ww;w.sheriff=!!on;render(false)},
