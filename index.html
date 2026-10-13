@@ -24248,30 +24248,28 @@ function wwSplitDraft(txt){
 }
 /* 好人的发言任务：先写草稿纸（狼坑 / 好人 / 神），再写发言；狼人不用写，直接说 */
 function wwSpeakTask(p,base){
-  /* 最重要的三件事：别复述提示词里的道理、别写方法论和口号、每句话都要有具体号码和理由 */
+  /* 【改·去模板化】只讲「怎么开口」这一件事：把人设顶上来、允许长短不一和有情绪，
+     不再强求「每轮必须新点 / 结尾要有全盘 / 先说结论 / 三条式」——
+     那些硬模板会让六个 AI 说话像一个模子刻出来的，没了真人感。 */
   var plain=base+
-    '\n【最重要：不许说废话】只说「你对具体几号的判断＋理由＋这轮投谁」。不要出现方法论、规则复述、口号空话——'+
-    '比如「不要被带节奏」「发言要交代清楚」「大家理性分析」「不要复读别人的话」，写这些等于什么都没说；也不要重复别人刚说过的结论。'+
-    '\n反例（别这样）：「我觉得大家先别急着站边，信息太少，我先听听。」'+
-    '\n正例（这样才对）：「我怀疑 5号：他昨天说要投2号，今天又改投我，票型对不上。这轮我投5号。」'+
-    '\n【每轮必须有一个新点】不能整段都在重复「我不认他」「票型和话对不上」「这不是巧合」这类已经有人说过的老话——那等于没发言。你这一轮至少要拿出一个前面没人讲过的新东西：对某个号的新理由、新发现的时间线或票型、或者「谁是X的队友、狼队还剩谁藏哪」的推断。实在想不出新的，就少说两句、直接讲你盯谁。'+
-    '\n【别挨个点评所有人】挑最关键的 1~2 个号讲透就行，真人一轮发言也就几句话，不要从头到尾把每个人都点评一遍。'+
-    '\n【结尾要有全盘】说完「这轮我投X」，再补一句：如果X其实是好人，那你下一个最像狼的是谁。'+
-    '\n【别用模板腔】不要每轮都用同一套开场（比如「先认个错」「先把账算清楚」），也不要反复用那几句被用烂的话（比如「票和话对不上」「这不是巧合」）。可以有情绪、有口头禅、句子有长有短，像正常人说话；但不许骂人、不许发誓喊冤（贴脸）。'+
-    '\n【没信息就别硬踩】手里真没信息时（比如第一天刚开局），直说「我没信息，先听」，再说清你在盯谁就行——不要为了显得有立场就随便挑一个号踩、去投；要投谁就得有理由。'+
-    '\n【必须开口】再高冷也得说一两句——一句话不说会被当成狼投出去。'+
-    '\n【不许写动作】想笑、想叹气都不许写出来（不许（冷笑）（想了想）），只写你说出口的话。'+
-    '\n【格式】像群里打字，不要 markdown（不要 **加粗**、# 标题、- 列表、反引号）。';
+    '\n【这一轮开口，怎么说】'+
+    '\n· 你就是这个人：语气、口头禅、脾气都照你的人设来，别用通用 AI 那种客气、周全、谁都不得罪的腔调。'+
+    '\n· 像真人开口一样，长短随你——想怼就痛快多说几句，懒得说就一两句短话（「我跟着走」「没信息，先听」都算正常发言）；再高冷也得开一句口，一句不说会被当狼投出去。别每个人都长篇大论。'+
+    '\n· 允许有情绪、有口头禅、有停顿，句子有长有短；别用书面语、别写成会议纪要，也别复述规则、喊空口号（「大家理性分析」「不要被带节奏」这种等于没说）。'+
+    '\n· 别和前面的人撞同一套话：不要人人都拿「我X号，先说结论」开场，也别重复别人刚说过的结论。'+
+    '\n· 挑你真正在意的说（你怀疑谁／信谁、凭什么、这轮投谁）；不用把每个人都点评一遍，也不用硬凑成三条。'+
+    '\n· 手里真没信息就直说没信息、讲清你在盯谁，别硬编狼坑、别随便拉个人来踩。'+
+    '\n· 底线（不能破）：不许骂人、不许发誓赌咒喊冤（贴脸）；不许写旁白和动作神态（（冷笑）（想了想）这种一律不要）；不要 markdown（**加粗**、#、- 、反引号都不要）。';
   if(wwIsWolf(p))return plain+
-    '\n【怎么输出】分成两段：\n'+
-    '【草稿纸】（只有你自己看得到，放心写真实打算）真实打算：这轮我要怎么演（装什么身份、要不要悍跳、拉谁的票、保谁、推谁、今晚想刀谁；没想好就写「先跟着队友走」）\n'+
-    '【发言】（说给别人听的话，绝不能把真实打算写进去）\n'+
-    '第一段必须用「【草稿纸】」开头，第二段必须用「【发言】」开头，两段都要有。想说多长都行，但别啰嗦。';
+    '\n【怎么输出】分两段，两段都要有：\n'+
+    '【草稿纸】只有你自己看得到，随手写你这轮的真心打算（要不要装身份、拉谁的票、保谁、推谁…），不用讲究格式；\n'+
+    '【发言】说给大家听的话，绝不能把草稿纸里的真心话带出来。\n'+
+    '第一段用一个「【草稿纸】」开头，第二段用一个「【发言】」开头。';
   return plain+
-    '\n【怎么输出】分成两段：\n'+
-    '【草稿纸】\n狼坑：我怀疑几号，理由是什么（没有就写「暂无」）\n好人：我比较信几号，理由是什么（没有就写「暂无」）\n神：我觉得几号像预言家 / 女巫 / 猎人，理由是什么（没有就写「暂无」）\n'+
-    '【发言】（说给别人听的话）\n'+
-    '第一段必须用「【草稿纸】」开头，第二段必须用「【发言】」开头，两段都要有。草稿纸只有你看得到，别怕写错。想说多长都行，但别啰嗦。';
+    '\n【怎么输出】分两段，两段都要有：\n'+
+    '【草稿纸】只有你自己看得到，随手写你的真实盘算（你怀疑谁、比较信谁、觉得谁是神、这轮想投谁…），不用逐条列；\n'+
+    '【发言】说给大家听的话。\n'+
+    '第一段用一个「【草稿纸】」开头，第二段用一个「【发言】」开头。';
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
@@ -24375,7 +24373,7 @@ function wwSysFor(p,task){
   L.push('【你是谁 / 你的身份】你是 '+(p.seq||'?')+' 号「'+p.name+'」（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwNum(p)+p.name+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'普通好人，没有特殊能力。打法：靠听发言找漏洞，自己盘出狼坑（最像狼的 1~2 个号 + 理由），站边你信的真预言家，投票要有自己的判断、不能只跟风；被怀疑时用你的行为和时间线自证，别靠发誓喊冤。':
      r==='seer'?'你每晚可以验一个人，知道他是好人还是狼人。打法：把验人结果说清楚（好人＝金水，狼＝查杀），正常第一轮就该跳出来报验人、给出你心里的狼坑和这轮该投谁，不要一直藏着不用——藏太久好人就没方向了；报完之后你会成为狼的目标，要靠发言说服大家别投你。':
-     r==='witch'?'你有一瓶解药和一瓶毒药，各只能用一次、而且同一晚只能用一瓶：解药能救当晚被狼刀的人（只有第一夜可以救自己，第二夜起不能自救），毒药能毒死一个人。注意：毒优先结算——如果毒到的人刚好也是今晚被狼刀的那个，他算被你毒死（比如猎人就开不了枪），当晚也只死他一个。打法：**如果这一局有守卫，主流打法是女巫第一晚就直接开解药救人**（同时守卫第一晚空守，两边错开，就不会出现「同守同救」把被救的人奶穿）；没有守卫的局，第一晚可以先不急着救。毒药留到你有把握时再下、别乱毒好人。白天尽量别主动亮明自己是女巫——一说破，当晚很容易被狼刀；只有你手里的信息能救场、或者被人逼到快被投出去时，才考虑跳。':
+     r==='witch'?'你有一瓶解药和一瓶毒药，各只能用一次、而且同一晚只能用一瓶：解药能救当晚被狼刀的人（只有第一夜可以救自己，第二夜起不能自救），毒药能毒死一个人。打法：**有守卫的局，主流是先开解药救人**（守卫首夜空守，两边错开、避开「同守同救」把人奶穿）；没守卫的局第一晚可先不急着救。毒药留到有把握再下、别乱毒好人。白天尽量别主动亮明自己是女巫——一说破当晚很容易被狼刀；只有手里的信息能救场、或被人逼到快被投出去时，才考虑跳。':
      r==='hunter'?'你被狼人刀死、或被投票放逐时可以开枪带走一个人（被女巫毒死则不能开枪）。打法：白天不要主动跳出来说自己是猎人——说破等于告诉狼"别刀我、也别票我"，反而把你晾在场上；平时就当普通好人一样盘逻辑、藏好身份，只有被投票逼到快出局时，才用"我是猎人"来施压、说服大家改投你怀疑的人。':
      r==='idiot'?'你是「白痴」：你没有主动技能，但白天被大家投票放逐时不会死——主持人会让你翻牌，你继续留在场上、可以继续发言，但从那一刻起你不能再投票，也不能再被投票放逐（夜里被狼刀、被女巫毒、被猎人带走照样会死）。打法：因为你不怕被票，可以放开手脚去试探、去踩人、甚至主动接刀，帮好人把水搅出来；翻牌之后大家就知道你是好人，你说的话分量最重，用它给真预言家站台、把狼坑点出来。':
      r==='guard'?'你是【守卫】：每晚可以守一个人（包括你自己），被守的人当晚不会被狼刀死。要点：① 不能连续两晚守同一个人；② 你只管狼刀——被守的人如果被女巫毒、被猎人带走、被投票放逐，照样死；③ 同一晚你守的人、女巫又刚好用解药救了（而且狼刀的就是他），他反而会死（这叫「同守同救必死」，别踩这个坑）。打法：**主流打法是第一晚空守**——有女巫的局，女巫第一晚常常会直接开解药救人，你第一晚先不动，就不会撞上「同守同救」把被救的人奶穿；从第二晚起优先守你自己、以及像预言家的人；真预言家跳出来之后就重点护住 TA（记得错开、别连守同一个）；别死守一个位置，也要提防同守同救。白天尽量别主动亮明自己是守卫。':
@@ -24409,20 +24407,15 @@ function wwSysFor(p,task){
     '所以竞选这段时间，你并不知道昨晚谁死了（除非你是狼、或你是女巫而且那药是你自己下的）——别在竞选发言里假装知道谁死了。'+
     '警长的好处：① 白天投票放逐时，TA 的票算 1.5 票；② 每天由 TA 决定从谁开始发言、顺着还是逆着；③ TA 出局时，可以把警徽交给一个还活着的人，也可以直接把警徽撕掉。'+
     '谁都能上警，狼上警抢警徽（「悍跳抢警徽」）是很常见的战术。警上、警下、退水、警徽这些词都可以自然地说。');
-  L.push('【硬规矩】① 只有三样是确定的事实：主持人公布的死讯和投票结果、你自己能力得到的信息、你自己的身份。别人的发言、报的身份、遗言，都只是「他说的」，可能是骗人的（出局的人遗言最不可信，狼也会说「我是平民走的」）。'+
-    '② 不许替别人说话，不许编造没发生的事，不许写旁白，也不许用括号写动作神态心理（（冷笑）（想了想）这类一律不许）。'+
-    '③ 别犯糊涂：你就是 '+(p.seq||'?')+' 号，别怀疑自己、别投自己、别拉自己的票，也不要把自己的号当成别人。'+
-    '④ 说话像在群里打字：不要 markdown（不要 **加粗**、# 标题、- 列表、反引号）。'+
+  L.push('【硬规矩】① 只有三样算确定的事实：主持人公布的死讯和投票结果、你自己能力得到的信息、你自己的身份。别人的发言、报的身份、遗言都只是「他说的」，可能是骗人的。'+
+    '② 别犯糊涂：你就是 '+(p.seq||'?')+' 号，别怀疑自己、别投自己、别拉自己的票、别把自己的号当成别人。'+
+    '③ 说话像在群里打字：不许写旁白和动作神态（（冷笑）（想了想）这类一律不要），不要 markdown（不要 **加粗**、# 标题、- 列表、反引号）。'+
     (r==='wolf'?'（你是狼人：说假话、假跳预言家骗人，都是正常打法。）':''));
   L.push('【怎么盘（心里过一遍就行，别念出来）】'+
-    '① 死讯：狼一晚只刀一刀；女巫同一晚只能用一瓶药。平安夜＝解药救了被刀的人；只死 1 个＝被狼刀那个没被救，或者刀和毒是同一个人（毒优先，算被毒死，猎人也开不了枪）；死 2 个＝狼刀一个＋毒一个。'+
-    '★ 重要：主持人**只报「谁出局了」，绝不会说哪个是被女巫毒的、哪个是被狼刀的**——死因只能自己按上面这几条推。除非你是女巫（自己下的药）或者你是狼（自己刀的人），否则不许假装知道某个人是怎么死的，也不许拿「他是被毒死的」当事实去发言。'+
-    '主持人公布的「猎人枪带走的人」要先扣掉，白天的票杀不算夜里。'+
-    '② 口径：谁跳预言家、给谁金水/查杀，前后对不对得上；谁的视角不合理（没信息却异常肯定）。有人翻出「白痴」牌不算出局——还活着、还能发言，只是不能投票、也不能再被票。'+
-    '★ ③ 两面都想一遍（最容易上当的地方，重点看）：碰到预言家对跳、或者有人发查杀/金水，先别急着信，把「他是真预言家」和「他是狼」两种可能各想一遍，再选更说得通的一边。别把「他一验就验中、查杀得很准」当真预言家的铁证——狼悍跳最爱给「跟他一起上警的人、还没发言的人、或者大家觉得像预言家的人」发查杀来搏力度，这一点都不难、也不稀奇。要反过来问：如果他是狼，他为什么敢这么干？如果对跳的才是真预，他这一手是不是正好把真预打掉、顺便做实自己？另外「金水/银水没站这个预言家、所以他是假预」也不成立——金水可能被唬住、可能没听明白，这只算一条参考、不能当铁证；要反过来问：如果这个跳预言家的真是狼，他队友在哪、为什么就一个人挺他？'+
-    '★ ④ 盘坑不是只拆一个人：聊到焦点牌时，顺带交代「如果TA是狼，狼队剩下谁、还藏在哪」；只说「他像狼」却不给整体，等于没盘。'+
-    '⑤ 结论：给出最怀疑的 1~2 个号＋理由，并明确这轮投谁；真没信息就直接说没信息、讲清你在盯谁，别硬编狼坑。'+
-    '⑥ 发言顺序每天随机开头，跟身份无关，别拿它当理由（这条也不用讲出来）。');
+    '① 死讯：狼一晚只刀一刀，女巫同一晚只能用一瓶药。平安夜＝解药救了被刀的人；只死 1 个＝被刀那个没被救，或刀毒同一个人（毒优先，算被毒死，猎人也开不了枪）；死 2 个＝狼刀一个＋毒一个。**主持人只报「谁出局了」，不会说死因**——除非你是女巫（自己下的药）或你是狼（自己刀的人），否则别假装知道谁怎么死的、别拿「他是被毒死的」当事实发言。'+
+    '② 口径：谁跳预言家、给谁金水/查杀，前后对不对得上；谁的视角不合理（没信息却异常肯定）。白痴翻出身份牌不算出局（还活着、能发言，只是不能再投票、也不能再被票）。'+
+    '★ ③ 碰到预言家对跳、或有人发查杀/金水，两面都想一遍（这是最容易上当的一处）：把「他是真预言家」和「他是狼」各想一遍，再选更说得通的一边。别把「一验就中、查杀很准」当真预的铁证——狼最爱给「没发言的人、或像预言家的人」发查杀搏力度，不难也不稀奇；反过来问：如果对跳的才是真预，他这一手是不是正好把真预打掉、顺便做实自己？也别因为「金水/银水没站他」就断定他假，那只是一条参考。'+
+    '④ 聊到焦点牌，顺带交代「如果TA是狼，狼队剩下谁、藏在哪」，别只说「他像狼」却不给整体。（发言顺序每天随机开头、跟身份无关，别拿它当理由。）');
   if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
   if(wwTipsOn(p))L.push(wwTipsBlock());
   if(task)dyn.push(task);
@@ -24567,21 +24560,31 @@ function wwWolfChannelText(max){
     return '第 '+e.d+' 夜 · 「'+wwWolfWho(e)+'」：'+String(e.text||'').replace(/\s+/g,' ').slice(0,40);
   }).join('\n');
 }
-/* 让一只人机狼给队友留一句悄悄话（狼队全是人机时用） */
-async function wwWolfNote(p,pick){
+/* 【改·省调用】一只狼夜里一次搞定两件事：想刀谁 + 给队友留一句悄悄话。
+   以前这两件事分两次请求，现在合成一次，狼多的时候能省一半请求。
+   返回 {t: 想刀的人, note: 给队友的留言}。 */
+async function wwWolfAct(p){
+  var w=V.ww,alive=wwAlive();
   var sys=wwCharBlock(p)+
-    '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，你是这一局的狼人之一。'+
-    '今晚你们狼队要一起刀一个人；现在先用一句话跟队友交代你的打算（他们都会看到）。'+
+    '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，你是这一局的狼人之一，现在是你一个人在想：今晚刀谁，顺便跟狼队友交代一句。'+
+    '（平时刀好人；自刀骗女巫解药、或者刀自己队友，属于特殊战术，要真想清楚）'+
     '\n\n'+wwFactsFor(p)+
     '\n【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog()+
-    (pick?('\n【你今晚想刀的人】'+wwName(pick)):'')+
+    (wwTipsOn(p)?('\n\n'+wwTipsBlock()):'')+
     '\n【已经说过的狼队留言】\n'+(wwWolfChannelText()||'（还没有）')+
-    '\n【怎么写】像在群里跟队友打字：一句话，短、口语、有信息量。'+
-    '说说你的思路（要不要悍跳、谁去打倒钩、保谁、今晚为什么刀 TA…），不要重复别人刚说过的。'+
-    '不超过 '+WW_WOLF_MSG_MAX+' 个字，不要换行、不要用括号写动作、不要报自己的编号。只输出这句话。';
-  var t='';
-  try{t=await wwCall(sys,'请给狼队友留一句话。',60,.9)}catch(e){t=''}
-  return wwWolfClean(t);
+    '\n【输出】只写两行，别的都不要：\n'+
+    '第 1 行：你要刀的人，只写编号或名字（例如「3号」）；\n'+
+    '第 2 行：一句给狼队友的悄悄话（不超过 '+WW_WOLF_MSG_MAX+' 个字、别换行、口语、有信息量：说说你的打算、或者为什么刀 TA，别重复别人刚说过的；不想说就写「无」）。';
+  var txt='';
+  try{txt=String(await wwCall(sys,'请决定今晚刀谁，并给队友留一句话。',80,.85)||'')}catch(e){txt=''}
+  var lines=String(txt).split(/\n+/).map(function(s){return s.trim()}).filter(function(s){return !!s});
+  var pick=wwMatch(lines[0]||txt,alive)||wwMatch(txt,alive);
+  var note='';
+  for(var i=1;i<lines.length;i++){
+    var s=wwWolfClean(lines[i]);
+    if(s&&s!=='无'&&s!=='没有'&&s!=='无。'){note=s;break}
+  }
+  return {t:pick,note:note};
 }
 /* 你是狼人：夜里给狼队留言（这一夜一共 50 字；可以分几条说，不想说就点「不留言」） */
 async function wwWolfChatNight(){
@@ -24598,18 +24601,6 @@ async function wwWolfChatNight(){
     if(wwStaleG(gen))return;
   }
 }
-async function wwWolfPick(p){
-  var w=V.ww,alive=wwAlive();
-  var sys=wwCharBlock(p)+
-    '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，你是这一局的狼人之一，现在是你一个人在想：今晚刀谁。'+
-    '（平时刀好人；自刀骗女巫解药、或者刀自己队友，属于特殊战术，要真想清楚）'+
-    '\n\n'+wwFactsFor(p)+
-    '\n【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog()+
-    (wwTipsOn(p)?('\n\n'+wwTipsBlock()):'')+
-    '\n【输出】只输出你要刀的那个人的编号或名字（例如「3号」），不要解释、不要写别的。';
-  var txt=await wwCall(sys,'请决定今晚刀谁。',30,.85);
-  return wwMatch(txt,alive);
-}
 async function wwWolfChoose(wolves){
   var w=V.ww,alive=wwAlive(),prey=alive.filter(function(p){return !wwIsWolf(p)});
   if(!alive.length)return null;
@@ -24620,18 +24611,17 @@ async function wwWolfChoose(wolves){
   if(!mates.length)return null;                /* 只有你一个狼：没有队友意见 */
   /* 「你在狼队里还活着」才算——你要是好人、在旁观、或者已经出局了，狼队就都是人机，它们自己会说话 */
   var meW=wwMe(), userWolf=!!(meW&&meW.alive&&wwIsWolf(meW));
-  /* 一只一只单独问：每只狼都带上自己的人设，免得把自己当成别的狼 */
+  /* 一只一只单独问：每只狼都带上自己的人设，免得把自己当成别的狼。
+     【改】现在一次就问出「刀谁 + 给队友的悄悄话」，不再分两次请求。 */
   for(var wi=0;wi<mates.length;wi++){
     var m=mates[wi];
-    var t=await wwWolfPick(m);
+    var a=await wwWolfAct(m);
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
-    if(!t)t=rand;
+    var t=a.t||rand;
     w.wolfPicks.push({seq:m.seq,name:m.name,t:t});
-    /* 【改】每只人机狼都留一句悄悄话：这样「你是狼」的时候，也能看到队友在商量什么（以前只有全是人机时才留） */
-    var note=await wwWolfNote(m,t);
-    if(wwStaleG(gen))return null;
-    if(note){
-      w.log.push({k:'wolf',who:m.uid,nm:m.name,seq:m.seq,d:w.day,text:note});
+    /* 每只人机狼都留一句悄悄话：这样「你是狼」的时候，也能看到队友在商量什么 */
+    if(a.note){
+      w.log.push({k:'wolf',who:m.uid,nm:m.name,seq:m.seq,d:w.day,text:a.note});
       render(true);
     }
   }
@@ -24702,8 +24692,8 @@ async function wwWitchChoose(witch,victim){
   return out;
 }
 async function wwSpeech(p){
-  var base='现在轮到你发言。**要说清你现在怀疑谁（带编号）、为什么，以及这轮你准备投谁**；'+
-    '也可以报自己的身份、替人辩护、或者反驳别人对你的怀疑。不要只说"再听听""先观望"这种没有立场的话。'+
+  var base='现在轮到你发言。说清你现在怀疑谁（带编号）、为什么、这轮准备投谁；'+
+    '也可以报自己的身份、替人辩护、或者反驳别人对你的怀疑。别写成长篇点评，几句真心话就够。'+
     '提到别人时带上编号（例如「我怀疑 3号」）。';
   return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
 }
@@ -24747,6 +24737,30 @@ async function wwReact(p,result,brief){
     '请用你自己的身份、说一句简短的赛后感想（40 字以内，像随口吐槽一句就够了）：可以得意、可以不服气、可以骂一句、也可以吐槽自己刚才为什么上了当。'+
     '不要复盘细节、不要长篇分析、不要一条条点评别人；直接说这句话，不要写名字，也不要说"我记不清"。';
   return (await wwCall(sys,'请说。',wwSayMax(),.9))||'';
+}
+/* 【改】手动触发的赛后感想：她在结算页点了按钮，才一个个去要。
+   （以前一局结束会自动叫每个人说一句，现在改成想看再点，不看就不花这份 token。）
+   生成完会补进已经存好的那条历史记录里，以后翻记录还能看到。 */
+async function wwReactGo(){
+  var w=V.ww,gen=w?w.gen:0;
+  if(!w||!w.over||w.reacting||(w.reacts||[]).length)return;
+  var who=w.players.filter(wwIsWolf).map(function(p){return wwNum(p)+p.name}).join('、');
+  var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(w.endText||'');
+  var brief=(w.judge?('【裁判的赛后复盘】\n'+w.judge+'\n\n'):'')+wwAfterBlock();
+  w.reacting=true;w.reacts=[];
+  render(true);
+  for(var i=0;i<w.players.length;i++){
+    var p=w.players[i];
+    if(p.isUser)continue;
+    w.msg='「'+p.name+'」正在说感想…';render(true);
+    var t='';
+    try{t=await wwReact(p,result,brief)}catch(e){t=''}
+    if(gen!==(w.gen||0)){w.reacting=false;return}
+    if(t)w.reacts.push({name:p.name,uid:p.uid,text:t});
+  }
+  w.reacting=false;w.msg='';
+  wwSave(true);        /* 把感想补进那条已经存好的历史记录里 */
+  render(true);
 }
 /* ---------- 赛后：中立裁判复盘 + MVP ---------- */
 /* 把一局的「上帝视角资料」拼成给裁判的提示词（游戏里的那一局、战绩记录里的那一局都用它） */
@@ -26051,21 +26065,12 @@ async function wwFinish(){
   if(gen!==(w.gen||0))return;                   /* 这中间她开了新的一局：这份复盘就丢掉，别污染新局 */
   var jj=wwJudgeParse(w.judge);
   w.title=wwTitleClean(jj.title);     /* 【新】裁判给这局取的名字：存进战绩，当那条记录的标题 */
-  /* 给角色的"赛后知道多少"：裁判复盘 + 夜里的行动 + 白天的发言和投票（不是只有一句话） */
-  var brief=(w.judge?('【裁判的赛后复盘】\n'+w.judge+'\n\n'):'')+wwAfterBlock();
   var mvp=wwMvpPlayer(jj.mvp);        /* 把裁判评的 MVP 记下来，存进战绩 */
   w.mvpUid=mvp?mvp.uid:'';
   render(true);
-  /* 再让每个角色说收尾感想（带上这份复盘，免得它们“失忆”） */
+  /* 【改】赛后感想不再自动生成：改成结算页上一个按钮，她点一下才一个个说（不想看就不看，省 token）。
+     这里只把空数组准备好、先把这一局存进历史记录；感想哪天想看再生成、补进这条记录里。 */
   w.reacts=[];
-  for(var i=0;i<w.players.length;i++){
-    var p=w.players[i];
-    if(p.isUser)continue;
-    w.msg='「'+p.name+'」正在说感想…';render(true);
-    var t=await wwReact(p,result,brief);
-    if(gen!==(w.gen||0))return;
-    if(t)w.reacts.push({name:p.name,uid:p.uid,text:t});
-  }
   w.msg='';
   wwSave(true);
 }
@@ -26162,7 +26167,7 @@ function wwApplySnap(s,recId){
   w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;w.electing=false;
   w.board=(s.board==='wolfking')?'wolfking':'std';w.guardLast=s.guardLast||'';w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.dayOver=0;
   w.cids=w.players.filter(function(p){return !p.isUser&&p.cid}).map(function(p){return p.cid});   /* 让「再来一局」还能用同一批角色 */
-  w.judge='';w.mvpUid='';w.title='';w.reacts=[];
+  w.judge='';w.mvpUid='';w.title='';w.reacts=[];w.reacting=false;
   w.night=s.night?{wolf:byUid[s.night.wolf]||null,save:!!s.night.save,poison:byUid[s.night.poison]||null,
     check:byUid[s.night.check]||null,guard:byUid[s.night.guard]||null,deaths:(s.night.deaths||[]).map(function(u){return byUid[u]}).filter(Boolean)}
     :{wolf:null,save:false,poison:null,check:null,guard:null,deaths:[]};   /* 一定给个空壳，白天开头不会再崩 */
@@ -26539,7 +26544,7 @@ function wwStart(){
   players.forEach(function(p,i){p.seq=i+1});
   w.players=players;w.day=1;w.over=false;w.winner='';w.endText='';w.log=[];w.rec=[];
   w.votes={};w.speaking=null;w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
-  w.witchSave=true;w.witchPoison=true;w.witchLog=[];w.reacts=[];w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';w.title='';
+  w.witchSave=true;w.witchPoison=true;w.witchLog=[];w.reacts=[];w.reacting=false;w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';w.title='';
   /* 【新】警长（上警）：每一局都重新来 */
   w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeVote={};w.speechStart='';w.speechDir=1;
   w.pendingDeaths=null;w.electing=false;
@@ -27686,7 +27691,14 @@ function wwHTML(){
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x,ri){
       return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('r'+ri,x.tk,'hist'):'')+'</div>';
     }).join('')+'</div></details>';
-    if((w.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(w.reacts,w.players)+'</div></div>';
+    /* 【改】赛后感想改成手动：没生成时给个按钮，正在生成时显示进度，生成完就显示内容 */
+    if(w.reacting){
+      h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+esc(w.msg||'正在说感想…')+'</span></div></div></div>';
+    }else if((w.reacts||[]).length){
+      h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(w.reacts,w.players)+'</div></div>';
+    }else{
+      h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs"><span class="dim">赛后感想改成「想看再看」了——点下面的按钮，他们会一个个说；不想看就不点。</span></div><div class="gx-row"><button class="ghost" onclick="GAME.wwReactGo()">💬 让他们一个个说</button></div></div>';
+    }
     h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>'+
        '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDump()">📋 复制整局文字（含思考过程）</button></div>'+
@@ -28929,6 +28941,7 @@ window.GAME={
   wwSayIt:function(skip){wwSay(!!skip)},
   wwWolfIt:function(skip){wwWolfSay(!!skip)},   /* 【新】狼队频道：发一条留言 / 不留言 */
   wwAgain:function(){wwAgain()},
+  wwReactGo:function(){wwReactGo()},
   wwStop:function(){wwStop()},
   /* 装扮小铺（单人 · 做任务攒贝壳 · 换 SVG 头像图标 / 头像框） */
   shopHome:function(){V.view='shop';render(false)},
