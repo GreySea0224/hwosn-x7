@@ -24434,12 +24434,16 @@ var WW_LAST={reason:''};
    _WWAC = 当前这次请求的打断开关（AbortController）；
    _WWRETHINK = 按过几次「重新想」——数字一变就说明刚才是她按的，原样再要一次即可。 */
 var _WWAC=null,_WWRETHINK=0;
+/* 【新·省流】给每个请求加一句「别在心里长篇大论」的提醒，试着压一压思考型的模型花在「思考过程」上的 token。
+   效果看模型听不听话；嫌 AI 推理变浅了，在开局设置里切回「照旧」即可（存进 cfg.wwHush，关掉就是 false）。 */
+var WW_HUSH='【别想太久】这是个快节奏的桌游、不是写论文：情况扫一眼、心里过一遍重点就够，别在心里长篇推理、别反复自我推翻、别把同一件事想两遍，有数了就直接把结论或要说的话给出来。';
+function wwHushOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwHush===false)}
 async function wwCall(sys,usr,maxtok,temp){
   var mt=(maxtok==null)?160:maxtok;   /* 0 是「不限制」：请求里就不放 max_tokens */
   var dyn='';
   try{dyn=(WW_DYNMAP&&WW_DYNMAP[sys])||''}catch(e){}
   var usr2=dyn?('【当前局面（每轮更新）】下面是主持人给你的最新情况，不是谁说的话：\n'+dyn+'\n\n'+usr):usr;
-  var msgs=[{role:'system',content:sys},{role:'user',content:usr2}];
+  var msgs=[{role:'system',content:(sys&&wwHushOn())?(sys+'\n\n'+WW_HUSH):sys},{role:'user',content:usr2}];
   var rushed=false;   /* 【新】她按过「打断→重新想」之后，给这个角色加一句「别想太久、快点直接说」 */
   /* 最多重来 20 次 —— 只有「被她打断」才会重来，不会自己空转 */
   for(var attempt=0;attempt<20;attempt++){
@@ -27208,6 +27212,12 @@ function wwSetupHTML(){
      '<button class="'+(w.npcFill?'on':'')+'" onclick="GAME.wwNpc(1)">用 NPC 补位</button>'+
      '</div>'+
      '<p class="gx-hint">NPC 就是「没有性格设定的普通玩家」——不用读任何角色设定，很省 token，适合同事凑人数。它们只按普通玩家那样说话，名字是随机网名。</p>';
+  h+='<div class="gx-sec">AI 想多少</div>'+
+     '<div class="gx-seg">'+
+     '<button class="'+(wwHushOn()?'on':'')+'" onclick="GAME.wwHush(1)">省流 · 少想</button>'+
+     '<button class="'+(!wwHushOn()?'on':'')+'" onclick="GAME.wwHush(0)">照旧 · 多想</button>'+
+     '</div>'+
+     '<p class="gx-hint">「省流」会在每次请求里提醒 AI「别在心里长篇大论」，能省下不少 token（尤其是爱长篇思考的模型）。效果不保证——觉得 AI 推理变浅、变笨了，就切回「照旧」。这个设置是全局的，所有对局都跟着变。</p>';
   h+='<div class="gx-sec">选角色（需要 '+need+' 个，已选 '+w.cids.length+' 个'+(w.npcFill?('，其余 '+Math.max(0,need-w.cids.length)+' 个用 NPC'):'')+'）</div>';
   chars.forEach(function(c){
     var on=w.cids.indexOf(c.id)>=0,mm=(w.mem[c.id]==='full')?'full':'base';
@@ -28931,6 +28941,11 @@ window.GAME={
   wwTrans:function(on){
     var v=(on===1||on==='1'||on===true);
     try{cfg=cfg||{};cfg.wwThink=v;save(LS.cfg,cfg)}catch(e){}
+    render(false);
+  },
+  wwHush:function(on){
+    var v=(on===1||on==='1'||on===true);
+    try{cfg=cfg||{};cfg.wwHush=v;save(LS.cfg,cfg)}catch(e){}
     render(false);
   },
   wwThinkTap:function(btn,ns,key){wwThinkTap(btn,ns,key)},
