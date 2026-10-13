@@ -21526,11 +21526,12 @@ var V={view:'hall',cids:[],mem:{},wordMode:'rand',w1:'',w2:'',msg:'',sess:null,
     resayOn:false,
     fx:null,
     thinkOpen:{},
-    npcFill:false,
+    npcFill:true,   /* 【改】默认用 NPC 补位：进设置页不预选角色，用户自己点 */
     spoke:{},
     /* 【新】警长（上警）：8 人及以上默认开，可在开局设置里关掉 */
     sheriff:true,sheriffUid:null,badgeGone:false,sheriffDone:false,policeUp:[],policeVote:{},
     policeAll:[],upSpoke:{},electing:false,pendingDeaths:null,speechStart:'',speechDir:1,
+    board:'std',guardLast:'',kingBoom:false,kingNote:'',dayOver:0,
     voteMode:'',votePick:null,voteHit:'',votePool:[],voteLeft:0,voteResolve:null,witchLog:[]}};
 var MEMC={};
 
@@ -21986,11 +21987,11 @@ var CSS=[
    顶部再留出灵动岛/摄像头的安全区，字不会被挡 */
 '.ww-head{position:sticky;top:calc(-1 * (env(safe-area-inset-top) + 16px));z-index:4;margin-top:calc(-1 * (env(safe-area-inset-top) + 16px));background:var(--panel);padding:calc(env(safe-area-inset-top) + 8px) 0 8px;margin-bottom:8px;box-shadow:0 4px 12px rgba(0,0,0,.05)}',
 /* 身份浓缩成一小条：身份 · 状态 ·（该知道的线索） */
-'.ww-me{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 0;padding:6px 11px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);font-size:12.5px;line-height:1.5}',
-'.ww-me-r{font-weight:700;color:var(--acc);white-space:nowrap}',
-'.ww-me-s{font-size:11.5px;color:var(--dim);white-space:nowrap}',
+'.ww-me{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;margin:6px 0 0;padding:6px 11px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);font-size:12.5px;line-height:1.5}',
+'.ww-me-r{font-weight:700;color:var(--acc);white-space:nowrap;flex:0 0 auto}',
+'.ww-me-s{font-size:11.5px;color:var(--dim);white-space:nowrap;flex:0 0 auto}',
 '.ww-me-s:before{content:"·";margin-right:7px;opacity:.7}',
-'.ww-me-x{flex:1 1 auto;min-width:0;font-size:11.5px;color:var(--dim);text-align:right;word-break:break-word}',
+'.ww-me-x{flex:1 1 auto;min-width:0;font-size:11.5px;color:var(--dim);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
 /* 氛围层：一整层固定在屏幕上（盖在内容之上、但不挡点击），
    夜里是深蓝暗角 + 顶部夜色，白天是暖金微光 —— 一整层就不会和置顶条分层 */
 '.ww-atm{position:fixed;inset:0;pointer-events:none;z-index:50}',
@@ -23868,9 +23869,9 @@ var WW_IC_CLAW='<svg viewBox="0 0 24 24">'+
  '<circle cx="14.1" cy="20" r="1.15"/><circle cx="18.9" cy="17.4" r="0.85"/><circle cx="15.9" cy="22.2" r="0.6"/>'+
  '</svg>';
 var WW_IC_HIT='<svg viewBox="0 0 24 24"><path d="M12 2.6l2.2 5.6 5.9-1.4-4.1 4.4 4.1 4.4-5.9-1.4L12 21.4l-2.2-5.8-5.9 1.4 4.1-4.4-4.1-4.4 5.9 1.4z"/></svg>';
-var WW_ROLE_NAME={wolf:'狼人',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',idiot:'白痴'};
-var WW_ROLE_EMOJI={wolf:'🐺',villager:'👤',seer:'🔮',witch:'🧪',hunter:'🔫',idiot:'🃏'};
-var WW_PICKS=[['random','随机'],['villager','村民'],['seer','预言家'],['witch','女巫'],['hunter','猎人'],['idiot','白痴'],['wolf','狼人']];
+var WW_ROLE_NAME={wolf:'狼人',wolfking:'白狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴'};
+var WW_ROLE_EMOJI={wolf:'🐺',wolfking:'👑',villager:'👤',seer:'🔮',witch:'🧪',hunter:'🔫',guard:'🛡️',idiot:'🃏'};
+var WW_PICKS=[['random','随机'],['villager','村民'],['seer','预言家'],['witch','女巫'],['hunter','猎人'],['guard','守卫'],['idiot','白痴'],['wolfking','白狼王'],['wolf','狼人']];
 /* NPC：没有性格设定的「普通玩家」，只按普通玩家说话 —— 不读人设，省 token，用来凑人数 */
 var WW_NPC_NAMES=['摸鱼选手','深夜不睡','柠檬不酸','干饭第一名','键盘侠阿伟','路过的风景','香菜退散','开麦就困','打工人小张','月亮不睡','一杯冰美式','网不太好'];
 var WW_NPC_FACES=['🙂','🐟','🌙','🍜','🎧','🧋','🍋','🛸','🐧','🌿','☕','📶'];
@@ -23891,8 +23892,8 @@ var WW_TIPS=[
 '【三条底层逻辑】1 先站边、后推理：真预言家的金水必是好人、查杀必是狼；但狼也能发真查杀，狼查杀狼是成立的。',
 '2 正反逻辑都要盘：说完正逻辑（A查杀B、B出局，A像好人），再点一句反逻辑隐患（A可能是狼踩狼做高自己）。',
 '3 轮次意识：有查杀先出查杀，再是对跳的神职、明狼，最后抓倒钩狼。',
-'【各角色要点】预言家：先报验人，再给狼坑，最后归票。女巫：首夜谨慎救人，别轻易暴露银水。猎人：被票出去可以用开枪施压。村民：别只跟风，要有自己的狼坑和归票。狼人：队友悍跳成功就冲锋拉票，队友崩盘就倒钩保命，全场盯狼就打深水少说话。',
-'【提醒】这个游戏里没有守卫、铜水、自爆、拍刀这些规则，不要提。'
+'【各角色要点】预言家：先报验人，再给狼坑，最后归票。女巫：有守卫的局**首夜就开解药**（守卫首夜空守，两边错开、防止「同守同救」把人奶穿），没有守卫的局首夜谨慎救人；别轻易暴露银水。守卫：**首夜空守**，之后重点护住预言家（别连守同一个人）。猎人：被票出去可以用开枪施压。村民：别只跟风，要有自己的狼坑和归票。狼人：队友悍跳成功就冲锋拉票，队友崩盘就倒钩保命，全场盯狼就打深水少说话。',
+'【提醒】这个游戏里没有铜水、拍刀这些规则，不要提。（有没有守卫、有没有白狼王自爆，看下面的补充。）'
 ].join('\n');
 /* 每个角色可以单独开关这份小抄（默认关：想让谁懂行就单独给它打开） */
 function wwTipsOn(p){
@@ -23902,6 +23903,9 @@ function wwTipsOn(p){
 }
 function wwTipsBlock(){
   var extra=wwSheriffOn()?'\n【警长/上警】第一天天亮后竞选警长：先表态上警 → 警上各发一次言拉票 → 可以退水 → 没上警的人投票选出。警长白天投票算 1.5 票、负责定发言顺序；TA 出局时警徽可以移交给别人，也可以撕毁。狼上警抢警徽（悍跳抢警徽）是常规套路。':'';
+  var bd=wwBoard((V.ww&&V.ww.count)||0);
+  if(bd.guard)extra+='\n【守卫】每晚可以守一个人（含自己），被守的人当晚不会被狼刀死；不能连续两晚守同一个人。守卫只防狼刀——被毒 / 被猎人带走 / 被投票放逐照样死。注意「同守同救必死」：同一晚你守的人、女巫又刚好用解药救了（而且狼刀的就是他），他反而会死。**主流打法：第一晚空守**——女巫第一晚常常会直接开解药，你第一晚不动，就不会撞上同守同救。';
+  if(bd.wolfking)extra+='\n【白狼王】白天可以自爆，自爆时带走场上任意一个还活着的人，然后白天立刻结束、直接进入黑夜；只能用一次。能炸的时机：竞选警长发言时、白天自己发言时、投票还没出结果之前——票一投完、确定放逐你了就炸不了了。别急着炸——留到能炸掉关键神职、或者自己快被票出去的时候最划算。';
   return '【狼人杀术语与思路小抄】下面是老玩家的常用术语和打法，你说话时可以自然地用（能对上就用，别硬堆词）：\n'+WW_TIPS+extra;
 }
 /* 自己可以给角色打的标记（纯给自己看，不会发给 AI） */
@@ -23922,7 +23926,7 @@ function wwFactsFor(p){
     (dead.length?('\n· 已经出局的人：'+dead.map(function(x){
       /* 【改】夜里出局的**不写死因**：主持人只报「谁出局了」，不会说哪个是被女巫毒的、哪个是被狼刀的。
          白天出局的那两种（投票放逐 / 猎人开枪）本来就是公开的，照旧写明。 */
-      var how=(x.killedBy==='vote')?'白天被投票放逐':((x.killedBy==='shot')?'被猎人开枪带走':'夜里出局');
+      var how=(x.killedBy==='vote')?'白天被投票放逐':((x.killedBy==='shot')?'被猎人开枪带走':((x.killedBy==='boom')?'白天出局（白狼王自爆）':'夜里出局'));
       return wwName(x)+'（'+how+'）';
     }).join('、')+'\n  （夜里出局的只报「出局」，不说死因——被毒还是被刀，得自己推）'):'')+
     '\n· 名字只是称呼，跟身份没有关系：名字里带「狼」字的人也可能是好人，别被名字骗了（这一条很重要）。');
@@ -23958,7 +23962,7 @@ function wwFactsFor(p){
 function wwKnownWolf(p){
   var me=wwMe();
   if(!p||!me)return false;
-  if(me.role==='wolf')return wwIsWolf(p);
+  if(wwIsWolf(me))return wwIsWolf(p);   /* 【改】白狼王也算狼：用户是白狼王时，队友一样要红名 */
   if(me.role==='seer'){
     var c=me.check||[];
     for(var i=0;i<c.length;i++){if(c[i].uid===p.uid&&c[i].isWolf)return true}
@@ -23998,7 +24002,9 @@ function wwMarkBadge(uid){
   return '<span class="ww-mkbadge '+k+'">'+WW_MARK_TXT[k]+'</span>';
 }
 function wwBoard(n){
-  if(n===12)return {wolf:4,villager:4,seer:1,witch:1,hunter:1,idiot:1};   /* 12人：预女猎白 */
+  if(n===12)return ((V.ww&&V.ww.board==='wolfking')
+    ? {wolf:3,wolfking:1,villager:4,seer:1,witch:1,hunter:1,guard:1}   /* 12人：守卫白狼王（预女猎守 + 白狼王） */
+    : {wolf:4,villager:4,seer:1,witch:1,hunter:1,idiot:1});             /* 12人：预女猎白 */
   if(n===8)return {wolf:2,villager:3,seer:1,witch:1,hunter:1};
   if(n===9)return {wolf:3,villager:3,seer:1,witch:1,hunter:1};
   if(n===7)return {wolf:2,villager:3,seer:1,witch:1,hunter:0};
@@ -24006,22 +24012,26 @@ function wwBoard(n){
 }
 function wwRoleList(n){
   var b=wwBoard(n),out=[];
-  ['wolf','seer','witch','hunter','idiot','villager'].forEach(function(k){
+  ['wolf','wolfking','seer','witch','guard','hunter','idiot','villager'].forEach(function(k){
     for(var i=0;i<(b[k]||0);i++)out.push(k);
   });
   return out;
 }
 /* 给 AI 看的「这一局的板子」：只报开局的配置总数，不报场上现在还剩几个狼/几个神（那样等于开挂） */
 function wwBoardLine(){
-  var w=V.ww,b=wwBoard(w.count),a=['狼人 '+b.wolf+' 个'];
+  var w=V.ww,b=wwBoard(w.count),a=(b.wolf?['狼人 '+b.wolf+' 个']:[]);
+  if(b.wolfking)a.push('白狼王 '+b.wolfking+' 个');
   if(b.seer)a.push('预言家 '+b.seer+' 个');
   if(b.witch)a.push('女巫 '+b.witch+' 个');
+  if(b.guard)a.push('守卫 '+b.guard+' 个');
   if(b.hunter)a.push('猎人 '+b.hunter+' 个');
   if(b.idiot)a.push('白痴 '+b.idiot+' 个');
   a.push('普通村民 '+b.villager+' 个');
   return '【这一局的板子（开局就是公开信息，所有人都知道）】一共 '+w.count+' 人：'+a.join('、')+'。'+
     '这说的是开局的配置总数；场上现在还剩几个狼、几个神，谁都不知道，只能靠发言和票型推理——不要凭空假设，也不要瞎报。'+
-    (b.idiot?('（白痴的规则：白天被投票放逐时不会死，会翻牌继续留在场上、可以发言，但从此不能再投票、也不能再被票出去；夜里被刀照样会死。）'):'');
+    (b.idiot?('（白痴的规则：白天被投票放逐时不会死，会翻牌继续留在场上、可以发言，但从此不能再投票、也不能再被票出去；夜里被刀照样会死。）'):'')+
+    (b.guard?('（守卫的规则：每晚可以守一个人（包括自己），被守的人当晚不会被狼刀死；不能连续两晚守同一个人；守卫只管狼刀，被毒 / 被猎人带走 / 被投票放逐照样死；同一晚守卫守的人、女巫又刚好用解药救了（而且狼刀的就是他），他反而会死。）'):'')+
+    (b.wolfking?('（白狼王的规则：白天可以自爆，自爆时带走场上任意一个还活着的人，然后白天立刻结束、直接进入黑夜；自爆只能用一次。夜里它就是一只普通狼。）'):'');
 }
 /* 好人发言前要先在「草稿纸」上盘一遍；这里把草稿纸和发言拆开：
    草稿纸只留在它自己身上（不上屏、不进公共记录、别的角色看不到）。 */
@@ -24090,7 +24100,7 @@ function wwHasBadge(){var s=wwSheriffP();return !!(s&&s.alive)}
 function wwBadgeMark(p){return (p&&V.ww&&V.ww.sheriffUid===p.uid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):''}
 /* 能投票、也能被票的人：翻牌后的白痴不算在里面 */
 function wwVotable(){return V.ww.players.filter(function(p){return p.alive&&!(p.role==='idiot'&&p.revealed)})}
-function wwIsWolf(p){return !!(p&&p.role==='wolf')}
+function wwIsWolf(p){return !!(p&&(p.role==='wolf'||p.role==='wolfking'))}
 function wwMe(){var a=V.ww.players;for(var i=0;i<a.length;i++){if(a[i].isUser)return a[i]}return null}
 function wwCharBlock(p){
   var w=V.ww,c=p.isUser?null:chOf(p.cid);
@@ -24159,17 +24169,19 @@ function wwSysFor(p,task){
   L.push('【你是谁 / 你的身份】你是 '+(p.seq||'?')+' 号「'+p.name+'」（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwNum(p)+p.name+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'普通好人，没有特殊能力。打法：靠听发言找漏洞，自己盘出狼坑（最像狼的 1~2 个号 + 理由），站边你信的真预言家，投票要有自己的判断、不能只跟风；被怀疑时用你的行为和时间线自证，别靠发誓喊冤。':
      r==='seer'?'你每晚可以验一个人，知道他是好人还是狼人。打法：把验人结果说清楚（好人＝金水，狼＝查杀），正常第一轮就该跳出来报验人、给出你心里的狼坑和这轮该投谁，不要一直藏着不用——藏太久好人就没方向了；报完之后你会成为狼的目标，要靠发言说服大家别投你。':
-     r==='witch'?'你有一瓶解药和一瓶毒药，各只能用一次、而且同一晚只能用一瓶：解药能救当晚被狼刀的人（只有第一夜可以救自己，第二夜起不能自救），毒药能毒死一个人。注意：毒优先结算——如果毒到的人刚好也是今晚被狼刀的那个，他算被你毒死（比如猎人就开不了枪），当晚也只死他一个。打法：解药别急着用（第一晚开头通常先不救），毒药留到你有把握时再下、别乱毒好人。白天尽量别主动亮明自己是女巫——一说破，当晚很容易被狼刀；只有你手里的信息能救场、或者被人逼到快被投出去时，才考虑跳。':
+     r==='witch'?'你有一瓶解药和一瓶毒药，各只能用一次、而且同一晚只能用一瓶：解药能救当晚被狼刀的人（只有第一夜可以救自己，第二夜起不能自救），毒药能毒死一个人。注意：毒优先结算——如果毒到的人刚好也是今晚被狼刀的那个，他算被你毒死（比如猎人就开不了枪），当晚也只死他一个。打法：**如果这一局有守卫，主流打法是女巫第一晚就直接开解药救人**（同时守卫第一晚空守，两边错开，就不会出现「同守同救」把被救的人奶穿）；没有守卫的局，第一晚可以先不急着救。毒药留到你有把握时再下、别乱毒好人。白天尽量别主动亮明自己是女巫——一说破，当晚很容易被狼刀；只有你手里的信息能救场、或者被人逼到快被投出去时，才考虑跳。':
      r==='hunter'?'你被狼人刀死、或被投票放逐时可以开枪带走一个人（被女巫毒死则不能开枪）。打法：白天不要主动跳出来说自己是猎人——说破等于告诉狼"别刀我、也别票我"，反而把你晾在场上；平时就当普通好人一样盘逻辑、藏好身份，只有被投票逼到快出局时，才用"我是猎人"来施压、说服大家改投你怀疑的人。':
      r==='idiot'?'你是「白痴」：你没有主动技能，但白天被大家投票放逐时不会死——主持人会让你翻牌，你继续留在场上、可以继续发言，但从那一刻起你不能再投票，也不能再被投票放逐（夜里被狼刀、被女巫毒、被猎人带走照样会死）。打法：因为你不怕被票，可以放开手脚去试探、去踩人、甚至主动接刀，帮好人把水搅出来；翻牌之后大家就知道你是好人，你说的话分量最重，用它给真预言家站台、把狼坑点出来。':
+     r==='guard'?'你是【守卫】：每晚可以守一个人（包括你自己），被守的人当晚不会被狼刀死。要点：① 不能连续两晚守同一个人；② 你只管狼刀——被守的人如果被女巫毒、被猎人带走、被投票放逐，照样死；③ 同一晚你守的人、女巫又刚好用解药救了（而且狼刀的就是他），他反而会死（这叫「同守同救必死」，别踩这个坑）。打法：**主流打法是第一晚空守**——有女巫的局，女巫第一晚常常会直接开解药救人，你第一晚先不动，就不会撞上「同守同救」把被救的人奶穿；从第二晚起优先守你自己、以及像预言家的人；真预言家跳出来之后就重点护住 TA（记得错开、别连守同一个）；别死守一个位置，也要提防同守同救。白天尽量别主动亮明自己是守卫。':
+     r==='wolfking'?'你是【白狼王】：平时你就是一只狼——和狼队友一起刀人、互相认识，夜里没有额外能力。但你在白天可以【自爆】：自爆时立刻带走场上任意一个还活着的人，然后白天马上结束、直接进入黑夜（当天不再发言、不再投票）。自爆只能用一次。能炸的时机：竞选警长发言的时候、白天轮到你发言的时候、投票出结果之前——票一投完、确定要放逐你了就来不及炸了。打法：别急着炸——留到自己快被票出去、或者能炸掉一个关键神职（预言家 / 女巫 / 守卫 / 猎人）的时候再炸，收益最大；平时就照普通狼那样藏好、帮队友拉票。':
      '你和狼队友每晚一起刀一个人。白天你要装成好人、别被投出去，可以大胆撒谎（悍跳预言家、发假金水、把好人说成狼）。'+
      '【什么时候就该悍跳了（很重要，别再藏着）】出现下面任一条，狼队就该有人跳预言家：'+
      '① 真预言家已经起跳，而且他查杀到了你们狼队的人——再不跳，被查杀的那个人基本必出局；'+
      '② 真预言家已经起跳，而且他发言有力、好人开始明确站他这边——再晚你说话就没人信了；'+
      '③ 你们狼队处境危险（有队友快被投出去、眼看要被人扛推）——这一跳能帮队友续命。'+
      '悍跳要点：报一个假的验人结果（给好人发金水，或者反手把真预言家/好人说成「查杀」），语气理直气壮别心虚；跳了就咬死这条线，别自己前后矛盾。没人怀疑你时可以当"深水狼"少说话；队友崩盘时可以"倒钩"（站边真预言家、反打队友来保命）。'));
-  if(r==='wolf'){
-    var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name});
+  if(wwIsWolf(p)){
+    var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':'')});
     L.push('你的狼队友：'+(mates.join('、')||'（没有别人，只有你自己）'));
   }
   if(r==='seer'){
@@ -24407,14 +24419,12 @@ async function wwWolfChoose(wolves){
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
     if(!t)t=rand;
     w.wolfPicks.push({seq:m.seq,name:m.name,t:t});
-    /* 【新】狼队全是人机时：每只狼顺手给队友留一句悄悄话（你当时看不到，赛后在透明模式里能看） */
-    if(!userWolf){
-      var note=await wwWolfNote(m,t);
-      if(wwStaleG(gen))return null;
-      if(note){
-        w.log.push({k:'wolf',who:m.uid,nm:m.name,seq:m.seq,d:w.day,text:note});
-        render(true);
-      }
+    /* 【改】每只人机狼都留一句悄悄话：这样「你是狼」的时候，也能看到队友在商量什么（以前只有全是人机时才留） */
+    var note=await wwWolfNote(m,t);
+    if(wwStaleG(gen))return null;
+    if(note){
+      w.log.push({k:'wolf',who:m.uid,nm:m.name,seq:m.seq,d:w.day,text:note});
+      render(true);
     }
   }
   /* 最终刀谁：听多数意见；打平就听第一个开口的 */
@@ -24433,6 +24443,16 @@ async function wwSeerChoose(seer){
     '\n【输出格式】只输出你要验的那个人的编号或名字（例如「3号」）。');
   var txt=await wwCall(sys,'请决定今晚验谁。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
+}
+/* 【新】守卫选人（不能连守同一个；可以选择不守） */
+async function wwGuardChoose(guard,pool){
+  var last=wwPlayerByUid(V.ww.guardLast);
+  var sys=wwSysFor(guard,'现在轮到你（守卫）守人。从下面这些可以守的人里选一个，TA 今晚不会被狼刀死：'+pool.map(wwName).join('、')+
+    (last?('\n（规则：不能连续两晚守同一个人——你昨晚守的是 '+wwTag(last)+'，今晚不能再守 TA。）'):'')+
+    '\n【输出格式】只输出你要守的那个人的编号或名字（例如「3号」），或者只输出「不守」。');
+  var txt=await wwCall(sys,'请决定今晚守谁。',40,.85);
+  if(/不守|空守|放弃|不用/.test(txt))return null;
+  return wwMatch(txt,pool)||null;
 }
 async function wwWitchChoose(witch,victim){
   var w=V.ww,out={save:false,poison:null};
@@ -24774,10 +24794,31 @@ function wwStep(label){
 async function wwNight(){
   var w=V.ww,me=wwMe();
   var gen=wwGenNow();
-  w.night={wolf:null,save:false,poison:null,check:null,deaths:[]};
+  w.night={wolf:null,save:false,poison:null,check:null,guard:null,deaths:[]};
   w.nightDone=false;                  /* 这一夜还没结算（结算完才置 true，存/接着玩时靠它判断进度） */
   w.wolfPicks=[];                     /* 今晚每只狼各自的刀人意见（下面商量刀谁时会填上） */
   w.speeches=[];
+  /* 【新】守卫：在狼人之前行动（他守人的时候还不知道刀口） */
+  var guard0=wwAlive().filter(function(p){return p.role==='guard'})[0];
+  if(guard0){
+    var gPool=wwAlive().filter(function(p){return p.uid!==w.guardLast});   /* 不能连续两晚守同一个人 */
+    if(!gPool.length)gPool=wwAlive();
+    var gTgt=null;
+    if(me&&me.alive&&guard0===me){
+      var rg=await wwAsk('🛡️ 你是守卫。今晚要守谁？（被守的人今晚不会被狼刀死；不能连续两晚守同一个人）',gPool,{none:'今晚不守'});
+      if(wwStaleG(gen))return;
+      gTgt=rg.uid?wwPlayerByUid(rg.uid):null;
+    }else{
+      await wwStep('🛡️ 守卫正在决定守谁');
+      if(wwStaleG(gen))return;
+      w.msg='🛡️ 守卫正在决定守谁…';render(true);
+      gTgt=await wwGuardChoose(guard0,gPool);
+      if(wwStaleG(gen))return;
+    }
+    w.night.guard=gTgt||null;
+    w.rec.push(gTgt?{d:w.day,t:'守卫守了 '+wwTag(gTgt),tk:(WW_LAST&&WW_LAST.reason)||''}:{d:w.day,t:'守卫今晚没有守人'});
+    render(true);
+  }
   /* 狼人 */
   var wolves=wwAlive().filter(wwIsWolf);
   if(wolves.length){
@@ -24903,9 +24944,15 @@ async function wwNight(){
   if(wwStaleG(gen))return;             /* 结算前再确认一次：不是这一局就别往下走 */
   /* 结算：女巫的毒优先 —— 同一晚又刀又毒同一个人时，这个人算「被毒死」，
      所以猎人开不了枪，而且当晚只死他一个（狼刀落在同一个人身上就不再重复结算）。 */
-  var deaths=[],v=w.night.wolf,pz=w.night.poison;
+  var deaths=[],v=w.night.wolf,pz=w.night.poison,gd=w.night.guard,sv=!!w.night.save;
   if(pz){pz.alive=false;pz.killedBy='poison';deaths.push(pz)}
-  if(v&&!w.night.save&&deaths.indexOf(v)<0){v.alive=false;v.killedBy='wolf';deaths.push(v)}
+  if(v&&deaths.indexOf(v)<0){
+    var guarded=!!(gd&&gd===v),saved=!!sv;
+    /* 被守卫守住、被女巫解药救，只要中一样就活下来；
+       两样都中（同守同救）→ 反而必死；两样都没有 → 被刀死。 */
+    if(guarded===saved){v.alive=false;v.killedBy='wolf';deaths.push(v)}
+  }
+  w.guardLast=(gd&&gd.uid)?gd.uid:'';     /* 记下今晚守了谁：明天不能连守同一个 */
   w.night.deaths=deaths;
   if(w.day===1&&wwSheriffOn()){
     /* 【改】第一天的规则是「先上警、再公布死讯遗言」：所以这一夜的结果先押着，
@@ -24975,6 +25022,7 @@ async function wwExile(p){
   var w=V.ww;
   var gen=wwGenNow();
   if(!p||!p.alive)return;
+  /* 【改·规则】投票已经出结果、要放逐他的时候，白狼王就不能再自爆了（想炸得赶在投票出结果之前）。 */
   /* 白痴第一次被票：翻开身份牌、不出局（之后不能投票、也不能再被票出去） */
   if(p.role==='idiot'&&!p.revealed){
     p.revealed=true;
@@ -25001,6 +25049,7 @@ async function wwExile(p){
     await wwStep('轮到「'+wwTag(p)+'」留遗言');
     w.msg='「'+wwTag(p)+'」正在留遗言…';render(true);
     var lw=await wwLastWords(p);
+    if(wwStaleG(gen)||wwDayCut())return;
     if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+lw,think:wwThinkOf(p)}))return;
   }else if(!over){
     w.log.push({k:'sys',text:'遗言只有第一轮才有，'+wwTag(p)+' 没有留遗言。'});
@@ -25102,6 +25151,110 @@ function wwActHead(title,noMark){
      :'<button class="ww-ico" type="button" aria-label="自动播放" onclick="GAME.wwAuto(1)">'+WW_IC_AUTO+'</button>')+
     '</div>';
 }
+/* ---------- 【新】白狼王自爆 ---------- */
+/* 今天是不是已经被「自爆」提前结束了 */
+function wwDayCut(){var w=V.ww;return !!(w&&w.dayOver===w.day)}
+function wwKingP(){var a=wwAlive().filter(function(p){return p.role==='wolfking'});return a[0]||null}
+/* 给白狼王看的「精简局面」：最近几条发言各截一半、狼队频道只带最近几条 —— 尽量少花 token */
+function wwKingCtx(p){
+  var w=V.ww,L=[];
+  var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':'')});
+  L.push('【你是谁】你是这一局的【白狼王】（狼人阵营）。你能在白天【自爆】：带走场上任意一个还活着的人，然后白天立刻结束、直接进入黑夜。自爆只能用一次。你的狼队友：'+(mates.join('、')||'（没有别人）')+'。');
+  L.push('【活着的玩家】'+(wwAlive().map(function(x){return wwTag(x)+(x===p?'（你自己）':'')}).join('、')||'（没有了）'));
+  var pub=[];
+  (w.log||[]).slice(-16).forEach(function(e){
+    if(!e)return;
+    if(e.k==='sys'&&/出局|平安夜|自爆|警长|上警/.test(String(e.text||'')))pub.push('主持人：'+String(e.text||''));
+    else if(e.k==='say'){var q=wwPlayerByUid(e.who);pub.push((q?wwTag(q):'？')+'：'+String(e.text||'').replace(/^【遗言】/,'').replace(/^【竞选发言】/,'').replace(/\s+/g,' ').slice(0,60))}
+  });
+  L.push('【最近发生了这些（发言只截了前半段）】\n'+(pub.slice(-6).join('\n')||'（还没有）'));
+  var ch=wwWolfChannelText(3);
+  if(ch)L.push('【狼队频道 · 最近几条】\n'+ch);
+  if(w.kingNote)L.push('【你上次给自己留的便签】'+w.kingNote);
+  return L.join('\n\n');
+}
+/* 白狼王要不要自爆？返回要带走的人（不自爆返回 null） */
+async function wwKingDecide(p){
+  var w=V.ww;
+  var sys=wwKingCtx(p)+'\n\n【现在请你决定】要不要现在就自爆？\n'+
+    '· 值得炸的时机一般是：① 你马上要被投出去；② 场上跳出来一个关键神职（预言家 / 女巫 / 守卫 / 猎人），炸掉他收益最大；③ 狼队快顶不住了，需要强行换人、打断好人节奏。\n'+
+    '· 别急着炸：队友还稳、你自己也安全的时候，留着这一炸更值钱。\n'+
+    '· 注意：投票一出结果、确定要放逐你了，就来不及炸了——要炸得赶在投票出结果之前（竞选发言、你自己发言、投票前这些时候都行）。\n'+
+    '【输出格式】第一行只写：不自爆 或 自爆：X号（X 是你要带走的那个人的编号）。第二行另起一行写一张给自己的便签，格式「便签：…」，一句话记下你的策略、以及你打算什么时候再考虑自爆（不想写可以省略）。';
+  var txt=String(await wwCall(sys,'请决定。',80,.85)||'');
+  var mm=txt.match(/便签[：:]\s*([^\n]*)/);
+  if(mm){var nn=String(mm[1]).trim().slice(0,80);if(nn)w.kingNote=nn;}
+  var first=(txt.split(/\n+/)[0]||'').trim();
+  if(/不自爆|不炸|先不|暂时不|再等/.test(first))return null;
+  var m=first.match(/自爆[：:]\s*(.+)/);
+  if(!m)return null;
+  return wwMatch(m[1],wwAlive().filter(function(x){return x!==p}))||null;
+}
+/* 真的炸：白狼王出局 + 带走一个人；这一天到此为止 */
+async function wwKingBoom(p,tgt){
+  var w=V.ww;
+  if(!p||w.kingBoom)return;
+  w.kingBoom=true;
+  p.alive=false;p.killedBy='boom';
+  var t=(tgt&&tgt.alive&&tgt!==p)?tgt:null;
+  if(t){t.alive=false;t.killedBy='boom';}
+  w.log.push({k:'sys',text:'💥 白狼王 '+wwTag(p)+' 自爆了！'+(t?('带走了 '+wwTag(t)+'。'):'')+'（白天到此结束，直接进入黑夜。）'});
+  w.rec.push({d:w.day,t:'白狼王 '+wwTag(p)+' 自爆'+(t?('，带走 '+wwTag(t)):'')});
+  if(t)wwFx(t.uid,'hit',2200);
+  w.dayOver=w.day;                 /* 标记：今天到此为止 */
+  render(true);
+}
+/* 叫 AI 白狼王判断一次要不要炸；炸了返回 true */
+async function wwKingTry(gen,p){
+  var w=V.ww;
+  if(!p||!p.alive||p.role!=='wolfking'||w.kingBoom||p.isUser)return false;
+  if(wwAlive().length<2)return false;
+  await wwStep('💥 白狼王正在想：要不要自爆');
+  if(wwStaleG(gen))return false;
+  w.msg='💥 白狼王正在考虑自爆…';render(true);
+  var tgt=await wwKingDecide(p);
+  if(wwStaleG(gen))return false;
+  if(!tgt)return false;
+  await wwKingBoom(p,tgt);
+  return true;
+}
+/* 你是白狼王时：弹出「点谁带走」。
+   sayRes 是可选的：如果你是在「发言框」里点进来的，就把那段发言的等待也一起处理掉。 */
+function wwKingAskBoom(sayRes){
+  var w=V.ww,me=wwMe();
+  if(!me||me.role!=='wolfking')return;
+  if(w.kingBoom)return toast('这一炸你已经用过了');
+  if(w.over||w.phase!=='day')return toast('自爆只能在白天用');
+  if(!me.alive)return toast('你已经出局了');
+  if(wwAlive().length<2)return toast('场上没有别人可以带了');
+  var pool=wwAlive().filter(function(x){return x!==me});
+  var keep=sayRes?w.userAsk:null;
+  WW_LAST={reason:''};
+  w.userAsk={kind:'pick',label:'💥 白狼王自爆：点一下你要带走的人（不想炸就按「'+(sayRes?'回到发言':'不自爆')+'」）',targets:pool.map(function(x){return x.uid}),none:(sayRes?'回到发言':'不自爆')};
+  w.resolve=function(res){
+    var uid=res&&res.uid,t=uid?wwPlayerByUid(uid):null;
+    if(t&&t.alive){
+      if(sayRes)sayRes({text:'',boom:1});   /* 刚才那段发言按「不说了」结束掉 */
+      wwKingBoom(me,t);
+    }else{
+      if(sayRes){w.userAsk=keep;w.resolve=sayRes}     /* 从发言框进来的：不炸就回到刚才的发言框 */
+      render(true);
+    }
+  };
+  render(true);
+}
+function wwKingUserBoom(){
+  var w=V.ww;
+  if(w.userAsk||w.voteMode)return toast('先把手头这一步走完，再自爆');
+  wwKingAskBoom(null);
+}
+/* 在「你的发言框」里点了自爆：先把这段发言结束掉，再去选带走谁 */
+function wwKingBoomFromSay(){
+  var w=V.ww;
+  if(!w.userAsk||w.userAsk.kind!=='say')return;
+  if(w.voteMode)return;
+  wwKingAskBoom(w.resolve);
+}
 /* ---------- 【新】警长（上警）：竞选 / 发言顺序 / 警徽 ---------- */
 function wwPoliceUpP(){var w=V.ww;return (w.policeUp||[]).map(function(u){return wwPlayerByUid(u)}).filter(function(p){return !!p})}
 /* 今天的发言顺序：警长定过就按警长定的来，否则随机挑一个开头、按座位号往下 */
@@ -25188,13 +25341,13 @@ async function wwPolicePoll(gen,cand){
       var mypool=cand.filter(function(x){return x&&x!==me});
       if(mypool.length){
         var r=await wwAsk('🗳️ 第一天的警长竞选：把你这一票投给谁？',mypool,{none:'弃权'});
-        if(wwStaleG(gen))return null;
+        if(wwStaleG(gen)||wwDayCut())return null;
         if(r.uid)votes[me.uid]=r.uid;
       }
     }
     w.msg='大家正在投警长票…';render(true);
     await chain;
-    if(wwStaleG(gen))return null;
+    if(wwStaleG(gen)||wwDayCut())return null;
     var by={},order=[];
     Object.keys(votes).forEach(function(k){var t=votes[k];if(!t)return;if(!by[t]){by[t]=[];order.push(t)}var vv=wwPlayerByUid(k);if(vv)by[t].push(wwTag(vv))});
     if(!order.length){w.log.push({k:'vote',text:'警长投票：没有人投票。'});render(true);return null}
@@ -25252,7 +25405,7 @@ async function wwElection(){
   }
   w.msg='大家正在陆续表态…';render(true);
   await chain;
-  if(wwStaleG(gen))return;
+  if(wwStaleG(gen)||wwDayCut())return;
   var up=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
   w.policeAll=up.map(function(p){return p.uid});   /* 【新】记下「上过警的人」（含后来退水的）：退水的人不能再投警长票 */
   w.log.push({k:'sys',text:up.length?('上警的人：'+up.map(wwTag).join('、')+'。'):'没有人上警。'});
@@ -25264,9 +25417,12 @@ async function wwElection(){
   for(var j=0;j<cand.length;j++){
     var q=cand[j];if(wwStaleG(gen))return;
     w.speaking=q.uid;
+    /* 【新】白狼王可以在竞选警长发言的时候自爆 */
+    if(q.role==='wolfking'&&!w.kingBoom){if(await wwKingTry(gen,q))return;if(wwStaleG(gen)||wwDayCut())return;}
     if(q.isUser){
       var rs=await wwAskSay('🗳️ 轮到你竞选发言：说说你的身份、打法、当选后你会怎么带，以及你怀疑谁。','不发言');
       if(wwStaleG(gen))return;
+      if(rs&&rs.boom)return;             /* 【新】你在竞选发言框里点了自爆 */
       if(rs.text)w.log.push({k:'say',who:q.uid,text:'【竞选发言】'+rs.text});
       else w.log.push({k:'sys',text:wwTag(q)+' 上警了但没说话。'});
     }else{
@@ -25274,8 +25430,10 @@ async function wwElection(){
       if(wwStaleG(gen))return;
       w.msg='「'+wwTag(q)+'」正在竞选发言…';render(true);
       var ss=await wwPoliceSpeech(q);
+      if(wwStaleG(gen)||wwDayCut())return;   /* 【新】这中间白狼王自爆了：这段竞选发言作废 */
       if(!wwPushSay(gen,{k:'say',who:q.uid,text:'【竞选发言】'+ss,think:wwThinkOf(q)}))return;
     }
+    if(wwDayCut())return;    /* 【新】你在这段发言里点了自爆：竞选到此为止 */
     w.upSpoke[q.uid]=1;      /* 竞选发言说完了：座位下面显示「已发言」 */
     render(true);w.speaking=null;
   }
@@ -25298,7 +25456,7 @@ async function wwElection(){
   }
   w.msg='其他人正在决定退不退水…';render(true);
   await chain2;
-  if(wwStaleG(gen))return;
+  if(wwStaleG(gen)||wwDayCut())return;
   var left=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
   if(!left.length){w.log.push({k:'sys',text:'上警的人全都退水了 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
   if(left.length===1){w.sheriffUid=left[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:'只剩 '+wwTag(left[0])+' 没有退水，TA 直接当选警长。'});render(true);return}
@@ -25398,10 +25556,10 @@ async function wwDay(){
     w.electing=false;
     render(true);
     if(wwStaleG(gen))return;
-    if(wwCheckOver())return;
   }
   wwApplyPendingDeaths();          /* 上警结束：这时候才真正公布昨晚谁出局 */
   if(wwStaleG(gen))return;
+  if(wwDayCut())return;            /* 【新】竞选期间白狼王自爆了：死讯照发，但今天到此为止 */
   if(wwCheckOver())return;
   var firstNight=(w.day===1);   /* 只有第一夜死的人有遗言；第二夜起夜里死了没遗言 */
   var dead=(w.night&&w.night.deaths)?w.night.deaths.slice():[];   /* 接着存档玩时可能没有当晚名单，兜一下 */
@@ -25416,7 +25574,7 @@ async function wwDay(){
         if(uw)wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+uw});
         else w.log.push({k:'sys',text:'你没有留遗言。'});
       }
-      else{await wwStep('轮到「'+wwTag(p)+'」留遗言');w.msg='「'+wwTag(p)+'」正在留遗言…';render(true);var t=await wwLastWords(p);if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+t,think:wwThinkOf(p)}))return;render(true)}
+      else{await wwStep('轮到「'+wwTag(p)+'」留遗言');w.msg='「'+wwTag(p)+'」正在留遗言…';render(true);var t=await wwLastWords(p);if(wwStaleG(gen)||wwDayCut())return;if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+t,think:wwThinkOf(p)}))return;render(true)}
     }else{
       if(p.isUser)w.log.push({k:'sys',text:'你出局了（第二夜起，夜里出局没有遗言）。'});
       else w.log.push({k:'sys',text:wwTag(p)+' 出局，没有遗言。'});
@@ -25437,10 +25595,14 @@ async function wwDay(){
   for(var j=0;j<order.length;j++){
     var q=order[j];if(!q.alive)continue;
     if(wwStaleG(gen))return;
+    if(wwDayCut())return;               /* 【新】这一天已经被自爆提前结束了 */
     w.speaking=q.uid;      /* 座位表上把正在说话的人点亮 */
+    /* 【新】轮到白狼王发言：先让他想想这轮要不要自爆（不自爆就照常发言） */
+    if(q.role==='wolfking'&&!w.kingBoom){if(await wwKingTry(gen,q))return;if(wwStaleG(gen))return;}
     if(q.isUser){
       var r=await wwAskSay('轮到你发言了（可以说说你怀疑谁，也可以报自己的身份）','跳过此发言');
       if(wwStaleG(gen))return;
+      if(r&&r.boom)return;               /* 【新】你在发言框里点了自爆：这一天到此为止 */
       if(r.text)w.log.push({k:'say',who:q.uid,text:r.text});
       else w.log.push({k:'sys',text:wwTag(q)+' 跳过了发言，什么也没说。'});
       w.spoke[q.uid]=1;
@@ -25449,15 +25611,21 @@ async function wwDay(){
       if(wwStaleG(gen))return;
       w.msg='「'+wwTag(q)+'」正在发言…';render(true);
       var s=await wwSpeech(q);
+      if(wwStaleG(gen)||wwDayCut())return;   /* 【新】这中间白狼王自爆了：这段发言作废、不再写进记录 */
       if(!wwPushSay(gen,{k:'say',who:q.uid,text:s,think:wwThinkOf(q)}))return;   /* 中间换了局就别写进去 */
       w.spoke[q.uid]=1;
     }
     render(true);
     w.speaking=null;
+    if(wwDayCut())return;               /* 【新】白狼王自爆了：今天到此为止 */
     if(wwStaleG(gen))return;
     if(wwCheckOver())return;
   }
   /* 投票 → 平票就 PK */
+  /* 【新】投票之前：白狼王再想一次要不要自爆 */
+  var kp0=wwKingP();
+  if(kp0&&!w.kingBoom){var boomed0=await wwKingTry(gen,kp0);if(wwStaleG(gen))return;if(boomed0)return;}
+  if(wwDayCut())return;
   await wwDoVote(wwVotable(),wwVotable());
   if(wwStaleG(gen))return;
   var top=wwTallyTop(),ex=top.list.length===1?wwPlayerByUid(top.list[0]):null;
@@ -25482,6 +25650,7 @@ async function wwDay(){
           await wwStep('轮到「'+wwTag(pp)+'」PK 发言');
           w.msg='「'+wwTag(pp)+'」正在 PK 发言…';render(true);
           var sp=await wwSpeechPK(pp,pk);
+          if(wwStaleG(gen)||wwDayCut())return;
           if(!wwPushSay(gen,{k:'say',who:pp.uid,text:sp,think:wwThinkOf(pp)}))return;
         }
         render(true);
@@ -25597,6 +25766,7 @@ function wwSnap(){
       wolf:(w.night.wolf&&w.night.wolf.uid)||null,save:!!w.night.save,
       poison:(w.night.poison&&w.night.poison.uid)||null,
       check:(w.night.check&&w.night.check.uid)||null,
+      guard:(w.night.guard&&w.night.guard.uid)||null,
       deaths:(w.night.deaths||[]).map(function(p){return p&&p.uid}).filter(function(u){return !!u})
     }:null,
     players:(w.players||[]).map(function(p){
@@ -25612,6 +25782,7 @@ function wwSnap(){
     sheriff:(w.sheriff!==false),sheriffUid:w.sheriffUid||null,badgeGone:!!w.badgeGone,sheriffDone:!!w.sheriffDone,
     policeUp:(w.policeUp||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),
     policeAll:(w.policeAll||[]).slice(),
+    board:(w.board==='wolfking')?'wolfking':'std',guardLast:w.guardLast||'',kingBoom:!!w.kingBoom,kingNote:w.kingNote||'',
     pendingDeaths:(w.pendingDeaths&&w.pendingDeaths.length)?w.pendingDeaths.map(function(x){return {uid:x.uid,killedBy:x.killedBy||'wolf'}}):null
   };
 }
@@ -25636,6 +25807,7 @@ function wwSnapFromRec(rec){
     nightDone:true,                        /* 老记录一律按"夜里已经结算过"处理：从白天接着玩，不会重复刀人 */
     night:null,players:players,log:(rec.log||[]).slice(),rec:(rec.rec||[]).slice(),votes:{},
     witchSave:witchSave,witchPoison:witchPoison,witchLog:[],mem:{},tips:{},pick:'random',autoWatch:false,sayTok:0,
+    board:(players.some(function(p){return p.role==='wolfking'||p.role==='guard'})?'wolfking':'std'),guardLast:'',kingBoom:false,kingNote:'',dayOver:0,
     sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeAll:[],speechStart:'',speechDir:1};
 }
 /* 把一份存档倒回 V.ww */
@@ -25661,11 +25833,12 @@ function wwApplySnap(s,recId){
   w.policeUp=(s.policeUp||[]).slice();w.speechStart=s.speechStart||'';w.speechDir=(s.speechDir===-1)?-1:1;
   w.policeAll=(s.policeAll||[]).slice();w.upSpoke={};
   w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;w.electing=false;
+  w.board=(s.board==='wolfking')?'wolfking':'std';w.guardLast=s.guardLast||'';w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.dayOver=0;
   w.cids=w.players.filter(function(p){return !p.isUser&&p.cid}).map(function(p){return p.cid});   /* 让「再来一局」还能用同一批角色 */
   w.judge='';w.mvpUid='';w.title='';w.reacts=[];
   w.night=s.night?{wolf:byUid[s.night.wolf]||null,save:!!s.night.save,poison:byUid[s.night.poison]||null,
-    check:byUid[s.night.check]||null,deaths:(s.night.deaths||[]).map(function(u){return byUid[u]}).filter(Boolean)}
-    :{wolf:null,save:false,poison:null,check:null,deaths:[]};          /* 一定给个空壳，白天开头不会再崩 */
+    check:byUid[s.night.check]||null,guard:byUid[s.night.guard]||null,deaths:(s.night.deaths||[]).map(function(u){return byUid[u]}).filter(Boolean)}
+    :{wolf:null,save:false,poison:null,check:null,guard:null,deaths:[]};   /* 一定给个空壳，白天开头不会再崩 */
   w.recId=recId||null;
   w.busy=false;w.running=false;w.msg='';w.speaking=null;w.auto=false;w.wolfPicks=[];
   w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
@@ -25777,6 +25950,7 @@ function wwStart(){
   w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeVote={};w.speechStart='';w.speechDir=1;
   w.pendingDeaths=null;w.electing=false;
   w.policeAll=[];w.upSpoke={};
+  w.guardLast='';w.kingBoom=false;w.kingNote='';w.dayOver=0;
   w.marks={};w.markMode='';w.markUid=null;
   w.colors={};
   w.gen=(w.gen||0)+1;                 /* 新一局的新编号：老循环认不出自己就会自动收手 */
@@ -26356,7 +26530,7 @@ function wwLogHTML(){
         ' ontouchstart="GAME.wwLPDown(event,this)" ontouchend="GAME.wwLPUp()" ontouchmove="GAME.wwLPMove(event)" ontouchcancel="GAME.wwLPUp()"'+
         ' onmousedown="GAME.wwLPDown(event,this)" onmouseup="GAME.wwLPUp()" onmouseleave="GAME.wwLPUp()" oncontextmenu="return false"'):'';
       h+='<div class="ww-say'+(isMe?' me':'')+'"'+lp+'>'+
-         '<div class="ww-say-h"><span class="ww-dot" style="background:'+col+'"></span><b>'+esc(p?wwTag(p):'（已离开的玩家）')+wwMarkChip(p?p.uid:'')+'</b>'+(tag?('<i>'+tag+'</i>'):'')+
+         '<div class="ww-say-h"><span class="ww-dot" style="background:'+col+'"></span><b'+((p&&wwKnownWolf(p))?' style="color:#c0392b"':'')+'>'+esc(p?wwTag(p):'（已离开的玩家）')+wwMarkChip(p?p.uid:'')+'</b>'+(tag?('<i>'+tag+'</i>'):'')+
          (canSay?('<button class="ww-rsay" type="button" aria-label="重新发言" onclick="GAME.wwResayAsk(\''+esc(p.uid)+'\','+(base+i)+')">'+WW_IC_REDO+'</button>'):'')+
          '</div>'+
          '<div class="ww-say-t" style="border-left-color:'+col+'">'+esc(t)+
@@ -26393,7 +26567,15 @@ function wwSetupHTML(){
   h+='<div class="gx-sec">总人数</div><div class="gx-seg">'+WW_COUNTS.map(function(n){
     return '<button class="'+(w.count===n?'on':'')+'" onclick="GAME.wwCount('+n+')">'+n+'</button>';
   }).join('')+'</div>';
-  h+='<p class="gx-hint">这个人数是：狼人 '+b.wolf+' · 村民 '+b.villager+' · 预言家 1 · 女巫 1'+(b.hunter?' · 猎人 1':'')+(b.idiot?' · 白痴 1':'')+'。'+
+  /* 【新】12 人局：选板子（预女猎白 / 守卫白狼王） */
+  if(w.count===12){
+    h+='<div class="gx-sec">12 人局用哪个板子</div><div class="gx-seg">'+
+       '<button class="'+((w.board!=='wolfking')?'on':'')+'" onclick="GAME.wwBoardSet(\'std\')">预女猎白</button>'+
+       '<button class="'+((w.board==='wolfking')?'on':'')+'" onclick="GAME.wwBoardSet(\'wolfking\')">守卫白狼王</button>'+
+       '</div>'+
+       '<p class="gx-hint">「<b>预女猎白</b>」＝预言家 / 女巫 / 猎人 / 白痴 + 4 只狼 + 4 村民；「<b>守卫白狼王</b>」＝预言家 / 女巫 / 猎人 / <b>守卫</b> + <b>白狼王</b>（1 只）+ 3 只普通狼 + 4 村民。</p>';
+  }
+  h+='<p class="gx-hint">这个人数是：狼人 '+(b.wolf+b.wolfking)+' 个'+(b.wolfking?('（其中 1 个是白狼王）'):'')+' · 村民 '+b.villager+' · 预言家 1 · 女巫 1'+(b.guard?' · 守卫 1':'')+(b.hunter?' · 猎人 1':'')+(b.idiot?' · 白痴 1':'')+'。'+
      (w.mode==='play'?('你也在局中，所以还需要选 '+(w.count-1)+' 个角色。'):('你不参与，需要选 '+w.count+' 个角色。'))+
      '人数越少结束越快（6 人局很快，8~9 人更有得玩）。</p>';
   if(w.count>=8){
@@ -26864,6 +27046,7 @@ function wwHTML(){
      '<span class="ww-mood '+(w.phase==='night'?'night':'day')+'">'+(w.over?'🏁 结束':(w.phase==='night'?'🌙 夜里':'☀️ 白天'))+'</span>'+
      '<i>'+(w.over?(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局')):(w.count+' 人局 · 余 '+alive.length+' 人'))+'</i></div>'+
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
+     ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">💥</button>':'')+
      (w.over?'':'<button class="ww-stop" type="button" aria-label="结束这一局" onclick="GAME.wwStop()">'+WW_IC_STOP+'</button>')+
      '</div>';
   /* 我的身份：浓缩成一小条（身份 · 状态 · 该知道的道具/线索） */
@@ -26872,10 +27055,13 @@ function wwHTML(){
     var extra='';
     if(me.role==='seer')extra='验过：'+(ck||'还没验过');
     else if(me.role==='witch')extra='解药'+(w.witchSave?'在':'没了')+' · 毒药'+(w.witchPoison?'在':'没了');
-    else if(me.role==='wolf')extra='队友：'+(w.players.filter(function(p){return wwIsWolf(p)&&p!==me}).map(function(p){return wwTag(p)}).join('、')||'只有你');
+    else if(wwIsWolf(me)){
+      var mateN=w.players.filter(function(p){return wwIsWolf(p)&&p!==me}).map(function(p){return (p.seq||'?')}).join('·');
+      extra='队友 '+(mateN||'无')+(me.role==='wolfking'?(w.kingBoom?' · 💥已用':' · 💥可用'):'');
+    }
     h+='<div class="ww-me">'+
        '<span class="ww-me-r">'+WW_ROLE_EMOJI[me.role]+' '+WW_ROLE_NAME[me.role]+'</span>'+
-       (wwHasBadge()&&wwSheriffP()===me?('<span class="ww-me-x"><span class="ww-badge">'+WW_IC_SHERIFF+'</span>警长（票算 1.5）</span>'):'')+
+       (wwHasBadge()&&wwSheriffP()===me?('<span class="ww-me-x"><span class="ww-badge">'+WW_IC_SHERIFF+'</span>警长 1.5票</span>'):'')+
        '<span class="ww-me-s">'+(me.alive?'活着':'已出局')+'</span>'+
        (extra?('<span class="ww-me-x">'+esc(extra)+'</span>'):'')+
        '</div>';
@@ -26953,7 +27139,9 @@ function wwHTML(){
     }else if(ua.kind==='say'){
       h+='<div class="ww-act">'+wwActHead(ua.label)+
          '<textarea id="wwSay" rows="3" placeholder="说说你的想法：怀疑谁、为谁辩护、或者报自己的身份…"></textarea>'+
-         '<div class="gx-row"><button class="pri" onclick="GAME.wwSayIt(0)">发言</button><button class="ghost" onclick="GAME.wwSayIt(1)">'+esc(ua.skipLabel||'过')+'</button></div></div>';
+         '<div class="gx-row"><button class="pri" onclick="GAME.wwSayIt(0)">发言</button><button class="ghost" onclick="GAME.wwSayIt(1)">'+esc(ua.skipLabel||'过')+'</button>'+
+         ((me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ghost" onclick="GAME.wwBoomSay()">💥 自爆</button>':'')+
+         '</div></div>';
     }else if(ua.kind==='wolf'){
       /* 【新】狼队频道：夜里给队友留言（这一夜一共 50 字，输入框自己也会拦） */
       h+='<div class="ww-act">'+wwActHead(ua.label)+
@@ -28024,22 +28212,15 @@ window.GAME={
       var cap=(V.ww.mode==='play')?Math.min(9,chars.length+1):Math.min(9,chars.length);
       if(cap>=6&&V.ww.count>cap)V.ww.count=cap;
     }catch(e){}
-    if(!V.ww.cids.length&&chars&&chars.length){
-      var need=V.ww.count-((V.ww.mode==='play')?1:0);
-      V.ww.cids=chars.slice(0,Math.min(need,chars.length)).map(function(c){return c.id});
-    }
+    /* 【改】不再默认帮你勾角色：默认一个都不带、其余用 NPC 补位，让你自己点要哪几个。 */
     render(false);
   },
   wwMode:function(m){
     V.ww.mode=(m==='watch')?'watch':'play';
-    var need=V.ww.count-((V.ww.mode==='play')?1:0);
-    if(chars&&chars.length&&V.ww.cids.length!==need)V.ww.cids=chars.slice(0,Math.min(need,chars.length)).map(function(c){return c.id});
     render(false);
   },
   wwCount:function(n){
     V.ww.count=(WW_COUNTS.indexOf(parseInt(n,10))>=0)?parseInt(n,10):7;
-    var need=V.ww.count-((V.ww.mode==='play')?1:0);
-    if(chars&&chars.length&&V.ww.cids.length!==need)V.ww.cids=chars.slice(0,Math.min(need,chars.length)).map(function(c){return c.id});
     render(false);
   },
   wwPickRole:function(k){V.ww.pick=k||'random';render(false)},
@@ -28111,6 +28292,9 @@ window.GAME={
   wwBgm:function(){wwBgmToggle()},
   wwNpc:function(on){var w=V.ww;w.npcFill=!!on;render(false)},
   wwSheriffSet:function(on){var w=V.ww;w.sheriff=!!on;render(false)},
+  wwBoardSet:function(bd){var w=V.ww;w.board=(bd==='wolfking')?'wolfking':'std';w.pick='random';render(false)},
+  wwBoom:function(){wwKingUserBoom()},
+  wwBoomSay:function(){wwKingBoomFromSay()},
   wwThink:function(ns,key){
     key=String(key||'');
     if(ns==='hist'){V.histThink=V.histThink||{};if(V.histThink[key])delete V.histThink[key];else V.histThink[key]=1}
