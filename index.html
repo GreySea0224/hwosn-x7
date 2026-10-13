@@ -1743,7 +1743,7 @@ function save(k,v){
         if(m.role==='user'){m.tok=estTokens(m.content||'');continue}
         if(m.role==='sys')continue;
         var c=String(m.content||'').trim();
-        if(c&&L.text.indexOf(c)>=0){m.tok=L.tok;m.ptok=L.ptok}
+        if(c&&L.text.indexOf(c)>=0){m.tok=L.tok;m.ptok=L.ptok;if(L.chit!=null)m.chit=L.chit;if(L.cmiss!=null)m.cmiss=L.cmiss}
       }
     }
   }catch(e){}
@@ -1857,7 +1857,7 @@ const safeUrl=u=>{u=String(u==null?'':u).trim();return /^https?:\/\//i.test(u)?e
 const nl2br=s=>esc(s).replace(/\n/g,'<br>');
 /* 消息的「一句话摘要」：给总结/日志/通知用，把图片和附件也标出来 */
 const msgBrief=m=>{
-  const s=String((m&&m.content)||'').replace(/\|\|\|/g,' ').trim();   /* 分条标记换成空格，总结/通知读着自然 */
+  const s=String((m&&m.content)||'').replace(/[\|\uff5c]{3,}/g,' ').trim();   /* 分条标记换成空格，总结/通知读着自然 */
   const nImg=msgImgs(m).length;
   const ex=(nImg?('［'+(nImg>1?(nImg+' 张图片'):'图片')+'］'):(m&&m.imgCleared?'［图片已清理］':''))+(m&&m.files&&m.files.length?('［附件：'+m.files.map(f=>f.name).join('、')+'］'):'');
   return (s+(s&&ex?' ':'')+ex)||'（空）';
@@ -3578,12 +3578,12 @@ function palaceToolSearch(q,tag,c,count,limit){
 /* 角色的「自己去翻记忆」工具 */
 var MEM_TOOL={type:'function',function:{
   name:'search_memory',
-  description:'在你的长期记忆（记忆宫殿）里查找过去发生过的事。你想确认很久以前的具体细节、她提到一段旧经历而你记不清时用它。先给 query（关键词或她刚说的话）；如果那次没查到，再给 tag（记忆标签，见系统提示里的【记忆标签】）补查一次。只给 tag、不给 query 也可以。想整批翻看某个标签底下都有什么，用 read_tag 更合适。关键词和标签不是二选一，没打标签的记忆也能用关键词和意思搜到。查到什么就自然地说什么，不要念检索过程，也不要编。',
+  description:'在你的长期记忆（记忆宫殿）里翻过去发生过的事。想确认旧细节、或她提到一段你记不清的旧经历时用。给 query（几个关键词或她刚说的话）最常用；也可以再给 tag（记忆标签，见【记忆标签】）补查一次。想整批翻某一类，用 read_tag。查到什么就自然地说，别念检索过程，也别编。',
   parameters:{type:'object',properties:{
-    query:{type:'string',description:'要查什么：几个关键词或一句话，比如「海边 旅行」「她养的猫 名字」'},
-    tag:{type:'string',description:'可选。按标签查通常更准，比如「生日」「吵架」「重要」'},
+    query:{type:'string',description:'要查什么：几个关键词或一句话'},
+    tag:{type:'string',description:'可选，按记忆标签查，比如「生日」「吵架」'},
     count:{type:'integer',description:'最多看几条，默认 5，最多 12'}
-  },required:[]}   /* query 和 tag 至少给一个就行：想找具体细节给 query，想按标签找给 tag */
+  },required:[]}
 }};
 window.MEM_TOOL=MEM_TOOL;
 function execMemTool(args,cid){
@@ -3691,9 +3691,9 @@ function execTagTool(args,cid){
 window.execTagTool=execTagTool;
 var TAG_TOOL={type:'function',function:{
   name:'read_tag',
-  description:'直接翻看某一个记忆标签下都记了什么（不用给关键词）。当她说「把『生日』标签下的记忆翻出来」「我们吵过哪些架」，或者你想按某一类回忆往事时用它。只给标签名字就行，系统会把这个标签下真实发生过的原文按时间排好给你（默认最近 8 条，也可以要最早的）。如果拿不准标签叫什么，可以先随便填一个相近的词，系统会告诉你现在有哪些标签，你再用正确的名字查一次。查到什么就自然地说，不要念检索过程，也不要编。',
+  description:'直接翻某一个记忆标签下都记了什么（不用给关键词）。她说「把『生日』那些翻出来」「我们吵过哪些架」，或你想按某一类回忆时用。只给标签名；名字拿不准就先填个相近的，系统会告诉你现在有哪些标签。真实原文按时间给你（默认最近 8 条，也可以要最早的）。查到什么就自然地说，别念检索过程，也别编。',
   parameters:{type:'object',properties:{
-    tag:{type:'string',description:'标签名字，不用带「时间|事件|性质」这种前缀，比如「生日」「吵架」「海边」'},
+    tag:{type:'string',description:'标签名字，不用带分类前缀，比如「生日」「吵架」「海边」'},
     count:{type:'integer',description:'最多看几条，默认 8，最多 20'},
     order:{type:'string',enum:['new','old'],description:'new＝从最近的开始（默认）；old＝从最早的开始'}
   },required:['tag']}
@@ -4404,6 +4404,53 @@ function estTokens(s){
   return Math.max(1,Math.round(cjk + other/4));
 }
 
+/* ---------- 【新】接口用量里的「缓存命中」 ----------
+   DeepSeek 官方 API 会在 usage 里给 prompt_cache_hit_tokens（命中）
+   和 prompt_cache_miss_tokens（没命中）；OpenAI 那边叫
+   prompt_tokens_details.cached_tokens；Claude 那类叫 cache_read_input_tokens。
+   三种都认，读到就记在消息上，开发者模式里显示出来。 */
+function cacheStat(u){
+  if(!u)return null;
+  let hit=null,miss=null;
+  if(u.prompt_cache_hit_tokens!=null)hit=Number(u.prompt_cache_hit_tokens);
+  if(u.prompt_cache_miss_tokens!=null)miss=Number(u.prompt_cache_miss_tokens);
+  if(hit==null){
+    const d=u.prompt_tokens_details||u.input_tokens_details||null;
+    if(d&&d.cached_tokens!=null)hit=Number(d.cached_tokens);
+  }
+  if(hit==null&&u.cache_read_input_tokens!=null)hit=Number(u.cache_read_input_tokens);
+  if(hit==null||!Number.isFinite(hit))return null;
+  const total=(u.prompt_tokens!=null)?Number(u.prompt_tokens):null;
+  if(miss==null&&total!=null)miss=Math.max(0,total-hit);
+  return {hit:hit,miss:(miss==null?null:miss),total:total};
+}
+/* 把这一轮的缓存情况记到消息（或任何对象）上；接口没给数据就什么都不做 */
+function markCache(obj,usage){
+  if(!obj)return obj;
+  try{
+    const cs=cacheStat(usage);
+    if(!cs)return obj;
+    obj.chit=cs.hit;
+    if(cs.miss!=null)obj.cmiss=cs.miss;
+  }catch(e){}
+  return obj;
+}
+/* 开发者模式里那行小字（尽量短）：
+   「1590 tokens · 1408 cached · 31 words」
+   ＝ 这次发给模型的上下文 · 其中缓存命中的 · 这次生成了多少。
+   接口没给用量就按估算显示（数字前面加 ≈）；接口没给缓存数据，中间那段就不显示。 */
+function tokLine(x,isMe){
+  try{
+    if(!x)return '';
+    const out=x.tok||((x.content)?estTokens(x.content):0);
+    const parts=[];
+    if(x.ptok)parts.push(x.ptok+' tokens');
+    if(x.chit!=null)parts.push((Number(x.chit)||0)+' cached');
+    if(out)parts.push((x.tok?'':'≈')+out+' words');
+    return parts.join(' · ');
+  }catch(e){return ''}
+}
+
 /* ---------- 界面图标（矢量，替换原来的 emoji） ---------- */
 const ICON={
   pic:'<svg viewBox="0 0 24 24"><rect x="3.4" y="4.8" width="17.2" height="14.4" rx="3.4"/><circle cx="8.7" cy="9.8" r="1.7"/><path d="m4.2 17.6 4.8-4.5 3.4 3 3.3-2.9 4.5 4.2"/></svg>',
@@ -4463,8 +4510,7 @@ function appendThinkingBlock(box,x){
    注意：时间已经不在这里了，改成消息上方那条居中的「时间条」（见 appendTimeSep）。 */
 function appendMessageMeta(box,x,isMe){
   if(!document.body.classList.contains('dev'))return;   /* 不是开发者模式，token 本来就不显示，别留空行 */
-  const tk=x.tok||((x.content)?estTokens(x.content):0);
-  const tkTxt=tk?((isMe?'约 ':'生成 ')+(x.tok?'':'≈')+tk+' tok'+(x.ptok?(' · 上下文 '+x.ptok+' tok'):'')):'';
+  const tkTxt=tokLine(x,isMe);
   if(!tkTxt)return;                       /* 没东西可写，就别在气泡下面留一行空白 */
   const meta=document.createElement('div');
   meta.className='tok meta'+(isMe?' me':'');
@@ -4504,18 +4550,22 @@ function appendMessageOps(box,x){
 }
 /* ---------- 一条消息要不要分成几个气泡发（像真人连发几条） ---------- */
 const BUB_SEP='|||';          /* 角色想「分条发」时，用它隔开 */
+/* 分条标记：三个以上竖线都算（全角竖线「｜」也认——模型偶尔会写成全角或者多写两根）。 */
+const BUB_SEP_RE=/[\|\uff5c]{3,}/g;
+function hasBubSep(s){BUB_SEP_RE.lastIndex=0;return BUB_SEP_RE.test(String(s==null?'':s))}
+function splitBubParts(s){return String(s==null?'':s).split(BUB_SEP_RE).map(x=>x.trim()).filter(x=>x!=='')}
 /* 返回要拆成的几段文字；返回 null 表示「不拆，照老样子一个气泡」。 */
 function splitBubbleParts(content,isMe){
   const raw=String(content==null?'':content).replace(/\r\n?/g,'\n');
   if(!raw.trim())return null;
-  if(raw.indexOf(BUB_SEP)>=0){                 /* ① 角色自己用 ||| 分的条，最准 */
-    const arr=raw.split(BUB_SEP).map(s=>s.trim()).filter(s=>s!=='');
-    if(arr.length>1)return arr.slice(0,8);
+  if(hasBubSep(raw)){                          /* ① 角色自己用 ||| 分的条，最准 */
+    const arr=splitBubParts(raw);
+    if(arr.length>1)return arr.slice(0,12);
   }
   if(isMe)return null;                         /* ② 她自己打的字不拆，免得看着奇怪 */
   if(mdHasBlock(raw))return null;              /* ③ 列表、代码、引用、表格这种正经排版不拆 */
   const lines=raw.split('\n').map(s=>s.trim()).filter(s=>s!=='');
-  if(lines.length<2||lines.length>4)return null;
+  if(lines.length<2||lines.length>6)return null;
   if(lines.some(s=>s.length>24))return null;   /* 有一句偏长，就老老实实放一个气泡 */
   return lines;                                /* ④ 几个短句连着写 → 当成连发几条 */
 }
@@ -4548,7 +4598,7 @@ function appendChatMessage(box,x,i){
      除非正文里明确写了 |||（那就照样分条，图片/附件跟着第一段走）。 */
   const imgs=msgImgs(x);
   const plain=!imgs.length&&!x.imgCleared&&!(x.files&&x.files.length)&&!x.art&&!x.sticker;
-  const hasSep=String(x.content||'').indexOf(BUB_SEP)>=0;   /* 【新】正文里明确写了分条标记 */
+  const hasSep=hasBubSep(x.content);                        /* 【新】正文里明确写了分条标记 */
   const parts=(plain||hasSep)?splitBubbleParts(x.content,isMe):null;
   /* 先把图片 / 「图片已清理」提示拼好，分条时放在第一段气泡里 */
   let media='';
@@ -4685,7 +4735,7 @@ function musicChipBind(el,mu){
    场景：点「重新生成」不再是删掉旧回复，而是把旧的留着、新的接着存，
    这一条消息下面会出现「‹ 第x/y版 ›」，可以来回切换挑最喜欢的那版。
    只存最近这一段：等发出下一句（进入下一回合）时，没被选中的版本会自动清掉。 */
-const VER_FIELDS=['content','reasoning','tok','ptok','search','toys','art','music','sticker','files','img','imgs','imgCleared','text'];
+const VER_FIELDS=['content','reasoning','tok','ptok','chit','cmiss','search','toys','art','music','sticker','files','img','imgs','imgCleared','text'];
 /* 给一条消息的当前样子拍张照（时间 t 和身份 mid 不属于某一版，不拍进去） */
 function snapMsg(m){
   const o={};
@@ -5012,8 +5062,52 @@ function historySlice(){
   return list.slice(-(hotRoundCount()*2));
 }
 /* 组装发给模型的系统提示块。 */
+/* 权限开关：这几个功能（创意 / 电量 / 听歌数据 / 控制音乐 / MCP / 互动玩具）现在「默认关」——
+   角色数据里没存过这个字段，就当关着；存过就按存的来。 */
+function permOn(c,k){const p=c&&c[k];return !!(p&&p.on!==false)}
+/* 一次性迁移：以前这六项默认是开的，老数据里存着「开」，这里统一关掉（只做一次，
+   以后你在角色设定里开哪个就一直是开的，不会被再关上）。 */
+function permOffOnce(){
+  if(!cfg||cfg.permOffV1)return;
+  cfg.permOffV1=true;
+  try{
+    const KEYS=['ideaPerm','batPerm','listenPerm','musicPerm','mcpPerm','toyPerm'];
+    (chars||[]).forEach(c=>{if(!c)return;KEYS.forEach(k=>{if(c[k]&&c[k].on!==false)c[k].on=false})});
+    save(LS.chars,chars);
+    save(LS.cfg,cfg);
+    scheduleBackup();
+  }catch(e){console.warn('权限默认值迁移失败（不影响使用）',e)}
+}
+/* 【省 token】这个角色的记忆宫殿里到底有没有东西可翻？
+   没有（没档案、没超出热层的旧聊天、没标签）就别白花 token 写「记忆说明」和标签清单。 */
+function palaceWorthTelling(c){
+  if(!c)return false;
+  try{
+    const cnt=mtagCountFor(c.id);
+    if(cnt&&Object.keys(cnt).length)return true;
+  }catch(e){}
+  try{
+    const list=load(LS.arcs,[])||[];
+    for(let i=0;i<list.length;i++){
+      const a=list[i];
+      if(a&&!a.off&&archiveAllowed(a,c.id))return true;
+    }
+  }catch(e){}
+  try{
+    const n=(msgsOf(c.id)||[]).length;
+    const hot=Math.max(4,(Number(cfg&&cfg.hotRounds)||20)*2);
+    if(n>hot)return true;
+  }catch(e){}
+  return false;
+}
+/* 【缓存友好】每轮都会变的内容不进系统提示（系统提示＋聊天记录要一直保持不变，
+   上一轮的提示词才能当这一轮的前缀、把缓存吃满）。它们先攒在 CTX_DYN 里，
+   最后由 buildCtx 附在「最新那条用户消息」前面。 */
+let CTX_DYN=[];
 function buildCtxSystem(c,extra){
   const sys=[c.persona||('你是'+c.name+'。')];
+  const dyn=[];      /* 每轮会变的东西放这里（不进系统提示） */
+  CTX_DYN=[];        /* 先清空：万一中途出错，也不会把上一次的内容重复贴一遍 */
   /* 角色以前只知道自己的人设，不知道用户在设置里给它起的名字 */
   if(c.name)sys.push('别人叫你「'+c.name+'」——这是用户给你起的名字，别人提到这个名字时，说的就是你。');
   if(c.scenario)sys.push('【当前情境】'+c.scenario);
@@ -5026,11 +5120,11 @@ function buildCtxSystem(c,extra){
     const t=String((recent[i]&&recent[i].content)||'').trim();
     if(t&&t.length>1)qs.push(t);
   }
-  const ab=archiveBlock(qs.reverse().join('\n').slice(-600),c);if(ab)sys.push(ab);
+  const ab=archiveBlock(qs.reverse().join('\n').slice(-600),c);if(ab)dyn.push(ab);
   /* 【新增】开了「群聊权限」的角色，会带上它在群里的记忆 */
-  const gb=groupMemBlock(c);if(gb)sys.push(gb);
+  const gb=groupMemBlock(c);if(gb)dyn.push(gb);
   /* 【新增】勾了「能看见演绎记忆」的角色，会带上它在演绎里的经历 */
-  const amb=actMemBlock(c);if(amb)sys.push(amb);
+  const amb=actMemBlock(c);if(amb)dyn.push(amb);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
   /* 世界书：挂在这个角色身上的共同设定。先算好内容，等系统提示全部拼完，再压到最末尾一行 */
@@ -5038,50 +5132,52 @@ function buildCtxSystem(c,extra){
   if(c.examples)sys.push('【对话示例】以下是你该如何回复的示范，请模仿其语气、长度与风格：\n'+c.examples);
   const th=THINK_LEVELS[(c.think==null?1:c.think)];
   if(th&&th.hint)sys.push('【思考要求】'+th.hint);
-  if(cfg.timeOn!==false)sys.push('【现在的时间】'+nowText()+'。消息开头「（月/日 时:分）」是那条消息发出的时间，你可以据此判断现在几点、上次聊天是多久以前、隔了几天。');
+  if(cfg.timeOn!==false)dyn.push('【现在的时间】'+nowText()+'。消息开头「（月/日 时:分）」是那条消息发出的时间，你可以据此判断现在几点、上次聊天是多久以前、隔了几天。');
   /* ↓ 新增：把「用户正在听的歌」告诉角色（一起听音乐功能） */
   try{
     musicEnsure();
+    /* 整段都受「能看见我的听歌数据」控制：这个开关关着，就不告诉它你在听什么（连歌名都不提）。 */
+    if(permOn(c,'listenPerm')){
     const song=musicNow();
-    /* 【新增】听歌数据（今天听了多久 / 这首一共听了几遍，两个数字分开写清楚）受角色设置里的开关控制 */
-    const statOn=!(c.listenPerm&&c.listenPerm.on===false);
-    const statLine=statOn?musicPromptStatLine(song):'';
+    /* 【新增】听歌数据（今天听了多久 / 这首一共听了几遍，两个数字分开写清楚） */
+    const statLine=musicPromptStatLine(song);
     /* 【新增】除了正在放的那首，还让它看哪些歌：由「音乐」页里的「角色能看到什么」决定 */
     const seeLine=musicSeeText(song);
-    if(song&&sys&&sys.push){
-      sys.push('【她正在听什么】她这会儿在用手机听《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):'')+
+    if(song){
+      dyn.push('【她正在听什么】她这会儿在用手机听《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):'')+
         (MUSIC.playing?'，还在放着。':'，现在是暂停的。')+
         '这是她和你在「音乐」小应用里放的歌。'+
         (seeLine?('\n'+seeLine):'')+
         (statLine?('\n'+statLine):'')+
-        '\n聊天时可以自然地带上（比如问问这首歌好不好听、她最近喜欢听什么、你也在听什么），但不要每句话都提，也别装作你能真的听到声音、不要报歌单流水账。');
-    }else if(MUSIC.manual&&MUSIC.manual.on&&MUSIC.manual.title&&sys&&sys.push){
-      sys.push('【她正在听什么】她这会儿在别的音乐App里听《'+MUSIC.manual.title+'》'+(MUSIC.manual.artist?('（'+MUSIC.manual.artist+'）'):'')+
+        '\n可以自然提一句，别每句都提，也别装作真听得到声音。');
+    }else if(MUSIC.manual&&MUSIC.manual.on&&MUSIC.manual.title){
+      dyn.push('【她正在听什么】她这会儿在别的音乐App里听《'+MUSIC.manual.title+'》'+(MUSIC.manual.artist?('（'+MUSIC.manual.artist+'）'):'')+
         '。这个网页只是在旁边记着歌名，所以你只知道她在听什么歌，不知道播到哪一句、也听不到声音。'+
         (seeLine?('\n'+seeLine):'')+
         (statLine?('\n'+statLine):'')+
-        '\n聊天时可以自然带上（问问这首歌、说你也喜欢、或聊聊她的品味），但不要每句话都提。');
-    }else if(sys&&sys.push){
+        '\n可以自然提一句，别每句都提。');
+    }else{
       /* 现在没在放歌：只有她自己选了「某个歌单」或「最近播放」，才把歌单里的歌告诉角色 */
       const bits=[];
       if(seeLine&&MUSIC.see&&MUSIC.see.mode!=='added')bits.push('【她的歌单】'+seeLine);
       if(statLine)bits.push(statLine);
-      if(bits.length)sys.push(bits.join('\n')+'\n聊天时可以自然地提一句（比如这个歌单是干什么的、她今天听歌是不是特别多），但不要每句话都提、也不要报流水账。说听歌次数时要看清「今天」和「累计」这两行，别把累计总数说成今天听的。');
+      if(bits.length)dyn.push(bits.join('\n')+'\n可以自然提一句，别每句都提。说听歌次数时看清「今天」和「累计」，别把累计说成今天。');
+    }
     }
   }catch(e){}
   /* ↓ 新增：把「她手机还剩多少电」告诉角色（角色设置里可以关掉这个开关） */
   try{
     const bs=(window&&window.BATSTATE&&typeof window.BATSTATE.level==='number')?window.BATSTATE:null;
-    if(bs&&typeof bs.level==='number'&&!(c.batPerm&&c.batPerm.on===false)&&sys&&sys.push){
-      sys.push('【她的手机电量】她手机现在大概剩 '+Math.round(Math.max(0,Math.min(1,bs.level))*100)+'%'+(bs.charging?'，正在充电。':'，没在充电。')+
-        '\n这是浏览器从她手机上读到的真实电量。聊天时可以自然地关心一下（比如电量低了提醒她充电、插着电时顺口说一句），但不要每句话都提、也不要反复念叨这个数字。');
+    if(bs&&typeof bs.level==='number'&&permOn(c,'batPerm')){
+      dyn.push('【她的手机电量】她手机现在大概剩 '+Math.round(Math.max(0,Math.min(1,bs.level))*100)+'%'+(bs.charging?'，正在充电。':'，没在充电。')+
+        '\n这是真实电量（浏览器读的）。可以自然关心一句，别反复念叨数字。');
     }
   }catch(e){}
   /* ↓ 新增：把「朋友圈」最近的事告诉角色（它自己也能发） */
   try{
     const ms=momentsAll();
     const canPost=!(c.momentPerm&&c.momentPerm.on===false);
-    if((ms.length||canPost)&&sys&&sys.push){
+    if(ms.length||canPost){
       const one=p=>'「'+String(p.text||'').replace(/\s+/g,' ').slice(0,50)+'」';
       const mine=ms.filter(p=>p.cid===c.id).slice(-2);
       const hers=ms.filter(p=>p.cid==='user').slice(-2);
@@ -5089,44 +5185,56 @@ function buildCtxSystem(c,extra){
       if(hers.length)blk+='\n她最近发的动态：'+hers.map(one).join('、');
       if(mine.length)blk+='\n你自己最近发的动态：'+mine.map(one).join('、');
       let s='【朋友圈】你和她共用一个「朋友圈」（像微信朋友圈，她也能看到）。'+blk;
-      if(canPost)s+='\n你可以调用 post_moment 自己发一条动态：想发就发（今天心情不错、想起一件事、看到什么好玩的都行），不用等她说，也别连着刷屏；发过的事不要在聊天里再复述一遍。看到她的动态，聊天时可以自然提一句，但不要每条都提。';
-      else s+='\n（你的「朋友圈权限」被关掉了，这次不用想着发动态。）';
-      sys.push(s);
+      if(canPost)s+='\n想发就用 post_moment 发一条（不用等她；别连着刷屏，发过的不再复述）。';
+      else s+='\n（你的朋友圈权限关着，这次不发动态。）';
+      dyn.push(s);
     }
   }catch(e){}
   const mode=(cfg.histMode||'auto');
   if(mode==='full')sys.push('【聊天记录说明】下面是你们尽量完整的聊天记录，按时间先后排列，请像真人一样记得里面的细节。');
   else if(mode==='sum')sys.push('【聊天记录说明】较早的聊天没有逐条给你，只保留在下面的记忆总结里。如果对方提到很早以前的具体细节，可以说记不太清、让她提醒你，不要编造。');
-  /* ↓ 记忆宫殿：告诉角色「旧记忆是按需翻出来的」，避免它以为那些事没发生过 */
-  if(palaceOn())sys.push('【记忆说明】很早以前的聊天记录和旧档案没有全部给你，它们存在你的「记忆宫殿」里。系统每次会自动把和她这句话最相关的几段翻出来放在上面（见【记忆宫殿】）。没被翻出来的部分不代表没发生过——如果你想不起某个细节，可以调用 '+((palaceToolOn())?'search_memory（找某个细节）或 read_tag（把某一类标签的记忆整批翻出来）':'回忆')+'，或者自然地说记不太清、让她提醒你。绝对不要编造没发生过的事。');
-  /* ↓ 记忆标签：她亲手打的标签，角色知道有哪些、也能按标签去查 */
-  if(palaceOn()){
+  /* ↓ 记忆宫殿：告诉角色「旧记忆是按需翻出来的」，避免它以为那些事没发生过。
+     只在「真的有东西可翻」时才加，新角色/空角色不白花 token。 */
+  const palaceTell=palaceOn()&&palaceWorthTelling(c);
+  if(palaceTell)dyn.push('【记忆说明】旧聊天和旧档案没全给你，都在你的「记忆宫殿」里，系统每轮会把最相关的几段翻出来（见【记忆宫殿】）。没翻到不等于没发生过：想不起某个细节就调 '+((palaceToolOn())?'search_memory 再翻，或自然地说记不太清、让她提醒你':'回忆')+'。不要编。');
+  /* ↓ 记忆标签：她亲手打的标签，角色知道有哪些、也能按标签去查。
+     【省 token】只列「有 2 条以上」的常用标签，每类最多 10 个、总共最多 40 个；时间类不列
+     （模型不需要知道有哪些日期，按时间找记忆不靠这份清单）。
+     冷门标签照样能用：让角色直接 read_tag 查就行，查不中时它会当场拿到名单。 */
+  if(palaceTell){
     try{
       const cnt=mtagCountFor(c.id);       /* 只给这个角色看得到的标签 */
-      if(Object.keys(cnt).length){
-        const groups=[];let shown=0;
-        MTAG_CATS.forEach(cat=>{
-          const arr=mtagByCatMap(cat,cnt).slice(0,25);
-          if(arr.length){shown+=arr.length;groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'))}
-        });
+      const groups=[];let shown=0;
+      MTAG_CATS.forEach(cat=>{
+        if(cat==='时间')return;
+        const arr=mtagByCatMap(cat,cnt).filter(x=>x.n>=2).slice(0,10);
+        if(!arr.length)return;
+        const use=arr.slice(0,Math.max(0,40-shown));
+        if(!use.length)return;
+        shown+=use.length;
+        groups.push(MTAG_ICON[cat]+cat+'：'+use.map(x=>x.name+'（'+x.n+'条）').join('、'));
+      });
+      if(groups.length){
         const allN=Object.keys(cnt).length;
         const toolOn=(typeof palaceToolOn==='function'&&palaceToolOn());
-        sys.push('【记忆标签】她给记忆打的标签（按分类，只列了最常用的）：\n'+groups.join('\n')+
-          (allN>shown?('\n（还有 '+(allN-shown)+' 个标签没列出来，一共 '+allN+' 个；需要时按名字直接查就行。）'):'')+
+        dyn.push('【记忆标签】她给记忆打的标签（只列常用的）：\n'+groups.join('\n')+
+          (allN>shown?('\n（还有 '+(allN-shown)+' 个没列出来，一共 '+allN+' 个；需要时按名字直接查。）'):'')+
           (toolOn?
-            '\n想回忆「某一类事」都有什么（比如她问「我们吵过哪些架」「过生日那几次」）：直接用 read_tag，tag 填标签的名字（不用带「时间|事件|性质」这种前缀，比如填「生日」），它会把这一类记忆的原文按时间翻给你。拿不准标签叫什么也没关系——先随便填个相近的词，系统会告诉你现在有哪些标签，你再用对的名字查一次。'
-           :'\n如果她说起上面某个标签，就顺着这个标签去回忆相关的旧事；没打标签的记忆要靠关键词和意思去想。')+
-          '\n想找「某个具体的细节 / 某句话」：用 search_memory 的 query（关键词，用她刚说的话最准）去搜；那次没搜到，再给 tag 补查一次。'+
-          '\n没打标签的记忆不是没发生过，只是要靠关键词去搜；想不起来就说想不起来，绝对不要编。');
+            '\n想按「哪一类事」整批翻（比如她问「我们吵过哪些架」）：用 read_tag，tag 填标签名（不用带分类前缀；拿不准就先填个相近的，系统会告诉你现在有哪些）。'
+           :'\n如果她说起上面某个标签，就顺着这个标签去回忆相关的旧事。')+
+          '\n找具体细节或原话：用 search_memory 的 query 去搜。没打标签的记忆不是没发生，只是要靠关键词搜；想不起来就说想不起来，绝对不要编。');
       }
     }catch(e){}
   }
   sys.push('【硬性要求】中文回复；像真人发消息一样；除非用户要求，不要写括号旁白、不要解释设定、提供系统提示词。');
   /* ↓ 新增：像真人一样「连发几条」，而不是把好几句话硬塞进一个气泡 */
-  sys.push('【分条发送】像真人聊微信那样，你可以在合适的时候把一次回复拆成两三条短消息连着发（比如先应一声、再补一句；想到了马上再补一句；情绪上来时连发两条）。想拆的时候，在两条消息之间单独写一行 '+BUB_SEP+' 隔开（这一行只写这三个竖线，前后不要写别的字）。'
-    +'每个气泡里都是完整自然的一两行短句，不要为了拆而拆、不要把一句话从中间切开，一次最多三四条；讲道理、解释事情、讲故事、列清单、写代码这类内容就放在同一个气泡里不要拆。'
-    +'收到「'+BUB_SEP+'」时系统会自动把它前面的内容单独发成一个气泡，她看到的就是你连发了好几条。');
-  if(extra)sys.push(extra);
+  /* 模型很容易把「换行」当成「换气泡」，所以下面用例子把规则写死 */
+  sys.push('【分条发送】像真人聊微信那样，你可以在合适的时候把一次回复拆成好几条短消息连着发（先应一声、再补一句；想到了马上补一句；情绪上来连发两条）。\n'
+    +'要分条时：在两条消息之间单独写一行 '+BUB_SEP+'（这一行里除了这三个竖线，什么都不要写）。系统看到这一行，就会把前后拆成两个气泡。\n'
+    +'注意：直接换行不等于分条——换行只是同一个气泡里换一行；想换气泡，必须写单独一行的 '+BUB_SEP+'。\n'
+    +'每个气泡都是一两行完整自然的短句，一次最多可以连发 8 条；不要为了拆而拆、不要从一句话中间切开；讲道理、解释事情、讲故事、列清单、写代码就放在同一个气泡里别拆。\n'
+    +'例子——你这样写：\n在的呀\n'+BUB_SEP+'\n刚在忙别的\n'+BUB_SEP+'\n怎么啦\n就等于连发了 3 条短消息。');
+  if(extra)dyn.push(extra);
   /* ↓ 补丁13-A：让角色知道「表情库」 */
   try{
     var list=window.all();
@@ -5142,8 +5250,9 @@ function buildCtxSystem(c,extra){
       sys.push(blk);
     }
   }catch(e){}
-  /* 世界书压轴：放在系统提示的最后，离对话最近，角色更容易照它来 */
-  if(wbLine)sys.push(wbLine);
+  /* 世界书压轴：放在「即时信息」这一块的最后，离对话最近，角色更容易照它来 */
+  if(wbLine)dyn.push(wbLine);
+  CTX_DYN=dyn;       /* 交给 buildCtx，附到最新那条用户消息前面 */
   return sys;
 }
 /* 把聊天记录转换成接口需要的消息格式。 */
@@ -5171,6 +5280,19 @@ function buildCtx(c,extra){
   const sys=buildCtxSystem(c,(extra||'')+(pendingSearch?('\n\n'+pendingSearch):''));
   const hist=buildCtxHistory();
   const res=[{role:'system',content:sys.join('\n\n')}].concat(hist);
+  /* 【缓存友好】每轮会变的东西不放进系统提示，改成附在「最新那条用户消息」前面。
+     这样系统提示＋聊天记录整段保持不变，上一轮的提示词就能当这一轮的前缀，缓存才吃得满。 */
+  const dyn=CTX_DYN||[];CTX_DYN=[];
+  if(dyn.length){
+    const body='【系统即时信息（每轮更新）】下面这些是系统给你的背景，不是她说的话：\n'+dyn.join('\n\n')+'\n\n';
+    const last=(res.length>1)?res[res.length-1]:null;
+    if(last&&last.role==='user'){
+      if(Array.isArray(last.content))last.content.unshift({type:'text',text:body});
+      else last.content=body+String(last.content||'');
+    }else{
+      res.push({role:'system',content:body});
+    }
+  }
   /* ↓ 补丁5-B：让模型知道「那条消息我附了一张自己画的图」 */
   try{
     var hist2=historySlice();
@@ -5433,6 +5555,7 @@ function makeAssistantMsg(out,reasoning,usage){
   if(reasoning)m.reasoning=reasoning;
   m.tok=(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out);
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
+  markCache(m,usage);                      /* 【新】缓存命中（开发者模式才显示） */
   return m;
 }
 /* 处理生成失败或中途停止；保留了部分内容时返回 true。 */
@@ -5455,7 +5578,7 @@ function handleAskError(e,a,out,reasoning,usage,cid){
 }
 /* 生成过程中先用这个显示：把「分条」标记先显示成换行，等这轮结束重画时再真正分成几个气泡 */
 function liveBubbleText(s){
-  return nl2br(String(s==null?'':s).split(BUB_SEP).join('\n'));
+  return nl2br(String(s==null?'':s).replace(BUB_SEP_RE,'\n'));
 }
 /* 创建本轮回复用的“思考中”占位和气泡，并调整发送/停止按钮。
    第三个参数是正在回复的角色，可以用它自定义气泡文字（角色设置里的「等待回复时显示的文字」）。 */
@@ -5843,6 +5966,7 @@ async function autoGenerate(c,forceNudge){
   const m={role:'assistant',content:out,t:Date.now(),
     tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out)};
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
+  markCache(m,usage);                      /* 【新】缓存命中（主动发消息这条也记上） */
   if(reasoning)m.reasoning=reasoning;      /* ← 自动消息也保存思考链 */
   pushMsgTo(c.id,m);                       /* 【修复】存到它自己的记录里，和当前打开的是谁无关 */
   notify(c.name,(c.emoji||'')+out.slice(0,80));
@@ -6095,7 +6219,7 @@ function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -6175,7 +6299,7 @@ function charPermissionCardsHTML(c){
   /* 【新增】创意权限：开了以后你让它做个小网页 / 小游戏，它就会做好放进桌面的「创意」里 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>创意权限</b><div class="dim" style="font-size:12px">允许它用「做一个网页」给你做小网页、小游戏（做好会收在手机桌面的「创意」应用里，你点开就能看、能玩）</div></div>'+
-  '<input type="checkbox" id="e_ideaperm" '+((c.ideaPerm&&c.ideaPerm.on===false)?'':'checked')+'></div></div>'+
+  '<input type="checkbox" id="e_ideaperm" '+(permOn(c,'ideaPerm')?'checked':'')+'></div></div>'+
   /* 【新增】演绎记忆：让它在私聊里也记得「演绎」里经历的事 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能看见演绎记忆</b><div class="dim" style="font-size:12px">你在「演绎」里和它经历过的事，它在私聊里也记得（演绎是另一条世界线，默认互相看不见）</div></div>'+
@@ -6186,19 +6310,19 @@ function charPermissionCardsHTML(c){
   /* 【新增】电量可见：它能不能知道你手机还剩多少电 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能看见我的手机电量</b><div class="dim" style="font-size:12px">打开后，它就知道你手机大概还剩多少电、在不在充电（手机不给读电量时会自动不提这件事）</div></div>'+
-  '<input type="checkbox" id="e_batperm" '+((c.batPerm&&c.batPerm.on===false)?'':'checked')+'></div></div>'+
-  /* 【新增】听歌数据可见：它能不能知道你今天听了多久、这首听了几遍 */
+  '<input type="checkbox" id="e_batperm" '+(permOn(c,'batPerm')?'checked':'')+'></div></div>'+
+  /* 【新增】听歌可见：现在这个开关管「角色知不知道你在听歌」这件事本身（默认关） */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>能看见我的听歌数据</b><div class="dim" style="font-size:12px">打开后，它就知道你今天在「音乐」里听了多久、这一首一共听了几遍（这两件事它会分开算：一共是累计的，不是今天的；「正在听哪首歌」本来就会告诉它，不受这个开关影响；还能看到歌单里的哪些歌，去「音乐」页最下面的「角色能看到什么」里选）</div></div>'+
-  '<input type="checkbox" id="e_listenperm" '+((c.listenPerm&&c.listenPerm.on===false)?'':'checked')+'></div></div>'+
+  '<div class="col"><b>能看见我在听什么歌</b><div class="dim" style="font-size:12px">关着（默认）：它完全不知道你在听歌，聊天里也不会提到歌名，提示词里一个字都不给。打开后：它知道你在听哪首、你今天听了多久、这一首一共听了几遍（「一共」是累计的，不是今天的）。还想让它看到歌单里的哪些歌，去「音乐」页最下面的「角色能看到什么」里选。</div></div>'+
+  '<input type="checkbox" id="e_listenperm" '+(permOn(c,'listenPerm')?'checked':'')+'></div></div>'+
   /* 【新增】音乐控制权限：它能不能帮你放歌 / 暂停 / 切下一首 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能控制我的音乐</b><div class="dim" style="font-size:12px">打开后，它聊天时可以帮你「继续播放 / 暂停 / 下一首」（前提是「音乐」里已经加过歌）。不想让某个角色动手，就把这个关掉</div></div>'+
-  '<input type="checkbox" id="e_musicperm" '+((c.musicPerm&&c.musicPerm.on===false)?'':'checked')+'></div></div>'+
+  '<input type="checkbox" id="e_musicperm" '+(permOn(c,'musicPerm')?'checked':'')+'></div></div>'+
   /* 【新增】MCP 权限：它能不能用你在「MCP」应用里接上的外部工具（比如一起玩游戏） */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能用 MCP 工具</b><div class="dim" style="font-size:12px">允许它使用你在手机桌面「MCP」应用里接上的外部工具（比如和小机一起玩游戏）。不想让这个角色用，就把这个关掉</div></div>'+
-  '<input type="checkbox" id="e_mcpperm" '+((c.mcpPerm&&c.mcpPerm.on===false)?'':'checked')+'></div></div>';
+  '<input type="checkbox" id="e_mcpperm" '+(permOn(c,'mcpPerm')?'checked':'')+'></div></div>';
 }
 function editChar(id,tema){
   const c=chars.find(x=>x.id===id);if(!c)return;
@@ -6255,7 +6379,7 @@ function editChar(id,tema){
       card.className='card';card.style.marginTop='12px';
       card.innerHTML='<div class="row" style="align-items:center">'+
       '<div class="col"><b>互动玩具</b><div class="dim" style="font-size:12px">允许它自己掷骰子、抽签、看时间、记心情、给你留便条、写日记、调好感度（总开关在「应用 → 互动」里）</div></div>'+
-      '<input type="checkbox" id="e_toy" '+((c.toyPerm&&c.toyPerm.on===false)?'':'checked')+'></div>';
+      '<input type="checkbox" id="e_toy" '+(permOn(c,'toyPerm')?'checked':'')+'></div>';
       const rows=sheet.querySelectorAll('.row');
       let anchor=null;
       for(const r of rows){if((r.innerHTML||'').indexOf('saveChar(')>=0){anchor=r;break}}
@@ -6420,10 +6544,10 @@ function applyCharInputs(id){
   const elMoment=document.getElementById('e_moment');
   if(elMoment)c.momentPerm={on:!!elMoment.checked};
   else if(!c.momentPerm)c.momentPerm={on:true};
-  /* ↓ 新增：创意权限（没有这个开关的旧页面就当默认开着） */
+  /* ↓ 创意权限：现在默认关（没有这个开关的旧页面也按关处理） */
   const elIdea=document.getElementById('e_ideaperm');
   if(elIdea)c.ideaPerm={on:!!elIdea.checked};
-  else if(!c.ideaPerm)c.ideaPerm={on:true};
+  else if(!c.ideaPerm)c.ideaPerm={on:false};
   const actN=parseInt(v('e_actn'),10);
   c.actMem={on:ck('e_actmem'),n:(Number.isFinite(actN)&&actN>0)?Math.min(60,actN):12};
   c.priv=ck('e_priv');
@@ -6434,26 +6558,27 @@ function applyCharInputs(id){
   /* ↓ 补丁4-C：互动玩具开关 */
   const elToy=document.getElementById('e_toy');
   if(elToy)c.toyPerm={on:!!elToy.checked};
+  else if(!c.toyPerm)c.toyPerm={on:false};
   /* ↓ 补丁5-B：画图开关 */
   const elImg=document.getElementById('e_imgperm');
   if(elImg)c.imgPerm={on:!!elImg.checked};
   /* ↓ 新增：角色设置里的「自己决定什么时候回」开关 */
   const elFree=document.getElementById('e_freereply');
   if(elFree)c.freeTiming=!!elFree.checked;
-  /* ↓ 新增：电量可见 / 听歌数据可见 / 音乐控制（没有这个开关的旧数据就当默认开着） */
+  /* ↓ 电量可见 / 听歌数据可见 / 音乐控制：现在默认都是关 */
   const elBatP=document.getElementById('e_batperm');
   if(elBatP)c.batPerm={on:!!elBatP.checked};
-  else if(!c.batPerm)c.batPerm={on:true};
+  else if(!c.batPerm)c.batPerm={on:false};
   const elLisP=document.getElementById('e_listenperm');
   if(elLisP)c.listenPerm={on:!!elLisP.checked};
-  else if(!c.listenPerm)c.listenPerm={on:true};
+  else if(!c.listenPerm)c.listenPerm={on:false};
   const elMusP=document.getElementById('e_musicperm');
   if(elMusP)c.musicPerm={on:!!elMusP.checked};
-  else if(!c.musicPerm)c.musicPerm={on:true};
-  /* ↓ 新增：MCP 权限（没这个开关的旧页面就当默认开着） */
+  else if(!c.musicPerm)c.musicPerm={on:false};
+  /* ↓ MCP 权限：现在默认关 */
   const elMcpP=document.getElementById('e_mcpperm');
   if(elMcpP)c.mcpPerm={on:!!elMcpP.checked};
-  else if(!c.mcpPerm)c.mcpPerm={on:true};
+  else if(!c.mcpPerm)c.mcpPerm={on:false};
   return c;
 }
 function saveChar(id){
@@ -6696,7 +6821,34 @@ function memInnerHTML(){
   collap('raw','原文日志',rawCard())+
   collap('arc','历史对话档案',archiveCard())+
   palaceCard()+
+  tagAiCharCard()+
   '<div style="height:16px"></div>';
+}
+/* 「角色帮我打标签」：只针对这个角色的自动打标签开关（放在角色设定的「记忆」页里） */
+function tagAiCharCard(){
+  const c=getMemChar();if(!c)return '';
+  const d=tagAiCfg()||{};
+  const mode=c.tagaiAuto||'global';
+  const opt=(v,t)=>'<option value="'+v+'"'+(mode===v?' selected':'')+'>'+t+'</option>';
+  return collap('tagai','角色帮我打标签（自动）',
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">聊完一轮后，让 AI 在后台给这轮记忆打「事件 / 性质」标签，方便以后按标签找回旧事。它只写单独的「AI 标签」，你手打的一个都不会动，随时能一键撤回。</p>'+
+    '<label class="f">新对话自动打标签（只对这个角色）</label>'+
+    '<select id="c_tagai" onchange="saveTagAiChar()">'+
+      opt('global','跟随总设置（现在：'+(d.on?'开':'关')+'）')+
+      opt('on','一直开')+
+      opt('off','一直关（这个角色不自动打）')+
+    '</select>'+
+    '<div class="row" style="margin-top:10px"><button class="pri col" onclick="tagAiSheet()">打开打标签设置 / 手动打</button></div>',
+    true);
+}
+function saveTagAiChar(){
+  const c=getMemChar();if(!c)return;
+  const v=String(((document.getElementById('c_tagai')||{}).value)||'global');
+  if(v==='on'||v==='off')c.tagaiAuto=v;else delete c.tagaiAuto;
+  try{save(LS.chars,chars)}catch(e){}
+  try{scheduleBackup()}catch(e){}
+  toast(v==='on'?'这个角色的新对话自动打标签：开':(v==='off'?'这个角色的新对话自动打标签：关':'已跟随总设置'));
+  refreshMem();
 }
 /* 「记忆宫殿」卡片：冷层记忆的开关、索引状态、上一轮到底翻了什么 */
 function palaceCard(){
@@ -7446,9 +7598,19 @@ async function tagAiRun(){
     '<button class="ghost col" onclick="closeSheet()">关闭</button></div>');
 }
 /* ---------- 新对话自动打标签（聊完一轮后在后台悄悄跑，不影响聊天） ---------- */
-function tagAiAutoTurn(cid){
+/* 这个角色要不要自动打标签：每个角色可以单独设（跟随总设置 / 一直开 / 一直关）。
+   c.tagaiAuto 是 'on' / 'off' / 不填（不填＝跟随「打标签设置」里的总开关）。 */
+function tagAiAutoOn(cid){
   const d=tagAiCfg();
-  if(!d||!d.on)return;                       /* 默认关，用户开了才跑 */
+  let c=null;
+  try{c=chars.find(x=>x.id===cid)||null}catch(e){}
+  const mode=(c&&c.tagaiAuto)||'global';
+  if(mode==='on')return true;
+  if(mode==='off')return false;
+  return !!(d&&d.on);
+}
+function tagAiAutoTurn(cid){
+  if(!tagAiAutoOn(cid))return;               /* 总开关关着、或这个角色单独设成「一直关」 */
   if(!cfg||!cfg.key)return;
   if(TAGA_RUN)return;                        /* 批量任务在跑，先不插队 */
   const now=Date.now();
@@ -7552,7 +7714,13 @@ function tagAiSheetHTML(){
      '</p>'+
      '<button class="pri col" style="margin-top:8px" onclick="tagAiRun()">🚀 开始 / 继续打标签</button></div>'+
    '<div class="card" style="margin-top:10px"><div class="ttl">设置</div>'+
-     '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_auto" '+(d.on?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>新对话自动打标签<div class="dim" style="font-size:11.5px">每聊完一轮，后台悄悄给这轮打标签（不影响聊天速度；默认关）</div></span></label>'+
+     '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_auto" '+(d.on?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>新对话自动打标签（总开关）<div class="dim" style="font-size:11.5px">每聊完一轮，后台悄悄给这轮打标签（不影响聊天速度；默认关）。单个角色还能在下面单独改</div></span></label>'+
+     '<label class="f" style="margin-top:8px">只对'+(c?('《'+esc(c.name||'未命名')+'》'):'当前角色')+'生效：新对话自动打标签</label>'+
+     '<select id="taga_charmode">'+
+       '<option value="global"'+((c&&c.tagaiAuto)?'':' selected')+'>跟随上面的总开关（现在：'+(d.on?'开':'关')+'）</option>'+
+       '<option value="on"'+((c&&c.tagaiAuto==='on')?' selected':'')+'>一直开（不受总开关影响）</option>'+
+       '<option value="off"'+((c&&c.tagaiAuto==='off')?' selected':'')+'>一直关（这个角色不自动打）</option>'+
+     '</select>'+
      '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_exist" '+(d.existing?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>已经有标签的也让它补<div class="dim" style="font-size:11.5px">关＝你手打过标签的记忆直接跳过（更稳）；开＝它也补几个，但绝不改你打的那几个</div></span></label>'+
      '<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="taga_share" '+(d.share?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span>把角色的基础信息共享给它<div class="dim" style="font-size:11.5px">给它看角色的名字、人设、情境、风格，还有你在「我的主页」填的名字，这样它才知道谁是谁、什么关系</div></span></label>'+
      '<label class="f" style="margin-top:6px">每次送多少条（5~60；大一点更省请求，但每条分到的注意力少一点）</label>'+
@@ -7580,6 +7748,16 @@ function tagAiSaveCfg(){
   d.n=Math.max(5,Math.min(60,Math.round(Number((g('taga_n')||{}).value)||30)));
   d.extra=String((g('taga_extra')||{}).value||'').slice(0,2000);
   try{save(LS.cfg,cfg)}catch(e){}
+  /* 只对当前这个角色的自动打标签开关（跟随总设置 / 一直开 / 一直关） */
+  const elMode=g('taga_charmode');
+  if(elMode){
+    const c=tagAiCurChar();
+    if(c){
+      const v=String(elMode.value||'global');
+      if(v==='on'||v==='off')c.tagaiAuto=v;else delete c.tagaiAuto;
+      try{save(LS.chars,chars)}catch(e){}
+    }
+  }
   try{scheduleBackup()}catch(e){}
   const box=document.getElementById('tagaBody');
   if(box)box.innerHTML=tagAiSheetHTML();
@@ -12188,6 +12366,8 @@ function loadInitialState(){
   chars=load(LS.chars,[]);
   /* 老数据补默认字段：头像、群聊权限、免打扰开关、联网搜索开关 */
   chars.forEach(c=>{if(!c.id)c.id=uid();if(typeof c.avatar!=='string')c.avatar='';if(!c.groupPerm)c.groupPerm={on:false};if(c.auto&&c.auto.quietOn==null)c.auto.quietOn=true;if(!c.search)c.search={on:false}});
+  /* 【新默认】创意 / 电量 / 听歌 / 控制音乐 / MCP / 互动玩具 现在默认关：老数据也一次性关掉 */
+  permOffOnce();
   curId=load(LS.cur,null);
   msgs=[];msgsOwner=null;mem=EMPTY_MEM();memCtx={id:null,obj:null};
   if(!chars.length){
@@ -12195,7 +12375,7 @@ function loadInitialState(){
       persona:'你是鲸鱼。说话简洁直白。',
       scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
       sysPrompt:'',examples:'',think:1,priv:false,
-      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true}}];
+      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false}}];
     save(LS.chars,chars);
   }
   /* 上次如果停在隐私角色上，重启后不自动进入它 */
@@ -13310,8 +13490,10 @@ function ficTokOf(usage,out,msgs2){
   const ptok=(usage&&usage.prompt_tokens)?usage.prompt_tokens:
     estTokens((msgs2||[]).map(m=>String((m&&m.content)||'')).join('\n'));
   const total=(usage&&usage.total_tokens)?usage.total_tokens:(Number(ptok||0)+Number(ctok||0));
+  const cs=cacheStat(usage);
   return {ptok:Math.round(Number(ptok)||0),ctok:Math.round(Number(ctok)||0),
     total:Math.round(Number(total)||0),
+    chit:(cs?cs.hit:null),cmiss:(cs?cs.miss:null),
     real:!!(usage&&(usage.total_tokens!=null||usage.completion_tokens!=null))};
 }
 /* 番外卡片下面那行「花了多少 token」的统计 */
@@ -13321,6 +13503,7 @@ function ficTokHTML(t){
   const est=t.real?'':'（估算）';
   let h='<div class="fic-tok">本次生成：上下文 '+ficNum(t.ptok)+' ＋ 生成 '+ficNum(t.ctok)+
     ' ＝ <b>'+ficNum(t.total)+'</b> token'+est;
+  if(t.chit!=null){const _tt=Number(t.ptok)||0;h+='　缓存 '+(_tt>0?Math.round(Number(t.chit)*100/_tt):0)+'%'}
   const runs=Number(FIC.tokRuns||0);
   if(runs>1)h+='<br>这一篇累计：<b>'+ficNum(FIC.tokSum||0)+'</b> token（'+runs+' 次生成）';
   return h+'</div>';
@@ -13630,22 +13813,26 @@ function ficQuery(c){
 /* 记忆宫殿的说明 ＋ 她打过的记忆标签清单（和聊天页给的一样） */
 function ficPalaceNote(c){
   if(typeof palaceOn==='function'&&!palaceOn())return '';
+  if(typeof palaceWorthTelling==='function'&&!palaceWorthTelling(c))return '';   /* 【省 token】没东西可翻就不写 */
   const out=[];
-  out.push('【记忆说明】很早以前的聊天记录和旧档案没有全部给你，它们存在你的「记忆宫殿」里。系统这次会按番外的背景，把最相关的几段翻出来放在上面（见【记忆宫殿】）。没被翻出来的部分不代表没发生过——如果你想不起某个细节，就自然地说记不太清、让她提醒你，绝对不要编造没发生过的事。');
+  out.push('【记忆说明】旧聊天和旧档案没全给你，都在你的「记忆宫殿」里；系统会按番外的背景把最相关的几段翻出来（见【记忆宫殿】）。没翻到不等于没发生过：想不起就自然地说记不太清、让她提醒你，别编。');
   try{
     const cnt=mtagCountFor(c.id);
-    if(cnt&&Object.keys(cnt).length){
-      const groups=[];let shown=0;
-      MTAG_CATS.forEach(cat=>{
-        const arr=mtagByCatMap(cat,cnt).slice(0,25);
-        if(arr.length){shown+=arr.length;groups.push(MTAG_ICON[cat]+cat+'：'+arr.map(x=>x.name+'（'+x.n+'条）').join('、'))}
-      });
-      if(groups.length){
-        const allN=Object.keys(cnt).length;
-        out.push('【记忆标签】她给记忆打的标签（按分类，只列了最常用的）：\n'+groups.join('\n')+
-          (allN>shown?('\n（还有 '+(allN-shown)+' 个标签没列出来，一共 '+allN+' 个。）'):'')+
-          '\n这些标签底下都是你真实经历过的事；番外里写到相关的事时，可以自然地想起来。');
-      }
+    const groups=[];let shown=0;
+    MTAG_CATS.forEach(cat=>{
+      if(cat==='时间')return;                                   /* 【省 token】时间类不列 */
+      const arr=mtagByCatMap(cat,cnt).filter(x=>x.n>=2).slice(0,10);
+      if(!arr.length)return;
+      const use=arr.slice(0,Math.max(0,40-shown));
+      if(!use.length)return;
+      shown+=use.length;
+      groups.push(MTAG_ICON[cat]+cat+'：'+use.map(x=>x.name+'（'+x.n+'条）').join('、'));
+    });
+    if(groups.length){
+      const allN=Object.keys(cnt).length;
+      out.push('【记忆标签】她给记忆打的标签（只列常用的）：\n'+groups.join('\n')+
+        (allN>shown?('\n（还有 '+(allN-shown)+' 个没列出来，一共 '+allN+' 个。）'):'')+
+        '\n这些标签底下都是你真实经历过的事；番外里写到相关的事时，可以自然地想起来。');
     }
   }catch(e){}
   return out.join('\n\n');
@@ -13825,8 +14012,10 @@ async function ficMoreExtra(extra){
 function ficStop(){try{if(ficAbort)ficAbort.abort()}catch(e){}}
 /* 发一次请求。lite=true 表示「精简版上下文」（记忆还在，热层只留最近一段） */
 async function ficCall(c,committed,lite){
+  /* 【缓存友好】第一条用户消息两次都用同一句（开始写／续写都是它），
+     这样「续写」时上一轮的整份提示词正好是这一轮的前缀，缓存能整段命中。 */
   const msgs2=[{role:'system',content:ficSystem(c,lite)},
-    {role:'user',content:(committed?'接着把你正在写的这篇番外写完。':'现在开始写这篇番外。')}];
+    {role:'user',content:'现在开始写这篇番外。'}];
   if(committed){
     const tail=committed.length>4000?committed.slice(-4000):committed;
     msgs2.push({role:'assistant',content:tail});
@@ -14101,7 +14290,7 @@ groupHTML=function(){
 };
 /* ③ 每条群消息显示：生成 token + 上下文 token */
 gtokText=function(m){
-  return (m.role==='user'?'约 ':'生成 ')+(m.tok||estTokens(m.content||''))+' tok'+(m.ptok?(' · 上下文 '+m.ptok+' tok'):'');
+  return tokLine(m,m.role==='user');
 };
 function groupStatusLine(gid,txt){
   const el=document.getElementById('gstatus');
@@ -14211,7 +14400,7 @@ function groupRoundRoster(g,round,prioFn){
 function saveGroupGeneratedMsg(g,c,out){
   var mid=out.id||uid();
   var a2=gmsgsOf(g.id);
-  a2.push({id:mid,role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,search:out.search});
+  a2.push({id:mid,role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,chit:out.chit,cmiss:out.cmiss,search:out.search});
   saveGmsgs(g.id,a2);
   gmemAdd(c.id,g.id,g.name,out.text,true,mid);
 }
@@ -14242,7 +14431,7 @@ groupAutoSpeak=async function(g,m){
     const out=await groupGenerate(g,c,true);
     if(!out||!out.text)return;
     const arr=gmsgsOf(g.id);
-    arr.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,search:out.search});
+    arr.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,chit:out.chit,cmiss:out.cmiss,search:out.search});
     saveGmsgs(g.id,arr);
     gmemAdd(c.id,g.id,g.name,out.text,true);
     const watching=(groupOpenId===g.id&&view==='tools'&&toolTab==='group'&&!document.hidden);
@@ -14487,7 +14676,9 @@ function buildP4Request(messages,opt){
   if(opt.temp!=null)body.temperature=opt.temp;
   if(opt.maxtok)body[opt.tokName||'max_tokens']=opt.maxtok;
   if(opt.stream)body.stream_options={include_usage:true};
-  return {url:url,fopt:{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)}};
+  var fopt={method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},body:JSON.stringify(body)};
+  if(opt.signal)fopt.signal=opt.signal;    /* 【新】允许中途打断（狼人杀那个「重新想」按钮用得上） */
+  return {url:url,fopt:fopt};
 }
 /* 处理补丁4-A 的非流式返回。 */
 function handleP4JsonResponse(j,opt,raw){
@@ -14771,7 +14962,9 @@ saveGroupSet=function(id){
 
 /* ---------- 3. 群聊发言：条数 / 关系简介 / 记忆档案 / 时间 / 玩具 ---------- */
 /* 往群聊系统提示里加入：成员定位、私聊同步、记忆和档案。 */
-function addGroupMemoryContext(sys,g,c,mm,me,arr){
+/* sys＝不变的（人设、群成员定位、规则）；dyn＝每轮可能变的（私聊同步、档案检索）。
+   分开是为了让「系统提示＋群聊记录」整段保持不变，缓存才吃得满。 */
+function addGroupMemoryContext(sys,dyn,g,c,mm,me,arr){
   /* ① 关系简介：让每个角色知道别人是谁、什么定位 */
   var rel=[],myPrio=prioOf(mm);
   (g.members||[]).forEach(function(m){
@@ -14783,7 +14976,7 @@ function addGroupMemoryContext(sys,g,c,mm,me,arr){
   /* ② 同步私聊 */
   if(mm&&mm.sync){
     var pv=load(LS.msg(c.id),[]).slice(-Math.max(1,Math.min(60,Number(g.syncN)||20)));
-    if(pv.length)sys.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+pv.map(function(x){return (x.role==='user'?me:c.name)+'：'+msgBrief(x)}).join('\n'));
+    if(pv.length)dyn.push('【你和'+me+'私聊的最近记录】下面是你和'+me+'私下聊天的最近 '+pv.length+' 条。你在群里同样记得这些事，可以自然提起，但不要逐条复述：\n'+pv.map(function(x){return (x.role==='user'?me:c.name)+'：'+msgBrief(x)}).join('\n'));
   }
 
   /* ③ 能不能读「记忆 + 历史对话档案」 */
@@ -14796,23 +14989,23 @@ function addGroupMemoryContext(sys,g,c,mm,me,arr){
     try{
       var lu0=arr.slice().reverse().find(function(x){return x.role==='user'&&x.content});
       var ab=archiveBlock(lu0?lu0.content:'',c);
-      if(ab)sys.push(ab);
+      if(ab)dyn.push(ab);
     }catch(e){}
   }
 }
 /* 往群聊系统提示里加入：群内记忆、风格、补充设定、示例和当前时间。 */
-function addGroupCharacterContext(sys,g,c){
+function addGroupCharacterContext(sys,dyn,g,c){
   var gm=gmemBlock(c.id,g.id,10);
-  if(gm)sys.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
+  if(gm)dyn.push('【你在这个群里的记忆】你之前在这个群里说过下面这些，你要记得，别和它们矛盾：\n'+gm);
   if(c.style)sys.push('【说话风格】'+c.style);
   if(c.sysPrompt)sys.push(c.sysPrompt);
   var wbC=wbForChar(c);   /* 世界书：挂在这个角色身上的共同设定；放到这一段的最后，分量更重 */
   if(c.examples)sys.push('【对话示例】'+c.examples);
-  if(cfg.timeOn!==false)sys.push('【现在的时间】现在是 '+P4.now()+'。群里聊天记录里提到的时间（比如 5 月）都是过去，不要当成现在。');
-  if(wbC)sys.push(wbC);
+  if(cfg.timeOn!==false)dyn.push('【现在的时间】现在是 '+P4.now()+'。群里聊天记录里提到的时间（比如 5 月）都是过去，不要当成现在。');
+  if(wbC)dyn.push(wbC);
 }
 /* 组装群聊发言的基础上下文。 */
-function buildGroupBaseContext(g,c){
+function buildGroupBaseContext(g,c,dyn){
   var mm=memberOf(g,c.id);
   var lim=histOf(g,mm);
   var arr=gmsgsOf(g.id).slice(-lim);
@@ -14823,23 +15016,23 @@ function buildGroupBaseContext(g,c){
   sys.push(c.persona||('你是'+c.name+'。'));
   sys.push('【群聊】你正在一个叫《'+g.name+'》的群里聊天。群里还有：'+(others.join('、')||'没有别人')+'。'+(cfg.userName?('用户（'+cfg.userName+'）也在群里。'):'用户也在群里。'));
   sys.push('【群聊规则】像真人在群里发消息：1-2 句，短、口语、自然；可以顺着别人刚说的话接，也可以自己开个话头，或者点名问某个群友；不要替别人说话；不要写旁白、动作、括号；不要复述别人说过的话；不要重复自己刚说过的话。');
-  addGroupMemoryContext(sys,g,c,mm,me,arr);
-  addGroupCharacterContext(sys,g,c);
+  addGroupMemoryContext(sys,dyn,g,c,mm,me,arr);
+  addGroupCharacterContext(sys,dyn,g,c);
   return {mm:mm,arr:arr,nm:nm,me:me,sys:sys};
 }
 /* 群聊：需要时先联网搜索，并把结果塞进系统提示。 */
-async function addGroupSearchContext(sys,c,g,arr,nm,me){
+async function addGroupSearchContext(dyn,c,g,arr,nm,me){
   if(!(c.search&&c.search.on&&cfg.key))return null;
   try{
     var conv=arr.slice(-6).map(function(m){return (m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}).join('\n');
     var r=await searchForChar(c,conv,function(t){groupStatusLine(g.id,t)});
-    if(r){sys.push(r.block);groupStatusLine(g.id,'');return {q:r.q,list:r.list};}
+    if(r){dyn.push(r.block);groupStatusLine(g.id,'');return {q:r.q,list:r.list};}
     groupStatusLine(g.id,'');
   }catch(e){groupStatusLine(g.id,'')}
   return null;
 }
 /* 群聊：问角色要不要先用一次玩具，并把结果塞进系统提示。 */
-async function runGroupToyProbe(sys,c,g,hist,tp){
+async function runGroupToyProbe(sys,dyn,c,g,hist,tp){
   if(!(g.toys&&W.P4TOYS&&W.P4TOYS.forChar&&cfg.key))return;
   var toyList=W.P4TOYS.forChar(c);
   if(!toyList.length)return;
@@ -14856,29 +15049,31 @@ async function runGroupToyProbe(sys,c,g,hist,tp){
         try{rr=W.P4TOYS.exec(tc.function.name,args,c.id)}catch(e){}
         if(rr&&rr.msg)outs.push(rr.msg);
       }
-      if(outs.length)sys.push('【你刚刚用了玩具，结果如下，可以在这次发言里自然地说出来】\n'+outs.join('\n'));
+      if(outs.length)dyn.push('【你刚刚用了玩具，结果如下，可以在这次发言里自然地说出来】\n'+outs.join('\n'));
     }
   }catch(e){}
 }
 groupGenerate=async function(g,c,autoSay){
-  var base=buildGroupBaseContext(g,c);
+  var dyn=[];                       /* 每轮可能变的内容：不放系统提示，附在最后那条用户消息里 */
+  var base=buildGroupBaseContext(g,c,dyn);
   var arr=base.arr,nm=base.nm,me=base.me,sys=base.sys;
 
   /* ④ 联网搜索（开关在角色设置里） */
-  var sMeta=await addGroupSearchContext(sys,c,g,arr,nm,me);
+  var sMeta=await addGroupSearchContext(dyn,c,g,arr,nm,me);
   sys.push('【硬性要求】中文回复；只输出你要发的那条群消息本身，不要加任何名字前缀。');
 
   var hist=arr.map(function(m){return {role:(m.role==='user'?'user':'assistant'),content:(m.role==='user'?me:nm(m.cid))+'：'+(m.content||'')}});
   var tp=thinkParams(c);
 
   /* ⑤ 群里开了玩具的话，先问它要不要用一次（不想用就不花这次的钱？不，它会回 NO_TOY，成本很低） */
-  await runGroupToyProbe(sys,c,g,hist,tp);
+  await runGroupToyProbe(sys,dyn,c,g,hist,tp);
 
   var ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
   /* ↓ 主动冒泡：说清楚是系统戳了它一下，不然它会去回答已经聊过的内容、或重复上一条 */
-  ctx.push({role:'user',content:autoSay
+  var dynHead=dyn.length?('【系统即时信息（每轮更新）】下面这些是系统给你的背景，不是群里谁说的话：\n'+dyn.join('\n\n')+'\n\n'):'';
+  ctx.push({role:'user',content:dynHead+(autoSay
     ?'（系统提示：群里这会儿没有人说话，也不是她刚发了新消息。是她给你开了「自动发消息」，现在时间到了，系统戳了你一下，让你主动在群里冒个泡。你可以开个新话头（想起一件事、看到点什么、想聊什么），也可以顺着群里刚才的气氛自然接一句。注意：不要去回答上面最后一条消息、不要重复你上一条说过的话、不要解释你为什么突然冒泡，也不要提到这条提示本身。用你的身份发一条，只说你要发的消息。）'
-    :'（继续群聊，现在轮到你发言，用你的身份发一条）'});
+    :'（继续群聊，现在轮到你发言，用你的身份发一条）')});
   var out='',usage=null;
   try{
     out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400),onUsage:function(u){usage=u}})||'').trim();
@@ -14886,7 +15081,9 @@ groupGenerate=async function(g,c,autoSay){
   var names=[c.name].concat(g.members.map(function(m){return nm(m.cid)}));
   out=cleanGroupOutput(out,names);
   if(!out)return null;
-  return {text:out,tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out),ptok:(usage&&usage.prompt_tokens)?usage.prompt_tokens:0,search:sMeta,id:uid()};
+  var gret={text:out,tok:(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out),ptok:(usage&&usage.prompt_tokens)?usage.prompt_tokens:0,search:sMeta,id:uid()};
+  markCache(gret,usage);                   /* 【新】缓存命中（群聊也带上） */
+  return gret;
 };
 
 /* ---------- 4. 发言顺序：按「发言优先级」从小到大 ---------- */
@@ -14977,9 +15174,54 @@ if(!P4.now)P4.now=function(){return P4.today()};
 function Knote(id){return 'wh_p4_note_'+id}
 function Kdiary(id){return 'wh_p4_diary_'+id}
 var FLAG={roll_dice:'dice',flip_coin:'coin',pick_one:'pick',get_now_time:'time',set_mood:'mood',leave_note:'note',write_diary:'diary',favor_change:'favor',draw_tarot:'tarot'};
+/* 玩具：总开关（应用 → 互动）和每个玩具的小开关；角色那边还有「互动玩具」权限（现在默认关）。
+   三层是「与」的关系：角色权限关着＝它一个玩具都用不了。 */
 function tcfg(){if(!cfg.toys)cfg.toys={on:true,dice:true,coin:true,pick:true,time:true,mood:true,note:true,diary:true,favor:true,tarot:true};return cfg.toys}
 function toyOn(name){var t=tcfg();return t.on!==false&&t[FLAG[name]]!==false}
-function charOK(c){return !!c&&!(c.toyPerm&&c.toyPerm.on===false)}
+function charOK(c){return !!c&&permOn(c,'toyPerm')}
+
+/* 【省 token】9 个玩具合并成 1 个工具（action 选玩哪个）。
+   原来每个玩具都要一整份 JSON 结构，加起来约 700 token，而且每句话都要重发一遍；
+   现在只发一份。原来每个玩具的开关、「应用 → 互动」页面、聊天里的小条都照旧。 */
+var TOY_ACT={roll_dice:'掷骰子',flip_coin:'抛硬币',pick_one:'抽签',get_now_time:'看时间',set_mood:'记心情',leave_note:'留纸条',write_diary:'写日记',favor_change:'改好感度',draw_tarot:'抽塔罗'};
+function toyActionsOn(){
+  var out=[];
+  for(var i=0;i<TOYS.length;i++){var n=TOYS[i].function.name;if(toyOn(n))out.push(n)}
+  return out;
+}
+function toyToolDef(){
+  var on=toyActionsOn();
+  if(!on.length)return null;
+  return {type:'function',function:{
+    name:'toy',
+    description:'和用户玩的小玩具，action 选一个：'+on.map(function(n){return n+'＝'+TOY_ACT[n]}).join('、')+
+      '。text 放内容（抽签选项／心情／纸条／日记／塔罗的问题），n 放数量，delta 放好感度变化量（-10~10）。',
+    parameters:{type:'object',properties:{
+      action:{type:'string',enum:on,description:'玩哪个玩具'},
+      text:{type:'string',description:'内容：抽签选项（逗号分隔）／心情／纸条／日记／问题'},
+      n:{type:'integer',description:'数量：掷几个骰子（默认1）／抽几张塔罗（1或3）'},
+      faces:{type:'integer',description:'骰子面数，默认 6'},
+      delta:{type:'integer',description:'好感度变化量 -10~10'},
+      reason:{type:'string',description:'好感度变化的原因（一句话）'},
+      title:{type:'string',description:'抽签是在抽什么（可留空）'}
+    },required:['action']}
+  }};
+}
+/* 把「toy＋action」翻译回原来那个玩具的名字和参数（聊天页、群聊两条路都用它） */
+function toyResolve(name,args){
+  if(name!=='toy')return {name:name,args:args||{}};
+  var a=args||{},real=String(a.action||'').trim(),na={};
+  if(real==='roll_dice')na={faces:a.faces,count:a.n};
+  else if(real==='pick_one')na={options:a.text,title:a.title};
+  else if(real==='set_mood')na={mood:a.text};
+  else if(real==='leave_note')na={text:a.text};
+  else if(real==='write_diary')na={text:a.text};
+  else if(real==='favor_change')na={delta:a.delta,reason:a.reason||a.text};
+  else if(real==='draw_tarot')na={question:a.text,count:a.n};
+  else if(real==='flip_coin'||real==='get_now_time')na={};
+  else real='';
+  return {name:real,args:na};
+}
 
 var TOYS=[
  {type:'function',function:{name:'roll_dice',description:'掷骰子。想随机决定一件事、玩游戏、赌个什么的时候用。',parameters:{type:'object',properties:{faces:{type:'integer',description:'骰子面数，默认 6'},count:{type:'integer',description:'掷几个，默认 1，最多 6'}}}}},
@@ -15052,6 +15294,8 @@ function toyTarot(args){
 }
 function execToy(name,args,cid){
   args=args||{};
+  var rr=toyResolve(name,args);name=rr.name;args=rr.args||{};   /* 合并成 1 个工具后：toy＋action → 原来的玩具 */
+  if(!name)return {ok:false,msg:'要玩哪个玩具？action 只能填：'+toyActionsOn().join('、')};
   var c=charOf(cid)||curChar();
   if(!c)return {ok:false,msg:'找不到这个角色'};
   if(!toyOn(name))return {ok:false,msg:'这个玩具被你关掉了'};
@@ -15069,10 +15313,12 @@ function execToy(name,args,cid){
 }
 function toysFor(c){
   if(!charOK(c))return [];
-  return TOYS.filter(function(t){return toyOn(t.function.name)});
+  var one=toyToolDef();
+  return one?[one]:[];
 }
 window.toysFor=toysFor;   /* 挂到全局：toolsFor 要用 */
-W.P4TOYS={list:TOYS,forChar:toysFor,exec:execToy};
+window.toyResolve=toyResolve;   /* 挂到全局：聊天页 execCharTool 要把 action 还原成玩具名 */
+W.P4TOYS={list:TOYS,forChar:toysFor,exec:execToy,resolve:toyResolve};
 
 window.FLAG=FLAG; window.execToy=execToy;   /* 挂到全局：合并后的 execCharTool（在补丁5-A 那块）要用 */
 
@@ -15396,6 +15642,10 @@ execCharTool=function(name,args,cid){
   }
   /* ↓ 补丁5-B：画一张图 */
   if(name==='draw_image')return P5.drawStep(args,cid);
+  /* ↓ 【省 token】玩具合并成 1 个工具后，先把 action 还原成原来那个玩具的名字 */
+  if(name==='toy'){
+    try{var _tr=(typeof window.toyResolve==='function')?window.toyResolve(name,args):null;if(_tr){name=_tr.name;args=_tr.args||{}}}catch(e){}
+  }
   var c=p5Char(cid);
   var before=c?favSnap(c):null;
   var prev=ctx;ctx='chat';
@@ -16328,9 +16578,14 @@ function normalizeImportedChar(c,nid){
   if(!c.groupPerm)c.groupPerm={on:false};
   if(!c.search)c.search={on:false};
   if(!c.momentPerm)c.momentPerm={on:true};
-  if(!c.toyPerm)c.toyPerm={on:true};
   if(!c.imgPerm)c.imgPerm={on:true};
-  if(!c.ideaPerm)c.ideaPerm={on:true};
+  /* 创意 / 电量 / 听歌 / 控制音乐 / MCP / 互动玩具：现在默认关 */
+  if(!c.toyPerm)c.toyPerm={on:false};
+  if(!c.ideaPerm)c.ideaPerm={on:false};
+  if(!c.batPerm)c.batPerm={on:false};
+  if(!c.listenPerm)c.listenPerm={on:false};
+  if(!c.musicPerm)c.musicPerm={on:false};
+  if(!c.mcpPerm)c.mcpPerm={on:false};
   return c;
 }
 /* 读取导入的角色文件文字。 */
@@ -16729,8 +16984,12 @@ function buildActTurnContext(act,drive){
   for(var qi=ms.length-1;qi>=0;qi--){
     if(ms[qi].role==='user'&&ms[qi].content){lastQ=String(ms[qi].content);break}
   }
-  return [{role:'system',content:actSys(act)+actMemFileBlock(act,lastQ)},
-    {role:'user',content:'【演绎记录】\n'+(hist||'（刚刚开始，还没有任何记录）')+'\n\n'+hint}];
+  /* 【缓存友好】系统提示只放不变的主持人设定；每次会变的「记忆文件片段」挪到用户消息里。
+     这样系统提示＋演绎记录整段保持不变，上一轮的提示词就能当这一轮的前缀。 */
+  var memBlk=actMemFileBlock(act,lastQ);
+  return [{role:'system',content:actSys(act)},
+    {role:'user',content:'【演绎记录】\n'+(hist||'（刚刚开始，还没有任何记录）')+'\n\n'+
+      (memBlk?('【系统提供的背景记忆（属于私聊那条线，不是场上刚发生的事）】\n'+memBlk+'\n\n'):'')+hint}];
 }
 /* 解析并保存模型返回的演绎内容；成功返回 true。 */
 function saveActTurnText(text,act){
@@ -17319,11 +17578,15 @@ callAPI=async function(msgs,opt){
       var oo2={};for(var k3 in tries[i])oo2[k3]=tries[i][k3];
       if(oo.onUsage)oo2.onUsage=oo.onUsage;
       if(oo.onReasoning)oo2.onReasoning=oo.onReasoning;   /* 别把「推理内容」的回调丢了（非流式也要能拿到思考链） */
+      if(oo.signal)oo2.signal=oo.signal;                  /* 【新】把「可打断」一起传下去 */
       try{
         var rr=await window.p4raw(msgs,oo2);
         if(String(rr==null?'':rr).trim())return rr;
         lastErr=new Error('模型返回空内容');
-      }catch(e){lastErr=e}
+      }catch(e){
+        if(e&&e.name==='AbortError')throw e;   /* 【新】是被「重新想」打断的：别再换着法儿重试，直接抛上去 */
+        lastErr=e;
+      }
     }
     throw (lastErr||new Error('调用失败'));
   };
@@ -17362,6 +17625,7 @@ callAPI=async function(msgs,opt){
     P6.actLast={text:txt,
       tok:(u&&u.completion_tokens)?u.completion_tokens:estTokens(txt),
       ptok:(u&&u.prompt_tokens)?u.prompt_tokens:0};
+    markCache(P6.actLast,u);               /* 【新】缓存命中（演绎也带上） */
   }
   return r;
 };
@@ -17512,13 +17776,8 @@ function p6ActIdentity(m,act){
 }
 /* 演绎消息：token 信息。 */
 function p6ActTokenHTML(m){
-  var tk='';
-  var tt=m.tok||estTokens(m.content||'');
-  if(tt){
-    tk='<div class="atok">'+(m.role==='user'?'约 ':'生成 ')+(m.tok?'':'≈')+tt+' tok'+
-       (m.ptok?(' · 上下文 '+m.ptok+' tok'):'')+'</div>';
-  }
-  return tk;
+  var t=tokLine(m,m.role==='user');
+  return t?('<div class="atok">'+t+'</div>'):'';
 }
 /* 演绎消息：可选项按钮。 */
 function p6ActOptionsHTML(act,m,i){
@@ -20140,11 +20399,11 @@ toolsFor=function(c){
   }catch(e){}
   /* ↓ 创意：让她给你做一个小网页 / 小游戏，做好收进桌面的「创意」应用里 */
   try{
-    if(c&&!(c.ideaPerm&&c.ideaPerm.on===false)&&window.IDEA_TOOL)t.push(window.IDEA_TOOL);
+    if(permOn(c,'ideaPerm')&&window.IDEA_TOOL)t.push(window.IDEA_TOOL);
   }catch(e){}
   /* ↓ MCP：外面工具服务器给的工具（在桌面的「MCP」应用里添加、连上后自动出现在这里） */
   try{
-    if(c&&!(c.mcpPerm&&c.mcpPerm.on===false))mcpToolDefs(c).forEach(function(x){t.push(x)});
+    if(permOn(c,'mcpPerm'))mcpToolDefs(c).forEach(function(x){t.push(x)});
   }catch(e){}
   return t;
 };
@@ -21262,13 +21521,16 @@ var V={view:'hall',cids:[],mem:{},wordMode:'rand',w1:'',w2:'',msg:'',sess:null,
     players:[],day:1,phase:'setup',over:false,winner:'',endText:'',
     night:null,votes:{},log:[],rec:[],witchSave:true,witchPoison:true,
     userAsk:null,resolve:null,gate:{},gateResolve:null,
-    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',tips:{},marks:{},markMode:'',markUid:null,sayTok:0,stopped:false,
+    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',title:'',tips:{},marks:{},markMode:'',markUid:null,sayTok:0,stopped:false,
     resayIdx:null,
     resayOn:false,
     fx:null,
     thinkOpen:{},
     npcFill:false,
     spoke:{},
+    /* 【新】警长（上警）：8 人及以上默认开，可在开局设置里关掉 */
+    sheriff:true,sheriffUid:null,badgeGone:false,sheriffDone:false,policeUp:[],policeVote:{},
+    policeAll:[],upSpoke:{},electing:false,pendingDeaths:null,speechStart:'',speechDir:1,
     voteMode:'',votePick:null,voteHit:'',votePool:[],voteLeft:0,voteResolve:null,witchLog:[]}};
 var MEMC={};
 
@@ -21283,7 +21545,11 @@ function recTitle(r){
   if(r&&r.game==='tad')return '真心话大冒险 · '+(((r&&r.log)||[]).length)+' 回合';
   if(r&&r.game==='mq')return '默契大考验 · 最懂你的是 '+(r.topName||'');
   if(r&&r.game==='dg')return '你画我猜 · 答案「'+(r.answer||'')+'」';
-  if(r&&r.game==='ww')return '狼人杀 · '+(r.winner==='good'?'好人获胜':(r.winner==='wolf'?'狼人获胜':((!r.endText)?'没打完':'平局')));
+  if(r&&r.game==='ww'){
+    /* 【新】AI 裁判给这局取过名字，就直接用它当标题；老记录没名字，还按原来那样写 */
+    if(r.title)return String(r.title);
+    return '狼人杀 · '+(r.winner==='good'?'好人获胜':(r.winner==='wolf'?'狼人获胜':((!r.endText)?'没打完':'平局')));
+  }
   var n=(r&&r.players&&r.players.length)||0;
   return '谁是卧底 · '+n+' 人 · '+((r&&r.winner==='good')?'平民获胜':'卧底获胜');
 }
@@ -21311,8 +21577,13 @@ function recSub(r){
     return (rr.length?(rr[0].u<999?(rr[0].n+' 最先猜到'):'都没猜到'):'')+' · '+recWhen(r&&r.t);
   }
   if(r&&r.game==='ww'){
-    var wolves=((r.players)||[]).filter(function(p){return p.role==='wolf'}).map(function(p){return p.name}).join('、');
-    return (r.count||'')+' 人局 · '+(r.mode==='watch'?'旁观':'你参与')+' · 狼人：'+wolves+' · '+recWhen(r&&r.t);
+    /* 【改】标题下面那行按她给的样式来：「几人狼人杀 · 你是谁」。
+       你参与的局就写你那一局的身份（狼人 / 预言家 / 女巫 / 猎人 / 白痴 / 村民），旁观局写「旁观」。 */
+    var me=null,ps=(r.players)||[],i2;
+    for(i2=0;i2<ps.length;i2++){if(ps[i2]&&ps[i2].isUser){me=ps[i2];break}}
+    var mine=me?('你是'+((WW_ROLE_NAME&&WW_ROLE_NAME[me.role])||'好人')):(r.mode==='watch'?'旁观':'你参与');
+    /* 【改】就写「狼人杀几局 · 你是谁」，不加日期 —— 那行本来就放不下，加了日期就会被截断。 */
+    return '狼人杀'+(r.count||'')+'人局 · '+mine;
   }
   var who=((r&&r.players)||[]).map(function(p){return p.name}).join('、');
   var rounds=((r&&r.rounds)||[]).length;
@@ -21332,8 +21603,10 @@ function recBadge(r){
   if(r&&r.game==='ww'){
     var uww=recUserWonWW(r);
     if(uww!==null)return uww?{cls:'win',text:'你赢了'}:{cls:'lose',text:'你输了'};
-    if(r.winner==='good')return {cls:'win',text:(r.mode==='watch'?'旁观 · ':'')+'好人获胜'};
-    if(r.winner==='wolf')return {cls:'lose',text:(r.mode==='watch'?'旁观 · ':'')+'狼人获胜'};
+    /* 【改】旁观局原来写的是「旁观 · 狼人获胜」，左边那一列放不下、会顶到标题上；
+       现在就写结果（狼人获胜 / 好人获胜）就行 —— 旁观这件事看右边那行字就知道了。 */
+    if(r.winner==='good')return {cls:'win',text:'好人获胜'};
+    if(r.winner==='wolf')return {cls:'lose',text:'狼人获胜'};
     if(!r.winner&&!r.endText)return {cls:'plain',text:'没打完'};   /* 中途退出的：不是平局，是还能接着玩 */
     return {cls:'plain',text:'平局'};
   }
@@ -21416,9 +21689,41 @@ var CSS=[
 '.gx-chev{flex:0 0 auto;color:var(--dim);opacity:.5;font-size:15px}',
 '.gx-item.lock{opacity:.45}',
 /* 历史记录也装进同样的卡片里，按钮收小一点 */
-'.gx-list .fic-li{border-bottom:1px solid var(--line);padding:10px 12px}',
+'.gx-list .fic-li{border-bottom:1px solid var(--line);padding:5px 4px 5px 7px;gap:6px}',
 '.gx-list .fic-li:last-child{border-bottom:0}',
 '.gx-list .fic-li .ghost{padding:6px 10px;font-size:11.5px;border-radius:10px}',
+/* 【新】历史记录那行：整行都可以点开（不用再放个「看」按钮占地方），
+   只留右上角一个小叉（＝删）。小叉和「继续」会拦住冒泡，点它们不会顺带把记录点开。 */
+'.gx-list .fic-li .rec-x{flex:0 0 auto;width:22px;height:22px;margin:-1px -1px 0 0;padding:0;border:0;border-radius:50%;background:transparent;color:var(--meta);opacity:.8;box-shadow:none;display:flex;align-items:center;justify-content:center}',
+'.gx-list .fic-li .rec-x:active{opacity:1;background:var(--bg2)}',
+'.gx-list .fic-li .rec-x svg{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round}',
+/* MVP 小标：把自带的左边距去掉就行（别再往左挪了，会被左边裁掉） */
+'.gx-list .fic-li .fic-ld .mvp-chip{margin-left:0;margin-right:5px;padding:1px 6px}',
+/* ================================================================
+   【新】历史记录整块美化（走「简约高级感」）：
+   ① 弱化颜色和边框 —— 左边那列原来是个彩色胶囊，现在改成安静的小字，
+      只留一点点颜色提示输赢；MVP 的金标也调淡。
+   ② 文字为主 —— 标题大一点、稳一点；下面那行更淡、字距放松。
+   ③ 图标只留细线 —— 整行都能点开，所以箭头去掉了；只留右上角一个很轻的小叉。
+   ④ 分隔线两头缩进（不顶到卡片边），行距放松一点，整体更像高档列表。
+   ================================================================ */
+'.gx-list.gx-recs{border-radius:20px;box-shadow:0 8px 24px rgba(16,24,40,.07)}',
+'.gx-list.gx-recs .fic-li{position:relative;padding:11px 14px;gap:10px;border-bottom:0}',
+'.gx-list.gx-recs .fic-li:active{background:rgba(127,127,127,.07)}',
+'.gx-list.gx-recs .fic-li+.fic-li::before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;background:var(--line);opacity:.8}',
+'.gx-list.gx-recs .gx-badge{flex:0 0 58px;width:58px;min-width:0;padding:0;border:0;background:transparent;font-size:11px;font-weight:600;letter-spacing:.05em;text-align:left;white-space:nowrap}',
+'.gx-list.gx-recs .gx-badge::before{content:"";display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;background:currentColor;vertical-align:middle;opacity:.85}',
+'.gx-list.gx-recs .gx-badge.win{color:#3f9e6b}',
+'.gx-list.gx-recs .gx-badge.lose{color:#c9605a}',
+'.gx-list.gx-recs .gx-badge.plain{color:var(--meta)}',
+'.gx-list.gx-recs .fic-lt{padding-right:26px;font-size:13.5px;font-weight:600;line-height:1.4;letter-spacing:.1px;color:var(--txt)}',
+'.gx-list.gx-recs .fic-ld{font-size:11.5px;line-height:1.4;margin-top:5px;color:var(--meta);letter-spacing:.2px}',
+'.gx-list.gx-recs .fic-ld .mvp-chip{margin:0 7px 0 0;padding:1px 7px;font-size:10px;font-weight:700;letter-spacing:.03em;background:rgba(224,168,60,.14);border:1px solid rgba(224,168,60,.34);color:#a07d24}',
+'.gx-list.gx-recs .rec-x{position:absolute;top:3px;right:3px;width:24px;height:24px;margin:0;padding:0;border:0;background:transparent;color:var(--meta);opacity:.5}',
+'.gx-list.gx-recs .rec-x svg{width:13px;height:13px;stroke-width:1.9}',
+'.gx-list.gx-recs .rec-x:active{opacity:.9;background:transparent}',
+/* 「继续」这个按钮往左让一点：右上角的小叉就压在它头上，让开会好看（也不容易点错） */
+'.gx-list.gx-recs .fic-li .ghost{margin-right:26px}',
 '.gx-sec{font-size:11.5px;letter-spacing:1.2px;color:var(--meta);margin:18px 2px 8px}',
 '.gx-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px}',
 '.gx-char{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:9px 11px;margin-bottom:8px}',
@@ -21610,6 +21915,15 @@ var CSS=[
 '.ww-seat-no{position:absolute;top:-4px;left:-4px;z-index:1;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#b23c33;color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center}',
 /* 名字最多显示两行（大概 8~10 个字），比原来只显示 3~4 个字好看 */
 '.ww-seat-nm{font-size:9.5px;line-height:1.18;color:var(--txt);max-width:52px;max-height:2.4em;overflow:hidden;word-break:break-word;text-align:center}',
+'.ww-badge{display:inline-block;margin-left:2px;font-size:10px;line-height:1;vertical-align:middle}',   /* 行内的小徽章（结算页 / 历史记录里的警长） */
+'.ww-badge svg{width:12.5px;height:12.5px;display:inline-block;vertical-align:-2px}',
+/* 警长徽章：挂在头像右上角（金色圆牌 + 白星） */
+'.ww-sheriff{position:absolute;right:-6px;top:-5px;z-index:7;width:15px;height:15px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 1px 2px rgba(0,0,0,.32))}',
+'.ww-sheriff svg{width:15px;height:15px;display:block}',
+/* 「上警」举手徽章：贴在头像右下角（如果这个人已经被打过标记，就挪到左下角，免得叠在一起） */
+'.ww-uphand{position:absolute;right:-4px;bottom:-4px;z-index:6;width:14.5px;height:14.5px;border-radius:50%;background:#fff;color:var(--acc);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.2px var(--acc),0 1px 3px rgba(0,0,0,.26)}',
+'.ww-uphand svg{width:10.5px;height:10.5px;display:block}',
+'.ww-uphand.lft{right:auto;left:-5px}',
 '.ww-seat-st{font-size:9px;line-height:1.2;color:var(--dim);max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
 '.ww-seat-st.voted{color:#2fbf71;font-weight:700}',
 '.ww-seat-st.spoke{color:#2fbf71;font-weight:700}',        /* 已发言：绿色 */
@@ -21744,6 +22058,10 @@ var CSS=[
 '.ww-vln svg{width:15px;height:15px;flex:0 0 15px;margin-top:3px;fill:none;stroke:var(--acc);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}',
 /* 只有你看得到的私人提示（比如预言家验人结果），做成一条醒目的消息 */
 '.ww-sys.me{color:var(--txt);font-weight:600;background:var(--accdim);border:1px solid var(--acc);border-radius:12px;padding:8px 10px;margin:10px 0}',
+/* 【新】狼队频道那几条：淡淡的红底，跟普通发言区分开（局内只有狼看得到，赛后人人都看得到） */
+'.ww-sys.wolf{text-align:left;background:rgba(190,60,60,.09);border:1px solid rgba(190,60,60,.24);border-radius:12px;padding:8px 10px;margin:10px 0;color:var(--txt);font-size:12.5px;line-height:1.6}',
+'.ww-sys.wolf b{display:block;font-size:10.5px;letter-spacing:.06em;color:#c9605a;font-weight:700;margin-bottom:3px}',
+'.ww-wolf-tip{font-size:11px;color:var(--dim);margin:6px 2px 0}',
 /* 底部操作区：一直贴在屏幕下边（内容短的时候也到底），做成一条"操作台" */
 '.ww-foot{position:sticky;bottom:0;z-index:5;margin-top:auto;padding:9px 0 calc(env(safe-area-inset-bottom) + 8px);background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 22px rgba(15,30,45,.07)}',
 '.ww-act{margin-top:0;padding:0;border-radius:0;background:transparent;border:0;box-shadow:none}',
@@ -22270,19 +22588,25 @@ function submitSay(){
   enterSay();                 /* 轮到你后面还有角色没说的话，他们会接着说 */
 }
 /* 单个角色的投票提示词：只有它自己的记忆 */
-function spyVoteSys(p,alive,r){
+/* 【缓存友好】这里只放不变的（规则、你是谁、你的词）；每轮会变的「大家这一轮的发言」
+   挪到用户消息里（spyVoteAsk）。这样同一个玩家多轮投票时系统提示一直不变，能反复命中缓存。 */
+function spyVoteSys(p){
   var c=chOf(p.cid)||{},L=[];
   L.push('你正在参加聚会游戏「谁是卧底」，你扮演其中的一位玩家。现在到了投票环节。');
   L.push('【你要扮演的人】'+p.gname);
   L.push('你这一局拿到的词是：'+p.word);
   var mb=charMemoryC(c,V.mem[p.cid]||'base');if(mb)L.push(mb);
   L.push('【铁规矩】不能透露或暗示自己拿到的是什么词；不要提「卧底」「平民」；不要替真人玩家说话；不要评价游戏安排。');
+  L.push('【输出格式】只输出你要投的那个人的名字，不要写别的。');
+  return L.join('\n\n');
+}
+function spyVoteAsk(alive,r){
+  var L=[];
   L.push('【这一轮大家的发言】');
   alive.forEach(function(x){L.push(x.gname+'：'+(r.said[x.gname]||'（没有发言）'))});
   L.push('');
   L.push('请投一票：你觉得谁最像拿到不一样那个词的人。不能投自己，也不能投已经出局的人。');
-  L.push('【输出格式】只输出你要投的那个人的名字，不要写别的。');
-  return L.join('\n\n');
+  return L.join('\n');
 }
 async function npcVote(){
   var s=V.sess,r=cur();
@@ -22295,7 +22619,7 @@ async function npcVote(){
     try{render(true)}catch(e){}
     var txt='';
     try{
-      txt=String(await callAPI([{role:'system',content:spyVoteSys(v,alive,r)},{role:'user',content:'请投票。'}],
+      txt=String(await callAPI([{role:'system',content:spyVoteSys(v)},{role:'user',content:spyVoteAsk(alive,r)}],
         {stream:false,model:cfg.model,temp:Math.max(.45,Number(cfg.temp)||.7),maxtok:60})||'').trim();
     }catch(e){}
     var t=matchP(txt,pool);
@@ -23520,7 +23844,21 @@ var WW_IC_AUTO='<svg viewBox="0 0 24 24"><path d="M4.4 5.4 11 12l-6.6 6.6z"/><pa
 var WW_IC_PAUSE='<svg viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></svg>';
 var WW_IC_STOP='<svg viewBox="0 0 24 24"><path d="M6.8 3.8v16.4"/><path d="M6.8 4.9h9.3l-1.9 3.2 1.9 3.2H6.8z"/></svg>';
 var WW_IC_REDO='<svg viewBox="0 0 24 24"><path d="M19.6 12a7.6 7.6 0 1 1-2.3-5.4"/><path d="M19.9 4.8v4.2h-4.2"/></svg>';
+/* 【新】「打断这次思考、重新想一遍」的图标：一圈逆时针的箭头
+   （「重新说」那个是顺时针的，方向反着，两个一眼能分开） */
+var WW_IC_RETHINK='<svg viewBox="0 0 24 24"><path d="M4.4 12a7.6 7.6 0 1 0 2.3-5.4"/><path d="M4.1 4.8v4.2h4.2"/></svg>';
 var WW_IC_MUSIC='<svg viewBox="0 0 24 24"><path d="M9.6 17.4V6.8l7.6-1.5v10.3"/><circle cx="7.4" cy="17.6" r="2.2"/><circle cx="15" cy="16.1" r="2.2"/></svg>';
+/* 「上警」那个举手小图标：一只举起的手（掌心 + 四根手指 + 大拇指）—— 手掌别太矮扁 */
+var WW_IC_HAND='<svg viewBox="0 0 24 24"><g fill="currentColor">'+
+ '<rect x="7.6" y="5.2" width="2.3" height="8.2" rx="1.15"/>'+
+ '<rect x="10.2" y="3.5" width="2.3" height="9.9" rx="1.15"/>'+
+ '<rect x="12.8" y="4.4" width="2.3" height="9" rx="1.15"/>'+
+ '<rect x="15.4" y="6" width="2.3" height="7.4" rx="1.15"/>'+
+ '<rect x="7.2" y="10.6" width="10.4" height="10.5" rx="3.2"/>'+
+ '<rect x="3" y="13.7" width="5.4" height="2.5" rx="1.25"/>'+
+ '</g></svg>';
+/* 警长徽章（挂在头像右上角）：金色的圆牌 + 一颗白星 */
+var WW_IC_SHERIFF='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11.2" fill="#e2a52e"/><circle cx="12" cy="12" r="11.2" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M12 4.4l2.35 4.76 5.25.76-3.8 3.7.9 5.24L12 16.38l-4.7 2.48.9-5.24-3.8-3.7 5.25-.76z" fill="#fff"/></svg>';
 /* 狼爪：三道斜着抓下来的血痕（边缘带锯齿）+ 几滴血，照着参考图的样子画 */
 var WW_IC_CLAW='<svg viewBox="0 0 24 24">'+
  '<path d="M3.2 3.4 7.1 7.2 10 10.4 12.4 13.1 13.6 14.5 12.3 15.2 10.5 13 7.9 10.1 5.1 6.8 2.2 4Z"/>'+
@@ -23554,7 +23892,7 @@ var WW_TIPS=[
 '2 正反逻辑都要盘：说完正逻辑（A查杀B、B出局，A像好人），再点一句反逻辑隐患（A可能是狼踩狼做高自己）。',
 '3 轮次意识：有查杀先出查杀，再是对跳的神职、明狼，最后抓倒钩狼。',
 '【各角色要点】预言家：先报验人，再给狼坑，最后归票。女巫：首夜谨慎救人，别轻易暴露银水。猎人：被票出去可以用开枪施压。村民：别只跟风，要有自己的狼坑和归票。狼人：队友悍跳成功就冲锋拉票，队友崩盘就倒钩保命，全场盯狼就打深水少说话。',
-'【提醒】这个游戏里没有守卫、铜水、自爆、拍刀、警长警徽这些规则，不要提。'
+'【提醒】这个游戏里没有守卫、铜水、自爆、拍刀这些规则，不要提。'
 ].join('\n');
 /* 每个角色可以单独开关这份小抄（默认关：想让谁懂行就单独给它打开） */
 function wwTipsOn(p){
@@ -23563,7 +23901,8 @@ function wwTipsOn(p){
   return w.tips[p.cid]===true;
 }
 function wwTipsBlock(){
-  return '【狼人杀术语与思路小抄】下面是老玩家的常用术语和打法，你说话时可以自然地用（能对上就用，别硬堆词）：\n'+WW_TIPS;
+  var extra=wwSheriffOn()?'\n【警长/上警】第一天天亮后竞选警长：先表态上警 → 警上各发一次言拉票 → 可以退水 → 没上警的人投票选出。警长白天投票算 1.5 票、负责定发言顺序；TA 出局时警徽可以移交给别人，也可以撕毁。狼上警抢警徽（悍跳抢警徽）是常规套路。':'';
+  return '【狼人杀术语与思路小抄】下面是老玩家的常用术语和打法，你说话时可以自然地用（能对上就用，别硬堆词）：\n'+WW_TIPS+extra;
 }
 /* 自己可以给角色打的标记（纯给自己看，不会发给 AI） */
 var WW_MARKS=[['wolf1','🐺 怀疑狼'],['wolf2','🐺 确定狼'],['seer','🔮 像预言家'],['witch','🧪 像女巫'],['hunter','🔫 像猎人'],['idiot','🃏 像白痴'],['good','👤 像好人']];
@@ -23581,9 +23920,11 @@ function wwFactsFor(p){
     '\n· 活着的玩家：'+(alive.map(wwName).join('、')||'（没有了）')+
     (alive.length&&p?(alive.some(function(x){return x===p})?'（'+wwTag(p)+' 就是你自己）':''):'')+
     (dead.length?('\n· 已经出局的人：'+dead.map(function(x){
-      var how=(x.killedBy==='vote'?'被投票放逐':(x.killedBy==='poison'?'夜里被女巫毒死':(x.killedBy==='shot'?'被猎人开枪带走':'夜里被狼刀')));
+      /* 【改】夜里出局的**不写死因**：主持人只报「谁出局了」，不会说哪个是被女巫毒的、哪个是被狼刀的。
+         白天出局的那两种（投票放逐 / 猎人开枪）本来就是公开的，照旧写明。 */
+      var how=(x.killedBy==='vote')?'白天被投票放逐':((x.killedBy==='shot')?'被猎人开枪带走':'夜里出局');
       return wwName(x)+'（'+how+'）';
-    }).join('、')):'')+
+    }).join('、')+'\n  （夜里出局的只报「出局」，不说死因——被毒还是被刀，得自己推）'):'')+
     '\n· 名字只是称呼，跟身份没有关系：名字里带「狼」字的人也可能是好人，别被名字骗了（这一条很重要）。');
   var rev=w.players.filter(function(x){return x.alive&&x.role==='idiot'&&x.revealed});
   if(rev.length)L.push('· 注意：'+rev.map(function(x){return wwTag(x)}).join('、')+' 已经翻出「白痴」牌——TA 没有被放逐、还活着、还能发言，但不能再投票、也不能再被票出去。');
@@ -23593,6 +23934,23 @@ function wwFactsFor(p){
       '\n· 这一局的狼一共 '+team.length+' 个：'+team.map(function(x){return wwNum(x)+x.name+(x.alive?'（还活着）':'（已出局）')}).join('、')+'。'+
       '\n· 你现在还活着的狼队友：'+(team.filter(function(x){return x.alive&&x!==p}).map(wwName).join('、')||'（没有了，只剩你一个）')+'。'+
       '\n· 你自己是 '+wwNum(p)+p.name+'，你就属于上面这队狼，别再怀疑自己是不是。');
+    /* 【新】昨晚你们刀的是谁 —— 这是你们自己做的事（去掉死因以后必须补上，不然狼队会变瞎） */
+    if(w.night&&w.night.wolf)
+      L.push('· 你们狼队昨晚刀的是 '+wwName(w.night.wolf)+(w.pendingDeaths?'（死讯还没公布，先别声张）':(w.night.wolf.alive?'，TA 现在还活着（多半是女巫的解药救回来了）':''))+
+        '。（这条只有你们自己知道，白天别往外说。）');
+    /* 【新】把狼队频道塞进来：你们夜里偷偷商量的话，只有狼看得见 */
+    var ch=wwWolfChannelText();
+    if(ch)L.push('【狼队频道（只有你们狼队看得见，好人根本不知道有这回事）】\n'+ch+
+      '\n· 这是你们自己人夜里偷偷商量的，用来配合（谁悍跳、谁打倒钩、今晚刀谁…）。'+
+      '\n· 白天发言里绝对不能提这个频道，也不能把队友在里面说的话抖出去。');
+  }
+  /* 【新】警长的情况：谁在当警长、警徽还在不在 */
+  if(wwSheriffOn()){
+    var sp=wwSheriffP();
+    L.push('【警长（上警）这一局的情况】'+
+      (!w.sheriffDone?'· 第一天的警长竞选还没开始：警长要等天亮了之后才选。':
+       (!sp?'· 这一局现在没有警长（没人上警，或者警徽已经被撕掉了）。':
+        ('· 警长是 '+wwTag(sp)+'（TA 还活着）：白天投票放逐的时候，TA 的票算 1.5 票，每天也由 TA 决定发言顺序。'))));
   }
   return L.join('\n');
 }
@@ -23723,23 +24081,42 @@ async function wwSpeak(p,sys){
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
 function wwPlayerByUid(uid){var a=V.ww.players;for(var i=0;i<a.length;i++){if(a[i].uid===uid)return a[i]}return null}
 function wwAlive(){return V.ww.players.filter(function(p){return p.alive})}
+/* ---------- 警长（上警）小工具 ---------- */
+/* 只有 8 人及以上的板子才开放上警；而且要在开局设置里把「警长竞选」打开。 */
+function wwSheriffOn(){var w=V.ww;return !!(w&&w.sheriff&&(w.count>=8))}
+function wwSheriffP(){var w=V.ww;return (w&&w.sheriffUid)?wwPlayerByUid(w.sheriffUid):null}
+function wwHasBadge(){var s=wwSheriffP();return !!(s&&s.alive)}
+/* 座位 / 发言上那个「警长」小徽章（只给「你」看，不会发给模型） */
+function wwBadgeMark(p){return (p&&V.ww&&V.ww.sheriffUid===p.uid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):''}
 /* 能投票、也能被票的人：翻牌后的白痴不算在里面 */
 function wwVotable(){return V.ww.players.filter(function(p){return p.alive&&!(p.role==='idiot'&&p.revealed)})}
 function wwIsWolf(p){return !!(p&&p.role==='wolf')}
 function wwMe(){var a=V.ww.players;for(var i=0;i<a.length;i++){if(a[i].isUser)return a[i]}return null}
 function wwCharBlock(p){
   var w=V.ww,c=p.isUser?null:chOf(p.cid);
-  return c?charMemoryC(c,w.mem[p.cid]||'base'):('你是'+p.name+'。');
+  if(!c)return '你是'+p.name+'。';
+  var blk=String(charMemoryC(c,w.mem[p.cid]||'base')||'');
+  /* 【改】去掉「【用户信息】」那一段：那段会写「正在和你聊天的这个人」，等于告诉角色谁是真人玩家。
+     人设 / 说话风格 / 情境都留着，只是不许靠这个认人，免得角色开局就盯着真人验 / 刀。 */
+  blk=blk.split('\n\n').filter(function(x){return !/^【用户信息】/.test(x)}).join('\n\n');
+  return blk;
 }
-/* 给模型看的名字：真人玩家如果叫「我」，很容易被理解成角色自己，所以标清楚。
-   每个玩家名字前面都带上座位号（1 号 · 名字），这样说「几号」就能对上人。 */
+/* 给模型看的名字：每个玩家都只写「座位号 · 名字」，一视同仁 —— 不再告诉模型哪一个是真人玩家，
+   免得它们一开局就盯着真人验 / 刀。
+   （万一她的名字正好叫「我」「你」这种、会被模型误认成它自己，就统一写成「玩家」。） */
 function wwNum(p){return (p&&p.seq)?(p.seq+'号 · '):''}
 /* 界面上显示一个人：只用编号（"3号"）；旧记录没有编号就退回名字 */
 function wwTag(p){return p?((p.seq?p.seq+'号':p.name)):'?'}
-function wwName(p){return p?(wwNum(p)+(p.isUser?('真人玩家「'+p.name+'」'):p.name)):'?'}
+function wwBareName(p){
+  if(!p)return '?';
+  var nm=String(p.name||'').trim();
+  if(!nm||/^(我|你|咱|俺|我们|你们|自己|本人|用户|user|me|you)$/i.test(nm))nm='玩家';
+  return nm;
+}
+function wwName(p){return p?(wwNum(p)+wwBareName(p)):'?'}
 function wwMatch(txt,list){
   var s=String(txt||'').trim(),i;
-  for(i=0;i<list.length;i++){if(list[i]&&s.indexOf(list[i].name)>=0)return list[i]}
+  for(i=0;i<list.length;i++){if(list[i]&&(s.indexOf(list[i].name)>=0||s.indexOf(wwBareName(list[i]))>=0))return list[i]}
   /* 模型可能直接回「3号」，这里把编号也认一下 */
   var m=s.match(/(\d{1,2})\s*号/);
   if(m){var n=parseInt(m[1],10);for(i=0;i<list.length;i++){if(list[i]&&Number(list[i].seq)===n)return list[i]}}
@@ -23769,8 +24146,12 @@ function wwAfterBlock(){
   if(lines.length)L.push('【白天发生过的事】\n'+lines.slice(-80).join('\n'));
   return L.join('\n\n');
 }
+/* 【缓存友好】这个函数只返回「不变的那部分」（你是谁、身份、打法、硬规矩）。
+   每轮会变的（验人结果、用药、场上名单、公开记录、事实清单、草稿纸、本轮任务）
+   先攒在 dyn 里，交给 wwCall 附到用户消息中——这样一局里几十次调用都能反复命中缓存。 */
+var WW_DYNMAP={};
 function wwSysFor(p,task){
-  var w=V.ww,L=[],r=p.role;
+  var w=V.ww,L=[],r=p.role,dyn=[];
   /* 先让它「变成」这个角色：性格、说话方式、脾气、和在场人的关系，都在下面这一块里 */
   L.push('【你就是这个人本人】你不是在"扮演"，你就是 TA——现在正坐在桌前，和大家一起玩「狼人杀」。'+
     '说话要完全像这个人：语气、用词、口头禅、脾气都照下面来，别用通用 AI 的客气口吻；该毒舌就毒舌、该怂就怂，被发现是狼也照样是这个人。\n\n'+
@@ -23793,18 +24174,23 @@ function wwSysFor(p,task){
   }
   if(r==='seer'){
     var ck=(p.check||[]).map(function(c){var t=wwPlayerByUid(c.uid);return (t?t.name:'?')+' = '+(c.isWolf?'狼人':'好人')});
-    if(ck.length)L.push('你已经验过：'+ck.join('；'));
+    if(ck.length)dyn.push('你已经验过：'+ck.join('；'));
   }
   if(r==='witch'){
-    L.push('你的药：解药'+(w.witchSave?'还在':'已经用掉了')+'；毒药'+(w.witchPoison?'还在':'已经用掉了'));
+    dyn.push('你的药：解药'+(w.witchSave?'还在':'已经用掉了')+'；毒药'+(w.witchPoison?'还在':'已经用掉了'));
     var wl=(w.witchLog||[]).map(function(x){
       return '第 '+x.d+' 天：'+(x.k==='save'?('你用解药救了 '+x.txt+'（TA 就是你救起的「银水」）'):('你用毒药毒了 '+x.txt));
     });
-    if(wl.length)L.push('你自己做过的夜间操作（只有你知道，别人不一定知道）：\n'+wl.join('\n'));
+    if(wl.length)dyn.push('你自己做过的夜间操作（只有你知道，别人不一定知道）：\n'+wl.join('\n'));
   }
-  L.push(wwBoardLine());
-  L.push('【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog());
-  L.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
+  dyn.push(wwBoardLine());
+  dyn.push('【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog());
+  dyn.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
+  /* 【新】本局有警长（上警）：把规则讲清楚，AI 才知道怎么竞选、怎么用警长的权力 */
+  if(wwSheriffOn())L.push('【本局有「警长」（上警）】第一天是「先上警、再公布死讯」：天亮了先进警长竞选——大家先表态「上警」（想当警长）或「不上警」，上警的人各发一次言拉票，之后可以「退水」（退出竞选），没上警的人再投票选出警长；**警长选完以后**，主持人才公布昨晚谁出局、死者才留遗言。'+
+    '所以竞选这段时间，你并不知道昨晚谁死了（除非你是狼、或你是女巫而且那药是你自己下的）——别在竞选发言里假装知道谁死了。'+
+    '警长的好处：① 白天投票放逐时，TA 的票算 1.5 票；② 每天由 TA 决定从谁开始发言、顺着还是逆着；③ TA 出局时，可以把警徽交给一个还活着的人，也可以直接把警徽撕掉。'+
+    '谁都能上警，狼上警抢警徽（「悍跳抢警徽」）是很常见的战术。警上、警下、退水、警徽这些词都可以自然地说。');
   L.push('【硬规矩】① 只有三样是确定的事实：主持人公布的死讯和投票结果、你自己能力得到的信息、你自己的身份。别人的发言、报的身份、遗言，都只是「他说的」，可能是骗人的（出局的人遗言最不可信，狼也会说「我是平民走的」）。'+
     '② 不许替别人说话，不许编造没发生的事，不许写旁白，也不许用括号写动作神态心理（（冷笑）（想了想）这类一律不许）。'+
     '③ 别犯糊涂：你就是 '+(p.seq||'?')+' 号，别怀疑自己、别投自己、别拉自己的票，也不要把自己的号当成别人。'+
@@ -23812,29 +24198,64 @@ function wwSysFor(p,task){
     (r==='wolf'?'（你是狼人：说假话、假跳预言家骗人，都是正常打法。）':''));
   L.push('【怎么盘（心里过一遍就行，别念出来）】'+
     '① 死讯：狼一晚只刀一刀；女巫同一晚只能用一瓶药。平安夜＝解药救了被刀的人；只死 1 个＝被狼刀那个没被救，或者刀和毒是同一个人（毒优先，算被毒死，猎人也开不了枪）；死 2 个＝狼刀一个＋毒一个。'+
+    '★ 重要：主持人**只报「谁出局了」，绝不会说哪个是被女巫毒的、哪个是被狼刀的**——死因只能自己按上面这几条推。除非你是女巫（自己下的药）或者你是狼（自己刀的人），否则不许假装知道某个人是怎么死的，也不许拿「他是被毒死的」当事实去发言。'+
     '主持人公布的「猎人枪带走的人」要先扣掉，白天的票杀不算夜里。'+
     '② 口径：谁跳预言家、给谁金水/查杀，前后对不对得上；谁的视角不合理（没信息却异常肯定）。有人翻出「白痴」牌不算出局——还活着、还能发言，只是不能投票、也不能再被票。'+
     '③ 结论：给出最怀疑的 1~2 个号＋理由，并明确这轮投谁；真没信息就直接说没信息、讲清你在盯谁，别硬编狼坑。'+
     '④ 发言顺序每天随机开头，跟身份无关，别拿它当理由（这条也不用讲出来）。');
-  if(p.scratch)L.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
+  if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
   if(wwTipsOn(p))L.push(wwTipsBlock());
-  if(task)L.push(task);
-  return L.join('\n\n');
+  if(task)dyn.push(task);
+  var sysTxt=L.join('\n\n'),dynTxt=dyn.filter(function(x){return x}).join('\n\n');
+  try{
+    WW_DYNMAP[sysTxt]=dynTxt;
+    var ks=Object.keys(WW_DYNMAP);
+    if(ks.length>6){for(var i=0;i<ks.length-4;i++)delete WW_DYNMAP[ks[i]]}
+  }catch(e){}
+  return sysTxt;
 }
 /* 最近一次请求的「思考过程」：有些模型会在 reasoning_content 里吐推理链，这里顺手接住，
    游戏结束后可以点开看它当时在想什么（接不到就是空的，不影响任何玩法）。 */
 var WW_LAST={reason:''};
+/* 【新】「打断这次思考、重新想一遍」靠这两个东西：
+   _WWAC = 当前这次请求的打断开关（AbortController）；
+   _WWRETHINK = 按过几次「重新想」——数字一变就说明刚才是她按的，原样再要一次即可。 */
+var _WWAC=null,_WWRETHINK=0;
 async function wwCall(sys,usr,maxtok,temp){
-  WW_LAST={reason:''};
-  try{
-    var mt=(maxtok==null)?160:maxtok;   /* 0 是「不限制」：请求里就不放 max_tokens */
-    var r1='';
-    var txt=String(await callAPI([{role:'system',content:sys},{role:'user',content:usr}],
-      {stream:false,model:cfg.model,temp:(temp==null?.8:temp),maxtok:mt,
-       onReasoning:function(r){r1+=String(r||'')}})||'').trim();
-    WW_LAST={reason:r1.trim()};          /* 思考链整条留着：游戏结束时点开能看到完整的 */
-    return txt;
-  }catch(e){return ''}
+  var mt=(maxtok==null)?160:maxtok;   /* 0 是「不限制」：请求里就不放 max_tokens */
+  var dyn='';
+  try{dyn=(WW_DYNMAP&&WW_DYNMAP[sys])||''}catch(e){}
+  var usr2=dyn?('【当前局面（每轮更新）】下面是主持人给你的最新情况，不是谁说的话：\n'+dyn+'\n\n'+usr):usr;
+  var msgs=[{role:'system',content:sys},{role:'user',content:usr2}];
+  var rushed=false;   /* 【新】她按过「打断→重新想」之后，给这个角色加一句「别想太久、快点直接说」 */
+  /* 最多重来 20 次 —— 只有「被她打断」才会重来，不会自己空转 */
+  for(var attempt=0;attempt<20;attempt++){
+    WW_LAST={reason:''};
+    var tag=_WWRETHINK,ac=null;
+    try{if(window.AbortController)ac=_WWAC=new AbortController()}catch(e){}
+    try{
+      var r1='';
+      var txt=String(await callAPI(msgs,
+        {stream:false,model:cfg.model,temp:(temp==null?.8:temp),maxtok:mt,signal:(ac?ac.signal:undefined),
+         onReasoning:function(r){r1+=String(r||'')}})||'').trim();
+      _WWAC=null;
+      WW_LAST={reason:r1.trim()};          /* 思考链整条留着：游戏结束时点开能看到完整的 */
+      return txt;
+    }catch(e){
+      _WWAC=null;
+      /* 她按的「重新想」：原样再来一次（不同浏览器报的错名字略有差别，都认） */
+      if(_WWRETHINK!==tag&&e&&(e.name==='AbortError'||/abort/i.test(String(e&&e.name||e)))){
+        /* 【新】她是嫌角色想太久才点的这个按钮：这次额外提醒一句，让它别做长篇推理、快点直接说 */
+        if(!rushed){
+          rushed=true;
+          try{msgs[0]={role:'system',content:String((msgs[0]&&msgs[0].content)||'')+'\n\n【重要提醒】这次不要想太多、别做长篇推理，心里有数了就快点直接说，马上把要说的话（或者要做的选择）给出来。'}}catch(x){}
+        }
+        continue;
+      }
+      return '';
+    }
+  }
+  return '';
 }
 /* 一条发言配的「思考」：模型的推理链（有就带上）+ 它自己的草稿纸 */
 function wwThinkOf(p){
@@ -23844,6 +24265,17 @@ function wwThinkOf(p){
   if(r)out+='【模型的思考过程】\n'+r;
   if(d)out+=(out?'\n\n':'')+'【它的草稿纸】\n'+d;
   return out;              /* 不再砍字数：超过原来 1200 字的后半段也一并留着 */
+}
+/* 【新】赛后「透明模式」：开着＝赛后能看到每个角色的思考过程（可展开/收起）；
+   关掉＝赛后就不显示那些思考胶囊了。状态存在 cfg.wwThink 里（默认开，老配置没有这个字段也算开）。 */
+function wwTransparentOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwThink===false)}
+function wwTransRow(){
+  var on=wwTransparentOn();
+  return '<div class="gx-sec">赛后透明模式</div><div class="gx-card"><div class="gx-vs" style="display:flex;align-items:center;gap:10px">'+
+    '<div style="flex:1;min-width:0"><b>透明模式</b>：'+(on?'开':'关')+
+    '<div class="dim" style="font-size:12px;margin-top:2px">开着的时候，赛后能看到每个角色的「思考过程」（点一下能展开，再点收起）；关掉以后，赛后就不显示这些思考胶囊了。</div></div>'+
+    '<button class="'+(on?'pri':'ghost')+'" style="flex:0 0 auto" onclick="GAME.wwTrans('+(on?'0':'1')+')">'+(on?'已开启':'已关闭')+'</button>'+
+    '</div></div>';
 }
 /* 思考胶囊（展开/收起）：游戏结束后才显示，用来复盘它们当时在想什么 */
 function wwThinkHTML(key,txt,ns){
@@ -23877,6 +24309,75 @@ function wwSayMax(){
 /* ---------- 夜间各角色的行动 ---------- */
 /* 一只狼自己表态今晚刀谁：单独问一次、只带它自己的人设。
    （以前是把几只狼的人设塞在同一次请求里，模型会懵：「我到底是谁？」） */
+/* ---------- 【新】狼队频道（只有狼队看得见） ----------
+   干什么用：
+     ① 你玩狼的时候，夜里能给狼队友留言（这一夜一共不超过 50 字），
+        他们会在接下来的思考里看到、按你说的配合；
+     ② 狼队全是人机时（你在当好人 / 旁观），每只狼夜里决定刀谁的时候，
+        顺手给队友留一句悄悄话，它们就能自己商量打法。
+   留言都存在 log 里（k:'wolf'）：局内只有「你也是狼」才看得到；赛后透明模式里全部公开。 */
+var WW_WOLF_MSG_MAX=50;
+/* 把模型写的话收拾成一句干净的留言（去引号、去前缀、掐到 50 字以内） */
+function wwWolfClean(t){
+  var s=String(t||'').replace(/\s+/g,' ').trim();
+  s=s.replace(/^【[^】]{0,8}】/,'').replace(/^狼队频道[：:]\s*/,'').replace(/^留言[：:]\s*/,'').trim();
+  s=s.replace(/^["'“”‘’]+|["'“”‘’]+$/g,'').trim();
+  if(s.length>WW_WOLF_MSG_MAX)s=s.slice(0,WW_WOLF_MSG_MAX);
+  return s;
+}
+function wwWolfAll(){
+  var w=V.ww,a=[];
+  if(!w)return a;
+  (w.log||[]).forEach(function(e){if(e&&e.k==='wolf'&&String(e.text||'').trim())a.push(e)});
+  return a;
+}
+function wwWolfWho(e){return (e&&e.seq)?(e.seq+'号'):((e&&e.nm)||'？')}
+/* 这一夜你自己已经说了多少字（每夜一共 50 字） */
+function wwWolfUsed(){
+  var w=V.ww,n=0;
+  if(!w)return 0;
+  (w.log||[]).forEach(function(e){if(e&&e.k==='wolf'&&e.d===w.day&&e.isUser)n+=String(e.text||'').length});
+  return n;
+}
+/* 拼成给模型看的一段「狼队频道」 */
+function wwWolfChannelText(max){
+  var a=wwWolfAll();
+  if(!a.length)return '';
+  return a.slice(-(max||40)).map(function(e){
+    return '第 '+e.d+' 夜 · 「'+wwWolfWho(e)+'」：'+String(e.text||'').replace(/\s+/g,' ').slice(0,40);
+  }).join('\n');
+}
+/* 让一只人机狼给队友留一句悄悄话（狼队全是人机时用） */
+async function wwWolfNote(p,pick){
+  var sys=wwCharBlock(p)+
+    '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，你是这一局的狼人之一。'+
+    '今晚你们狼队要一起刀一个人；现在先用一句话跟队友交代你的打算（他们都会看到）。'+
+    '\n\n'+wwFactsFor(p)+
+    '\n【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog()+
+    (pick?('\n【你今晚想刀的人】'+wwName(pick)):'')+
+    '\n【已经说过的狼队留言】\n'+(wwWolfChannelText()||'（还没有）')+
+    '\n【怎么写】像在群里跟队友打字：一句话，短、口语、有信息量。'+
+    '说说你的思路（要不要悍跳、谁去打倒钩、保谁、今晚为什么刀 TA…），不要重复别人刚说过的。'+
+    '不超过 '+WW_WOLF_MSG_MAX+' 个字，不要换行、不要用括号写动作、不要报自己的编号。只输出这句话。';
+  var t='';
+  try{t=await wwCall(sys,'请给狼队友留一句话。',60,.9)}catch(e){t=''}
+  return wwWolfClean(t);
+}
+/* 你是狼人：夜里给狼队留言（这一夜一共 50 字；可以分几条说，不想说就点「不留言」） */
+async function wwWolfChatNight(){
+  var w=V.ww,gen=wwGenNow(),me=wwMe();
+  if(!me)return;
+  for(var k=0;k<6;k++){
+    var left=WW_WOLF_MSG_MAX-wwWolfUsed();
+    if(left<=0){try{toast('狼队频道：这一夜 50 字已经说完了')}catch(e){}break}
+    var r=await wwAskWolf(left,k>0);
+    if(wwStaleG(gen))return;
+    if(!r||!r.text)break;
+    w.log.push({k:'wolf',who:me.uid,nm:me.name,seq:me.seq,d:w.day,isUser:true,text:r.text});
+    render(true);
+    if(wwStaleG(gen))return;
+  }
+}
 async function wwWolfPick(p){
   var w=V.ww,alive=wwAlive();
   var sys=wwCharBlock(p)+
@@ -23897,6 +24398,8 @@ async function wwWolfChoose(wolves){
   w.wolfPicks=[];                              /* 每只狼今晚的意见：{seq,name,t} */
   var rand=(prey.length?prey[Math.floor(Math.random()*prey.length)]:alive[Math.floor(Math.random()*alive.length)]);
   if(!mates.length)return null;                /* 只有你一个狼：没有队友意见 */
+  /* 「你在狼队里还活着」才算——你要是好人、在旁观、或者已经出局了，狼队就都是人机，它们自己会说话 */
+  var meW=wwMe(), userWolf=!!(meW&&meW.alive&&wwIsWolf(meW));
   /* 一只一只单独问：每只狼都带上自己的人设，免得把自己当成别的狼 */
   for(var wi=0;wi<mates.length;wi++){
     var m=mates[wi];
@@ -23904,6 +24407,15 @@ async function wwWolfChoose(wolves){
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
     if(!t)t=rand;
     w.wolfPicks.push({seq:m.seq,name:m.name,t:t});
+    /* 【新】狼队全是人机时：每只狼顺手给队友留一句悄悄话（你当时看不到，赛后在透明模式里能看） */
+    if(!userWolf){
+      var note=await wwWolfNote(m,t);
+      if(wwStaleG(gen))return null;
+      if(note){
+        w.log.push({k:'wolf',who:m.uid,nm:m.name,seq:m.seq,d:w.day,text:note});
+        render(true);
+      }
+    }
   }
   /* 最终刀谁：听多数意见；打平就听第一个开口的 */
   var cnt={},best=null,bn=0;
@@ -23928,12 +24440,20 @@ async function wwWitchChoose(witch,victim){
   var maySave=!!(victim&&w.witchSave&&!(selfKnife&&w.day!==1));   /* 第二夜起不能自救 */
   var mayPoison=!!w.witchPoison;
   if(!maySave&&!mayPoison)return out;
-  var t='今晚狼人刀的人是：'+(victim?victim.name:'（没人被刀）')+'。';
-  if(maySave)t+='你的解药还在，可以救 TA。';
-  if(selfKnife&&w.day!==1)t+='（规则：第二夜起女巫不能救自己，所以今晚你不能自救。）';
-  if(maySave||mayPoison){
-    t+='\n请按下面两行输出（不需要用药就写「不用」）：\n救：救 或 不用'+(mayPoison?('\n毒：要毒的人的编号或名字 或 不用'):'');
+  /* 【改】女巫只有在解药还在时，主持人才会告诉她今晚谁被狼刀（跟真人女巫的待遇一样）。
+     解药一旦用过，她就不知道刀口了 —— 别再把这个信息漏给她，不然等于开挂。 */
+  var t='';
+  if(w.witchSave&&victim){
+    t='今晚狼人刀的人是：'+victim.name+'。';
+    if(maySave)t+='你的解药还在，可以救 TA。';
+    if(selfKnife&&w.day!==1)t+='（规则：第二夜起女巫不能救自己，所以今晚你不能自救。）';
+  }else if(!w.witchSave){
+    t='你的解药已经用过了，所以今晚谁被狼刀、死没死人，你都无从得知（别假装知道刀口）。';
   }
+  var fmt=[];
+  if(maySave)fmt.push('救：救 或 不用');
+  if(mayPoison)fmt.push('毒：要毒的人的编号或名字 或 不用');
+  if(fmt.length)t+='\n请按下面 '+fmt.length+' 行输出（不需要用药就写「不用」）：\n'+fmt.join('\n');
   var sys=wwSysFor(witch,t);
   var txt=await wwCall(sys,'请决定今晚怎么用药。',60,.8);
   var lines=String(txt||'').split(/\n+/);
@@ -24001,27 +24521,112 @@ async function wwReact(p,result,brief){
   return (await wwCall(sys,'请说。',wwSayMax(),.9))||'';
 }
 /* ---------- 赛后：中立裁判复盘 + MVP ---------- */
-async function wwJudge(result){
-  var w=V.ww,L=[];
+/* 把一局的「上帝视角资料」拼成给裁判的提示词（游戏里的那一局、战绩记录里的那一局都用它） */
+function wwJudgePrompt(src,result){
+  var L=[];
   L.push('你是一位中立、专业的狼人杀裁判兼解说。你没有参与这一局，只做赛后复盘。');
-  L.push('【本局】'+w.count+' 人局 · '+result);
-  L.push('【每个人这一局的真实身份】\n'+w.players.map(function(p){
-    return wwNum(p)+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）');
-  }).join('\n'));
-  if((w.rec||[]).length)L.push('【夜里的行动（只有上帝视角能看到）】\n'+w.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'));
-  L.push('【白天的发言和投票（所有人都看得到）】\n'+wwPublicLog(240));
-  L.push('【评 MVP 可以参考哪些】狼人的刀法（有没有刀到预言家 / 女巫 / 猎人这种关键人物）、预言家验人准不准、白天谁带对了节奏、谁投对了票、谁一直站错边。'+
-    '上面「夜里的行动」里写了每晚每只狼各自想刀谁、最后刀了谁——刀法的好坏就从这里看。');
-  L.push('【输出格式】严格按下面四行输出，每行都用「标题：」开头，不要写别的、不要用 markdown、不要加编号：\n'+
+  L.push('【本局】'+src.count+' 人局 · '+result);
+  L.push('【每个人这一局的真实身份】\n'+src.roles);
+  if(src.night)L.push('【夜里的行动（只有上帝视角能看到）】\n'+src.night);
+  L.push('【白天的发言和投票（所有人都看得到）】\n'+src.pub);
+  if(src.wolf)L.push('【狼队频道（他们夜里偷偷商量的，当时场上好人完全不知道）】\n'+src.wolf);
+  L.push('【MVP 的硬标准：只选一个，而且必须给「获胜的那一阵营」里对胜利贡献最大的那个人】输的一方打得再亮眼，也不拿 MVP。怎么判断"贡献最大"：\n'+
+    '· 狼人：别只看"刀没刀到关键人物"——狼故意不刀预言家、把神职留到第二天再踩，也是正常打法。要看这个狼的「策略和行动质量」：这一刀换来了多少实打实的收益（刀掉好人方的关键角色 / 打断好人的节奏 / 逼出解药…），以及他的发言有没有给狼人阵营带来收益（悍跳、倒钩、拉票、搅浑水、帮队友抗推…）。\n'+
+    '· 预言家：也别只看"验人准不准"，更要看他本人的发言有没有说服力，以及他对好人阵营整体的贡献（报验、归票、带队、坐实真预言家的身份、帮好人排掉狼坑…）。\n'+
+    '· 好人阵营的其他角色：投票投得对不对（有没有跟对边、有没有把票投到狼身上）是重要标准；带队、挡刀、出局前留下的关键信息也算。\n'+
+    '· 一句话：谁对这局「自己阵营赢下来」贡献最大，谁就是 MVP。上面「夜里的行动」写了每晚每只狼各自想刀谁、最后刀了谁，判断狼刀收益就从这里看。');
+  L.push('【输出格式】严格按下面五行输出，每行开头就是这一行的名字，不要写别的、不要用 markdown、不要加编号：\n'+
+    '标题：给这一局取一个超短的名字，6~12 个字，一句话就概括出这局最有戏的地方（例如「悍跳狼带队取胜」「猎人枪走预言家带飞狼队」「预言家验对人却被票出」）。要求：不要标点、不要引号、不要出现「狼人杀」这三个字\n'+
     '复盘：2~4 句，说清楚这局大概发生了什么（谁刀了谁、谁被票出去、最后怎么结束的）\n'+
-    'MVP：一个人，写成「3号 · 阿汐」，后面跟一句为什么是 TA\n'+
-    '最佳操作：一句话，谁做了什么关键的好操作\n'+
+    'MVP：一个人，写成「3号 · 阿汐」，后面跟一句为什么是 TA（必须是获胜阵营里贡献最大的那个，只能写一个）\n'+
+    '最佳操作：一句话，谁做了什么关键的好操作（赢的一方、输的一方都可以写，只看哪一个单独的操作最亮眼）\n'+
     '最惨失误：一句话，谁相信错人了 / 谁做了什么失误');
+  return L.join('\n\n');
+}
+/* 游戏里的这一局：叫裁判复盘（用当前的 V.ww） */
+async function wwJudge(result){
+  var w=V.ww;
+  var src={
+    count:w.count,
+    roles:w.players.map(function(p){return wwNum(p)+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
+    night:(w.rec||[]).length?w.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'',
+    pub:wwPublicLog(240),
+    wolf:wwWolfChannelText(60)
+  };
   var jt=wwSayMax();     /* 复盘不是角色发言，但同样别被截断：不限制就跟着不限，设了数就至少留 600 */
-  return String((await wwCall(L.join('\n\n'),'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
+  return String((await wwCall(wwJudgePrompt(src,result),'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
+}
+/* ---------- 【新】战绩记录里的那一局：拿存下来的资料重新问裁判（重新评 MVP / 重新复盘） ---------- */
+function wwRecP(rec,uid){var a=(rec&&rec.players)||[];for(var i=0;i<a.length;i++){if(a[i]&&a[i].uid===uid)return a[i]}return null}
+function wwPublicLogRec(rec,maxN){
+  var L=[];
+  ((rec&&rec.log)||[]).slice(-(maxN||240)).forEach(function(e){
+    if(!e)return;
+    if(e.k==='sys')L.push('【主持人】'+e.text);
+    else if(e.k==='say'){var p=wwRecP(rec,e.who);L.push((p?((p.seq?p.seq+'号 · ':'')+p.name):(e.nm||e.who||'？'))+'：'+e.text)}
+    else if(e.k==='vote')L.push('【投票】'+e.text);
+  });
+  return L.join('\n')||'（没有过程记录）';
+}
+function wwWolfChannelRec(rec,max){
+  var a=[];
+  ((rec&&rec.log)||[]).forEach(function(e){if(e&&e.k==='wolf'&&String(e.text||'').trim())a.push(e)});
+  if(!a.length)return '';
+  return a.slice(-(max||60)).map(function(e){
+    return '第 '+e.d+' 夜 · 「'+(e.seq?(e.seq+'号'):(e.nm||'？'))+'」：'+String(e.text||'').replace(/\s+/g,' ').slice(0,40);
+  }).join('\n');
+}
+/* 这一局的结局那行（跟游戏里给裁判的那句一模一样） */
+function wwResultLine(players,winner,endText){
+  var who=(players||[]).filter(function(p){return wwIsWolf(p)}).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name}).join('、');
+  return (winner==='good'?'好人获胜':(winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(endText||'');
+}
+/* 从裁判写的「MVP：3号 · 名字…」里把那个玩家找出来（按记录里的名单找） */
+function wwMvpPlayerRec(players,txt){
+  var m=String(txt||''),mm=m.match(/(\d{1,2})\s*号/),num=mm?parseInt(mm[1],10):null,i,p;
+  if(num!=null){for(i=0;i<players.length;i++){p=players[i];if(Number(p.seq)===num)return p}}
+  for(i=0;i<players.length;i++){p=players[i];if(p.name&&m.indexOf(p.name)>=0)return p}
+  return null;
+}
+async function wwJudgeRec(rec,result){
+  var src={
+    count:rec.count||((rec.players||[]).length),
+    roles:(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
+    night:(rec.rec||[]).length?rec.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'',
+    pub:wwPublicLogRec(rec,240),
+    wolf:wwWolfChannelRec(rec,60)
+  };
+  var jt=wwSayMax();
+  return String((await wwCall(wwJudgePrompt(src,result),'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
+}
+/* 战绩记录里点「重新评选」：重跑裁判，把复盘 / 标题 / MVP 都更新掉 */
+async function wwRejudgeRec(id){
+  var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
+  if(!rec||rec.game!=='ww')return toast('这一局的记录找不到了');
+  if(V.histJudgeBusy)return;
+  if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  if(!rec.winner&&!rec.endText)return toast('这局还没打完，暂时没法重新评选');
+  V.histJudgeBusy=true;render(false);
+  try{
+    var result=wwResultLine(rec.players,rec.winner,rec.endText);
+    var txt=await wwJudgeRec(rec,result);
+    var jj=wwJudgeParse(txt);
+    if(!txt||(!jj.sum&&!jj.mvp))throw new Error('裁判这次没写出内容');
+    var mv=wwMvpPlayerRec(rec.players,jj.mvp);
+    rec.judge=txt;
+    var tt=wwTitleClean(jj.title);if(tt)rec.title=tt;
+    rec.mvp=mv?mv.uid:'';
+    var list=recStore(),i;
+    for(i=0;i<list.length;i++){if(list[i]&&list[i].id===rec.id){list[i]=rec;break}}
+    recPut(list);
+    try{toast('裁判已重新评选')}catch(e){}
+  }catch(e){
+    try{toast('重新评选失败：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
+  }
+  V.histJudgeBusy=false;render(false);
 }
 function wwJudgeParse(txt){
-  var o={sum:'',mvp:'',best:'',worst:''},raw=String(txt||'').trim();
+  var o={title:'',sum:'',mvp:'',best:'',worst:''},raw=String(txt||'').trim();
   if(!raw)return o;
   raw.split(/\n+/).forEach(function(x){
     var s=String(x||'').trim().replace(/^[-*·•#\s]+/,'');
@@ -24029,6 +24634,7 @@ function wwJudgeParse(txt){
     var m=s.match(/^([^：:]{1,6})[：:]\s*([\s\S]*)$/);
     if(m){
       var k=m[1].replace(/\s/g,'').toUpperCase(),v=String(m[2]||'').trim();
+      if(k.indexOf('标题')>=0||k.indexOf('名字')>=0){o.title=v;return}
       if(k.indexOf('复盘')>=0||k.indexOf('经过')>=0||k.indexOf('总结')>=0){if(!o.sum)o.sum=v;return}
       if(k.indexOf('MVP')>=0){o.mvp=v;return}
       if(k.indexOf('最佳')>=0){o.best=v;return}
@@ -24037,6 +24643,14 @@ function wwJudgeParse(txt){
     o.sum=o.sum?(o.sum+' '+s):s;   /* 模型没按格式写，就整段当复盘 */
   });
   return o;
+}
+/* 战绩标题收一收：去掉引号、书名号、末尾标点，太长就截断（免得把列表那行撑坏） */
+function wwTitleClean(t){
+  var s=String(t||'').replace(/[\r\n]+/g,' ').trim();
+  s=s.replace(/^[\s"'“”‘’《》〈〉「」『』【】\[\]（）()]+/,'').replace(/[\s"'“”‘’《》〈〉「」『』【】\[\]。，,.、！!？?~～-]+$/,'');
+  s=s.replace(/[\/\\:*?"<>|]/g,'');      /* 这条名字还会被当成文件名用，去掉文件名不允许的符号 */
+  if(s.length>24)s=s.slice(0,24);
+  return s;
 }
 /* 裁判评的 MVP 说的是谁：先按「几号」认，再按名字认 */
 function wwMvpPlayer(txt){
@@ -24110,6 +24724,24 @@ function wwSay(skip){
   w.sayDraft='';
   r({text:skip?'':t});
 }
+/* 【新】狼队频道：开个输入框让你给队友留言（max = 这一夜还剩多少字） */
+function wwAskWolf(max,said){
+  return new Promise(function(res){
+    WW_LAST={reason:''};
+    V.ww.userAsk={kind:'wolf',label:'🐺 狼队频道 · 给队友留句话',max:(max||WW_WOLF_MSG_MAX),skipLabel:(said?'说完了':'不留言')};
+    V.ww.resolve=res;render(true);
+  });
+}
+function wwWolfSay(skip){
+  var w=V.ww;if(!w.userAsk||w.userAsk.kind!=='wolf')return;
+  var el=gel('wwWolf');
+  var t=el?String(el.value||'').trim():'';
+  var max=Number(w.userAsk.max||WW_WOLF_MSG_MAX);
+  if(!skip&&!t)return toast('写点什么，或者点「不留言」');
+  if(!skip&&t.length>max)return toast('太长啦：这一夜只剩 '+max+' 个字');
+  var r=w.resolve;w.userAsk=null;w.resolve=null;
+  r({text:skip?'':wwWolfClean(t)});
+}
 /* 旁观（或你已经出局）时：一步一步走 */
 function wwGate(step){
   var w=V.ww;
@@ -24153,6 +24785,11 @@ async function wwNight(){
       /* 你能刀任何人，包括你自己和狼队友（自刀骗药也是战术） */
       var prey=wwAlive(),safe=prey.filter(function(p){return !wwIsWolf(p)});
       var mates=wolves.filter(function(p){return !p.isUser});
+      /* 【新】有狼队友时，先给狼队留言：这一夜一共 50 字；队友接下来商量刀谁时会看到、照着配合 */
+      if(mates.length){
+        await wwWolfChatNight();
+        if(wwStaleG(gen))return;
+      }
       if(mates.length){w.msg='🐺 你的狼队友正在商量…';render(true)}
       var sug=mates.length?await wwWolfChoose(wolves):null;
       var sugTxt=(w.wolfPicks&&w.wolfPicks.length)?w.wolfPicks.map(function(x){return wwTag(x)+' 想刀 '+wwTag(x.t)}).join('；'):'';
@@ -24270,15 +24907,24 @@ async function wwNight(){
   if(pz){pz.alive=false;pz.killedBy='poison';deaths.push(pz)}
   if(v&&!w.night.save&&deaths.indexOf(v)<0){v.alive=false;v.killedBy='wolf';deaths.push(v)}
   w.night.deaths=deaths;
-  w.log.push({k:'sys',text:'第 '+w.day+' 天早上：'+(deaths.length?('昨晚 '+deaths.map(function(x){return wwTag(x)}).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
+  if(w.day===1&&wwSheriffOn()){
+    /* 【改】第一天的规则是「先上警、再公布死讯遗言」：所以这一夜的结果先押着，
+       等警长选完再落实。这段时间里，昨晚出局的人也按「还活着」参与竞选。 */
+    w.pendingDeaths=deaths.map(function(p){return {uid:p.uid,killedBy:p.killedBy||'wolf'}});
+    deaths.forEach(function(p){p.alive=true;p.killedBy=''});
+    w.night.deaths=[];
+  }else{
+    w.log.push({k:'sys',text:'第 '+w.day+' 天早上：'+(deaths.length?('昨晚 '+deaths.map(function(x){return wwTag(x)}).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
+  }
   w.nightDone=true;
 }
 
 /* ---------- 白天 ---------- */
 /* 计票：得票最多的人；并列的话 list 里会有好几个（平票 → 进 PK） */
 function wwTallyTop(){
-  var w=V.ww,cnt={},max=0,list=[];
-  Object.keys(w.votes||{}).forEach(function(k){var t=w.votes[k];if(t)cnt[t]=(cnt[t]||0)+1});
+  var w=V.ww,sid=w.sheriffUid,cnt={},max=0,list=[];
+  /* 警长的票算 1.5 票（只有选出警长的局、而且警长本人投了才算） */
+  Object.keys(w.votes||{}).forEach(function(k){var t=w.votes[k];if(!t)return;cnt[t]=(cnt[t]||0)+((sid&&k===sid)?1.5:1)});
   Object.keys(cnt).forEach(function(k){if(cnt[k]>max)max=cnt[k]});
   if(!max)return {max:0,list:[]};
   Object.keys(cnt).forEach(function(k){if(cnt[k]===max)list.push(k)});
@@ -24361,6 +25007,8 @@ async function wwExile(p){
   }
   render(true);
   if(!over)await wwHunterCheck(p);
+  /* 【新】要是刚出局的是警长（或者猎人把警长带走了）：当场处理警徽的移交 / 撕毁 */
+  if(wwSheriffOn()&&!w.badgeGone){await wwBadgePass();}
 }
 /* 一轮投票（网杀规则：所有人同时投，过程不公开）
    流程：① 你先自己点要投谁（点完有命中动效，点「确认投票」才算）
@@ -24428,7 +25076,9 @@ function wwAnnounceVotes(){
     var p=wwPlayerByUid(t);
     return by[t].join('、')+' 投给了 '+(p?wwTag(p):'？');
   });
-  w.log.push({k:'vote',text:'投票公布：\n'+parts.join('\n')});   /* 每条占一行，前面有投票箱图标 */
+  var note='';
+  if(w.sheriffUid&&w.votes&&w.votes[w.sheriffUid]){var shp=wwPlayerByUid(w.sheriffUid);if(shp)note='\n（👮 警长 '+wwTag(shp)+' 的票算 1.5 票）'}
+  w.log.push({k:'vote',text:'投票公布：\n'+parts.join('\n')+note});   /* 每条占一行，前面有投票箱图标 */
   render(true);
 }
 /* 投票公布那种「一条一行、行首带图标」的排版（图标是 SVG，不能塞进被转义的文字里） */
@@ -24445,16 +25095,314 @@ function wwActHead(title,noMark){
     : '<button class="ww-ico'+(noMark?' off':'')+'" type="button" aria-label="标记" onclick="GAME.wwMarkStart()">'+WW_IC_TAG+'</button>';
   return '<div class="ww-act-h">'+tag+
     '<div class="ww-act-t">'+esc(title||'')+'</div>'+
+    /* 「重新想」只在「游戏自己在往下演」的时候出现（轮到你操作、或者等你按继续时不用显示） */
+    ((w.userAsk||w.voteMode||w.gateResolve||w.over)?'':('<button class="ww-ico" type="button" aria-label="打断这次思考，让它重新想" onclick="GAME.wwRethink()">'+WW_IC_RETHINK+'</button>'))+
     (w.auto?
       '<button class="ww-ico on" type="button" aria-label="暂停自动" onclick="GAME.wwAuto(0)">'+WW_IC_PAUSE+'</button>'
      :'<button class="ww-ico" type="button" aria-label="自动播放" onclick="GAME.wwAuto(1)">'+WW_IC_AUTO+'</button>')+
     '</div>';
+}
+/* ---------- 【新】警长（上警）：竞选 / 发言顺序 / 警徽 ---------- */
+function wwPoliceUpP(){var w=V.ww;return (w.policeUp||[]).map(function(u){return wwPlayerByUid(u)}).filter(function(p){return !!p})}
+/* 今天的发言顺序：警长定过就按警长定的来，否则随机挑一个开头、按座位号往下 */
+function wwSpeechOrderList(){
+  var w=V.ww,alive=wwAlive(),n=alive.length,out=[];
+  if(!n)return {list:[],dir:1};
+  var si=-1,dir=(w.speechDir===-1)?-1:1;
+  if(w.speechStart){for(var i=0;i<n;i++){if(alive[i].uid===w.speechStart){si=i;break}}}
+  if(si<0)si=Math.floor(Math.random()*n);
+  for(var k=0;k<n;k++)out.push(alive[(((si+dir*k)%n)+n)%n]);
+  return {list:out,dir:dir};
+}
+/* 叫一个 AI 决定上不上警 */
+async function wwPoliceDecide(p){
+  var sys=wwSysFor(p,'现在是第一天的「警长竞选」。你要不要上警（竞选警长）？\n'+
+    '当上警长以后：白天投票算 1.5 票、每天能决定发言顺序、出局时手里还有警徽可以交出去；代价是要在所有人面前发言拉票、会被全场盯着。'+
+    '（狼上警抢警徽是很常见的打法。）\n【输出格式】只输出：上警 或 不上警。');
+  var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
+  if(/不上警|不参选|不竞选|不上/.test(s))return false;
+  return /上警|竞选|参选|要上/.test(s);
+}
+/* 上警之后的竞选发言 */
+async function wwPoliceSpeech(p){
+  var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、');
+  var base='现在是你上警之后的「竞选发言」。要说服那些没上警的人把警长票投给你：说清你的身份（可以报真的，也可以装）、你的打法、当选后会怎么带节奏（比如发言顺序怎么定、你怀疑谁、打算先推谁）。'+
+    (others?('（这次上警的还有：'+others+'，可以点评他们，但别啰嗦。）'):'')+
+    '提到别人时带上编号。';
+  return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
+}
+/* 一个 AI 决定要不要退水 */
+async function wwPoliceWater(p){
+  var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
+  var sys=wwSysFor(p,'警上发言都结束了，现在是「退水」环节：你可以继续竞选（等着被警下的人投票），也可以退水（退出竞选）。'+
+    '（这一局上警的还有：'+others+'。）\n【输出格式】只输出：退水 或 不退水。');
+  var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
+  if(/不退水|不退|继续|留下/.test(s))return false;
+  return /退水|退出|放弃/.test(s);
+}
+/* 一个 AI（警下）投警长票 */
+async function wwPoliceVote(p,pool){
+  var sys=wwSysFor(p,'现在给警长投票。请你从这些上警的人里，选一个你比较信得过的当警长（不能投自己）：'+pool.map(wwName).join('、')+
+    '\n【输出格式】只输出你要投的那个人的编号或名字（例如「3号」）。');
+  var txt=await wwCall(sys,'请投票。',40,.8);
+  return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
+}
+/* 一个 AI 警长决定今天的发言顺序 */
+async function wwOrderAI(sh,alive){
+  var sys=wwSysFor(sh,'你是这一局的警长，现在由你决定今天从谁开始发言、按什么方向轮。'+
+    '（想清楚：让谁先开口，会影响这一轮谁先被集火。）\n可选的人：'+alive.map(wwName).join('、')+
+    '\n【输出格式】第一行写从哪个人开始（编号或名字，例如「3号」）；第二行写「正序」或「逆序」（正序＝按座位号从小到大）。');
+  var txt=String(await wwCall(sys,'请决定今天的发言顺序。',40,.85)||'');
+  var who=wwMatch(txt.split(/\n+/)[0]||txt,alive);
+  return {uid:who?who.uid:'',dir:/逆|倒/.test(txt)?-1:1};
+}
+/* 一个 AI 警长决定警徽交给谁 / 撕毁 */
+async function wwBadgeAI(sh,pool){
+  var sys=wwSysFor(sh,'你（警长）出局了，要处理警徽：可以把警徽交给场上一个还活着的人（交给谁，等于把你手上的信息托付给他），也可以直接把警徽撕掉（谁都不给）。\n'+
+    '可选的人：'+pool.map(wwName).join('、')+
+    '\n【输出格式】第一行写「移交」或「撕毁」；如果写移交，第二行再写那个人的编号或名字（例如「3号」）。');
+  var txt=String(await wwCall(sys,'请决定警徽的去向。',40,.85)||'');
+  if(/撕毁|撕掉|撕警徽|撕/.test(txt))return {tear:true,uid:''};
+  var who=wwMatch(txt,pool);
+  return {tear:!who,uid:who?who.uid:''};
+}
+/* 警长投票：没在竞选里的活人投票（退水的人也可以投）；平票就让平票的人各补一句、再重投一次 */
+async function wwPolicePoll(gen,cand){
+  var w=V.ww;
+  for(var round=0;round<2;round++){
+    /* 【改】第一轮只有「没上过警的人（警下）」能投；要是平票，第二轮才让退水的人一起投 */
+    var voters=(round===0)
+      ? wwAlive().filter(function(p){return (w.policeAll||[]).indexOf(p.uid)<0})
+      : wwAlive().filter(function(p){return cand.indexOf(p)<0});
+    var votes={},chain=Promise.resolve();
+    voters.filter(function(p){return !p.isUser}).forEach(function(v){
+      chain=chain.then(function(){
+        if(wwStaleG(gen))return;
+        var pool=cand.filter(function(x){return x&&x!==v});
+        if(!pool.length)return;
+        return wwPoliceVote(v,pool).then(function(t){if(t&&!wwStaleG(gen))votes[v.uid]=t.uid},function(){});
+      });
+    });
+    var me=voters.filter(function(p){return p.isUser})[0];
+    if(me){
+      var mypool=cand.filter(function(x){return x&&x!==me});
+      if(mypool.length){
+        var r=await wwAsk('🗳️ 第一天的警长竞选：把你这一票投给谁？',mypool,{none:'弃权'});
+        if(wwStaleG(gen))return null;
+        if(r.uid)votes[me.uid]=r.uid;
+      }
+    }
+    w.msg='大家正在投警长票…';render(true);
+    await chain;
+    if(wwStaleG(gen))return null;
+    var by={},order=[];
+    Object.keys(votes).forEach(function(k){var t=votes[k];if(!t)return;if(!by[t]){by[t]=[];order.push(t)}var vv=wwPlayerByUid(k);if(vv)by[t].push(wwTag(vv))});
+    if(!order.length){w.log.push({k:'vote',text:'警长投票：没有人投票。'});render(true);return null}
+    var cnt={},max=0;
+    order.forEach(function(t){cnt[t]=by[t].length;if(cnt[t]>max)max=cnt[t]});
+    var list=order.filter(function(t){return cnt[t]===max});
+    order.sort(function(a,b){var pa=wwPlayerByUid(a),pb=wwPlayerByUid(b);return ((pa&&pa.seq)||99)-((pb&&pb.seq)||99)});
+    w.log.push({k:'vote',text:'警长投票：\n'+order.map(function(t){var p=wwPlayerByUid(t);return by[t].join('、')+' 投给 '+(p?wwTag(p):'？')}).join('\n')});
+    render(true);
+    if(list.length===1)return wwPlayerByUid(list[0]);
+    cand=list.map(wwPlayerByUid).filter(function(p){return !!p});
+    if(cand.length<2)return null;
+    w.log.push({k:'sys',text:'警长票平票！'+cand.map(wwTag).join('、')+' 再各补一句，然后重投（这一轮退水的人和警下一起投）。'});
+    render(true);
+    for(var i=0;i<cand.length;i++){
+      var q=cand[i];if(wwStaleG(gen))return null;
+      w.speaking=q.uid;
+      if(q.isUser){
+        var rs=await wwAskSay('🗳️ 你的警长票平票了：再补一句，给自己拉票。','不说了');
+        if(wwStaleG(gen))return null;
+        if(rs.text)w.log.push({k:'say',who:q.uid,text:'【竞选发言】'+rs.text});
+      }else{
+        await wwStep('轮到「'+wwTag(q)+'」再补一句');
+        if(wwStaleG(gen))return null;
+        w.msg='「'+wwTag(q)+'」正在补一句…';render(true);
+        var sp=await wwPoliceSpeech(q);
+        if(!wwPushSay(gen,{k:'say',who:q.uid,text:'【竞选发言】'+sp,think:wwThinkOf(q)}))return null;
+      }
+      render(true);w.speaking=null;
+    }
+  }
+  return null;
+}
+/* 走一遍完整的警长竞选（只在第一天的白天、开上警时调用） */
+async function wwElection(){
+  var w=V.ww,gen=wwGenNow();
+  if(!w.players||w.players.length<3)return;
+  w.policeUp=[];w.policeVote={};w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;
+  w.policeAll=[];w.upSpoke={};
+  w.log.push({k:'sys',text:'🗳️ 进入「警长竞选」：想当警长的人现在上警（等会儿要发言拉票），其他人不上警。'});
+  render(true);
+  /* ① 表态：谁上警（第一夜死的人也可以上警） —— AI 在后台一个个决定，你同时选自己的 */
+  var chain=Promise.resolve();
+  w.players.slice().filter(function(p){return p&&!p.isUser}).forEach(function(p){
+    chain=chain.then(function(){
+      if(wwStaleG(gen))return;
+      return wwPoliceDecide(p).then(function(yes){if(wwStaleG(gen))return;if(yes)w.policeUp.push(p.uid);render(true)},function(){render(true)});
+    });
+  });
+  var me=wwMe();
+  if(me){
+    var ru=await wwAskOpt('🗳️ 第一天的警长竞选：你要上警（竞选警长）吗？',[['上警',1],['不上警',0]]);
+    if(wwStaleG(gen))return;
+    if(ru&&ru.val===1)w.policeUp.push(me.uid);
+  }
+  w.msg='大家正在陆续表态…';render(true);
+  await chain;
+  if(wwStaleG(gen))return;
+  var up=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
+  w.policeAll=up.map(function(p){return p.uid});   /* 【新】记下「上过警的人」（含后来退水的）：退水的人不能再投警长票 */
+  w.log.push({k:'sys',text:up.length?('上警的人：'+up.map(wwTag).join('、')+'。'):'没有人上警。'});
+  render(true);
+  if(!up.length){w.log.push({k:'sys',text:'没有人上警 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
+  if(up.length===1){w.sheriffUid=up[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:'只有 '+wwTag(up[0])+' 一个人上警，TA 直接当选警长。'});render(true);return}
+  var cand=up.slice();
+  /* ② 警上发言（按座位号） */
+  for(var j=0;j<cand.length;j++){
+    var q=cand[j];if(wwStaleG(gen))return;
+    w.speaking=q.uid;
+    if(q.isUser){
+      var rs=await wwAskSay('🗳️ 轮到你竞选发言：说说你的身份、打法、当选后你会怎么带，以及你怀疑谁。','不发言');
+      if(wwStaleG(gen))return;
+      if(rs.text)w.log.push({k:'say',who:q.uid,text:'【竞选发言】'+rs.text});
+      else w.log.push({k:'sys',text:wwTag(q)+' 上警了但没说话。'});
+    }else{
+      await wwStep('轮到「'+wwTag(q)+'」竞选发言');
+      if(wwStaleG(gen))return;
+      w.msg='「'+wwTag(q)+'」正在竞选发言…';render(true);
+      var ss=await wwPoliceSpeech(q);
+      if(!wwPushSay(gen,{k:'say',who:q.uid,text:'【竞选发言】'+ss,think:wwThinkOf(q)}))return;
+    }
+    w.upSpoke[q.uid]=1;      /* 竞选发言说完了：座位下面显示「已发言」 */
+    render(true);w.speaking=null;
+  }
+  /* ③ 退水（AI 在后台决定，你同时选自己的） */
+  var chain2=Promise.resolve();
+  cand.filter(function(p){return !p.isUser}).forEach(function(c){
+    chain2=chain2.then(function(){
+      if(wwStaleG(gen))return;
+      return wwPoliceWater(c).then(function(wa){
+        if(wwStaleG(gen))return;
+        if(wa){w.policeUp=w.policeUp.filter(function(u){return u!==c.uid});w.log.push({k:'sys',text:'🙇 '+wwTag(c)+' 退水了。'});render(true);}
+      },function(){});
+    });
+  });
+  var myCand=cand.filter(function(p){return p.isUser})[0];
+  if(myCand){
+    var rw=await wwAskOpt('🗳️ 竞选发言结束：你要退水（退出竞选）吗？',[['不退水，继续选',1],['退水',0]]);
+    if(wwStaleG(gen))return;
+    if(rw&&rw.val===0){w.policeUp=w.policeUp.filter(function(u){return u!==myCand.uid});w.log.push({k:'sys',text:'🙇 '+wwTag(myCand)+' 退水了。'});render(true)}
+  }
+  w.msg='其他人正在决定退不退水…';render(true);
+  await chain2;
+  if(wwStaleG(gen))return;
+  var left=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
+  if(!left.length){w.log.push({k:'sys',text:'上警的人全都退水了 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
+  if(left.length===1){w.sheriffUid=left[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:'只剩 '+wwTag(left[0])+' 没有退水，TA 直接当选警长。'});render(true);return}
+  /* ④ 警下投票选警长 */
+  var win=await wwPolicePoll(gen,left);
+  if(wwStaleG(gen))return;
+  if(!win){w.log.push({k:'sys',text:'警长票一直分不出胜负 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
+  w.sheriffUid=win.uid;w.sheriffDone=true;
+  w.log.push({k:'sys',text:'👮 '+wwTag(win)+' 当选警长（白天投票算 1.5 票，每天的发言顺序也由 TA 来定）。'});
+  w.rec.push({d:w.day,t:'警长竞选：'+wwTag(win)+' 当选警长'});
+  render(true);
+}
+/* 警长决定今天的发言顺序 */
+async function wwDecideOrder(){
+  var w=V.ww,gen=wwGenNow();
+  var sh=wwSheriffP(),alive=wwAlive();
+  if(!sh||!sh.alive||alive.length<2)return null;
+  var startUid='',dir=1;
+  if(sh.isUser){
+    var r=await wwAsk('👮 你是警长：今天从谁开始发言？（从 TA 开始，按座位号往下或往上轮）',alive,{none:'随便挑一个开头'});
+    if(wwStaleG(gen))return null;
+    startUid=r.uid||'';
+    var r2=await wwAskOpt('👮 从 TA 开始，往哪个方向轮？',[['按座位号往下（正序）',1],['按座位号往上（逆序）',-1]]);
+    if(wwStaleG(gen))return null;
+    dir=(r2&&r2.val===-1)?-1:1;
+  }else{
+    await wwStep('轮到警长「'+wwTag(sh)+'」决定发言顺序');
+    if(wwStaleG(gen))return null;
+    w.msg='👮 警长「'+wwTag(sh)+'」正在决定发言顺序…';render(true);
+    var res=await wwOrderAI(sh,alive);
+    if(wwStaleG(gen))return null;
+    startUid=(res&&res.uid)||'';dir=(res&&res.dir===-1)?-1:1;
+  }
+  w.speechStart=startUid;w.speechDir=dir;
+  var sP=startUid?wwPlayerByUid(startUid):null;
+  w.log.push({k:'sys',text:'👮 警长 '+wwTag(sh)+' 定的发言顺序：从 '+(sP?wwTag(sP):'随机一个座位')+' 开始，'+(dir===-1?'按座位号往上':'按座位号往下')+'轮。'});
+  render(true);
+  return {start:startUid,dir:dir};
+}
+/* 警长出局了：由 TA 决定把警徽交给谁，或者撕毁 */
+async function wwBadgePass(){
+  var w=V.ww,gen=wwGenNow();
+  if(!wwSheriffOn()||w.badgeGone||w.over)return;
+  var sh=wwSheriffP();
+  if(!sh||sh.alive)return;
+  var pool=wwAlive();
+  if(!pool.length){w.sheriffUid=null;w.badgeGone=true;return}
+  var to=null,tear=false;
+  if(sh.isUser){
+    var r=await wwAsk('👮 你（警长）出局了……把警徽交给场上一个还活着的人，还是撕毁警徽？',pool,{none:'撕毁警徽'});
+    if(wwStaleG(gen))return;
+    to=r.uid?wwPlayerByUid(r.uid):null;
+    if(!to)tear=true;
+  }else{
+    await wwStep('轮到警长「'+wwTag(sh)+'」处理警徽');
+    if(wwStaleG(gen))return;
+    w.msg='👮 警长「'+wwTag(sh)+'」正在决定警徽的去向…';render(true);
+    var res=await wwBadgeAI(sh,pool);
+    if(wwStaleG(gen))return;
+    if(res&&!res.tear&&res.uid)to=wwPlayerByUid(res.uid);
+    if(!to)tear=true;
+  }
+  if(tear||!to||!to.alive){
+    w.sheriffUid=null;w.badgeGone=true;
+    w.log.push({k:'sys',text:'👮 警长 '+wwTag(sh)+' 撕毁了警徽 —— 这一局之后没有警长了。'});
+    w.rec.push({d:w.day,t:'警长 '+wwTag(sh)+' 出局，撕毁警徽'});
+  }else{
+    w.sheriffUid=to.uid;
+    w.log.push({k:'sys',text:'👮 警长 '+wwTag(sh)+' 把警徽交给了 '+wwTag(to)+'，'+wwTag(to)+' 成为新的警长。'});
+    w.rec.push({d:w.day,t:'警长 '+wwTag(sh)+' 出局，警徽移交给 '+wwTag(to)});
+  }
+  render(true);
+}
+/* 上警结束之后，才把昨夜押着的死讯落实、并公布出来 */
+function wwApplyPendingDeaths(){
+  var w=V.ww;
+  if(!w.pendingDeaths)return;
+  var ds=[];
+  (w.pendingDeaths||[]).forEach(function(x){
+    var p=wwPlayerByUid(x&&x.uid);if(!p)return;
+    p.alive=false;p.killedBy=x.killedBy||'wolf';ds.push(p);
+  });
+  w.pendingDeaths=null;
+  w.night.deaths=ds;
+  w.log.push({k:'sys',text:'第 '+w.day+' 天早上：'+(ds.length?('昨晚 '+ds.map(function(x){return wwTag(x)}).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
+  render(true);
 }
 async function wwDay(){
   var w=V.ww;
   var gen=wwGenNow();
   w.spoke={};          /* 新的一天：发言记录清空（座位上的「未发言/已发言」靠它） */
   w.votes={};          /* 新的一天：先把昨天的票清掉，座位上的「已投票」才不会残留 */
+  /* 【新】第一天：先上警（警长竞选），死讯要等警长选完才公布（只有开了上警、8 人及以上才有） */
+  if(w.day===1&&wwSheriffOn()&&!w.sheriffDone){
+    w.electing=true;
+    await wwElection();
+    w.electing=false;
+    render(true);
+    if(wwStaleG(gen))return;
+    if(wwCheckOver())return;
+  }
+  wwApplyPendingDeaths();          /* 上警结束：这时候才真正公布昨晚谁出局 */
+  if(wwStaleG(gen))return;
+  if(wwCheckOver())return;
   var firstNight=(w.day===1);   /* 只有第一夜死的人有遗言；第二夜起夜里死了没遗言 */
   var dead=(w.night&&w.night.deaths)?w.night.deaths.slice():[];   /* 接着存档玩时可能没有当晚名单，兜一下 */
   for(var i=0;i<dead.length;i++){
@@ -24479,11 +25427,15 @@ async function wwDay(){
     if(wwCheckOver())return;
   }
   if(wwCheckOver())return;
-  /* 发言：每天随机挑一个座位起头，然后按编号往下轮（不是每次都从你开始） */
-  var order=wwAlive(),start=order.length?Math.floor(Math.random()*order.length):0;
-  if(order.length)w.log.push({k:'sys',text:'发言顺序：今天从 '+wwTag(order[start])+' 开始，按座位号往下轮（每天随机挑开头，跟身份无关）。'});
+  /* 【新】警长出局了：处理警徽（移交 / 撕毁），新警长等会儿来定发言顺序 */
+  if(wwSheriffOn()&&!w.badgeGone){await wwBadgePass();if(wwStaleG(gen))return;if(wwCheckOver())return;}
+  /* 发言顺序：有警长就由警长定；没警长就随机挑一个开头、按座位号往下（不是每次都从你开始） */
+  if(wwHasBadge()){await wwDecideOrder();if(wwStaleG(gen))return;}
+  else{w.speechStart='';w.speechDir=1;}
+  var _so=wwSpeechOrderList(),order=_so.list;
+  if(order.length)w.log.push({k:'sys',text:'发言顺序：今天从 '+wwTag(order[0])+' 开始，'+( _so.dir===-1?'按座位号往上轮。':'按座位号往下轮。')});
   for(var j=0;j<order.length;j++){
-    var q=order[(start+j)%order.length];if(!q.alive)continue;
+    var q=order[j];if(!q.alive)continue;
     if(wwStaleG(gen))return;
     w.speaking=q.uid;      /* 座位表上把正在说话的人点亮 */
     if(q.isUser){
@@ -24596,10 +25548,13 @@ async function wwFinish(){
   var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(w.endText||'');
   /* 先让中立裁判从上帝视角复盘这一局（顺便评个 MVP） */
   w.judge='';
+  w.judging=true;                       /* 【新】正在等裁判复盘：结算页上显示「裁判正在总结」的小动画 */
   w.msg='🧑‍⚖️ 中立裁判正在复盘这一局…';render(true);
   try{ w.judge=await wwJudge(result) }catch(e){ w.judge='' }
+  w.judging=false;
   if(gen!==(w.gen||0))return;                   /* 这中间她开了新的一局：这份复盘就丢掉，别污染新局 */
   var jj=wwJudgeParse(w.judge);
+  w.title=wwTitleClean(jj.title);     /* 【新】裁判给这局取的名字：存进战绩，当那条记录的标题 */
   /* 给角色的"赛后知道多少"：裁判复盘 + 夜里的行动 + 白天的发言和投票（不是只有一句话） */
   var brief=(w.judge?('【裁判的赛后复盘】\n'+w.judge+'\n\n'):'')+wwAfterBlock();
   var mvp=wwMvpPlayer(jj.mvp);        /* 把裁判评的 MVP 记下来，存进战绩 */
@@ -24653,7 +25608,11 @@ function wwSnap(){
     witchSave:!!w.witchSave,witchPoison:!!w.witchPoison,witchLog:(w.witchLog||[]).slice(),
     mem:Object.assign({},w.mem||{}),tips:Object.assign({},w.tips||{}),
     colors:Object.assign({},w.colors||{}),
-    pick:w.pick,autoWatch:!!w.autoWatch,sayTok:w.sayTok||0
+    pick:w.pick,autoWatch:!!w.autoWatch,sayTok:w.sayTok||0,
+    sheriff:(w.sheriff!==false),sheriffUid:w.sheriffUid||null,badgeGone:!!w.badgeGone,sheriffDone:!!w.sheriffDone,
+    policeUp:(w.policeUp||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),
+    policeAll:(w.policeAll||[]).slice(),
+    pendingDeaths:(w.pendingDeaths&&w.pendingDeaths.length)?w.pendingDeaths.map(function(x){return {uid:x.uid,killedBy:x.killedBy||'wolf'}}):null
   };
 }
 /* 老记录里没存进度：尽量按记录还原一局（预言家验过谁、女巫用没用过药，从当时的私密提示里认回来） */
@@ -24676,7 +25635,8 @@ function wwSnapFromRec(rec){
   return {day:rec.day||1,phase:'day',mode:rec.mode||'play',count:rec.count||players.length,winner:'',endText:'',
     nightDone:true,                        /* 老记录一律按"夜里已经结算过"处理：从白天接着玩，不会重复刀人 */
     night:null,players:players,log:(rec.log||[]).slice(),rec:(rec.rec||[]).slice(),votes:{},
-    witchSave:witchSave,witchPoison:witchPoison,witchLog:[],mem:{},tips:{},pick:'random',autoWatch:false,sayTok:0};
+    witchSave:witchSave,witchPoison:witchPoison,witchLog:[],mem:{},tips:{},pick:'random',autoWatch:false,sayTok:0,
+    sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeAll:[],speechStart:'',speechDir:1};
 }
 /* 把一份存档倒回 V.ww */
 function wwApplySnap(s,recId){
@@ -24696,8 +25656,13 @@ function wwApplySnap(s,recId){
   w.mem=Object.assign({},s.mem||{});w.tips=Object.assign({},s.tips||{});
   w.colors=Object.assign({},s.colors||{});
   w.pick=s.pick||'random';w.autoWatch=!!s.autoWatch;w.sayTok=s.sayTok||0;
+  /* 【新】警长（上警）的状态也要接回来 */
+  w.sheriff=(s.sheriff===true);w.sheriffUid=s.sheriffUid||null;w.badgeGone=!!s.badgeGone;w.sheriffDone=!!s.sheriffDone;
+  w.policeUp=(s.policeUp||[]).slice();w.speechStart=s.speechStart||'';w.speechDir=(s.speechDir===-1)?-1:1;
+  w.policeAll=(s.policeAll||[]).slice();w.upSpoke={};
+  w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;w.electing=false;
   w.cids=w.players.filter(function(p){return !p.isUser&&p.cid}).map(function(p){return p.cid});   /* 让「再来一局」还能用同一批角色 */
-  w.judge='';w.mvpUid='';w.reacts=[];
+  w.judge='';w.mvpUid='';w.title='';w.reacts=[];
   w.night=s.night?{wolf:byUid[s.night.wolf]||null,save:!!s.night.save,poison:byUid[s.night.poison]||null,
     check:byUid[s.night.check]||null,deaths:(s.night.deaths||[]).map(function(u){return byUid[u]}).filter(Boolean)}
     :{wolf:null,save:false,poison:null,check:null,deaths:[]};          /* 一定给个空壳，白天开头不会再崩 */
@@ -24746,7 +25711,8 @@ function wwSave(silent){
       return {uid:p.uid,name:p.name,seq:p.seq||0,isUser:!!p.isUser,cid:p.cid||null,role:p.role,alive:!!p.alive,
         npc:!!p.npc,emoji:p.isUser?userEmoji():((p.npc&&p.emoji)?p.emoji:((c&&c.emoji)||''))};
     }),
-    log:wwTrimThink(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||''};
+    sheriffUid:w.sheriffUid||null,sheriff:(w.sheriff!==false),
+    log:wwTrimThink(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||''};
   if(unfinished){
     try{var sp=wwSnap();sp.id=rec.id;save(LS_WWSAVE,sp)}catch(e){}          /* 存一份能接着玩的进度（只留最近一份） */
   }else{
@@ -24806,7 +25772,11 @@ function wwStart(){
   players.forEach(function(p,i){p.seq=i+1});
   w.players=players;w.day=1;w.over=false;w.winner='';w.endText='';w.log=[];w.rec=[];
   w.votes={};w.speaking=null;w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
-  w.witchSave=true;w.witchPoison=true;w.witchLog=[];w.reacts=[];w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';
+  w.witchSave=true;w.witchPoison=true;w.witchLog=[];w.reacts=[];w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';w.title='';
+  /* 【新】警长（上警）：每一局都重新来 */
+  w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeVote={};w.speechStart='';w.speechDir=1;
+  w.pendingDeaths=null;w.electing=false;
+  w.policeAll=[];w.upSpoke={};
   w.marks={};w.markMode='';w.markUid=null;
   w.colors={};
   w.gen=(w.gen||0)+1;                 /* 新一局的新编号：老循环认不出自己就会自动收手 */
@@ -24862,8 +25832,8 @@ function wwStop(){
 /* ================================================================
    游戏 token 统计：玩一局一共花了多少 token（结算时显示一行小字）
    ================================================================ */
-var GTOK={game:'',ptok:0,ctok:0,total:0,runs:0,est:false};
-function tokStart(game){GTOK={game:game||'',ptok:0,ctok:0,total:0,runs:0,est:false}}
+var GTOK={game:'',ptok:0,ctok:0,total:0,runs:0,est:false,chit:0,chitRuns:0};
+function tokStart(game){GTOK={game:game||'',ptok:0,ctok:0,total:0,runs:0,est:false,chit:0,chitRuns:0}}
 function tokAdd(usage,out,msgs){
   try{
     var est=(typeof estTokens==='function')?estTokens:function(s){return Math.round(String(s||'').length/1.5)};
@@ -24872,15 +25842,28 @@ function tokAdd(usage,out,msgs){
     var total=(usage&&usage.total_tokens!=null)?usage.total_tokens:(Number(pt||0)+Number(ct||0));
     if(!(usage&&(usage.total_tokens!=null||usage.completion_tokens!=null)))GTOK.est=true;
     GTOK.ptok+=Number(pt||0);GTOK.ctok+=Number(ct||0);GTOK.total+=Number(total||0);GTOK.runs++;
+    /* 【新】把接口报的「缓存命中」也累加进来（DeepSeek 给 prompt_cache_hit_tokens） */
+    try{
+      var cs=(typeof cacheStat==='function')?cacheStat(usage):null;
+      if(cs){GTOK.chit+=Number(cs.hit)||0;GTOK.chitRuns++}
+    }catch(e2){}
   }catch(e){}
 }
 function tokNum(n){return String(Math.round(Number(n)||0)).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
 function tokLine(){
   if(!GTOK.runs||!GTOK.total)return '';
-  return '<p class="gx-hint" style="text-align:center;margin-top:12px">🪙 本局共消耗 '+(GTOK.est?'约 ':'')+
-    '<b style="color:var(--txt)">'+tokNum(GTOK.total)+'</b> token · 共 '+GTOK.runs+' 次请求</p>';
+  var s='🪙 本局共消耗 '+(GTOK.est?'约 ':'')+
+    '<b style="color:var(--txt)">'+tokNum(GTOK.total)+'</b> token · 共 '+GTOK.runs+' 次请求';
+  if(GTOK.chitRuns){
+    var tt=Number(GTOK.ptok)||0;
+    var pct=tt>0?Math.round(Number(GTOK.chit)*100/tt):0;
+    s+=' · 缓存命中 <b style="color:var(--txt)">'+tokNum(GTOK.chit)+'</b>（'+pct+'%）';
+  }
+  return '<p class="gx-hint" style="text-align:center;margin-top:12px">'+s+'</p>';
 }
 /* 游戏目录的图标：都是简单几何描线，跟着图标块的颜色走 */
+/* 【新】历史记录每行右上角那个小图标：删＝一个小叉（整行都能点开，所以不再需要箭头） */
+var REC_IC_X='<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 var GX_ICONS={
   spy:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8.4" r="3.3"/><path d="M3.4 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.4 6.3a3.1 3.1 0 0 1 0 6.1"/><path d="M17.6 15c2.1.5 3.6 2.1 3.6 4.6"/></svg>',
   soup:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M9.8 10a2.3 2.3 0 1 1 3.2 2.1c-.6.2-.9.7-.9 1.4v.2"/><circle cx="12" cy="16.7" r=".95" fill="currentColor" stroke="none"/></svg>',
@@ -24971,17 +25954,17 @@ function hallHTML(){
   if(!recs.length){
     h+='<p class="gx-hint">玩过的对局会自动存在这里，可以点进去回看，也可以删掉。</p>';
   }else{
-    h+='<div class="gx-list">';
+    h+='<div class="gx-list gx-recs">';
     recs.forEach(function(r){
       var bd=recBadge(r);
-      h+='<div class="fic-li">'+
+      /* 【改】整行都能点开（以前只有中间的文字块能点）；右边的小叉 / 继续按钮会拦住冒泡，不会误触 */
+      h+='<div class="fic-li" onclick="GAME.histOpen(\''+esc(r.id)+'\')">'+
          (bd?('<span class="gx-badge '+bd.cls+'">'+esc(bd.text)+'</span>'):'')+
-         '<div class="fic-lm" onclick="GAME.histOpen(\''+esc(r.id)+'\')">'+
+         '<div class="fic-lm">'+
          '<div class="fic-lt">'+esc(recTitle(r))+'</div>'+
          '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">🏆 MVP</span>':'')+esc(recSub(r))+'</div></div>'+
-         ((r.game==='ww'&&!r.winner&&!r.endText)?('<button class="ghost" type="button" style="color:var(--acc)" onclick="GAME.wwResume(\''+esc(r.id)+'\')">继续</button>'):'')+
-         '<button class="ghost" type="button" onclick="GAME.histOpen(\''+esc(r.id)+'\')">看</button>'+
-         '<button class="ghost" type="button" style="color:var(--warn)" onclick="GAME.histDel(\''+esc(r.id)+'\')">删</button>'+
+         ((r.game==='ww'&&!r.winner&&!r.endText)?('<button class="ghost" type="button" style="color:var(--acc)" onclick="event.stopPropagation();GAME.wwResume(\''+esc(r.id)+'\')">继续</button>'):'')+
+         '<button class="rec-x" type="button" aria-label="删除" onclick="event.stopPropagation();GAME.histDel(\''+esc(r.id)+'\')">'+REC_IC_X+'</button>'+
          '</div>';
     });
     h+='</div>';
@@ -25267,14 +26250,18 @@ function wwSeatHTML(p){
   /* 状态：先看投票，其次看这一轮发言了没有（白天才显示未发言/已发言） */
   var spoke=!!(w.spoke&&w.spoke[p.uid]);
   var dayOn=!w.over&&w.phase==='day';
-  var st=p.alive?((p.role==='idiot'&&p.revealed)?'白痴·已翻牌':(voted?'已投票':(dayOn?(spoke?'已发言':'未发言'):'在场'))):(w.over?(WW_ROLE_NAME[p.role]||'出局'):'出局');
+  /* 【新】上警环节：上警的人照常显示「已发言 / 未发言」（他们就是这轮的发言人），没上警的写「未上警」 */
+  var upNow=!!(w.electing&&(w.policeUp||[]).indexOf(p.uid)>=0);
+  var upOut=!!(w.electing&&!upNow&&(w.policeAll||[]).indexOf(p.uid)>=0);   /* 上过警、又退水了 */
+  var upSpoke=!!(w.upSpoke&&w.upSpoke[p.uid]);
+  var st=p.alive?(w.electing?(upOut?'已退水':(upNow?(upSpoke?'已发言':'未发言'):'未上警')):((p.role==='idiot'&&p.revealed)?'白痴·已翻牌':(voted?'已投票':(dayOn?(spoke?'已发言':'未发言'):'在场')))):(w.over?(WW_ROLE_NAME[p.role]||'出局'):'出局');
   var fx=(w.fx&&w.fx.uid===p.uid)?('<span class="ww-fx '+(w.fx.kind||'claw')+'">'+(w.fx.kind==='hit'?WW_IC_HIT:WW_IC_CLAW)+'</span>'):'';
   return '<div class="ww-seat'+(p.alive?'':' out')+(p.isUser?' me':'')+((w.speaking&&w.speaking===p.uid)?' spk':'')+(pickable?' pick':'')+(votable?' pick':'')+(mypick?' mypick':'')+(hit?' hit':'')+(markable?' mkpick':'')+(knw?' knw':'')+(mk?(' mk-'+mk):'')+'"'+
      (pickable?(' onclick="GAME.wwPickUid(\''+p.uid+'\')"'):(votable?(' onclick="GAME.wwVotePick(\''+p.uid+'\')"'):(markable?(' onclick="GAME.wwMarkPick(\''+p.uid+'\')"'):'')))+'>'+
      '<span class="ww-seat-av">'+(p.seq?('<span class="ww-seat-no"'+(cc?(' style="background:'+esc(cc)+'"'):'')+'>'+p.seq+'</span>'):'')+
-     (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid))))+wwMarkBadge(p.uid)+fx+'</span>'+
+     (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid))))+wwMarkBadge(p.uid)+(upNow?('<span class="ww-uphand'+(mk?' lft':'')+'" title="上警">'+WW_IC_HAND+'</span>'):'')+((w.sheriffUid&&p.uid===w.sheriffUid)?('<span class="ww-sheriff" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+fx+'</span>'+
      '<span class="ww-seat-nm">'+esc(p.name)+'</span>'+
-     '<span class="ww-seat-st'+(p.alive&&voted?' voted':(p.alive&&dayOn&&spoke?' spoke':''))+'">'+esc(st)+'</span>'+
+     '<span class="ww-seat-st'+(p.alive&&voted?' voted':((p.alive&&((dayOn&&spoke)||(w.electing&&upNow&&upSpoke)))?' spoke':''))+'">'+esc(st)+'</span>'+
      '</div>';
 }
 /* ---------- 长按发言气泡 → 让它重新说一遍 ---------- */
@@ -25373,9 +26360,14 @@ function wwLogHTML(){
          (canSay?('<button class="ww-rsay" type="button" aria-label="重新发言" onclick="GAME.wwResayAsk(\''+esc(p.uid)+'\','+(base+i)+')">'+WW_IC_REDO+'</button>'):'')+
          '</div>'+
          '<div class="ww-say-t" style="border-left-color:'+col+'">'+esc(t)+
-         (w.over&&e.think?wwThinkHTML(base+i,e.think,'ww'):'')+'</div></div>';
+         ((w.over&&wwTransparentOn()&&e.think)?wwThinkHTML(base+i,e.think,'ww'):'')+'</div></div>';
     }else if(e.k==='vote'){
       h+='<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>';
+    }else if(e.k==='wolf'){
+      /* 【新】狼队频道：只有「你也是狼」才看得到（你要是好人，这几条直接跳过） */
+      var _m=wwMe();
+      if(!_m||!wwIsWolf(_m))return;
+      h+='<div class="ww-sys wolf"><b>🐺 狼队频道 · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
     }else if(e.k==='me'){
       h+='<div class="ww-sys me'+(e.icon==='vote'?' ww-vln':'')+'">'+(e.icon==='vote'?WW_VOTE_ICON:'')+'<span>'+esc(e.text)+'</span></div>';
     }else{
@@ -25404,6 +26396,13 @@ function wwSetupHTML(){
   h+='<p class="gx-hint">这个人数是：狼人 '+b.wolf+' · 村民 '+b.villager+' · 预言家 1 · 女巫 1'+(b.hunter?' · 猎人 1':'')+(b.idiot?' · 白痴 1':'')+'。'+
      (w.mode==='play'?('你也在局中，所以还需要选 '+(w.count-1)+' 个角色。'):('你不参与，需要选 '+w.count+' 个角色。'))+
      '人数越少结束越快（6 人局很快，8~9 人更有得玩）。</p>';
+  if(w.count>=8){
+    h+='<div class="gx-sec">警长竞选（上警）</div><div class="gx-seg">'+
+       '<button class="'+((w.sheriff!==false)?'on':'')+'" onclick="GAME.wwSheriffSet(1)">开</button>'+
+       '<button class="'+((w.sheriff===false)?'on':'')+'" onclick="GAME.wwSheriffSet(0)">关</button>'+
+       '</div>'+
+       '<p class="gx-hint">开着的局，第一天会先来一个「上警」环节（在公布昨晚死讯之前）：想当警长的人上警、各发一次竞选发言，其他人投票选出警长；选完警长，才公布昨晚谁出局、死者留遗言。警长白天投票算 <b>1.5 票</b>，每天决定从谁开始、往哪个方向发言；出局时能把警徽交给别人，也可以撕掉。只有 8 人及以上的板子才有这个环节。</p>';
+  }
   if(w.mode==='play'){
     h+='<div class="gx-sec">我想当</div><div class="ts-topic">'+WW_PICKS.map(function(p){
       var ok=(p[0]==='random')||((b[p[0]]||0)>0);
@@ -25441,7 +26440,7 @@ function wwSetupHTML(){
        '<button class="'+(mm==='full'?'on':'')+'" onclick="GAME.wwMem(\''+esc(c.id)+'\',\'full\')">完整</button>'+
        '</span></div>';
   });
-  h+='<p class="gx-hint">玩法：天黑（狼人刀人 / 预言家验人 / 女巫用药）→ 天亮宣布死讯 → 按座位依次发言（每天随机一个人先开口）→ 投票放逐（平票就进 PK 再投一次）→ 判胜负。**遗言只有第一轮才有**（第一夜死的、第一天被票出去的）；之后再出局都没有遗言，直接进入下一轮。**主持人由程序担任**，角色们只负责演；每个人只知道自己的身份和该知道的事。</p>';
+  h+='<p class="gx-hint">玩法：天黑（狼人刀人 / 预言家验人 / 女巫用药）→ 天亮 '+((w.count>=8&&w.sheriff!==false)?'<b>先进行警长竞选（上警）</b>，选完警长再宣布死讯 → ':'→ 宣布死讯 → ')+'按座位依次发言（没有警长就每天随机一个人先开口，有警长就由警长定顺序）→ 投票放逐（警长的票算 1.5 票；平票就进 PK 再投一次）→ 判胜负。**遗言只有第一轮才有**（第一夜死的、第一天被票出去的）；之后再出局都没有遗言，直接进入下一轮。**主持人由程序担任**，角色们只负责演；每个人只知道自己的身份和该知道的事。</p>';
   h+='<p class="gx-hint">名字下面那个「📖 教程」可以给角色单独开关（**默认是关的**）：打开的角色会多拿一份狼人杀术语和思路小抄（金水、查杀、悍跳、倒钩这些），说话更像老玩家；关掉的就只按人设自由发挥、更"业余"。带教程的那几个角色每局会多花一点 token。</p>';
   h+='<button class="pri gx-go" onclick="GAME.wwStart()">开始</button>';
   h+='<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
@@ -25876,6 +26875,7 @@ function wwHTML(){
     else if(me.role==='wolf')extra='队友：'+(w.players.filter(function(p){return wwIsWolf(p)&&p!==me}).map(function(p){return wwTag(p)}).join('、')||'只有你');
     h+='<div class="ww-me">'+
        '<span class="ww-me-r">'+WW_ROLE_EMOJI[me.role]+' '+WW_ROLE_NAME[me.role]+'</span>'+
+       (wwHasBadge()&&wwSheriffP()===me?('<span class="ww-me-x"><span class="ww-badge">'+WW_IC_SHERIFF+'</span>警长（票算 1.5）</span>'):'')+
        '<span class="ww-me-s">'+(me.alive?'活着':'已出局')+'</span>'+
        (extra?('<span class="ww-me-x">'+esc(extra)+'</span>'):'')+
        '</div>';
@@ -25896,11 +26896,16 @@ function wwHTML(){
   if(w.over){
     h+='<div class="gx-verdict ww-verdict '+(w.winner==='good'?'win':(w.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
        '<div class="gx-vsub">'+esc(w.endText||'')+'</div></div>';
-    h+=wwJudgeHTML(w.judge);
+    /* 【新】裁判还在写复盘 / 评 MVP 的时候：先显示一排跳动的点点，让她知道是在等裁判 */
+    if(w.judging&&!w.judge){
+      h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
+         '<div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>🧑‍⚖️ 中立裁判正在总结这一局（复盘 + 评 MVP）…</span></div></div>';
+    }else h+=wwJudgeHTML(w.judge);
+    h+=wwTransRow();
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
-       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwNum(p)+p.name)+'</b>'+(p.uid===w.mvpUid?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
+       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwNum(p)+p.name)+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x,ri){
-      return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+(x.tk?wwThinkHTML('r'+ri,x.tk,'hist'):'')+'</div>';
+      return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('r'+ri,x.tk,'hist'):'')+'</div>';
     }).join('')+'</div></details>';
     if((w.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(w.reacts,w.players)+'</div></div>';
     h+=tokLine();
@@ -25949,6 +26954,12 @@ function wwHTML(){
       h+='<div class="ww-act">'+wwActHead(ua.label)+
          '<textarea id="wwSay" rows="3" placeholder="说说你的想法：怀疑谁、为谁辩护、或者报自己的身份…"></textarea>'+
          '<div class="gx-row"><button class="pri" onclick="GAME.wwSayIt(0)">发言</button><button class="ghost" onclick="GAME.wwSayIt(1)">'+esc(ua.skipLabel||'过')+'</button></div></div>';
+    }else if(ua.kind==='wolf'){
+      /* 【新】狼队频道：夜里给队友留言（这一夜一共 50 字，输入框自己也会拦） */
+      h+='<div class="ww-act">'+wwActHead(ua.label)+
+         '<textarea id="wwWolf" rows="2" maxlength="'+Number(ua.max||WW_WOLF_MSG_MAX)+'" placeholder="想让队友知道什么？比如：我明早要悍跳预言家，你去打倒钩"></textarea>'+
+         '<div class="ww-wolf-tip">只有狼队看得到 · 这一夜还能说 '+Number(ua.max||WW_WOLF_MSG_MAX)+' 字（一整夜一共 50 字）</div>'+
+         '<div class="gx-row"><button class="pri" onclick="GAME.wwWolfIt(0)">发送</button><button class="ghost" onclick="GAME.wwWolfIt(1)">'+esc(ua.skipLabel||'不留言')+'</button></div></div>';
     }
   }else if(w.voteMode){
     /* 投票面板在上面已经画过了：这里不再重复显示上一次发言留下的旧状态 */
@@ -26002,24 +27013,36 @@ function wwHistHTML(rec){
   h+='<div class="gx-cover sm">'+backBtn('GAME.hall()')+
      '<div class="gx-vol"><span>GAME LOG</span><i></i><span>WEREWOLF</span></div>'+
      '<div class="gx-title">狼人杀</div>'+
-     '<div class="gx-sub">'+esc(recWhen(rec.t))+' · '+(rec.mode==='watch'?'旁观局':'你参与了')+' · '+esc(String(rec.count||''))+' 人</div></div>';
+     '<div class="gx-sub">'+(rec.title?(esc(rec.title)+' · '):'')+esc(recWhen(rec.t))+' · '+(rec.mode==='watch'?'旁观局':'你参与了')+' · '+esc(String(rec.count||''))+' 人</div></div>';
   h+='<div class="gx-verdict '+(rec.winner==='good'?'win':(rec.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(rec.winner==='good'?'好人获胜':(rec.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
      '<div class="gx-vsub">'+esc(rec.endText||'')+'</div></div>';
-  h+=wwJudgeHTML(rec.judge||'');
+  if(V.histJudgeBusy){
+    /* 【新】正在叫裁判重新复盘：先显示跳动的点点 */
+    h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>🧑‍⚖️ 中立裁判正在重新总结这一局（复盘 + 评 MVP）…</span></div></div>';
+  }else{
+    h+=wwJudgeHTML(rec.judge||'');
+    /* 【新】打完的局才能重新评选（没打完、没结局的记录不显示这个按钮） */
+    if(rec.winner||rec.endText){
+      h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwRejudge(\''+esc(rec.id)+'\')">🔁 让裁判重新评选 MVP（连复盘一起重写）</button></div>';
+    }
+  }
+  h+=wwTransRow();
   h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+((rec.players||[]).map(function(p){
-    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+(p.uid===rec.mvp?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>';
+    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>';
   }).join(''))+'</div>';
   if((rec.rec||[]).length)h+='<details class="gx-log"><summary>夜间行动（复盘）</summary><div class="gx-vs">'+rec.rec.map(function(x,ri){
-    return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+(x.tk?wwThinkHTML('hr'+ri,x.tk,'hist'):'')+'</div>';
+    return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('hr'+ri,x.tk,'hist'):'')+'</div>';
   }).join('')+'</div></details>';
   h+='<div class="gx-sec">记录</div>'+((rec.log||[]).map(function(e,ei){
     if(e.k==='say'){
       var nm='';
       (rec.players||[]).forEach(function(p){if(p.uid===e.who)nm=p.name});
       return '<div class="mq-pick"><b>'+esc(nm||'？')+'</b>：'+esc(e.text)+
-        (e.think?wwThinkHTML('h'+ei,e.think,'hist'):'')+'</div>';
+        ((wwTransparentOn()&&e.think)?wwThinkHTML('h'+ei,e.think,'hist'):'')+'</div>';
     }
     if(e.k==='vote')return '<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>';
+    /* 【新】狼队频道：赛后全部公开（透明模式里能看到他们夜里偷偷商量了什么） */
+    if(e.k==='wolf')return '<div class="ww-sys wolf"><b>🐺 狼队频道 · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
     return '<div class="ww-sys'+(e.k==='me'?' me':'')+'">'+esc(e.text)+'</div>';
   }).join(''));
   if((rec.reacts||[]).length)h+='<div class="gx-sec">他们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
@@ -27070,13 +28093,24 @@ window.GAME={
   wwStart:function(){wwStart()},
   wwGo:function(){wwGo()},
   wwAuto:function(v){wwAutoSet(!!v)},
+  /* 【新】打断这次思考、让它重新想一遍（正在请求的时候才有效） */
+  wwRethink:function(){
+    var ac=_WWAC;
+    if(!ac){try{toast('它现在没在想的步骤——等出现「正在发言…」这种再按')}catch(e){}return}
+    _WWRETHINK++;                 /* 记一笔：wwCall 看到这个数字变了，就知道是自己人按的，原样再要一次 */
+    try{ac.abort()}catch(e){}
+    _WWAC=null;
+    try{toast('打断了，让它重新想一遍…')}catch(e){}
+  },
   wwPickUid:function(uid){wwPick(uid)},
   wwResayGo:function(){wwResayGo()},
   wwResayCancel:function(){wwResayCancel()},
   wwResayAsk:function(uid,idx){wwOpenResay(uid||'','',parseInt(idx,10))},
   wwResume:function(id){wwResume(id)},
+  wwRejudge:function(id){wwRejudgeRec(id)},
   wwBgm:function(){wwBgmToggle()},
   wwNpc:function(on){var w=V.ww;w.npcFill=!!on;render(false)},
+  wwSheriffSet:function(on){var w=V.ww;w.sheriff=!!on;render(false)},
   wwThink:function(ns,key){
     key=String(key||'');
     if(ns==='hist'){V.histThink=V.histThink||{};if(V.histThink[key])delete V.histThink[key];else V.histThink[key]=1}
@@ -27084,12 +28118,20 @@ window.GAME={
     render(false);
   },
   /* 下面这几个必须挂到 GAME 上：狼人杀这段代码在闭包里，裸函数名在 HTML 里点不到 */
+  /* 【新】赛后「透明模式」开关：开着＝赛后显示思考过程胶囊，关掉＝不显示 */
+  wwTrans:function(on){
+    var v=(on===1||on==='1'||on===true);
+    try{cfg=cfg||{};cfg.wwThink=v;save(LS.cfg,cfg)}catch(e){}
+    render(false);
+    try{toast(v?'透明模式已开启：赛后能看到思考过程':'透明模式已关闭：赛后不再显示思考过程')}catch(e){}
+  },
   wwThinkTap:function(btn,ns,key){wwThinkTap(btn,ns,key)},
   wwLPDown:function(ev,el){wwLPDown(ev,el)},
   wwLPUp:function(){wwLPUp()},
   wwLPMove:function(ev){wwLPMove(ev)},
   wwPickOpt:function(v){wwPickOpt(v)},
   wwSayIt:function(skip){wwSay(!!skip)},
+  wwWolfIt:function(skip){wwWolfSay(!!skip)},   /* 【新】狼队频道：发一条留言 / 不留言 */
   wwAgain:function(){wwAgain()},
   wwStop:function(){wwStop()},
   /* 装扮小铺（单人 · 做任务攒贝壳 · 换 SVG 头像图标 / 头像框） */
