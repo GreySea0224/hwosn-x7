@@ -12796,6 +12796,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。面杀里**女巫全程不能自救**（网杀是只有第一夜能自救）。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
 · 【狼人杀 · 空刀 / 收刀】轮到狼人在夜里刀人时，界面上有一个「空刀」按钮（今晚一个人都不杀）：这是高端局偶尔用的打法（做「平安夜」、逼女巫不敢乱用解药、给悍跳做局）。AI 狼也会自己考虑空刀，几只狼各表一态，主张空刀的比主张某个目标的多，这一晚就真的不杀人。另一种是「收刀」：她在那段夜戏里把人说动了，狼放过她——这一晚同样没人死。这两种都会在上帝视角记录里写清楚（「狼人本来要刀 ×号，最后收刀放过了她」），所以裁判知道这是战术、不是程序出错；动手的狼自己也记得「我收刀放过了她」（不会被当成女巫救人）；面杀里的好人也知道「平安夜」未必是女巫开药或守卫守住，也可能就是狼没刀——所以她说「狼昨晚没刀人」时，别人会认真接过来盘。
+· 【狼人杀 · 面杀的夜戏细节】和多个凶手对线时，说话顺序每次随机洗一遍（像群聊那样，不是固定按座位号），而且后说的人知道前面的人刚说了什么；聊满 5 轮之后，对面还能自己判断要不要再多聊两轮（最多拖到 12 轮）。这一段（连同「抿身份」和「死了之后的遗言+夜戏」整个流程）都做了容错：里面出小错也不会把整局打断。
 · MCP：接上外部的工具服务器，让角色能调用更多外部工具。
 · 演绎：和角色演一段剧情（相当于另一个世界线，默认和私聊互不相通）。
 · 世界书：多角色共用的设定，写了以后相关角色都会知道。
@@ -12836,7 +12837,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=16;  /* 16：收刀/空刀在记录和裁判里写清楚、好人也知道狼可能没刀；15：求饶收刀、战绩分享；14：空刀按钮 */
+const GUIDE_VER=17;  /* 17：夜戏对线改随机顺序+互相听得见、角色可自己续聊、整段加容错；16：收刀/空刀记录 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」和「隐私角色」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -25885,6 +25886,8 @@ async function wwFaceLook(ob,tg){
 }
 /* 抿身份这一段：你先摆自己的表情，然后挨个点头像去看别人（看几次你说了算） */
 async function wwFacePeek(){
+  /* 【改·稳】抿身份这段也包 try：里面出错只是这段没走完，不能影响这一局。 */
+  try{
   var w=V.ww,gen=wwGenNow();
   if(!w||w.over||w.peekDone)return;          /* 每一局只来一次 */
   w.peekDone=true;
@@ -25952,6 +25955,10 @@ async function wwFacePeek(){
     render(true);
   }
   w.msg='';
+  }catch(e){
+    try{console.warn('抿身份出错（这一局照常往下走）',e)}catch(_){}
+    try{V.ww.msg=''}catch(_){}
+  }
 }
 /* ---------- 【新·面杀】夜间 · 你的房间（你死在夜里的那段出局戏） ----------
    什么时候演：面杀 + 你**真的**死在夜里（被守卫守住、被女巫解药救回来都不算，那就不演）。
@@ -25984,6 +25991,33 @@ function wwRoomHist(){
   return r.msgs.map(function(m){
     return (m.me?'你（对面那个人）：':(wwBareName(wwPlayerByUid(m.who)||null)+'：'))+String((m&&m.text)||'');
   }).join('\n');
+}
+/* 【新】夜戏里这一轮谁先说：每次重新随机洗一遍（像群聊，不是固定按座位号）。
+   每个人说话前都会重算一次对话记录，所以后说的知道先说的刚说了什么。 */
+function wwRoomOrder(list){return wwShuffle((list||[]).slice())}
+/* 【新】聊满基础轮数之后，问一下对面还想不想再多说两句（想就继续，不想就收场动手） */
+function wwRoomKeepSys(p,list,hist){
+  var me=wwMe();
+  var L=[];
+  L.push(String(wwCharBlock(p)||''));
+  L.push('【现在这一刻】夜里，你（和 '+((list||[]).filter(function(x){return x!==p}).map(function(x){return wwBareName(x)}).join('、')||'同伴')+
+    '）在 '+(me?wwBareName(me):'她')+' 的房间里，刀还在你手上。');
+  if(hist)L.push('【刚才的对话】\n'+hist);
+  L.push('【你要决定】还想不想再跟她聊两句？\n'+
+    '· 想继续问、继续听她解释、或者就是舍不得动手 —— 就写「继续」；\n'+
+    '· 觉得聊够了、该收场了（动手或者收刀都算收场）—— 就写「收场」。\n'+
+    '照你的人设来，别为了拖而拖：一句话就够。');
+  L.push('【输出】只写一行：继续 或 收场。（不要写别的字。）');
+  return L.filter(function(x){return x}).join('\n\n');
+}
+async function wwRoomKeepGoing(list,hist){
+  var p=(list||[])[Math.floor(Math.random()*Math.max(1,(list||[]).length))];
+  if(!p)return false;
+  var t='';
+  try{t=String(await wwCall(wwRoomKeepSys(p,list,hist),'请决定。',20,.9)||'')}catch(e){t=''}
+  var first=String(t).split(/\n+/)[0]||'';
+  if(/收场|结束|动手|够了|不聊|没话说/.test(first))return false;
+  return /继续|再聊|再多|还没|别急/.test(first);     /* 没看明白就收场，别拖着 */
 }
 /* 这个场景给角色的提示词。stage：'open' 推门/站在床边 | 'chat' 接话 | 'act' 收场动手 */
 function wwRoomSys(p,list,cause,stage,hist){
@@ -26058,6 +26092,9 @@ function wwRoomPick(list){
   });
 }
 async function wwRoomScene(cause,list,deaths){
+  /* 【改·稳】整段夜戏都包在 try 里：万一里面哪一步出错（接口抽风、数据缺一块…），
+     也只能安静地把这段戏收掉、按「没发生」继续往下走，绝不能把整局打断。 */
+  try{
   var w=V.ww,gen=wwGenNow(),me=wwMe();
   if(!w||!me||!wwFaceOn()||w.stopped)return false;
   list=(list||[]).filter(function(p){return p&&p!==me});
@@ -26069,21 +26106,24 @@ async function wwRoomScene(cause,list,deaths){
     list=sel;
   }
   if(list.length>3)list=list.slice(0,3);      /* 最多和 3 个人对线，省一点请求 */
-  w.room={mode:'chat',cause:cause,killers:list.map(function(p){return p.uid}),msgs:[],busy:true,turn:0,max:5,draft:''};
+  /* max＝基础轮数（聊完这几轮，角色可以自己决定要不要再拖一会儿）；hardMax＝最多拖到几轮 */
+  w.room={mode:'chat',cause:cause,killers:list.map(function(p){return p.uid}),msgs:[],busy:true,turn:0,max:5,hardMax:12,draft:''};
   w.log.push({k:'scene',text:'【夜间 · 你的房间】'+(cause==='poison'?'夜里，你的房门被轻轻推开……':'夜里，有人带着刀走进了你的房间……')});
   render(true);
   /* 开场：每人一句 */
-  for(var i=0;i<list.length;i++){
-    var t=await wwRoomLine(list[i],list,cause,'open','');
+  var ord0=wwRoomOrder(list);
+  for(var i=0;i<ord0.length;i++){
+    var sp0=ord0[i];
+    var t=await wwRoomLine(sp0,list,cause,'open',wwRoomHist());
     if(wwStaleG(gen)||!w.room)return false;
-    if(!t)t='（'+list[i].name+' 站在门口，什么也没说。）';
-    w.room.msgs.push({who:list[i].uid,text:t});
-    w.log.push({k:'scene',who:list[i].uid,text:'【夜间 · 你的房间】'+wwBareName(list[i])+'：'+t});
+    if(!t)t='（'+sp0.name+' 站在门口，什么也没说。）';
+    w.room.msgs.push({who:sp0.uid,text:t});
+    w.log.push({k:'scene',who:sp0.uid,text:'【夜间 · 你的房间】'+wwBareName(sp0)+'：'+t});
     render(true);
   }
   w.room.busy=false;render(true);
   /* 你和她们对线 */
-  while(w.room&&w.room.turn<w.room.max&&!w.room.ended){
+  while(w.room&&w.room.turn<(w.room.hardMax||12)&&!w.room.ended){
     var r=await wwRoomWait();
     if(wwStaleG(gen)||!w.room)return false;
     if(r&&r.skip){w.room.skip=true;break}
@@ -26092,16 +26132,30 @@ async function wwRoomScene(cause,list,deaths){
       w.log.push({k:'scene',me:true,text:'【夜间 · 你的房间】你：'+r.text});
       w.room.turn++;w.room.draft='';
       w.room.busy=true;render(true);
-      var hist=wwRoomHist();
-      for(var j=0;j<list.length;j++){
-        var t2=await wwRoomLine(list[j],list,cause,'chat',hist);
+      /* 【新】像群聊那样：这一轮谁先说随机（不是固定按座位号），
+         而且每个人开口前都会重新看一眼当前的对话 —— 所以后面说的那只狼知道前面那只刚说了什么。 */
+      var ord=wwRoomOrder(list);
+      for(var j=0;j<ord.length;j++){
+        var spk=ord[j];
+        var t2=await wwRoomLine(spk,list,cause,'chat',wwRoomHist());
         if(wwStaleG(gen)||!w.room)return false;
-        if(!t2)t2='（'+list[j].name+' 没接话。）';
-        w.room.msgs.push({who:list[j].uid,text:t2});
-        w.log.push({k:'scene',who:list[j].uid,text:'【夜间 · 你的房间】'+wwBareName(list[j])+'：'+t2});
+        if(!t2)t2='（'+spk.name+' 没接话。）';
+        w.room.msgs.push({who:spk.uid,text:t2});
+        w.log.push({k:'scene',who:spk.uid,text:'【夜间 · 你的房间】'+wwBareName(spk)+'：'+t2});
         render(true);
       }
       w.room.busy=false;render(true);
+      /* 【新】聊满基础轮数之后，让角色自己判断要不要再拖一会儿（想继续就继续，最多拖到 hardMax） */
+      if(w.room.turn>=w.room.max&&w.room.turn<w.room.hardMax&&!w.room.ended){
+        var keep=await wwRoomKeepGoing(list,wwRoomHist());
+        if(wwStaleG(gen)||!w.room)return false;
+        if(!keep){
+          var g0=(list.filter(function(p){return p&&p.alive})[0]||list[0]);
+          w.log.push({k:'scene',text:'【夜间 · 你的房间】（'+(g0?wwBareName(g0):'对面')+'似乎不想再多说了。）'});
+          break;
+        }
+        w.room.max=Math.min(w.room.hardMax,(w.room.turn||0)+2);   /* 答应继续：再给两轮 */
+      }
     }
     if(r&&r.end)break;
   }
@@ -26116,14 +26170,22 @@ async function wwRoomScene(cause,list,deaths){
   }
   if(spared){
     /* 收刀：她们说一句收刀的话，这一段就到此为止（她活下来了） */
+    /* 【修·bug】动手的这几只狼自己心里要清楚：是她把你们说动了，你们收刀放过了她。
+       （这段原来错写在调用方的函数里，那边没有 list 这个变量，会直接抛
+        「list is not defined」把整局打断 —— 挪回这里才对。） */
+    for(var sn=0;sn<list.length;sn++){
+      var pw=list[sn];
+      if(pw&&!pw.sparedNote)pw.sparedNote={d:w.day,tag:wwTag(me),name:wwBareName(me)};
+    }
     w.room.busy=true;render(true);
-    var hist3=wwRoomHist();
-    for(var s2=0;s2<list.length;s2++){
-      var ts=await wwRoomLine(list[s2],list,cause,'spare',hist3);
+    var ord3=wwRoomOrder(list);
+    for(var s2=0;s2<ord3.length;s2++){
+      var sp3=ord3[s2];
+      var ts=await wwRoomLine(sp3,list,cause,'spare',wwRoomHist());
       if(wwStaleG(gen)||!w.room)return false;
-      if(!ts)ts='（'+list[s2].name+' 把刀收了回去，没有再说话。）';
-      w.room.msgs.push({who:list[s2].uid,text:ts});
-      w.log.push({k:'scene',who:list[s2].uid,text:'【夜间 · 你的房间】'+wwBareName(list[s2])+'：'+ts});
+      if(!ts)ts='（'+sp3.name+' 把刀收了回去，没有再说话。）';
+      w.room.msgs.push({who:sp3.uid,text:ts});
+      w.log.push({k:'scene',who:sp3.uid,text:'【夜间 · 你的房间】'+wwBareName(sp3)+'：'+ts});
       render(true);
     }
     w.log.push({k:'scene',text:'【夜间 · 你的房间】（刀收了回去——你活了下来。）'});
@@ -26131,13 +26193,14 @@ async function wwRoomScene(cause,list,deaths){
     w.log.push({k:'scene',text:'【夜间 · 你的房间】（你闭上眼睛，没有再开口。）'});
   }else{
     w.room.busy=true;render(true);
-    var hist2=wwRoomHist();
-    for(var k2=0;k2<list.length;k2++){
-      var t3=await wwRoomLine(list[k2],list,cause,'act',hist2);
+    var ord2=wwRoomOrder(list);
+    for(var k2=0;k2<ord2.length;k2++){
+      var sp2=ord2[k2];
+      var t3=await wwRoomLine(sp2,list,cause,'act',wwRoomHist());
       if(wwStaleG(gen)||!w.room)return false;
-      if(!t3)t3='（'+list[k2].name+' 没有再说话。）';
-      w.room.msgs.push({who:list[k2].uid,text:t3});
-      w.log.push({k:'scene',who:list[k2].uid,text:'【夜间 · 你的房间】'+wwBareName(list[k2])+'：'+t3});
+      if(!t3)t3='（'+sp2.name+' 没有再说话。）';
+      w.room.msgs.push({who:sp2.uid,text:t3});
+      w.log.push({k:'scene',who:sp2.uid,text:'【夜间 · 你的房间】'+wwBareName(sp2)+'：'+t3});
       render(true);
     }
     w.log.push({k:'scene',text:'【夜间 · 你的房间】'+(cause==='poison'?'毒发——':'刀落——')+'你的生命值：0。'});
@@ -26148,6 +26211,11 @@ async function wwRoomScene(cause,list,deaths){
   if(wwStaleG(gen))return !!spared;
   w.room=null;w.roomResolve=null;render(true);
   return !!spared;
+  }catch(e){
+    try{console.warn('夜戏出错（这一局照常往下走）',e)}catch(_){}
+    try{w.room=null;w.roomResolve=null;render(true)}catch(_){}
+    return false;
+  }
 }
 /* 该不该演这段：面杀 + 你确实死在夜里 */
 /* 【新·面杀】你已经被狼拖进房间了：这一夜剩下的步骤（预言家验人 / 女巫用药）
@@ -26175,6 +26243,9 @@ function wwWillOver(){
    ② 再演「夜间 · 你的房间」（这时候你才见到凶手）；
    ③ 戏演完、天亮了，才把遗言公开到场上，其余玩家这才读得到。 */
 async function wwUserDeathFlow(deaths){
+  /* 【改·稳】这段（盲留遗言 + 你的房间 + 公开遗言）整块包 try：
+     里面出错只是这段没走完，不能影响这一局继续打。 */
+  try{
   var w=V.ww,gen=wwGenNow(),me=wwMe();
   if(!w||!me||!wwFaceOn()||w.stopped)return;
   var dead=(deaths||[]).some(function(p){return p&&p.uid===me.uid});
@@ -26189,6 +26260,9 @@ async function wwUserDeathFlow(deaths){
   if(wwStaleG(gen))return;
   if(spared){
     /* 【新】收刀放过：撤销这一刀 —— 她还活着，这一夜算平安夜，刚才那段遗言也不公布 */
+    /* 【改】这一段整块包了 try：以前这里出过一次错（引用了一个不存在的变量），
+       直接把整局打断、跳到结算页。以后就算再出小错，也不能把这一局搞坏。 */
+    try{
     me.alive=true;me.killedBy='';
     var di=-1;
     for(var xi=0;xi<(deaths||[]).length;xi++){if(deaths[xi]&&deaths[xi].uid===me.uid){di=xi;break}}
@@ -26205,17 +26279,15 @@ async function wwUserDeathFlow(deaths){
     for(var _ri=(w.rec||[]).length-1;_ri>=0;_ri--){
       if(String((w.rec[_ri]||{}).t||'').indexOf('狼人刀了')===0){_rec0=w.rec[_ri];break}
     }
-    var _spTxt='狼人本来要刀 '+(me.seq||'?')+'号 · '+wwBareName(me)+'，最后【收刀】放过了她（她没有死，这一晚没有人出局）';
+    /* 注意：这一晚可能还有别人（比如被女巫毒死的狼）出局，所以别说「没有人出局」 */
+    var _spTxt='狼人本来要刀 '+(me.seq||'?')+'号 · '+wwBareName(me)+'，最后【收刀】放过了她（她没有死'+
+      ((deaths||[]).length?'':'，这一晚只有这一刀')+'）';
     if(_rec0&&String(_rec0.t||'').indexOf('狼人刀了')===0){
       _rec0.t=_spTxt+String(_rec0.t).replace(/^狼人刀了[^　]*/,'');
     }else{
       w.rec.push({d:w.day,t:_spTxt});
     }
-    /* 【新】动手的这几只狼自己心里要清楚：是她把你们说动了，你们收刀放过了她 */
-    for(var _sp=0;_sp<list.length;_sp++){
-      var _pw=list[_sp];
-      if(_pw)_pw.sparedNote={d:w.day,tag:wwTag(me),name:wwBareName(me)};
-    }
+    }catch(e){try{console.warn('收刀记录出错（不影响这一局）',e)}catch(_){}}
     w.log.push({k:'sys',text:wwTxt('天亮了——你活了下来。','你没有死。')});
     if(words)w.log.push({k:'sys',text:'（你活下来了，刚才那段遗言就不用公布了。）'});
     w.wordsDone=true;
@@ -26229,6 +26301,10 @@ async function wwUserDeathFlow(deaths){
   }
   w.wordsDone=true;                           /* 告诉白天那一段：你的遗言已经处理过了 */
   render(true);
+  }catch(e){
+    try{console.warn('死亡流程出错（这一局照常往下走）',e)}catch(_){}
+    try{w.wordsDone=true;w.room=null;w.roomResolve=null;render(true)}catch(_){}
+  }
 }
 /* 场景的界面（铺在屏幕上的那一层，只有你自己看得到） */
 function wwRoomHTML(){
