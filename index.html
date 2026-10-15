@@ -26109,7 +26109,7 @@ async function wwRoomScene(cause,list,deaths){
   }
   if(list.length>3)list=list.slice(0,3);      /* 最多和 3 个人对线，省一点请求 */
   /* max＝基础轮数（聊完这几轮，角色可以自己决定要不要再拖一会儿）；hardMax＝最多拖到几轮 */
-  w.room={mode:'chat',cause:cause,killers:list.map(function(p){return p.uid}),msgs:[],busy:true,turn:0,max:5,hardMax:30,draft:''};
+  w.room={mode:'chat',cause:cause,killers:list.map(function(p){return p.uid}),msgs:[],busy:true,turn:0,max:5,hardMax:999,draft:''};
   w.log.push({k:'scene',text:'【夜间 · 你的房间】'+(cause==='poison'?'夜里，你的房门被轻轻推开……':'夜里，有人带着刀走进了你的房间……')});
   render(true);
   /* 开场：每人一句 */
