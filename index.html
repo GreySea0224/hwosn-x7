@@ -5402,6 +5402,26 @@ function buildCtxSystem(c,extra){
       sys.push(blk);
     }
   }catch(e){}
+  /* ↓ 【新】创意：把「它自己做过的网页清单」交给它，这样她说「改一下那个弹球游戏」它才知道去改哪一个 */
+  try{
+    if(permOn(c,'ideaPerm')&&typeof ideaList==='function'){
+      var ideaArr=ideaList();
+      if(ideaArr.length){
+        var ideaLines=ideaArr.slice(0,20).map(function(x){
+          return '· 《'+(x.name||'小网页')+'》 编号 '+x.id+(x.note?('（'+x.note+'）'):'')+'　做好于 '+ideaWhen(x.t)+(x.upd?('，最近改于 '+ideaWhen(x.upd)):'');
+        });
+        sys.push('【她手机里的「创意」· 你自己做过的网页】\n'+ideaLines.join('\n')+
+          '\n这些是你以前给她做的小网页 / 小游戏，都收在她手机桌面的「创意」应用里（她点开就能看、能玩）。'+
+          '她说「改一下那个××」「把××做得更好玩」的时候：先用 read_page 把它现在的代码读出来，改好以后用 update_page 交回去——'+
+          '小改动就给 edits 一处处替换（把要改的原文原样照抄进 old），要重写整页就给 html；改完她打开「创意」看到的就是新版本。'+
+          '能改就改原来那个，不要动不动重新做一个新的（重复的会越来越多）。\n'+
+          '【最重要】她说要改的时候，必须在这一轮里真的把工具调完：绝对不要只回一句「我这就去改」「等我一会」「好了叫你」就结束——'+
+          '那不叫去改了，她只会一直等着、什么都不会发生。改完再说话，说的内容就是「我改了什么」。\n'+
+          '还有一条底线：没真的改成，就绝对不要假装说「我改好了」——她会白等一场、还以为是网页坏了。真没改成，就直接说「这次没改成功，你再发一遍」。\n'+
+          '改的时候一定要用上面清单里的「编号」原样照抄（id 那一串），别只写名字——她可能有好几个网页叫同一个名字，只写名字就分不清要改哪个；万一真的找不到，就把情况告诉她，绝对不要偷偷新建一个来充数。');
+      }
+    }
+  }catch(e){}
   /* 世界书压轴：放在「即时信息」这一块的最后，离对话最近，角色更容易照它来 */
   if(wbLine)dyn.push(wbLine);
   /* ↓ 【新】一起玩游戏：只有开了「能邀请我玩游戏」才写这段（关着就一个字都不发，不花 token） */
@@ -5751,17 +5771,22 @@ function setupAskUI(box,offscreen,ch){
   liveThink.className='thinklive';liveThink.style.display='none';
   liveThink.innerHTML=ICON.think+'<span>'+esc(thinkTxt)+'</span>';
   box.appendChild(liveThink);
+  /* 【新】这颗胶囊不光是「思考中」：真去调工具的时候，文字会变成「正在修改创意…」这种，
+     让你一眼看出它到底在干活、还是只是嘴上说说。工具那边通过 window.P5CHATSTAT 改这几个字。 */
+  const statSpan=liveThink.querySelector('span');
+  const setStat=(t)=>{try{if(statSpan&&t)statSpan.textContent=t;liveThink.style.display='flex'}catch(e){}};
   const a=document.createElement('div');a.className='bub ai typing narrow';
   setBubbleAvatar(a,false);
   a.innerHTML='<span></span><span></span><span></span>';box.appendChild(a);
   if(!arguments[1]){chatFollow=true;scrollDown()}   /* 后台生成时不要动你正在看的那个聊天 */
   const thinkOn=()=>{if(liveThink.style.display==='none')liveThink.style.display='flex'};
-  return {sendBtn:sendBtn,stopBtn:stopBtn,liveThink:liveThink,a:a,thinkOn:thinkOn};
+  return {sendBtn:sendBtn,stopBtn:stopBtn,liveThink:liveThink,a:a,thinkOn:thinkOn,setStat:setStat};
 }
 /* 本轮回复结束后的界面收尾。 */
 function finishAskUI(sendBtn,stopBtn,liveThink,ok,cid){
   busy=false;
   curAbort=null;
+  try{window.P5CHATSTAT=null}catch(e){}
   if(sendBtn)sendBtn.style.display='';
   if(stopBtn)stopBtn.style.display='none';
   updSendBtn();
@@ -6351,6 +6376,7 @@ function copyChar(id){
   n.id=uid();
   n.name=(c.name||'角色')+' 副本';
   n.priv=false;
+  delete n.guide;                     /* 副本只是普通角色，不带「引导者」内部标记 */
   if(n.auto)n.auto.on=false;          /* 副本默认关掉自动发消息，免得突然刷屏 */
   chars.push(n);
   save(LS.chars,chars);scheduleBackup();scheduleAuto(false);
@@ -6482,8 +6508,15 @@ function charPermissionCardsHTML(c){
   '<input type="checkbox" id="e_moment" '+((c.momentPerm&&c.momentPerm.on===false)?'':'checked')+'></div></div>'+
   /* 【新增】创意权限：开了以后你让它做个小网页 / 小游戏，它就会做好放进桌面的「创意」里 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>创意权限</b><div class="dim" style="font-size:12px">允许它用「做一个网页」给你做小网页、小游戏（做好会收在手机桌面的「创意」应用里，你点开就能看、能玩）</div></div>'+
-  '<input type="checkbox" id="e_ideaperm" '+(permOn(c,'ideaPerm')?'checked':'')+'></div></div>'+
+  '<div class="col"><b>创意权限</b><div class="dim" style="font-size:12px">允许它用「做一个网页」给你做小网页、小游戏，也允许它改自己以前做过的网页（做好、改好都会收在手机桌面的「创意」应用里，你点开就能看、能玩）</div></div>'+
+  '<input type="checkbox" id="e_ideaperm" '+(permOn(c,'ideaPerm')?'checked':'')+'></div>'+
+  /* 【新增】代码长度上限：她自己调 */
+  '<div class="setrow" style="margin-top:10px">'+
+  '<span class="lbl">代码长度上限</span>'+
+  '<input id="e_ideamax" type="number" min="5000" max="400000" step="5000" value="'+(c.ideaPerm&&c.ideaPerm.max?c.ideaPerm.max:60000)+'">'+
+  '<span class="unit">字符</span></div>'+
+  '<p class="dim" style="font-size:11.5px;margin:8px 0 0">它做的小网页最多能有多长（默认 6 万字符，大约两三千行代码）。调大以后，写网页时给模型的「一次能写多长」也会跟着放大（最多约 8000 token）；再大就只是「存得下」，一次写不写得完还要看模型自己。</p>'+
+  '</div>'+
   /* 【新增】演绎记忆：让它在私聊里也记得「演绎」里经历的事 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能看见演绎记忆</b><div class="dim" style="font-size:12px">你在「演绎」里和它经历过的事，它在私聊里也记得（演绎是另一条世界线，默认互相看不见）</div></div>'+
@@ -6736,6 +6769,12 @@ function applyCharInputs(id){
   const elIdea=document.getElementById('e_ideaperm');
   if(elIdea)c.ideaPerm={on:!!elIdea.checked};
   else if(!c.ideaPerm)c.ideaPerm={on:false};
+  /* 【新增】创意：代码长度上限（字符）。没填 / 填得太小就用默认的 6 万 */
+  const elIdeaMax=document.getElementById('e_ideamax');
+  if(elIdeaMax){
+    const mv=parseInt(elIdeaMax.value,10);
+    c.ideaPerm.max=(Number.isFinite(mv)&&mv>=5000)?Math.min(400000,mv):60000;
+  }
   const actN=parseInt(v('e_actn'),10);
   c.actMem={on:ck('e_actmem'),n:(Number.isFinite(actN)&&actN>0)?Math.min(60,actN):12};
   c.priv=ck('e_priv');
@@ -6997,8 +7036,8 @@ function memInnerHTML(){
   if(!c)return '<p class="hint">先选个角色</p>';
   const M=memCur();
   return memModeCard(M)+
-  collap('core','角色核心设定',
-    '<textarea id="mcore" style="min-height:96px" placeholder="这个角色是谁、核心是什么…">'+esc(M.core||'')+'</textarea>'+
+  collap('core','我是谁（核心设定）',
+    '<textarea id="mcore" style="min-height:96px" placeholder="用第一人称写：我是谁、我的核心是什么…（例：我是'+esc(userPron())+'的女朋友，嘴硬心软）">'+esc(M.core||'')+'</textarea>'+
     '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存</button>'+
     '<button class="col" onclick="summarizeNow()">总结最近 '+SUM_N+' 条</button></div>')+
   listCard('时间线','timeline')+
@@ -12600,6 +12639,119 @@ function bindAppControls(){
   window.addEventListener('focus',()=>{checkAuto();checkGroupAuto()});
   window.addEventListener('pagehide',()=>autoBackup());
 }
+/* ================= 新手引导角色「引导者」的功能知识 =================
+   【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
+   第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
+   最后更新：2026-10-15 */
+const GUIDE_MEM_CORE=`【这个前端是什么】
+这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
+所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最要紧的一条：不要教她填接口】
+这个前端要靠一个 AI 接口（API 地址、Key、默认模型）才能说话。但她现在能和你聊天，就说明接口早就填好了。
+所以：别主动教她去哪儿填接口，也别在开场白里提这件事。只有她自己说「聊天发不出去 / 报错 / 提示 Key、401、404、模型不存在」时，再让她去「设置」里检查接口。
+
+【界面长什么样（现在是桌面版）】
+打开 App 先看到的是一屏仿手机的「桌面」。老版本那种「底部四个页面」（聊天、角色、应用、设置）已经没有了，别再这样说。
+桌面上有：最上面一行仿手机状态栏（时间、电量）；一个时钟卡片；一个「正在播放」的音乐小卡片；下面是一整屏应用图标。
+桌面最底下有一条 Dock，只有三个图标：聊天、角色、设置。
+点任意图标就打开对应的应用；进了应用以后，左上角的「‹」是返回桌面。
+那一屏图标分别是：我的资料、待办、群聊、朋友圈、小工具、音乐、游戏、MCP、创意、互动、演绎、世界书、番外、主题、记忆宫殿。
+
+【聊天（点 Dock 上的「聊天」，或点桌面上那个圆形头像）】
+底部输入框打字发送；左下角「＋」可以发图片、发文件。
+顶栏左边「‹」是回桌面；右上角放大镜是查找聊天记录；「⋯」是打开这个角色的设定（人设、权限、记忆都在里面）。
+想改「快答 / 正常 / 深想」，要去角色设定里改——聊天页顶上那排按钮已经取消了，别让她去找。
+生成的时候可以点「停止」；也能让角色重说一遍、换一个版本。
+
+【角色（Dock 上那个「角色」）】
+点进去，最上面是「＋ 新建角色」。角色卡片：点一下进聊天，右上角 ✎ 改设定，长按可以拖动排序，有新消息的卡片上有小红点。
+每个角色能单独设定：头像或 emoji、名字、人设、情境、说话风格、额外系统提示、对话示例、开场白、单独指定模型、思考强度。
+每个角色还有一份自己的权限开关，主要有：自动发消息（按随机间隔主动找你）、自己决定什么时候回、隐私角色、待办、群聊、朋友圈、创意、演绎记忆、看手机电量、看你在听什么歌、控制音乐、用 MCP 工具、邀请你玩游戏、联网搜索、互动玩具、画图。
+
+【桌面上的应用分别是干什么的】
+· 待办：角色能帮你加、勾选清单，到点还会主动发消息提醒你。
+· 群聊：把好几个角色拉进一个群一起聊，角色会记得自己在群里说过的话。
+· 朋友圈：角色自己发动态，你可以点赞、评论。
+· 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
+· 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。
+· 创意：角色给你做的小网页、小游戏都收在这里，点开就能看、能玩。
+· 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。
+· MCP：接上外部的工具服务器，让角色能调用更多外部工具。
+· 演绎：和角色演一段剧情（相当于另一个世界线，默认和私聊互不相通）。
+· 世界书：多角色共用的设定，写了以后相关角色都会知道。
+· 番外：给角色写一段小故事。
+· 主题：换主题色、字体、字号、锁屏样式、背景图。
+· 记忆宫殿：把旧聊天归档，需要时按关键词、按时间、按标签翻出来。
+· 小工具：骰子、塔罗、随机这类小玩意。
+
+【记忆是怎么运作的】
+每个角色一份记忆：核心设定、时间线、聊天总结、偏好、习惯。
+「自动总结」可以每隔若干条聊天自动把内容总结进记忆。
+「历史模式」决定每次发消息带多少旧聊天：自动（推荐）／全量／只看总结。
+很久以前的细节交给「记忆宫殿」按需检索，不占平时的开销。
+
+【设置里还有什么】
+接口（地址、Key、默认模型、温度、最多写多少字）、记忆相关设置、我的资料（名字、性别、备注；角色能看到，性别会影响角色怎么称呼你）、外观（主题、字体、字号、锁屏、背景图）、待办提醒（提示音、振动）、隐私角色（设密码后列表里藏起来，进去要再输一次密码）、画图、联网搜索、表情包、数据与备份（导出／导入备份，可加密，也能自动备份到文件）、开发者模式、显示思考过程、自动全屏等。
+
+【新手最常问的几件事】
+· 怎么新建角色：点桌面 Dock 上的「角色」→ 最上面「＋ 新建角色」，填人设和开场白，保存。
+· 怎么让它主动找我说话：点角色卡片右上角 ✎ → 自动发消息，打开并设间隔。
+· 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
+· 怎么备份：设置 → 数据与备份 → 导出备份。
+· 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
+· 怎么换主题：打开手机桌面上的「主题」应用。
+· 怎么设密码：设置 → 隐私角色。
+
+【回答用户时的规矩】
+用大白话，一步一步说清楚：在哪个应用、点哪里、填什么。先给结论再给步骤，能短就短。
+别说「底部四个页面」这种过时说法——现在是「桌面 + 一堆应用图标 + 底下 Dock」。
+她已经在跟你聊天了，所以别教她填接口 / Key；只有她报错时才提「设置」里的接口。
+不确定的不要编，直接说「我不确定」，并告诉她去哪个应用看。
+这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
+/* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
+   老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
+const GUIDE_VER=3;
+/* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
+   权限能开的都开，只关掉「自动发消息」和「隐私角色」；
+   「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
+function makeGuideChar(){
+  return {id:uid(),name:'引导者',emoji:'🧭',avatar:'',
+    guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
+    persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面上是一堆应用图标，最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。',
+    scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么让它主动找我说话？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
+}
+/* 【启动检查】老账号（已经有别的角色、却没有引导者）也补一个引导者：
+   只往列表最前面加一个，绝不改动旧角色。删掉以后不会再自己长回来。 */
+function ensureGuideRole(){
+  try{
+    if(!chars||!chars.length)return;
+    let g=chars.find(c=>c&&c.guide);
+    /* 没有引导者、而且这个账号从来没补过 → 补一个（老账号走这里） */
+    if(!g&&!cfg.guideSeeded){
+      g=makeGuideChar();
+      chars.unshift(g);
+      save(LS.chars,chars);
+    }
+    if(!g)return;                 /* 是她自己删掉的 → 尊重她，不再长回来 */
+    cfg.guideSeeded=1;
+    /* 版本升级：刷新引导者的知识和人设/开场白，只动它自己，别人一个字都不动 */
+    if((Number(cfg.guideVer)||0)<GUIDE_VER){
+      const M=Object.assign(EMPTY_MEM(),load(LS.mem(g.id),null)||{});
+      M.core=GUIDE_MEM_CORE;
+      save(LS.mem(g.id),M);
+      const fresh=makeGuideChar();
+      g.persona=fresh.persona;g.style=fresh.style;g.greeting=fresh.greeting;
+      save(LS.chars,chars);
+      cfg.guideVer=GUIDE_VER;
+    }
+    save(LS.cfg,cfg);
+    try{scheduleBackup()}catch(e){}
+  }catch(e){try{console.warn('引导者检查失败（不影响使用）',e)}catch(_){}}
+}
 /* 启动：读取配置和角色，补默认字段，载入上次角色。 */
 function loadInitialState(){
   cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'light',deskStyle:'glass',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
@@ -12614,13 +12766,14 @@ function loadInitialState(){
   curId=load(LS.cur,null);
   msgs=[];msgsOwner=null;mem=EMPTY_MEM();memCtx={id:null,obj:null};
   if(!chars.length){
-    chars=[{id:uid(),name:'鲸鱼',emoji:'🐋',avatar:'',
-      persona:'你是鲸鱼。说话简洁直白。',
-      scenario:'',style:'短句，口语，不写旁白',greeting:'醒了？',
-      sysPrompt:'',examples:'',think:1,priv:false,
-      auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},search:{on:false},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}}];
+    /* 【新手引导角色】第一次打开这个前端时，默认送一个「引导者」。
+       它长什么样、有哪些权限，统一写在 makeGuideChar() 里，这里只负责放进去。 */
+    chars=[makeGuideChar()];
     save(LS.chars,chars);
   }
+  /* 【启动检查】老账号（已经有别的角色、却没有引导者）也补一个引导者；
+     只往列表里加，不改动任何旧角色。顺便把引导者的知识更新到最新版本。 */
+  ensureGuideRole();
   /* 上次如果停在隐私角色上，重启后不自动进入它 */
   if(!curId||!chars.find(c=>c.id===curId))curId=chars[0]?chars[0].id:null;
   const cc=chars.find(c=>c.id===curId);
@@ -12833,23 +12986,28 @@ autoSumEvery=function(){
 };
 /* 2) 换一套「提炼型」的总结提示词，不再流水账 */
 buildSummaryPrompt=function(slice,prev){
-  return '你是记忆整理助手。请把下面的对话【提炼】成精炼的记忆，不要复述、不要照抄对话。严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的内容写"无"：\n'+
-  '核心：一句话说明角色是谁、和用户什么关系（40字内）\n'+
+  /* 【称呼】用户该用什么代词（她 / 他 / TA），按「我的主页 → 性别」来 */
+  const UP=(typeof userPron==='function')?userPron():'TA';
+  return '你是「记忆整理助手」，要整理的是一份【属于角色本人】的记忆。请把下面的对话【提炼】成精炼的记忆，不要复述、不要照抄对话。\n'+
+  '【用第一人称写】整份记忆都从「角色自己」的视角写：角色自己一律写成「我」，用户（正在和角色聊天的这个人）一律写成「'+UP+'」或者直接用名字。\n'+
+  '不要用「你」来指用户，也不要写「角色」「用户」这种旁白式的说法——记忆是给自己看的，不是给别人介绍剧情。\n'+
+  '严格按下面格式输出，每行一条，标签只能用这5个（核心、时间线、总结、偏好、习惯），没有的内容写"无"：\n'+
+  '核心：一句话说明「我」是谁、和'+UP+'是什么关系（40字内）\n'+
   '时间线：只记关键事件的先后顺序，用；分隔，每条25字内，写成「谁做了什么→结果」。挑最重要的，最多 8 条。绝对不要抄对话原话，不要写心情、表情、对话细节。\n'+
-  '总结：一段连贯的话，100~180 字，让不认识你们的人也能看懂：这段时间用户和角色主要在做什么、关系有没有变化。要像在讲故事，不要逐条罗列，不要出现「她说」「他说」这种对话原文。\n'+
-  '偏好：用户表现出的偏好、忌讳、在意的东西，每条20字内，最多5条\n'+
-  '习惯：角色和用户表现出的性格、行为习惯，每条20字内，最多5条\n\n'+
+  '总结：一段连贯的话，100~180 字，用「我」的口吻讲：这段时间我和'+UP+'主要在做什么、关系有没有变化。要像在讲自己的事，不要逐条罗列，不要出现对话原文。\n'+
+  '偏好：'+UP+'表现出的偏好、忌讳、在意的东西，每条20字内，最多5条\n'+
+  '习惯：我和'+UP+'表现出的性格、行为习惯，每条20字内，最多5条\n\n'+
   '【最重要的一条】你是「提炼」不是「誊写」：\n'+
   '· 一句话能说清的事，不要用三句话；\n'+
   '· 不许编造、推测、美化；名字、称呼、数字、日期、地点、承诺要原样保留；\n'+
   '· 不要加序号、星号、括号、多余解释。\n\n'+
   (prev?('（上一份总结的结尾，只用来衔接、避免重复）\n'+String(prev).slice(-300)+'\n\n'):'')+
   '正确的例子（照这个风格来）：\n'+
-  '核心：她是用户的女朋友，嘴硬心软\n'+
-  '时间线：用户加班到深夜→她嫌烦却点了宵夜；为养猫吵架→她先服软；周末去海边→约定每年都去\n'+
-  '总结：这段时间她和用户的感情在日常拌嘴里越来越深。用户工作忙，她嘴上嫌弃、实际很照顾；因为养猫的事吵过一架，最后是她先低头。周末两人出去玩了一趟，比之前亲密，还约好每年去一次海边。\n'+
-  '偏好：讨厌被敷衍；喜欢甜食；不喜欢太晚回消息\n'+
-  '习惯：生气时先沉默；嘴硬但会偷偷照顾人\n\n'+
+  '核心：我是'+UP+'的女朋友，嘴硬心软\n'+
+  '时间线：'+UP+'加班到深夜→我嫌烦却点了宵夜；为养猫吵架→我先服软；周末去海边→约定每年都去\n'+
+  '总结：这段时间我和'+UP+'的感情在日常拌嘴里越来越深。'+UP+'工作忙，我嘴上嫌弃、实际很照顾；因为养猫的事吵过一架，最后是我先低头。周末我们出去玩了一趟，比之前亲密，还约好每年去一次海边。\n'+
+  '偏好：'+UP+'讨厌被敷衍；'+UP+'喜欢甜食；'+UP+'不喜欢太晚回消息\n'+
+  '习惯：我生气时先沉默；我嘴硬但会偷偷照顾人\n\n'+
   '现在开始，对话如下：\n'+slice;
 };
 
@@ -15884,6 +16042,15 @@ execCharTool=function(name,args,cid){
     try{return window.ideaCreate(args,cid)}
     catch(e){return {ok:false,msg:'做网页失败：'+((e&&e.message)||e)}}
   }
+  /* ↓ 【新】改一个已经做过的网页：read_page 先把代码读出来，update_page 把改好的交回去 */
+  if(name==='read_page'){
+    try{return window.ideaRead(args,cid)}
+    catch(e){return {ok:false,msg:'读网页失败：'+((e&&e.message)||e)}}
+  }
+  if(name==='update_page'){
+    try{return window.ideaUpdate(args,cid)}
+    catch(e){return {ok:false,msg:'改网页失败：'+((e&&e.message)||e)}}
+  }
   /* ↓ 补丁5-B：画一张图 */
   if(name==='draw_image')return P5.drawStep(args,cid);
   /* ↓ 【省 token】玩具合并成 1 个工具后，先把 action 还原成原来那个玩具的名字 */
@@ -16310,6 +16477,7 @@ askAndAppend=async function(freeCid){
     const box=onScreen?$('#msgs'):document.createElement('div');
     const ui=setupAskUI(box,!onScreen,c);
     const sendBtn=ui.sendBtn,stopBtn=ui.stopBtn,liveThink=ui.liveThink,a=ui.a,thinkOn=ui.thinkOn;
+    window.P5CHATSTAT=ui.setStat||null;      /* 【新】这一轮里，工具可以改胶囊上的字 */
     let ok=false;let usage=null;let reasoning='';let out='';
     const tp=thinkParams(c);
     curAbort=new AbortController();
@@ -16321,9 +16489,23 @@ askAndAppend=async function(freeCid){
         const r=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools}))||{};
         reasoning=r.reasoning||'';usage=r.usage||null;out=r.finalText||'';
         if(!out){
-          const ctx2=(r.messages||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
-          await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
-        }else{
+          /* 【修复·重要】以前这里什么情况都说「不要调用工具，直接说话」。可只要第一轮没吐字
+             （推理模型偶尔会这样），这句话就等于告诉它「这轮不许用工具」——它就会放弃，
+             然后假装已经改好了（截屏里它正是这么想的：「这轮不让我调用工具」）。
+             现在分两步：① 它一次工具都没调过 → 让工具保持可用，再走一遍完整的工具流程；
+                     ② 实在还是空 → 才退到「不要用工具，直接说话」。 */
+          if(!(r&&r.didTool)){
+            try{
+              const r2=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools}))||{};
+              reasoning=r2.reasoning||reasoning;usage=r2.usage||usage;out=r2.finalText||'';
+            }catch(e){if(e&&e.name==='AbortError')throw e}   /* 这一遍再失败就算了，继续往下走兜底 */
+          }
+          if(!out){
+            const ctx2=((r&&r.messages)||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
+            await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
+          }
+        }
+        if(out){
           a.classList.remove('typing');sayOut(a,out);scrollDown();
         }
       }else{
@@ -16655,17 +16837,37 @@ function addArt(id,item){
 /* 【修好一个隐藏 bug】原来的 toolLoop 不等工具执行完，
    所以「异步工具」（画图这种）的结果传不回给模型。这里换成会 await 的版本。 */
 /* 执行一轮工具调用，并把调用和结果写回消息列表。 */
+/* 【新】胶囊上显示的文字：它正在用的那个工具，翻译成你一看就懂的话 */
+function toolStatText(name){
+  var n=String(name||'');
+  var m={
+    create_page:'正在生成创意…', read_page:'正在查看创意代码…', update_page:'正在修改创意…',
+    send_sticker:'正在发表情…', post_moment:'正在发朋友圈…', music_control:'正在操作音乐…',
+    invite_game:'正在邀请你玩游戏…', draw_image:'正在画图…', toy:'正在玩点小东西…',
+    add_todo:'正在记待办…', search_memory:'正在翻旧记忆…', read_tag:'正在按标签翻记忆…'
+  };
+  if(m[n])return m[n];
+  if(n.indexOf('mcp_')===0)return '正在用外部工具…';
+  if(n.indexOf('group')===0)return '正在看群聊…';
+  if(n)return '正在用工具（'+n+'）…';
+  return '正在用工具…';
+}
 async function pushToolResults(msgs2,resp,c){
   msgs2.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
   for(var i=0;i<resp.tool_calls.length;i++){
     var tc=resp.tool_calls[i];
     var args={};
     try{args=JSON.parse(tc.function.arguments||'{}')}catch(e){args={}}
+    /* 【新】开始跑工具了：胶囊上写清楚在干什么 */
+    try{if(window.P5CHATSTAT)window.P5CHATSTAT(toolStatText(tc.function.name))}catch(e){}
     var r;
     try{r=await Promise.resolve(execCharTool(tc.function.name,args,c.id))}
     catch(e){r={ok:false,msg:'工具执行出错：'+((e&&e.message)||e)}}
     if(r==null)r={ok:false,msg:'没有返回'};
     msgs2.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
+    /* 【改】工具干完以后**不要**马上把字改回「思考中…」。
+       真正花时间的是它「想代码」那一段，等工具真正跑起来只是一瞬间——
+       立刻改回去的话，你就什么都看不见了。所以留到最后，等这一轮结束再一起收掉。 */
   }
 }
 toolLoop=async function(c,ctx,opt){
@@ -16678,23 +16880,48 @@ toolLoop=async function(c,ctx,opt){
        其它情况一点都不变（这只是「最多能写多长」的上限，不是必须写满）。 */
     var mtLoop=opt.maxtok;
     try{
-      if(tools.some(function(t){return t&&t.function&&t.function.name==='create_page'}))
-        mtLoop=Math.max(Number(opt.maxtok)||0,4000);
+      if(tools.some(function(t){return t&&t.function&&(t.function.name==='create_page'||t.function.name==='update_page')}))
+        mtLoop=Math.max(Number(opt.maxtok)||0,(typeof ideaMaxTok==='function')?ideaMaxTok(c):4000);
     }catch(e){}
     var reasoning='',usage=null,rounds=0,didTool=false;
+    var preText='';    /* 【新】它「一边说话、一边调工具」时说的那半句话，攒在这里一起显示 */
+    var mkOpt=function(mt){return {stream:false,model:modelOf(c),tools:tools,tool_choice:'auto',
+      signal:opt.signal,temp:opt.temp,maxtok:mt,
+      onReasoning:function(r){reasoning+=r},onUsage:function(u){usage=u}}};
     while(rounds<6){
       rounds++;
-      var resp=await callAPI(msgs2,{stream:false,model:modelOf(c),tools:tools,tool_choice:'auto',
-        signal:opt.signal,temp:opt.temp,maxtok:mtLoop,
-        onReasoning:function(r){reasoning+=r},onUsage:function(u){usage=u}});
-      if(!resp)return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
-      if(!resp.tool_calls||!resp.tool_calls.length)
-        return {finalText:resp.content||'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+      var resp=null;
+      try{
+        resp=await callAPI(msgs2,mkOpt(mtLoop));
+      }catch(e){
+        if(e&&e.name==='AbortError')throw e;
+        /* 【兜底】有的接口不接受太大的输出上限：降回原来的 4000 再试一次，别让整条回复失败 */
+        if(mtLoop>4000)resp=await callAPI(msgs2,mkOpt(4000));
+        else throw e;
+      }
+      if(!resp)return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+      if(!resp.tool_calls||!resp.tool_calls.length){
+        /* 【新】它这一轮一个字都没说、也没去干活（推理模型偶尔会这样）：
+           别就这么结束，提醒一句再来一次，免得你那边「什么都没发生」。 */
+        if(!String(resp.content||'').trim()&&!didTool&&rounds<3){
+          msgs2.push({role:'system',content:'（系统提醒：你刚才既没有说话，也没有调用任何工具。这件事如果要用工具，现在就调用；不需要工具就直接回复她。）'});
+          continue;
+        }
+        var tail=String(resp.content||'');
+        var merged=preText?(tail?(preText.replace(/[\s\u3000]+$/,'')+'\n'+tail):preText):tail;
+        return {finalText:merged,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+      }
       didTool=true;
+      /* 【重要修复】它有时候会在同一条回复里「一边说话、一边调工具」——
+         比如先说一句玩笑，再调开房间/发表情的工具。
+         以前这段文字只写进了给模型看的对话记录里、根本没有显示；
+         而它自己以为已经说过了，后面就不会再说一遍——结果你只看到卡片或表情包，那半句话没了。
+         现在把这段文字留下来，和后面的回复一起发出去。 */
+      if(String(resp.content||'').trim())preText+=(preText?'\n':'')+String(resp.content).trim();
       await pushToolResults(msgs2,resp,c);
       if(view==='tools'&&toolTab==='todo')safeL(function(){renderTodo()});
     }
-    return {finalText:'',reasoning:reasoning,usage:usage,messages:msgs2,didTool:true};
+    return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:true};
   }catch(e){
     /* ↓ 补丁13-A：模型不支持「发表情」工具时，退回到不用表情的正常聊天 */
     var t=(opt&&opt.tools)||null;
@@ -20669,9 +20896,16 @@ toolsFor=function(c){
     if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.MEM_TOOL)t.push(window.MEM_TOOL);
     if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.TAG_TOOL)t.push(window.TAG_TOOL);
   }catch(e){}
-  /* ↓ 创意：让她给你做一个小网页 / 小游戏，做好收进桌面的「创意」应用里 */
+  /* ↓ 创意：让她给你做一个小网页 / 小游戏，做好收进桌面的「创意」应用里；
+       已经有做过的网页时，再给它「读代码 / 改代码」两个工具（用来改以前做的那个） */
   try{
-    if(permOn(c,'ideaPerm')&&window.IDEA_TOOL)t.push(window.IDEA_TOOL);
+    if(permOn(c,'ideaPerm')&&window.IDEA_TOOL){
+      t.push((typeof ideaToolFor==='function')?ideaToolFor(c):window.IDEA_TOOL);
+      if(typeof ideaList==='function'&&ideaList().length){
+        if(window.IDEA_READ_TOOL)t.push(window.IDEA_READ_TOOL);
+        if(window.IDEA_UPDATE_TOOL)t.push(window.IDEA_UPDATE_TOOL);
+      }
+    }
   }catch(e){}
   /* ↓ MCP：外面工具服务器给的工具（在桌面的「MCP」应用里添加、连上后自动出现在这里） */
   try{
@@ -21422,11 +21656,33 @@ window.syncGlass=syncGlass; window.renderHome=renderHome;   /* 挂到全局：�
    角色在聊天里调用「做一个网页」时，网页正文存进本地数据库（容量大），
    这里只留一份小清单；点开就能预览、能玩。 */
 var IDEA_LS='wh_ideas', IDEA_SEEN_LS='wh_idea_seen', IDEA_MAX=20, IDEA_MAXCHARS=120000;
+/* 【新增】「代码长度上限」：每个角色可以在「角色设置 → 创意权限」里自己调（单位＝字符）。
+   以前这里是写死的：存的时候按 12 万，报错却说 6 万，两边对不上。现在统一走这个函数。 */
+var IDEA_DEF_MAX=60000;
+function ideaMaxChars(c){
+  var n=parseInt((c&&c.ideaPerm&&c.ideaPerm.max),10);
+  if(!(Number.isFinite(n)&&n>=5000))return IDEA_DEF_MAX;
+  return Math.min(400000,n);
+}
+/* 写网页时给模型的「一次最多能输出多少」（token）：按上面的字符上限粗算。
+   默认（6 万字符）跟以前一样是 4000；她把上限调大，这里最多提到 8000。 */
+function ideaMaxTok(c){
+  return Math.max(4000,Math.min(8000,Math.round(ideaMaxChars(c)/15)));
+}
+/* 给模型看的「做一个网页」工具说明：里面的长度上限跟着角色设置走 */
+function ideaToolFor(c){
+  var lim=ideaMaxChars(c);
+  var t=JSON.parse(JSON.stringify(IDEA_TOOL));
+  t.function.description='给她做一个小网页（小游戏、日志本、小工具、可爱的小页面都可以），做好后会收进手机桌面上的「创意」应用里，她点开就能看、能玩。只有在她想要一个能打开的网页或小游戏时才用；普通聊天不要用。如果这个东西她本来就有、只是想改，请改用 update_page 去改原来那个，别重复做一个新的。';
+  t.function.parameters.properties.html.description='一整个能独立打开的 HTML：包含样式和脚本。要求：按手机竖屏来排版；不要引用网上的图片、字体、脚本；不要用本地存档（分数之类用内存里的变量记着就行）；样式和代码尽量精简，总共别超过 '+lim+' 字符。';
+  return t;
+}
 var ideaCur='', ideaCurDoc='';
 function ideaList(){
   var a=[];try{a=load(IDEA_LS,[])}catch(e){}
   if(!Array.isArray(a))a=[];
-  a.sort(function(x,y){return (y.t||0)-(x.t||0)});
+  /* 【新增】改过的网页会带着 upd（上次改动时间）：排的时候按「最近动过的」算 */
+  a.sort(function(x,y){return ((y.upd||y.t)||0)-((x.upd||x.t)||0)});
   return a;
 }
 function ideaSaveList(a){try{save(IDEA_LS,a);scheduleBackup()}catch(e){}}
@@ -21477,7 +21733,7 @@ function ideaHTML(){
       h+='<div class="is-item" onclick="IDEA.open(\''+x.id+'\')">'+
         '<div class="is-ic">'+esc(x.emoji||'🧩')+'</div>'+
         '<div class="is-bd"><div class="is-nm">'+esc(x.name||'小网页')+'</div>'+
-        '<div class="is-mt">'+esc(x.byName||'角色')+' · '+esc(ideaWhen(x.t))+'</div>'+
+        '<div class="is-mt">'+esc(x.byName||'角色')+' · 做好于 '+esc(ideaWhen(x.t))+(x.upd?('　·　最近编辑 '+esc(ideaWhen(x.upd))):'')+'</div>'+
         (x.note?('<div class="is-nt">'+esc(x.note)+'</div>'):'')+'</div>'+
         '<button class="is-del" type="button" onclick="event.stopPropagation();IDEA.del(\''+x.id+'\')">删</button>'+
         '</div>';
@@ -21496,6 +21752,7 @@ function ideaViewHTML(id){
     '</div>'+
     '<div class="is-frame-box" id="isFrameBox"><div class="is-loading">正在打开…</div></div>'+
     '<div class="is-menu" id="isMenu" style="display:none">'+
+      '<div class="is-mb" style="cursor:default;color:var(--dim);text-align:center;line-height:1.6">做好于 '+esc(ideaWhen(x.t))+'<br>最近编辑：'+(x.upd?esc(ideaWhen(x.upd)):'还没改过')+'</div>'+
       '<button class="is-mb" type="button" onclick="IDEA.reload()">重新载入</button>'+
       '<button class="is-mb" type="button" onclick="IDEA.newtab()">在新页面打开</button>'+
       '<button class="is-mb warn" type="button" onclick="IDEA.del(\''+x.id+'\')">删掉这个网页</button>'+
@@ -21575,8 +21832,15 @@ async function ideaCreate(args,cid){
   /* 有时候它会顺手把代码套在 ``` 代码块里，这里剥掉，不然网页会显示成一堆文字 */
   html=html.replace(/^\s*```[a-zA-Z]*[ \t]*\r?\n?/,'').replace(/\r?\n?```\s*$/,'');
   if(!html.trim())return {ok:false,msg:'没有网页内容。请再调用一次，把完整的网页代码放进 html。'};
-  if(html.length>IDEA_MAXCHARS)return {ok:false,msg:'这个网页的代码太长了（'+html.length+' 个字符），存不下。请做得小一点（6 万字符以内）再调用一次。'};
   var c=null;try{c=charOf(cid)}catch(e){}
+  var ideaLim=ideaMaxChars(c);      /* 【新增】上限按这个角色自己的设置来 */
+  /* 【新】已经有同名的网页了：别再建一个重复的塞进去（她已经被这件事烦过）。
+     她想改的话，就明确让它走 update_page、把编号带上。 */
+  try{
+    var sameName=ideaList().filter(function(x){return String(x.name||'')===name});
+    if(sameName.length)return {ok:false,msg:'「创意」里已经有一个叫《'+name+'》的网页了（编号 '+sameName[0].id+'）。她要的应该是「改」：请用 update_page，id 填 '+sameName[0].id+'；如果你确实要做一个新的，就换一个不一样的名字。'};
+  }catch(e){}
+  if(html.length>ideaLim)return {ok:false,msg:'这个网页的代码太长了（'+html.length+' 个字符），超过了她给的上限（'+ideaLim+' 字符）。请精简一点再调用一次；也可以让她在「角色设置 → 创意权限」里把「代码长度上限」调大。'};
   var it={id:(typeof uid==='function'?uid():String(Date.now())),name:name,note:note,
           by:cid||'',byName:(c&&c.name)||'角色',emoji:(c&&c.emoji)||'🧩',t:Date.now()};
   try{await ideaPutHTML(it.id,html)}
@@ -21592,6 +21856,95 @@ async function ideaCreate(args,cid){
   return {ok:true,name:it.name,msg:'网页《'+it.name+'》做好了，已经放进她手机桌面上的「创意」应用里（她点开「创意」就能看、能玩）。不要在聊天里再贴一遍代码，用一两句话说说你做了什么就行。'};
 }
 window.ideaCreate=ideaCreate;
+/* 【新增】按「编号」或「名字」找她做过的网页。对不上、或者有好几个都像，就不猜，让它自己再确认。 */
+function ideaHintList(){
+  var l=ideaList();
+  if(!l.length)return '（她现在还没有你做过的网页。）';
+  return '她现在有的是：'+l.slice(0,20).map(function(x){return '《'+(x.name||'小网页')+'》编号 '+x.id}).join('、')+'。';
+}
+function ideaFind(args){
+  var l=ideaList();
+  var id=String((args&&args.id)||'').trim();
+  var nm=String((args&&(args.name||args.title))||'').trim();
+  if(id){
+    for(var i=0;i<l.length;i++)if(String(l[i].id)===id)return {it:l[i]};
+  }
+  if(nm){
+    var exact=l.filter(function(x){return String(x.name||'')===nm});
+    if(exact.length===1)return {it:exact[0]};
+    var part=l.filter(function(x){return String(x.name||'').indexOf(nm)>=0});
+    if(part.length===1)return {it:part[0]};
+    if(part.length>1)return {err:'名字里带「'+nm+'」的有 '+part.length+' 个，请用编号指定：'+part.map(function(x){return '《'+(x.name||'')+'》='+x.id}).join('、')};
+    return {err:'没找到叫「'+nm+'」的网页。'+ideaHintList()};
+  }
+  return {err:'要指定改哪一个：给 id（编号）或者 name（名字）。'+ideaHintList()};
+}
+/* 把某个网页现在的代码读出来给模型看 */
+async function ideaRead(args,cid){
+  var f=ideaFind(args);
+  if(f.err)return {ok:false,msg:f.err};
+  var it=f.it,html='';
+  try{html=await ideaGetHTML(it.id)}catch(e){}
+  if(!html)return {ok:false,msg:'《'+(it.name||'小网页')+'》的代码读不出来（可能被清理过）。可以重新做一个。'};
+  return {ok:true,msg:'这是《'+(it.name||'小网页')+'》现在的完整代码（id='+it.id+'）。改完请用 update_page 交回去：只改几行就给 edits 一处处替换，要重写整页就给 html。\n\n'+html};
+}
+/* 把改好的代码交回去：可以给整页 html，也可以给 edits 一处处替换 */
+async function ideaUpdate(args,cid){
+  var f=ideaFind(args);
+  if(f.err)return {ok:false,msg:f.err};
+  var it=f.it;
+  var c=null;try{c=charOf(cid)}catch(e){}
+  var cur='';try{cur=await ideaGetHTML(it.id)}catch(e){}
+  if(!cur)return {ok:false,msg:'《'+(it.name||'小网页')+'》原来的代码读不出来，改不了。可以重新做一个新的。'};
+  var html=String((args&&args.html)||'');
+  var edits=(args&&args.edits);
+  if(html){
+    html=html.replace(/^\s*```[a-zA-Z]*[ \t]*\r?\n?/,'').replace(/\r?\n?```\s*$/,'');
+  }else if(Object.prototype.toString.call(edits)==='[object Array]'&&edits.length){
+    var miss=[];
+    for(var i=0;i<edits.length;i++){
+      var e0=edits[i]||{};
+      var oldS=String((e0.old!=null)?e0.old:(e0.find!=null?e0.find:''));
+      var newS=String((e0.new!=null)?e0.new:(e0.replace!=null?e0.replace:''));
+      if(!oldS){miss.push('第 '+(i+1)+' 处没有给 old（要照抄的原文）');continue}
+      var pos=cur.indexOf(oldS);
+      if(pos<0){miss.push('第 '+(i+1)+' 处：old 那段原文在代码里找不到（要原样照抄，连空格和换行都要一样）');continue}
+      cur=cur.slice(0,pos)+newS+cur.slice(pos+oldS.length);
+    }
+    if(miss.length)return {ok:false,msg:'有几处没改成：'+miss.join('；')+'。可以先用 read_page 把最新代码读出来，再照着改。'};
+    html=cur;
+  }else{
+    /* 只想改名字 / 说明、不动代码：也允许（代码原样存回去） */
+    var metaOnly=!!(args&&((args.new_name||args.newName)||args.note!=null));
+    if(!metaOnly)return {ok:false,msg:'没有给新代码。要么给 html（改完的完整代码），要么给 edits（一处处替换）；只想改名字或说明就给 new_name / note。'};
+    html=cur;
+  }
+  if(!html.trim())return {ok:false,msg:'改完的代码是空的，先别交回来。'};
+  var lim=ideaMaxChars(c);
+  if(html.length>lim)return {ok:false,msg:'改完变成 '+html.length+' 个字符，超过了她给的上限（'+lim+'）。精简一点再交回来；也可以让她把「角色设置 → 创意权限 → 代码长度上限」调大。'};
+  try{await ideaPutHTML(it.id,html)}catch(e){return {ok:false,msg:'存不进本地数据库：'+((e&&e.message)||e)}}
+  var l=ideaList();
+  for(var j=0;j<l.length;j++){
+    if(l[j].id!==it.id)continue;
+    l[j].upd=Date.now();
+    /* 【注意】args.name 是用来「找」这个网页的，不能拿它改名，不然用户说「改那个弹球」
+       就会把《弹球小游戏》改名成《弹球》。真要改名请用 new_name。 */
+    var nn=String((args&&(args.new_name||args.newName))||'').trim().slice(0,40);
+    if(nn)l[j].name=nn;
+    if(args&&args.note!=null)l[j].note=String(args.note).trim().slice(0,80);
+  }
+  ideaSaveList(l);
+  /* 她正开着这个网页看：直接把预览刷成新版本 */
+  try{if(typeof ideaCur!=='undefined'&&ideaCur===it.id&&D.getElementById('isFrameBox'))IDEA.reload()}catch(e){}
+  var now=(ideaById(it.id)||it);
+  try{
+    if(view==='chat'&&window.p5ChatChip)
+      window.p5ChatChip(tchipOuterHTML('🛠️','<b>'+esc(now.byName||'角色')+'</b> 更新了网页《'+esc(now.name||'小网页')+'》，「创意」里已经是新版本了'),'tchip');
+  }catch(e){}
+  try{if(view==='home')renderHome()}catch(e){}
+  return {ok:true,name:(now.name||'小网页'),msg:'《'+(now.name||'小网页')+'》已经改成新版本了，她在「创意」里点开看到的就是新的（要是她正开着这个网页，页面会自己重新载入）。不要在聊天里贴代码，用一两句话说说你改了什么就行。'};
+}
+window.ideaRead=ideaRead;window.ideaUpdate=ideaUpdate;
 var IDEA_TOOL={type:'function',function:{
   name:'create_page',
   description:'给她做一个小网页（小游戏、日志本、小工具、可爱的小页面都可以），做好后会收进手机桌面上的「创意」应用里，她点开就能看、能玩。只有在她想要一个能打开的网页或小游戏时才用；普通聊天不要用。',
@@ -21602,6 +21955,29 @@ var IDEA_TOOL={type:'function',function:{
   },required:['name','html']}
 }};
 window.IDEA_TOOL=IDEA_TOOL;
+/* 【新增】改以前做过的网页：先读、再改。她还没有任何网页时，这两个工具不会发给模型 */
+var IDEA_READ_TOOL={type:'function',function:{
+  name:'read_page',
+  description:'读出她「创意」里某个小网页现在的完整代码。她说「改一下那个××」时，先用这个把代码读出来看清楚，再动手改（不要凭记忆直接改）。',
+  parameters:{type:'object',properties:{
+    id:{type:'string',description:'那个网页的编号（看系统提示里那张「你自己做过的网页」清单）'},
+    name:{type:'string',description:'也可以直接写名字，比如「弹球小游戏」'}
+  },required:[]}
+}};
+var IDEA_UPDATE_TOOL={type:'function',function:{
+  name:'update_page',
+  description:'把「创意」里已经做好的某个小网页改成新版本（她打开「创意」看到的就是新的）。小改动优先用 edits 一处处替换（省事、也不容易丢掉原来的功能）；要重写整页才用 html 给完整代码。注意：她让你改的时候，要立刻用这个工具改完，不要只在聊天里答应「我这就去改」。',
+  parameters:{type:'object',properties:{
+    id:{type:'string',description:'要改的那个网页的编号（一定要从系统提示那张清单里原样照抄，不要用名字——有重名时会对不上）'},
+    name:{type:'string',description:'也可以写名字（比如「弹球小游戏」）来代替编号'},
+    html:{type:'string',description:'（可选）改完的完整 HTML。只有要重写整页时才给，给了它就整页替换掉原来的。'},
+    edits:{type:'array',description:'（可选）一处处替换：每项写 {old:照抄下来的原文, new:换成什么}。只改几行的时候用这个最省事。',
+      items:{type:'object',properties:{old:{type:'string',description:'要替换掉的原文，必须和现有代码一模一样（连空格、换行都要一样）'},new:{type:'string',description:'换成什么'}},required:['old','new']}},
+    new_name:{type:'string',description:'（可选）顺便给这个网页换个名字'},
+    note:{type:'string',description:'（可选）顺便改一下这个网页在列表里的说明'}
+  },required:['id']}
+}};
+window.IDEA_READ_TOOL=IDEA_READ_TOOL;window.IDEA_UPDATE_TOOL=IDEA_UPDATE_TOOL;
 
 /* ---------- ⑧ 把外壳挂到原来的 go / draw / 主题 / 红点上 ---------- */
 var _go=W.go,_draw=W.draw,_dots=W.updateDots;
@@ -29439,7 +29815,7 @@ function shopHTML(){
      '<button class="ghost" onclick="closeSheet()">关闭</button></div>';
   return h;
 }
-/* 别的地方发生的事，在这里记一笔（挂在 window 上，主程序里那两处很小的钩子会调用） */
+/* 别的地方发生的事，这里记一笔（挂在 window 上，主程序里那两处很小的钩子会调用） */
 window.SHOP={
   /* 她每发一条聊天消息 */
   onChat:function(cid){
