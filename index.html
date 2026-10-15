@@ -27241,7 +27241,7 @@ function wwRoomMemoryText(uid){
 /* 【新·面杀】狼队收刀暴露、被押上处刑台以后，狼人处刑前的遗言 —— 到了这一步不用再撒谎：
    · 进过那间房、亲手收了刀的狼：把那一晚房间里的事原原本本说出来（那是它自己的记忆）；
    · 没进过那间房的狼：它压根不知道队友把刀收了，一头雾水，可以当场冲队友发火、互相指责。 */
-async function wwBlownWords(p,hist){
+function wwBlownWords(p,hist){
   var w=V.ww,me=wwMe();
   var inRoom=((w&&w.blownWolves)||[]).indexOf(p.uid)>=0;
   var L=[];
@@ -27320,9 +27320,6 @@ async function wwDay(){
   if(wwStaleG(gen))return;
   if(wwDayCut())return;            /* 【新】竞选期间白狼王自爆了：死讯照发，但今天到此为止 */
   if(wwCheckOver())return;
-  /* 【新·面杀】昨晚狼队收了刀：她们的底已经露了 —— 这一天不走平常的发言 / 投票，
-     直接把狼队押上处刑台（她们不用再撒谎），审完判好人获胜。 */
-  if(w.wolfBlown){await wwBlownDay();return}
   var firstNight=(w.day===1);   /* 只有第一夜死的人有遗言；第二夜起夜里死了没遗言 */
   var dead=(w.night&&w.night.deaths)?w.night.deaths.slice():[];   /* 接着存档玩时可能没有当晚名单，兜一下 */
   for(var i=0;i<dead.length;i++){
@@ -27354,6 +27351,9 @@ async function wwDay(){
   if(wwCheckOver())return;
   /* 【新】警长出局了：处理警徽（移交 / 撕毁），新警长等会儿来定发言顺序 */
   if(wwSheriffOn()&&!w.badgeGone){await wwBadgePass();if(wwStaleG(gen))return;if(wwCheckOver())return;}
+  /* 【新·面杀】昨晚狼队收了刀：狼队的底已经露了 —— 死讯、死者的遗言、警徽都处理完了，
+     这一天不再发言、也不再投票：直接把狼队押上处刑台（她们不用再撒谎），审完判好人获胜。 */
+  if(w.wolfBlown){await wwBlownDay();return}
   /* 发言顺序：有警长就由警长定；没警长就随机挑一个开头、按座位号往下（不是每次都从你开始） */
   if(wwHasBadge()){await wwDecideOrder();if(wwStaleG(gen))return;}
   else{w.speechStart='';w.speechDir=1;}
