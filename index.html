@@ -1393,6 +1393,8 @@ function applyTheme(){
      没挑过就是 null，一切照旧（下面的 || 会走原来的值）。 */
   const cu=(typeof customAccColors==='function')?customAccColors(t):null;
   if(cu)for(const k in cu)r.setProperty(k,cu[k]);
+  /* 【新】狼人杀「暗黑村庄」皮肤那身颜色也跟着换（原来是固定金色，现在跟着主题色） */
+  try{wwSkinPaint()}catch(e){}
   /* 【新】三个跟着主题走的颜色：按钮上的字色 / 发送键图标色 / 发光色。
      每个主题都要设一次，不然换主题时会留下上一个主题的值。（没写就用原来的蓝色） */
   r.setProperty('--onacc',(cu&&cu['--onacc'])||t.v['--onacc']||'#02131c');
@@ -12797,7 +12799,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
 · 【狼人杀 · 空刀 / 收刀 / 掀桌】轮到狼人在夜里刀人时，界面上有一个「空刀」按钮（今晚一个人都不杀）：这是高端局偶尔用的打法（做「平安夜」、逼女巫不敢乱用解药、给悍跳做局）。AI 狼也会自己考虑空刀，几只狼各表一态，主张空刀的比主张某个目标的多，这一晚就真的不杀人。另一种是「收刀」：她在那段夜戏里把人说动了，狼放过她——这一晚同样没人死。这两种都会在上帝视角记录里写清楚（「狼人本来要刀 ×号，最后收刀放过了她」），所以裁判知道这是战术、不是程序出错；动手的狼自己也记得「我收刀放过了她」（不会被当成女巫救人）；面杀里的好人也知道「平安夜」未必是女巫开药或守卫守住，也可能就是狼没刀——所以她说「狼昨晚没刀人」时，别人会认真接过来盘。还有「掀桌」：AI 狼要是成了场上**最后一只狼**、自己又觉得翻不了盘，轮到她白天发言时会自己决定「继续装 还是 掀桌」；掀桌就是公开承认自己是狼、说一段投降演说，然后当场被处刑（好人直接获胜）——这样它不用再硬撑着装，也不会一直泡在思考里想不出策略。
 · 【狼人杀 · 面杀的夜戏细节】门口站着几只狼时，会先让她挑要跟谁对线（**可以只挑一个**，也可以多选）；对线时说话顺序每次随机洗一遍（像群聊那样，不是固定按座位号），而且后说的人知道前面的人刚说了什么；聊满 5 轮之后，对面还能自己判断要不要再多聊两轮（最多拖到 30 轮）。这一段（连同「抿身份」和「死了之后的遗言+夜戏」整个流程）都做了容错：里面出小错也不会把整局打断。
-· 【狼人杀 · 界面（暗黑村庄皮肤）】狼人杀的准备页和牌桌都换成了"暗黑村庄"风格，用的是六张村庄插画（**图已经嵌在文件里**，不用外链）。准备页整页铺村子夜景，**右上角有个「⚙ 设置」**：警长竞选开关、AI 发言长度上限、缺人怎么办（NPC 补位）、AI 想多少（省流/照旧）、以及所有详细说明，都收在那里面；主页面只留：怎么玩 → 玩法 → 总人数 →（12 人局的板子）→ 我想当 → 选角色 → 开始游戏（开始按钮是羊皮纸复古按键）。牌桌会**跟着阶段自动换背景**：抿身份＝清晨、白天发言＝中午、投票公布＝黄昏、处刑和遗言＝处刑台、夜里＝午夜、面杀「你的房间」＝那间烛光屋子；面板都是半透明玻璃（能看见后面的村子），投票结果那张是羊皮纸卡片。底栏左边那个 🏷 是**标记角色**：点它 → 点某个头像 → 选「怀疑狼／确定狼／像预言家／像女巫／像猎人／像白痴／像好人」，还能给编号上色（自己盘谁和谁一边用）。
+· 【狼人杀 · 界面（暗黑村庄皮肤）】狼人杀的准备页和牌桌都换成了"暗黑村庄"风格，用的是六张村庄插画（**图已经嵌在文件里**，不用外链）。准备页整页铺村子夜景，**右上角有个「⚙ 设置」**：警长竞选开关、AI 发言长度上限、缺人怎么办（NPC 补位）、AI 想多少（省流/照旧）、以及所有详细说明，都收在那里面；主页面只留底部两个血红按键：「开始游戏 Start Game」（你和角色一起玩）和「进入观战 Spectate」（旁观），点哪个就直接按哪种玩法开局，不用先选玩法再按开始（玩法、人数、板子、我想当、选角色这些配置全在右上角设置里）。牌桌会**跟着阶段自动换背景**：抿身份＝清晨、白天发言＝中午、投票公布＝黄昏、处刑和遗言＝处刑台、夜里＝午夜、面杀「你的房间」＝那间烛光屋子；面板都是半透明玻璃（能看见后面的村子），投票结果那张卡片也跟着主题色。底栏左边那个 🏷 是**标记角色**：点它 → 点某个头像 → 选「怀疑狼／确定狼／像预言家／像女巫／像猎人／像白痴／像好人」，还能给编号上色（自己盘谁和谁一边用）。
 · 【狼人杀 · 面杀：狼队收刀＝身份爆了】她在那段夜戏里把狼说动了、狼真的收了刀的话，她不只是活下来——**狼队是谁她也当场记牢了**（她活着走出那间房，这张底就翻开了）。这一局第二天不走平常的发言和投票，直接开「审」：还活着的狼人被一起推上处刑台，一个一个说遗言（这时候不用再撒谎）——**进过那间房的狼人**带着那一晚的完整记忆、把实话说了；**没进过房间的狼人**一头雾水，会当场冲队友发火、互相指责（她当初只跟其中一只狼对线过的话，那段记忆也只给那只狼自己看）。审完狼队全部出局、直接判**好人获胜**。赛后感想里，收了刀的那只狼也会看到自己那晚的记忆。另外，她当晚要是还用毒药毒死了狼（哪怕毒的正好是收刀那只）：那只狼的遗言也一样按**真话**说，不用再装好人。
 · MCP：接上外部的工具服务器，让角色能调用更多外部工具。
 · 演绎：和角色演一段剧情（相当于另一个世界线，默认和私聊互不相通）。
@@ -13381,6 +13383,37 @@ function customAccColors(t){
   const hex=String((cfg&&cfg.acc)||'').trim();
   if(!/^#[0-9a-f]{6}$/i.test(hex))return null;
   return thmAccSet(hex,t);
+}
+/* ---------- 【新】狼人杀「暗黑村庄」皮肤用的主题色 ----------
+   狼人杀的准备页和牌桌原来是固定的一身金色（按钮、高亮、边框、羊皮纸卡片都是它）。
+   现在这身颜色改成跟着主题走：挑过自定义颜色就用你挑的颜色，没挑过就用主题自带的强调色。
+   村庄背景很暗，颜色太深会看不清，所以太深就自动往白里提亮一点。
+   算出来的值挂在 :root 上，狼人杀的样式用 var(--wwacc…) 直接取。 */
+function wwSkinAccSet(){
+  const t=thmCurBase();
+  let A=null;
+  try{
+    const cu=(typeof customAccColors==='function')?customAccColors(t):null;
+    A=thmHex2rgb((cu&&cu['--acc'])||(t.v||{})['--acc']||'#c8a35a');
+  }catch(e){}
+  if(!A)A=thmHex2rgb('#c8a35a')||{r:200,g:163,b:90};
+  for(let i=0;i<12&&thmLum(A)<.22;i++)A=thmMix(A,{r:255,g:255,b:255},.16);   /* 太深就提亮，深底上也看得清 */
+  const rgb=c=>c.r+','+c.g+','+c.b;
+  return {
+    '--wwacc':thmRgb2hex(A),
+    '--wwacc2':thmRgb2hex(thmMix(A,{r:255,g:255,b:255},.34)),
+    '--wwaccsoft':'rgba('+rgb(A)+',.14)',
+    '--wwaccdim':'rgba('+rgb(A)+',.22)',
+    '--wwaccline':'rgba('+rgb(A)+',.5)',
+    '--wwaccglow':'rgba('+rgb(A)+',.42)',
+    '--wwonacc':thmIsLightColor(A)?'#141414':'#ffffff'   /* 落在这个颜色上的字：亮底黑字、暗底白字 */
+  };
+}
+function wwSkinPaint(){
+  try{
+    const s=wwSkinAccSet(),r=document.documentElement.style;
+    for(const k in s)r.setProperty(k,s[k]);
+  }catch(e){}
 }
 function thmCurBase(){
   return THEMES[(cfg&&cfg.theme)||'light']||THEMES.light;   /* 【改】兜底用浅色 */
@@ -22684,7 +22717,7 @@ var CSS=[
 ,'.ww-top{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:4px 0 10px;border-bottom:1px solid var(--line)}',
 '.ww-mood{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:700;padding:2.5px 10px;border-radius:999px;vertical-align:middle;white-space:nowrap}',
 '.ww-mood.night{background:linear-gradient(135deg,rgba(96,130,220,.24),rgba(150,110,220,.18));color:var(--acc);border:1px solid rgba(96,130,220,.42)}',
-'.ww-mood.day{background:linear-gradient(135deg,rgba(245,200,100,.32),rgba(245,150,110,.20));color:#a86f12;border:1px solid rgba(224,168,60,.5)}',
+'.ww-mood.day{background:linear-gradient(135deg,var(--wwaccdim,rgba(245,200,100,.32)),var(--wwaccsoft,rgba(245,150,110,.20)));color:var(--wwacc2,#a86f12);border:1px solid var(--wwaccline,rgba(224,168,60,.5))}',
 '.ww-back{flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:var(--panel);border:1px solid var(--line);padding:0;display:flex;align-items:center;justify-content:center;box-shadow:none}',
 '.ww-back svg{width:15px;height:15px;display:block;stroke:var(--txt);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}',
 '.ww-top-t{flex:1;min-width:0;font-size:15px;font-weight:800;color:var(--txt);letter-spacing:.3px}',
@@ -22744,14 +22777,14 @@ var CSS=[
 '.ww-fx{position:absolute;inset:-2px;z-index:4;pointer-events:none;display:flex;align-items:center;justify-content:center}',
 '.ww-fx svg{width:36px;height:36px;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.45));animation:wwfxpop .45s ease-out}',
 '.ww-fx.claw svg{fill:#bb2419;stroke:#bb2419;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}',
-'.ww-fx.hit svg{width:30px;height:30px;fill:#e8b23a;stroke:#8a5a06;stroke-width:1.1;stroke-linejoin:round}',
+'.ww-fx.hit svg{width:30px;height:30px;fill:var(--wwacc2,#e8b23a);stroke:var(--wwacc,#8a5a06);stroke-width:1.1;stroke-linejoin:round}',
 '@keyframes wwfxpop{0%{transform:scale(.45) rotate(-18deg);opacity:0}55%{transform:scale(1.16) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}',
 '.ww-seat.mkpick .gx-av{border-color:#c0392b;border-style:dashed}',
 '.ww-mkbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
 '.ww-mkbtns button{flex:1 1 44%;font-size:12.5px;padding:9px 6px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none}',
 /* 标记选项：屏幕中间的浮窗（不占文档流，所以不会把角色挤上去） */
-'.ww-mkmodal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:0 18px;pointer-events:none}',
-'.ww-mkbox{width:100%;max-width:330px;background:var(--panel);border:1px solid var(--acc);border-radius:18px;padding:14px;box-shadow:0 18px 44px rgba(0,0,0,.28);pointer-events:auto}',
+'.ww-mkmodal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px 18px;pointer-events:none}',
+'.ww-mkbox{width:100%;max-width:330px;max-height:calc(100vh - 64px - var(--kb,0px));overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--panel);border:1px solid var(--acc);border-radius:18px;padding:14px;box-shadow:0 18px 44px rgba(0,0,0,.28);pointer-events:auto}',
 '.ww-mkbox-t{font-size:13px;color:var(--txt);text-align:center;line-height:1.6}',
 /* 标记浮窗里那排「给编号上色」的小圆点 */
 '.ww-colors{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0 2px}',
@@ -22770,7 +22803,7 @@ var CSS=[
 '.ww-pick-h{margin-top:5px;font-size:11.5px;color:var(--acc)}',
 '.ww-pick-n{margin-top:9px;width:100%;font-size:13px;padding:10px}',
 /* 赛后复盘：MVP 那一行（金色卡片） */
-'.ww-mvp{display:block;margin-bottom:9px;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,rgba(247,220,134,.45),rgba(224,168,60,.14));border:1px solid rgba(224,168,60,.55);color:var(--txt);font-weight:700;line-height:1.65}',
+'.ww-mvp{display:block;margin-bottom:9px;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,var(--wwaccdim,rgba(247,220,134,.45)),var(--wwaccsoft,rgba(224,168,60,.14)));border:1px solid var(--wwaccline,rgba(224,168,60,.55));color:var(--txt);font-weight:700;line-height:1.65}',
 /* ---------- 美化：白天 / 夜晚氛围 + 一人一色 + 结算仪式感 ---------- */
 '.ww-wrap{position:relative;display:flex;flex-direction:column;min-height:calc(100vh - env(safe-area-inset-top) - 16px)}',
 '.sheet:has(.ww-wrap){padding-bottom:0}',   /* 狼人杀：底部操作条直接贴到屏幕最下边（浏览器不支持 :has 也不影响） */
@@ -22804,11 +22837,11 @@ var CSS=[
 '.ww-verdict.lose{background:linear-gradient(135deg,rgba(224,90,82,.30),rgba(224,90,82,.06));border-color:rgba(224,90,82,.55);box-shadow:0 10px 30px rgba(224,90,82,.16)}',
 '.ww-verdict .gx-vbig{letter-spacing:6px}',
 '.ww-judgecard{background:linear-gradient(135deg,rgba(63,154,216,.10),transparent 72%);border-radius:18px}',
-'.ww-foot .pri,.ww-act .pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;box-shadow:0 6px 18px var(--accdim);font-weight:700;letter-spacing:1px}',
+'.ww-foot .pri,.ww-act .pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;box-shadow:0 6px 18px var(--accdim);color:var(--wwonacc,#02131c);font-weight:700;letter-spacing:1px}',
 '.ww-foot .pri:active,.ww-act .pri:active{transform:scale(.98)}',
 /* 金色 MVP 小标（战绩里用） */
-'.mvp-chip{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:linear-gradient(135deg,#f7dc86,#e0a83c);color:#5a3d06;vertical-align:middle;white-space:nowrap}',
-'.gx-badge.mvp{background:linear-gradient(135deg,#f7dc86,#e0a83c);color:#5a3d06;border-color:transparent}',
+'.mvp-chip{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:linear-gradient(135deg,var(--wwacc2,#f7dc86),var(--wwacc,#e0a83c));color:var(--wwonacc,#5a3d06);vertical-align:middle;white-space:nowrap}',
+'.gx-badge.mvp{background:linear-gradient(135deg,var(--wwacc2,#f7dc86),var(--wwacc,#e0a83c));color:var(--wwonacc,#5a3d06);border-color:transparent}',
 /* 角色列表里的「教程」小开关 */
 '.gx-tipb{display:inline-block;margin-left:2px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--dim);cursor:pointer;white-space:nowrap}',
 '.gx-tipb.on{border-color:var(--acc);color:var(--acc);background:var(--accdim);font-weight:700}',
@@ -22946,33 +22979,41 @@ var CSS=[
 '.ww-cover h2{margin:9px 0 3px;font-size:33px;letter-spacing:.16em;color:#f4f1e9;font-weight:700;text-shadow:0 0 24px rgba(190,205,235,.3),0 2px 0 rgba(0,0,0,.7)}',
 '.ww-cover .sub{font-size:12px;font-style:italic;color:#a7adb8}',
 '.ww-cover .rule{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:11px}',
-'.ww-cover .rule i{width:38px;height:1px;background:rgba(200,163,90,.5)}',
-'.ww-cover .rule u{width:5px;height:5px;background:#c8a35a;transform:rotate(45deg);display:block}',
+'.ww-cover .rule i{width:38px;height:1px;background:var(--wwaccline,rgba(200,163,90,.5))}',
+'.ww-cover .rule u{width:5px;height:5px;background:var(--wwacc,#c8a35a);transform:rotate(45deg);display:block}',
 '.ww-cover .tagline{margin-top:10px;font-size:10.5px;letter-spacing:.2em;color:#88909c}',
 '.ww-cover .gx-back{top:10px;left:10px;z-index:4}',
 /* 羊皮纸复古大按钮（准备页的「开始游戏」） */
 '.ww-btn{position:relative;display:block;width:100%;padding:0;margin:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}',
-'.ww-btn .bar{position:relative;display:flex;align-items:center;justify-content:center;min-height:50px;padding:0 16px 0 52px;clip-path:polygon(0% 7%,7% 2%,15% 5%,24% 1%,33% 5%,42% 1%,51% 6%,60% 2%,69% 5%,78% 1%,87% 5%,94% 2%,100% 7%,100% 93%,93% 98%,86% 95%,77% 99%,68% 95%,59% 99%,50% 94%,41% 98%,32% 95%,23% 99%,14% 95%,7% 98%,0% 93%);background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 44%),repeating-linear-gradient(93deg,rgba(120,104,80,.13) 0 5px,rgba(170,152,124,.07) 5px 12px),linear-gradient(180deg,#efe8d8,#cabd9f);box-shadow:0 3px 0 rgba(0,0,0,.5),inset 0 0 26px rgba(120,98,66,.4),inset 0 1px 0 rgba(255,255,255,.65)}',
-'.ww-btn .btxt{position:relative;z-index:2;font-size:16.5px;letter-spacing:.1em;color:#3b2c1d;text-shadow:0 1px 0 rgba(255,255,255,.5)}',
-'.ww-btn .orn{position:absolute;left:-7px;top:-9px;width:68px;height:68px;z-index:3;pointer-events:none;display:block}',
+'.ww-btn .bar{position:relative;display:flex;align-items:center;justify-content:center;min-height:50px;padding:0 16px 0 52px;clip-path:polygon(0% 7%,7% 2%,15% 5%,24% 1%,33% 5%,42% 1%,51% 6%,60% 2%,69% 5%,78% 1%,87% 5%,94% 2%,100% 7%,100% 93%,93% 98%,86% 95%,77% 99%,68% 95%,59% 99%,50% 94%,41% 98%,32% 95%,23% 99%,14% 95%,7% 98%,0% 93%);background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 44%),repeating-linear-gradient(93deg,rgba(0,0,0,.10) 0 5px,rgba(255,255,255,.08) 5px 12px),linear-gradient(180deg,var(--wwacc2,#efe8d8),var(--wwacc,#cabd9f));box-shadow:0 3px 0 rgba(0,0,0,.5),inset 0 0 26px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.45)}',
+'.ww-btn .btxt{position:relative;z-index:2;font-size:16.5px;letter-spacing:.1em;color:var(--wwonacc,#3b2c1d);text-shadow:0 1px 0 rgba(255,255,255,.35)}',
+'.ww-btn .orn{position:absolute;left:-7px;top:-9px;width:68px;height:68px;z-index:3;pointer-events:none;display:block;color:var(--wwonacc,#3b2c1d)}',
+/* 【新】底部两个血红按键（参考图：血红底 + 中文大字 + 斜体英文），左右并排、点一下直接开局 */
+'.ww-acts{display:flex;gap:10px;margin-top:12px}',
+/* 【改】按她的反馈调轻：不要红描边、红色只留中间一小片「血渍」（外加两颗溅开的小血点），
+   底面改成很淡的深色玻璃 —— 背景的村子还能透出来，整体不压手。 */
+'.ww-go{flex:1 1 0;min-width:0;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:11px 10px 12px;border:0;border-radius:12px;background:radial-gradient(30% 42% at 41% 36%,rgba(222,30,20,.5),rgba(186,18,12,.16) 58%,rgba(140,12,10,0) 78%),radial-gradient(22% 30% at 62% 64%,rgba(200,24,16,.34),rgba(160,14,10,0) 72%),radial-gradient(6% 8% at 71% 45%,rgba(222,30,20,.48),rgba(186,18,12,0) 72%),radial-gradient(5% 7% at 31% 67%,rgba(210,26,18,.42),rgba(160,14,10,0) 72%),linear-gradient(180deg,rgba(16,13,15,.46),rgba(6,5,7,.32));box-shadow:0 6px 16px rgba(0,0,0,.32);color:#fff;font:inherit;cursor:pointer}',
+'.ww-go:active{transform:scale(.985)}',
+'.ww-go .cn{font-size:16.5px;font-weight:700;letter-spacing:.14em;text-indent:.14em;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.85)}',
+'.ww-go .en{font-family:Georgia,"Times New Roman",times,serif;font-style:italic;font-size:11.5px;letter-spacing:.18em;text-indent:.18em;color:rgba(255,224,220,.8);text-shadow:0 1px 6px rgba(0,0,0,.85)}',
 '.ww-btn.blood .bar{background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,0) 44%),repeating-linear-gradient(93deg,rgba(90,20,16,.18) 0 5px,rgba(140,50,40,.1) 5px 12px),linear-gradient(180deg,#e6d6bf,#c1a689)}',
 '.ww-btn.blood .btxt{color:#5a1f16}',
 '.ww-btn:active .bar{transform:translateY(2px)}',
 '.ww-setup .ww-btn{margin-top:16px}',
 /* 准备页其它零件：金色小标题 / 暗石胶囊 / 暗石角色卡 */
-'.ww-setup .gx-sec{color:#c8a35a;letter-spacing:.16em}',
+'.ww-setup .gx-sec{color:var(--wwacc,#c8a35a);letter-spacing:.16em}',
 '.ww-setup .gx-hint{color:#8f939c}',
 '.ww-setup .gx-seg button{background:linear-gradient(180deg,#22262c,#161a1f);border:1px solid #333a43;color:#c8ccd4;border-radius:3px}',
-'.ww-setup .gx-seg button.on{color:#f4ead2;border-color:#7a5a2a;background:linear-gradient(180deg,#3a2c1a,#241a10);box-shadow:inset 0 0 18px rgba(200,163,90,.22)}',
+'.ww-setup .gx-seg button.on{color:var(--wwonacc,#241804);border-color:var(--wwacc2,#f6e6b6);background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c));box-shadow:inset 0 0 18px var(--wwaccdim,rgba(200,163,90,.22))}',
 '.ww-setup .ww-toks button,.ww-setup .ts-topic button{background:linear-gradient(180deg,#22262c,#161a1f);border:1px solid #333a43;color:#c8ccd4;border-radius:3px}',
-'.ww-setup .ww-toks button.on,.ww-setup .ts-topic button.on{color:#f4ead2;border-color:#7a5a2a;background:linear-gradient(180deg,#3a2c1a,#241a10);box-shadow:inset 0 0 18px rgba(200,163,90,.22)}',
+'.ww-setup .ww-toks button.on,.ww-setup .ts-topic button.on{color:var(--wwonacc,#241804);border-color:var(--wwacc2,#f6e6b6);background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c));box-shadow:inset 0 0 18px var(--wwaccdim,rgba(200,163,90,.22))}',
 '.ww-setup .gx-char{background:linear-gradient(180deg,#181b21,#111419);border:1px solid #2b3038;border-radius:4px}',
-'.ww-setup .gx-char.on{border-color:#7a5a2a;box-shadow:inset 0 0 18px rgba(200,163,90,.14)}',
+'.ww-setup .gx-char.on{border-color:var(--wwacc,#c8a35a);box-shadow:inset 0 0 18px var(--wwaccsoft,rgba(200,163,90,.14))}',
 '.ww-setup .gx-cnm{color:#e2e6ec}',
 '.ww-setup .gx-memseg button{background:linear-gradient(180deg,#22262c,#161a1f);border:1px solid #333a43;color:#c8ccd4}',
-'.ww-setup .gx-memseg button.on{color:#f4ead2;border-color:#7a5a2a;background:linear-gradient(180deg,#3a2c1a,#241a10)}',
+'.ww-setup .gx-memseg button.on{color:var(--wwonacc,#241804);border-color:var(--wwacc2,#f6e6b6);background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c))}',
 '.ww-setup .gx-tipb{color:#8f939c}',
-'.ww-setup .gx-tipb.on{color:#c8a35a;border-color:#7a5a2a}',
+'.ww-setup .gx-tipb.on{color:var(--wwonacc,#241804);background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c));border-color:var(--wwacc2,#f6e6b6);font-weight:700}',
 '.ww-setup input,.ww-setup input.gx-look{background:#12151a;border:1px solid #2f353d;color:#e6e9ee}',
 '.ww-setup .gx-card{background:linear-gradient(180deg,#15181d,#0f1216);border:1px solid #262b33;border-radius:4px;color:#dfe3ea}'
 /* ---- 全屏村庄背景（沉浸感）+ 顶部条（返回 / 标题 / 设置）---- */
@@ -22984,14 +23025,14 @@ var CSS=[
 /* 背景别压太暗：参考图里村子/月亮看得清，只有最底下（按钮那片）压暗 */
 '.ww-bgscrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,5,8,.36) 0,rgba(4,5,8,.28) 26%,rgba(4,5,8,.46) 58%,rgba(4,5,8,.9) 100%)}',
 /* 细线印记放在页面正中偏上（对齐参考图），别贴在顶栏后面 */
-'.ww-sigil{position:absolute;left:50%;top:43%;width:80%;max-width:372px;transform:translate(-50%,-50%);opacity:.36;pointer-events:none}',
+'.ww-sigil{position:absolute;left:50%;top:49%;width:80%;max-width:372px;transform:translate(-50%,-50%);opacity:.55;pointer-events:none}',
 '.ww-inner{position:relative;z-index:1;display:flex;flex-direction:column;min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 44px)}',
 /* 准备页的"上中下"：顶部条 → 中间留白（把背景留给村子）→ 底部一块（说明 + 开始 + 两个选择） */
 '.ww-spacer{flex:1;min-height:96px}',
 '.ww-bottom{padding:0 0 6px}',
 '.ww-tagline{margin:0 0 6px;text-align:center;font-size:13px;letter-spacing:.12em;color:#d8dde6;text-shadow:0 1px 10px rgba(0,0,0,.95)}',
 '.ww-sum{margin:0 0 12px;text-align:center;font-size:13px;line-height:1.7;color:#d8dde6;text-shadow:0 1px 10px rgba(0,0,0,.95)}',
-'.ww-sum b{color:#e8d7ae}',
+'.ww-sum b{color:var(--wwacc2,#e8d7ae)}',
 '.ww-hintline{margin:9px 0 0;text-align:center;font-size:11.5px;color:#9aa2b0;text-shadow:0 1px 8px rgba(0,0,0,.92)}',
 /* 准备页中间那块大标题（参考图里标题在下方，顶部条只留返回/设置） */
 '.ww-hero{text-align:center;margin:6px 0 0}',
@@ -22999,8 +23040,8 @@ var CSS=[
 '.ww-hero h2{margin:8px 0 3px;font-size:34px;letter-spacing:.16em;font-weight:700;color:#f6f3ec;text-shadow:0 0 24px rgba(190,205,235,.34),0 2px 12px rgba(0,0,0,.9)}',
 '.ww-hero .sub{font-size:12px;font-style:italic;color:#b8bec9;text-shadow:0 1px 8px rgba(0,0,0,.95)}',
 '.ww-hero .rule{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:10px}',
-'.ww-hero .rule i{width:36px;height:1px;background:rgba(200,163,90,.5)}',
-'.ww-hero .rule u{width:5px;height:5px;background:#c8a35a;transform:rotate(45deg);display:block}',
+'.ww-hero .rule i{width:36px;height:1px;background:var(--wwaccline,rgba(200,163,90,.5))}',
+'.ww-hero .rule u{width:5px;height:5px;background:var(--wwacc,#c8a35a);transform:rotate(45deg);display:block}',
 /* ---- 【微调】四条约她指出的细节 ---- */
 /* ① 最底下那条白条：把准备页的高度补满整个 sheet（原来差一截，露出浅色底） */
 '.ww-setup{min-height:calc(100vh - var(--kb,0px))}',
@@ -23022,7 +23063,7 @@ var CSS=[
 '.ww-title{flex:1;min-width:0}',
 '.ww-title b{display:block;font-size:19px;letter-spacing:.14em;color:#f2efe7}',
 '.ww-title i{display:block;margin-top:2px;font-style:normal;font-size:10.5px;letter-spacing:.08em;color:#9aa2b0}',
-'.ww-gear,.ww-cfgclose{flex:0 0 auto;width:36px;height:36px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(6,8,12,.8);border:1px solid rgba(200,163,90,.55);color:#e8d7ae}',
+'.ww-gear,.ww-cfgclose{flex:0 0 auto;width:36px;height:36px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(6,8,12,.8);border:1px solid var(--wwaccline,rgba(200,163,90,.55));color:var(--wwacc2,#e8d7ae)}',
 '.ww-gear svg{fill:currentColor;stroke:none}',   /* 【改】齿轮是实心图标，不走别的图标那套描边 */
 /* ============================================================
    【微调·第四批】按她截图提的四点：
@@ -23052,26 +23093,26 @@ var CSS=[
 '.sheet.wwscrolled .ww-head:after{opacity:1}',
 '.ww-gear svg,.ww-cfgclose svg{width:17px;height:17px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}',
 /* ---- 按钮：一眼看出选没选（选中＝亮金底深字，未选＝深玻璃浅字）---- */
-'.ww-setup .gx-sec{color:#e0c07a;text-shadow:0 1px 6px rgba(0,0,0,.85)}',
+'.ww-setup .gx-sec{color:var(--wwacc,#e0c07a);text-shadow:0 1px 6px rgba(0,0,0,.85)}',
 '.ww-setup .gx-hint{color:#a9b0bb;text-shadow:0 1px 6px rgba(0,0,0,.85)}',
 '.ww-setup .gx-seg button,.ww-setup .ww-toks button,.ww-setup .ts-topic button{background:linear-gradient(180deg,rgba(32,37,45,.94),rgba(15,18,23,.96));border:1px solid rgba(255,255,255,.2);color:#cbd1da;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.07)}',
-'.ww-setup .gx-seg button.on,.ww-setup .ww-toks button.on,.ww-setup .ts-topic button.on{background:linear-gradient(180deg,#eeca80,#a87f2c);border-color:#f6e6b6;color:#241804;font-weight:700;box-shadow:0 2px 12px rgba(200,163,90,.4),inset 0 1px 0 rgba(255,255,255,.5)}',
+'.ww-setup .gx-seg button.on,.ww-setup .ww-toks button.on,.ww-setup .ts-topic button.on{background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c));border-color:var(--wwacc2,#f6e6b6);color:var(--wwonacc,#241804);font-weight:700;box-shadow:0 2px 12px var(--wwaccglow,rgba(200,163,90,.4)),inset 0 1px 0 rgba(255,255,255,.5)}',
 '.ww-setup .gx-seg button:disabled,.ww-setup .ts-topic button:disabled{opacity:.32}',
 '.ww-setup .gx-char{background:linear-gradient(180deg,rgba(24,28,35,.93),rgba(13,16,21,.95));border:1px solid rgba(255,255,255,.15);border-radius:8px}',
-'.ww-setup .gx-char.on{border-color:#c8a35a;box-shadow:0 0 0 1px rgba(200,163,90,.4),inset 0 0 22px rgba(200,163,90,.12)}',
+'.ww-setup .gx-char.on{border-color:var(--wwacc,#c8a35a);box-shadow:0 0 0 1px var(--wwaccline,rgba(200,163,90,.4)),inset 0 0 22px var(--wwaccsoft,rgba(200,163,90,.12))}',
 '.ww-setup .gx-memseg button{background:rgba(32,37,45,.94);border:1px solid rgba(255,255,255,.2);color:#cbd1da;border-radius:5px}',
-'.ww-setup .gx-memseg button.on{background:linear-gradient(180deg,#eeca80,#a87f2c);border-color:#f6e6b6;color:#241804;font-weight:700}',
+'.ww-setup .gx-memseg button.on{background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c));border-color:var(--wwacc2,#f6e6b6);color:var(--wwonacc,#241804);font-weight:700}',
 '.ww-setup .gx-tipb{border:1px solid rgba(255,255,255,.22);border-radius:5px;padding:1px 6px;color:#a9b0bb}',
-'.ww-setup .gx-tipb.on{color:#241804;background:linear-gradient(180deg,#eeca80,#a87f2c);border-color:#f6e6b6;font-weight:700}',
+'.ww-setup .gx-tipb.on{color:var(--wwonacc,#241804);background:linear-gradient(180deg,var(--wwacc2,#eeca80),var(--wwacc,#a87f2c));border-color:var(--wwacc2,#f6e6b6);font-weight:700}',
 '.ww-setup input,.ww-setup input.gx-look{background:rgba(11,14,18,.86);border:1px solid rgba(255,255,255,.2);color:#e8ebf0;border-radius:6px}',
 '.ww-setup .gx-card{background:linear-gradient(180deg,rgba(21,25,31,.93),rgba(11,14,18,.95));border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#e2e6ec}',
 '.ww-setup .gx-row button.ghost{background:rgba(20,24,30,.9);border:1px solid rgba(255,255,255,.2);color:#cbd1da}',
 /* ---- 右上角「设置」浮层：细致配置 + 详细说明都收在这里 ---- */
 '.ww-cfgmask{position:fixed;inset:0;z-index:70;background:rgba(2,3,5,.68);display:flex;align-items:flex-end;justify-content:center}',
-'.ww-cfgbox{width:100%;max-width:460px;max-height:86vh;overflow:auto;border-radius:14px 14px 0 0;padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);border:1px solid rgba(200,163,90,.4);border-top:1px solid rgba(200,163,90,.6);background:linear-gradient(180deg,#151920,#0a0d11)}',
+'.ww-cfgbox{width:100%;max-width:460px;max-height:86vh;overflow:auto;border-radius:14px 14px 0 0;padding:14px 14px calc(env(safe-area-inset-bottom) + 16px);border:1px solid var(--wwaccline,rgba(200,163,90,.4));border-top:1px solid var(--wwaccline,rgba(200,163,90,.6));background:linear-gradient(180deg,#151920,#0a0d11)}',
 '.ww-cfghead{display:flex;align-items:center;gap:10px;margin-bottom:4px}',
-'.ww-cfghead b{flex:1;font-size:15px;letter-spacing:.16em;color:#e8d7ae}',
-'.ww-cfgbox .gx-sec{color:#e0c07a}',
+'.ww-cfghead b{flex:1;font-size:15px;letter-spacing:.16em;color:var(--wwacc2,#e8d7ae)}',
+'.ww-cfgbox .gx-sec{color:var(--wwacc,#e0c07a)}',
 '.ww-cfgbox .gx-hint{color:#a3aab5}',
 '.ww-cfgbox .ww-btn{margin-top:14px}',
 /* ============================================================
@@ -23083,47 +23124,47 @@ var CSS=[
 '.ww-scenebg{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center top;background-repeat:no-repeat}',
 '.ww-scenebg:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,5,8,.34) 0,rgba(4,5,8,.42) 18%,rgba(4,5,8,.46) 55%,rgba(4,5,8,.74) 100%)}',
 '.ww-scenebg.dark:after{background:linear-gradient(180deg,rgba(4,5,8,.7),rgba(4,5,8,.78) 45%,rgba(4,5,8,.9))}',
-'.ww-wrap{--bg:#06080c;--bg2:rgba(16,20,26,.66);--panel:rgba(10,13,18,.66);--line:rgba(255,255,255,.18);--txt:#eef1f6;--dim:#aab1bd;--meta:#9aa1ad;--acc:#c8a35a;--acc2:#e6c886;--accdim:rgba(200,163,90,.22);--warn:#e0705f;--bubme:linear-gradient(150deg,rgba(200,163,90,.30),rgba(140,105,40,.22))}',
+'.ww-wrap{--bg:#06080c;--bg2:rgba(16,20,26,.66);--panel:rgba(10,13,18,.66);--line:rgba(255,255,255,.18);--txt:#eef1f6;--dim:#aab1bd;--meta:#9aa1ad;--acc:var(--wwacc,#c8a35a);--acc2:var(--wwacc2,#e6c886);--accdim:var(--wwaccdim,rgba(200,163,90,.22));--warn:#e0705f;--bubme:linear-gradient(150deg,var(--wwaccdim,rgba(200,163,90,.30)),var(--wwaccsoft,rgba(140,105,40,.22)))}',
 /* 顶部信息条：暗底 + 细金线，压在村庄图上 */
 /* 顶栏：不再是"黑板"，而是毛玻璃 + 往下柔和淡出（村庄从玻璃里透出来，也没有硬边） */
 /* 顶栏：玻璃层放到伪元素上、再用遮罩往下淡出 —— 这样模糊不会在底下留一条方形的硬边 */
 '.ww-head{background:none;backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:0;box-shadow:none}',
 '.ww-head:before{content:"";position:absolute;left:0;right:0;top:0;bottom:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,rgba(6,8,12,.66),rgba(6,8,12,.3) 55%,rgba(6,8,12,0));backdrop-filter:blur(16px) brightness(1.07) saturate(1.18);-webkit-backdrop-filter:blur(16px) brightness(1.07) saturate(1.18);-webkit-mask-image:linear-gradient(180deg,#000 0,#000 50%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 0,#000 50%,rgba(0,0,0,0) 100%)}',
-'.ww-top{border-bottom:1px solid rgba(200,163,90,.22)}',
-'.ww-me{background:linear-gradient(150deg,rgba(22,27,34,.62),rgba(10,13,18,.5));border-color:rgba(200,163,90,.32);box-shadow:inset 0 .8px 0 rgba(255,255,255,.14)}',
+'.ww-top{border-bottom:1px solid var(--wwaccdim,rgba(200,163,90,.22))}',
+'.ww-me{background:linear-gradient(150deg,rgba(22,27,34,.62),rgba(10,13,18,.5));border-color:var(--wwaccdim,rgba(200,163,90,.32));box-shadow:inset 0 .8px 0 rgba(255,255,255,.14)}',
 '.ww-back,.ww-snd{background:rgba(6,8,12,.8);border-color:rgba(255,255,255,.42)}',
 '.ww-back svg{stroke:#fff;stroke-width:2.1}',
 /* 白天 / 夜里那个小胶囊：暗底金字 */
-'.ww-mood{background:rgba(20,16,8,.5);border-color:rgba(200,163,90,.5);color:#e8d7ae}',
-'.ww-mood.day{background:linear-gradient(135deg,rgba(180,130,40,.34),rgba(120,80,30,.2));color:#f0dfae;border-color:rgba(200,163,90,.55)}',
+'.ww-mood{background:rgba(20,16,8,.5);border-color:var(--wwaccline,rgba(200,163,90,.5));color:var(--wwacc2,#e8d7ae)}',
+'.ww-mood.day{background:linear-gradient(135deg,var(--wwaccdim,rgba(180,130,40,.34)),var(--wwaccsoft,rgba(120,80,30,.2)));color:var(--wwacc2,#f0dfae);border-color:var(--wwaccline,rgba(200,163,90,.55))}',
 '.ww-mood.night{background:linear-gradient(135deg,rgba(30,40,80,.5),rgba(16,22,48,.3));color:#c3cfe8;border-color:rgba(140,160,220,.45)}',
 /* 座位：暗玻璃牌（说话 / 被选中的高亮成金色） */
 '.ww-seat{padding:5px 2px;border-radius:8px;background:linear-gradient(150deg,rgba(18,22,28,.6),rgba(8,10,14,.42));border:1px solid rgba(255,255,255,.17);box-shadow:0 4px 12px rgba(0,0,0,.28),inset 0 .8px 0 rgba(255,255,255,.16)}',
-'.ww-seat.spk{background:rgba(200,163,90,.16);border-color:rgba(200,163,90,.5)}',
-'.ww-seat.pick,.ww-seat.mkpick{border-color:rgba(200,163,90,.6)}',
+'.ww-seat.spk{background:var(--wwaccsoft,rgba(200,163,90,.16));border-color:var(--wwaccline,rgba(200,163,90,.5))}',
+'.ww-seat.pick,.ww-seat.mkpick{border-color:var(--wwaccline,rgba(200,163,90,.6))}',
 '.ww-seat-nm{color:#dfe4ec}',
 '.ww-seat-st{color:#9aa1ad}',
 '.ww-seat-av .gx-av{box-shadow:0 2px 8px rgba(0,0,0,.5)}',
 /* 现场（日志区） */
-'.ww-wrap .gx-sec{color:#e0c07a;text-shadow:0 1px 6px rgba(0,0,0,.8)}',
+'.ww-wrap .gx-sec{color:var(--wwacc,#e0c07a);text-shadow:0 1px 6px rgba(0,0,0,.8)}',
 '.ww-sys{color:#c3cad5}',
-'.ww-sys.strong{background:linear-gradient(180deg,rgba(235,227,209,.95),rgba(211,199,171,.93));border-color:rgba(120,100,60,.55);color:#3a2c1d;font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.45),inset 0 .8px 0 rgba(255,255,255,.6);backdrop-filter:blur(6px) saturate(1.05);-webkit-backdrop-filter:blur(6px) saturate(1.05)}',
-'.ww-sys.strong .ww-vln svg{stroke:#8a6b34}',   /* 羊皮纸面板上：投票箱图标用深金，别用亮金（看不清） */
-'.ww-sys.me{background:rgba(200,163,90,.18);border-color:rgba(200,163,90,.5);color:#f2e8d4}',
+'.ww-sys.strong{background:linear-gradient(180deg,var(--wwacc2,rgba(235,227,209,.95)),var(--wwacc,rgba(211,199,171,.93)));border-color:var(--wwaccline,rgba(120,100,60,.55));color:var(--wwonacc,#3a2c1d);font-weight:600;box-shadow:0 3px 12px rgba(0,0,0,.45),inset 0 .8px 0 rgba(255,255,255,.4);backdrop-filter:blur(6px) saturate(1.05);-webkit-backdrop-filter:blur(6px) saturate(1.05)}',
+'.ww-sys.strong .ww-vln svg{stroke:var(--wwonacc,#8a6b34)}',   /* 系统卡片上：投票箱图标跟着卡片文字色走 */
+'.ww-sys.me{background:var(--wwaccdim,rgba(200,163,90,.18));border-color:var(--wwaccline,rgba(200,163,90,.5));color:var(--wwacc2,#f2e8d4)}',
 '.ww-sys.wolf{background:rgba(140,31,24,.18);border-color:rgba(190,60,60,.32);color:#e8dcd6}',
 '.ww-say-t{background:linear-gradient(150deg,rgba(16,20,26,.62),rgba(8,10,14,.5));border-color:rgba(255,255,255,.18);color:#eef1f6;box-shadow:0 6px 18px rgba(0,0,0,.35),inset 0 .8px 0 rgba(255,255,255,.2)}',
-'.ww-say-h b{color:#ecd9a8}',
+'.ww-say-h b{color:var(--wwacc2,#ecd9a8)}',
 '.ww-say.me .ww-say-t{color:#fdf5e6;box-shadow:0 6px 18px rgba(0,0,0,.3),inset 0 .8px 0 rgba(255,255,255,.3)}',
 '.ww-say-t .thinkbody{background:rgba(0,0,0,.35)}',
 /* 底部操作条：渐变到全黑，按钮金 / 玻璃两种 */
-'.ww-foot{background:linear-gradient(180deg,rgba(6,8,12,.6),rgba(4,5,8,.86));border-top:1px solid rgba(200,163,90,.3);box-shadow:0 -8px 22px rgba(0,0,0,.45),inset 0 .8px 0 rgba(255,255,255,.12);backdrop-filter:blur(14px) brightness(1.06) saturate(1.15);-webkit-backdrop-filter:blur(14px) brightness(1.06) saturate(1.15)}',
+'.ww-foot{background:linear-gradient(180deg,rgba(6,8,12,.6),rgba(4,5,8,.86));border-top:1px solid var(--wwaccdim,rgba(200,163,90,.3));box-shadow:0 -8px 22px rgba(0,0,0,.45),inset 0 .8px 0 rgba(255,255,255,.12);backdrop-filter:blur(14px) brightness(1.06) saturate(1.15);-webkit-backdrop-filter:blur(14px) brightness(1.06) saturate(1.15)}',
 '.ww-ico{background:rgba(14,18,24,.9);border-color:rgba(255,255,255,.18)}',
 '.ww-ico svg{stroke:#c3cad6}',
 '.ww-act-t{color:#cbd2dd}',
 '.ww-mkbox{background:linear-gradient(180deg,#151920,#0a0d11);box-shadow:0 18px 44px rgba(0,0,0,.6)}',
 '.ww-mkbtns button{background:linear-gradient(180deg,#232830,#161a20);border-color:rgba(255,255,255,.18)}',
-'.ww-judgecard{background:linear-gradient(135deg,rgba(200,163,90,.1),transparent 72%)}',
-'.ww-mvp{background:linear-gradient(135deg,rgba(226,196,124,.92),rgba(150,112,44,.8));color:#241804;border-color:#f4e3b0;text-shadow:none}',   /* MVP 做成一块「金牌」 */
+'.ww-judgecard{background:linear-gradient(135deg,var(--wwaccsoft,rgba(200,163,90,.1)),transparent 72%)}',
+'.ww-mvp{background:linear-gradient(135deg,var(--wwacc2,#e2c47c),var(--wwacc,#96702c));color:var(--wwonacc,#241804);border-color:var(--wwacc2,#f4e3b0);text-shadow:none}',   /* MVP 做成一块「主题色奖牌」 */
 /* 早晚氛围那两层调淡（别盖住村庄图） */
 '.ww-atm.day{background:linear-gradient(180deg,rgba(70,50,20,.26),rgba(60,45,20,0) 230px)}',
 '.ww-atm.night{background:linear-gradient(180deg,rgba(10,20,50,.34),rgba(8,16,40,0) 240px)}',
@@ -24879,10 +24920,10 @@ var WW_COVER_SIGIL='<g fill="none" stroke="#cfd6e4" stroke-opacity=".5"><circle 
   '<g fill="none" stroke="#e6ecf8" stroke-opacity=".75" stroke-width="1.4"><circle cx="150" cy="150" r="46"/><circle cx="150" cy="150" r="30"/>'+
   '<path d="M136 138 C142 148 145 156 150 166 C155 156 158 148 164 138"/><path d="M143 132 C146 142 148 150 150 158 C152 150 154 142 157 132"/></g>';
 /* 复古按键左端那朵卷草角花（SVG 片段，跟预览里的一样） */
-var WW_ORN_SVG='<svg viewBox="0 0 72 72"><g fill="none" stroke="#6b2f2a" stroke-width="2" stroke-linecap="round">'+
+var WW_ORN_SVG='<svg viewBox="0 0 72 72"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">'+
   '<path d="M36 36 C21 31 13 43 21 50 C28 56 37 50 33 43 C30 38 23 40 25 46"/><path d="M36 36 C51 30 59 42 52 49"/>'+
   '<path d="M36 19 C42 25 48 26 55 27"/><path d="M36 19 C30 25 24 26 17 27"/></g>'+
-  '<g fill="#6b2f2a"><circle cx="55" cy="27" r="2.2"/><circle cx="17" cy="27" r="2.2"/><path d="M36 13 l5 6 -5 6 -5-6z"/></g></svg>';
+  '<g fill="currentColor"><circle cx="55" cy="27" r="2.2"/><circle cx="17" cy="27" r="2.2"/><path d="M36 13 l5 6 -5 6 -5-6z"/></g></svg>';
 /* 齿轮 / 叉号（右上角「设置」用） */
 /* 【改】设置图标：原来那个是"圆圈 + 八条放射线"，看着像太阳；换成真正的齿轮（实心 + 中孔，evenodd 挖洞） */
 var WW_IC_GEAR='<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61zM12 15.6A3.6 3.6 0 1 1 15.6 12 3.6 3.6 0 0 1 12 15.6z"/></svg>';
@@ -24903,13 +24944,11 @@ function wwSceneKey(){
    那一堆详细说明都收在这里，主页面只留常用选项，干净很多。 */
 function wwCfgHTML(){
   var w=V.ww,h='';
-  var b=wwBoard(w.count),need=w.count-((w.mode==='play')?1:0);   /* 搬进来的那段（板子 / 还需要几个人）要用到 */
+  var b=wwBoard(w.count);   /* 这块要用到板子（各身份几个） */
   h+='<div class="ww-cfgmask" onclick="if(event.target===this)GAME.wwCfg(0)"><div class="ww-cfgbox">';
   h+='<div class="ww-cfghead"><b>设 置</b><button class="ww-cfgclose" type="button" aria-label="关闭" onclick="GAME.wwCfg(0)">'+WW_IC_X+'</button></div>';
-  h+='<p class="gx-hint" style="margin:0 2px 6px">准备页上的配置都收在这里：怎么玩、玩法、人数、你想当的身份、选角色，还有下面的细项和说明。改完直接关掉，回主页面点「开始游戏」就行。</p>';
-  h+='<div class="gx-sec">怎么玩</div><div class="gx-seg">'+
-     '<button class="'+(w.mode==='play'?'on':'')+'" onclick="GAME.wwMode(\'play\')">我和角色一起玩</button>'+
-     '<button class="'+(w.mode==='watch'?'on':'')+'" onclick="GAME.wwMode(\'watch\')">旁观角色们玩</button></div>';
+  /* 【改】「怎么玩」这一栏去掉了：现在由底部那两个血红按键（开始游戏 / 进入观战）直接决定玩法 */
+  h+='<p class="gx-hint" style="margin:0 2px 6px">准备页上的配置都收在这里：玩法、人数、你想当的身份、选角色，还有下面的细项和说明。改完直接关掉，回主页面点底下的「开始游戏」或「进入观战」就行。</p>';
   /* 【新·面杀】玩法：网上（网杀）／面对面（面杀）。选网上＝和以前一模一样，一个字都没改。 */
   h+='<div class="gx-sec">玩法</div><div class="gx-seg">'+
      '<button class="'+(w.table!=='face'?'on':'')+'" onclick="GAME.wwTable(\'online\')">网上（网杀）</button>'+
@@ -24929,21 +24968,18 @@ function wwCfgHTML(){
        '<p class="gx-hint">「<b>预女猎白</b>」＝预言家 / 女巫 / 猎人 / 白痴 + 4 只狼 + 4 村民；「<b>守卫白狼王</b>」＝预言家 / 女巫 / 猎人 / <b>守卫</b> + <b>白狼王</b>（1 只）+ 3 只普通狼 + 4 村民。</p>';
   }
   h+='<p class="gx-hint">这个人数是：狼人 '+((b.wolf||0)+(b.wolfking||0))+' 个'+(b.wolfking?('（其中 1 个是白狼王）'):'')+' · 村民 '+b.villager+' · 预言家 1 · 女巫 1'+(b.guard?' · 守卫 1':'')+(b.hunter?' · 猎人 1':'')+(b.idiot?' · 白痴 1':'')+'。'+
-     (w.mode==='play'?('你也在局中，所以还需要选 '+(w.count-1)+' 个角色。'):('你不参与，需要选 '+w.count+' 个角色。'))+
+     '点「开始游戏」你也在局中，要选 '+(w.count-1)+' 个角色；点「进入观战」你不参与，要选 '+w.count+' 个角色。'+
      '人数越少结束越快（6 人局很快，8~9 人更有得玩）。</p>';
-  if(w.mode==='play'){
-    h+='<div class="gx-sec">我想当</div><div class="ts-topic">'+WW_PICKS.map(function(p){
-      var ok=(p[0]==='random')||((b[p[0]]||0)>0);
-      return '<button class="'+(w.pick===p[0]?'on':'')+'" '+((ok||w.pick===p[0])?'':'disabled style="opacity:.35"')+' onclick="GAME.wwPickRole(\''+p[0]+'\')">'+p[1]+'</button>';
-    }).join('')+'</div>';
-    h+='<p class="gx-hint">选「随机」就完全随机；选具体身份你就一定拿到它（这个人数里没有的身份选不了）。</p>';
-  }else{
-    h+='<div class="gx-sec">观看方式</div><div class="gx-seg">'+
-       '<button class="'+(!w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(0)">一步步点</button>'+
-       '<button class="'+(w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(1)">自动往下演</button></div>';
-  }
-  var need=w.count-((w.mode==='play')?1:0);
-  h+='<div class="gx-sec">选角色（需要 '+need+' 个，已选 '+w.cids.length+' 个'+(w.npcFill?('，其余 '+Math.max(0,need-w.cids.length)+' 个用 NPC'):'')+'）</div>';
+  /* 【改】「我想当」和「观看方式」现在都一直显示：一个给「开始游戏」用、一个给「进入观战」用 */
+  h+='<div class="gx-sec">我想当（点「开始游戏」时用）</div><div class="ts-topic">'+WW_PICKS.map(function(p){
+    var ok=(p[0]==='random')||((b[p[0]]||0)>0);
+    return '<button class="'+(w.pick===p[0]?'on':'')+'" '+((ok||w.pick===p[0])?'':'disabled style="opacity:.35"')+' onclick="GAME.wwPickRole(\''+p[0]+'\')">'+p[1]+'</button>';
+  }).join('')+'</div>';
+  h+='<p class="gx-hint">选「随机」就完全随机；选具体身份你就一定拿到它（这个人数里没有的身份选不了）。</p>';
+  h+='<div class="gx-sec">观看方式（点「进入观战」时用）</div><div class="gx-seg">'+
+     '<button class="'+(!w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(0)">一步步点</button>'+
+     '<button class="'+(w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(1)">自动往下演</button></div>';
+  h+='<div class="gx-sec">选角色（已选 '+w.cids.length+' 个'+(w.npcFill?'，不够的用 NPC 补位':'')+'）</div>';
   chars.forEach(function(c){
     var on=w.cids.indexOf(c.id)>=0,mm=(w.mem[c.id]==='full')?'full':'base';
     /* 【新·面杀】勾上的角色多一个输入框：一句话形容 TA 的样子（只有你看得到，但会告诉大家） */
@@ -29063,13 +29099,16 @@ function wwSetupHTML(){
   /* 【改·文案】两行配置摘要（按她标注的写法）：人数场·玩法·板子 ／ 身份·NPC 补位状态 */
   h+='<p class="ww-tagline">'+w.count+' 人场 · '+(w.table==='face'?'面杀':'网杀')+
        (w.count===12?(' · '+(w.board==='wolfking'?'守卫白狼王':'预女猎白')):'')+'</p>';
-  h+='<p class="ww-sum">'+(w.mode==='watch'?'你在旁观':('<b>'+((w.pick&&w.pick!=='random')?(WW_ROLE_NAME[w.pick]||'随机身份'):'随机身份')+'</b>'))+
+  h+='<p class="ww-sum"><b>'+((w.pick&&w.pick!=='random')?(WW_ROLE_NAME[w.pick]||'随机身份'):'随机身份')+'</b>'+
        ' · '+(w.npcFill?'NPC 已补位':'不用 NPC 补位')+'</p>';
-  h+='<button class="ww-btn" type="button" onclick="GAME.wwStart()">'+
-       '<span class="bar"><span class="orn">'+WW_ORN_SVG+'</span><span class="btxt">开始游戏</span></span></button>';
-  h+='<div class="gx-seg" style="margin-top:10px">'+
-       '<button class="'+(w.mode==='play'?'on':'')+'" onclick="GAME.wwMode(\'play\')">我和角色一起玩</button>'+
-       '<button class="'+(w.mode==='watch'?'on':'')+'" onclick="GAME.wwMode(\'watch\')">旁观角色们玩</button></div>';
+  /* 【新】底部两个血红按键（参考图那种「血红底 + 中文大字 + 斜体英文」）：
+     左右并排，点哪个就直接按哪种玩法开局 —— 不用再先选玩法、再按开始。 */
+  h+='<div class="ww-acts">'+
+       '<button class="ww-go" type="button" onclick="GAME.wwStartMode(\'play\')">'+
+         '<span class="cn">开始游戏</span><span class="en">Start Game</span></button>'+
+       '<button class="ww-go" type="button" onclick="GAME.wwStartMode(\'watch\')">'+
+         '<span class="cn">进入观战</span><span class="en">Spectate</span></button>'+
+     '</div>';
   h+='</div>';
   h+='</div>';                                 /* 关掉 .ww-inner（全屏背景那一层） */
  if(w.cfgOpen)h+=wwCfgHTML();                  /* 右上角「设置」打开时，把浮层叠上去 */
@@ -29556,11 +29595,15 @@ function wwHTML(){
        '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDump()">📋 复制整局文字（含思考过程）</button></div>'+
        '<div class="gx-row"><button class="pri" onclick="GAME.wwAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   }else{
+   var mkHTML='';   /* 【修】标记浮窗先攒着，等底栏拼完再挂到底栏外面 */
    h+='<div class="ww-foot">';
    /* 标记：点头像选人（不发面板），选好之后弹一个屏幕中间的浮窗选标记类型 */
-   if(w.markMode==='choose'){
-     var mp=wwPlayerByUid(w.markUid);
-     h+='<div class="ww-mkmodal"><div class="ww-mkbox">'+
+  if(w.markMode==='choose'){
+    var mp=wwPlayerByUid(w.markUid);
+     /* 【修】这个浮窗不能塞在 .ww-foot 里面：底栏有毛玻璃（backdrop-filter），
+        浏览器会把底栏当成浮窗的定位基准，浮窗就被挤到屏幕最底下、下半截跑出屏幕（看不清颜色那排）。
+        所以先攒进 mkHTML，等底栏拼完再挂到底栏外面，它才会按整个屏幕居中。 */
+     mkHTML='<div class="ww-mkmodal" style="position:fixed;inset:0;z-index:60"><div class="ww-mkbox">'+
         '<div class="ww-mkbox-t">给「'+(mp?wwTag(mp):'?')+'」加个标记</div>'+
         '<div class="ww-mkbtns">'+WW_MARKS.filter(function(m){return m[0]!=='idiot'||!!wwBoard(w.count).idiot}).map(function(m){return '<button onclick="GAME.wwMarkSet(\''+m[0]+'\')">'+m[1]+'</button>'}).join('')+'</div>'+
         '<div class="ww-mkbox-t" style="margin-top:12px">给编号上色（盘共边很方便）</div>'+
@@ -29618,9 +29661,10 @@ function wwHTML(){
        '<div class="gx-row"><button class="pri" onclick="GAME.wwGo()">'+esc(w.gate.btn||('进入'+(w.gate.step||'下一步')+' ›'))+'</button></div></div>';
   }else{
     h+='<div class="ww-act">'+wwActHead(w.msg||'进行中…')+
-       '<div class="gx-busy" style="padding:2px"><i></i><i></i><i></i><span>请稍等</span></div></div>';
+      '<div class="gx-busy" style="padding:2px"><i></i><i></i><i></i><span>请稍等</span></div></div>';
    }
    h+='</div>';
+   h+=mkHTML;   /* 【修】标记浮窗挂到底栏外面：这样它按整个屏幕居中，不会再被切掉 */
   }
   /* 长按某条发言后弹出的小浮窗：问要不要让这个角色重新说一遍 */
   if(w.resayIdx!=null&&w.resayIdx>=0){
@@ -30797,6 +30841,12 @@ window.GAME={
   wwMode:function(m){
     V.ww.mode=(m==='watch')?'watch':'play';
     render(false);
+  },
+  /* 【新】底部两个血红按键：点一下＝「按这个玩法立刻开局」
+     （以前是先选玩法、再按开始；现在合成一步，少点一下） */
+  wwStartMode:function(m){
+    V.ww.mode=(m==='watch')?'watch':'play';
+    wwStart();
   },
   /* 【新·面杀】玩法：网上（网杀）／面对面（面杀） */
   wwTable:function(t){
