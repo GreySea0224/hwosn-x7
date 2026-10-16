@@ -16,26 +16,37 @@
 牌桌会跟着阶段自动换背景（清晨 → 中午 → 黄昏 → 处刑台 → 午夜 → 房间）；
 底部左边那个 **🏷** 是标记角色（怀疑狼、像预言家、给编号上色…）。
 
+## 在线试玩
+
+打开 <https://greysea0224.github.io/hwosn-x7/> 就能直接玩（GitHub Pages 用的是仓库里的 `index.html`）。
+
+> 注意：网页版是一个**独立的实例** —— 你手机上那个文件里的角色、聊天记录、接口设置**不会带过去**，
+> 而且网页版也要重新填一次 AI 接口才能说话。所以自己玩还是用手机上的文件版，网页版主要是方便给别人看。
+
 ## 仓库里有什么
 
 | 文件 | 说明 |
 |---|---|
-| `index.HTML` | 整个 App（HTML + CSS + JS 全在这一个文件里） |
+| `index.html` | 整个 App（HTML + CSS + JS 全在这一个文件里）。**仓库里用小写名字**，这样 GitHub Pages 能直接当网页打开 |
 | `lk-icon-flash.png`、`lk-icon-cam.png` | 锁屏那套图标（缺了锁屏会少两个图标） |
 | `AGENTS.md` | 这个项目的开发约定（给 AI 助手看的说明） |
 | `.gitignore` | 备份、截图、临时文件不上传 |
+
+> 小提示：手机里的文件叫 `index.HTML`（大写），仓库里叫 `index.html`（小写）—— 手机的文件系统不区分大小写，
+> 所以它俩其实是**同一个文件**，不用改手机上的名字，也不会变成两份。
 
 ## 改完代码怎么更新到 GitHub
 
 在手机 Termux 里进到本目录，跑这三条：
 
 ```bash
-git add index.HTML
+git add index.html
 git commit -m "改了什么（一句话）"
 git push
 ```
 
-第一次 `git push` 会要你填 **GitHub 用户名**和一个 **token**（不是账号密码）。
+（手机上大小写不敏感，敲 `index.HTML` 或 `index.html` 都能找到同一个文件；仓库里统一用小写。）
+第一次 `git push` 会要你填 **GitHub 用户名**和一个 **token**（不是账号密码）；已经设置过就不用了。
 
 ## 说明
 
