@@ -2094,6 +2094,7 @@ let ctxBg=null;
    它也不会拿错人的聊天记录来回复；用完在 finally 里清掉。
    （前台回复期间后台自动发送本来就被 busy 挡着，两者不会同时出现。） */
 let ctxAsk=null;
+let ctxVisionMode=false;
 let pendingAutoText='';             /* 角色刚主动发来的那条，画面上的要逐字显示 */
 let arcBusy=false;                    /* 总结版生成中，防重复点击 */
 const arcNotesCache={};               /* id → {len,notes}：分段笔记缓存，失败重试不用重跑精读 */
@@ -5453,13 +5454,16 @@ function buildCtxHistory(){
     const pre=(useT&&x.role==='user')?('（'+stampOf(x.t)+'）'):'';
     const fb=fileBlocks(x.files)+((x&&x.recCtx)?('\n\n'+x.recCtx):'');   /* 【新】战绩卡里那一局的完整经过，也读给角色 */
     const imgs=msgImgs(x);
-    if(imgs.length||fb){
+    const imgNotes=String((x&&x.imgNotes)||'').trim();
+    if(imgs.length||fb||imgNotes){
       const parts=[];
       let head=pre+(x.content||'');
       if(!head&&imgs.length)head=pre+(imgs.length>1?('（我给你发了 '+imgs.length+' 张图片）'):'（我给你发了张图片）');
       if(fb)head+=(head?'\n':'')+fb;
+      if(imgNotes)head+=(head?'\n':'')+'【图片识图结果（由看图模型转述，图片本身没有发给聊天模型）】\n'+imgNotes;
       if(head)parts.push({type:'text',text:head});
-      imgs.forEach(u=>parts.push({type:'image_url',image_url:{url:u}}));
+      /* 配了看图模型时，图片只在识图请求里出现；聊天模型始终收文字，避免主模型不支持图片。 */
+      if(!ctxVisionMode&&!imgNotes)imgs.forEach(u=>parts.push({type:'image_url',image_url:{url:u}}));
       return {role:x.role,content:parts};
     }
     return {role:x.role,content:pre+(x.content||'')};
@@ -6455,6 +6459,7 @@ function moveChar(id,dir){
 function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
+    visionModel:'',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
@@ -6492,7 +6497,9 @@ function charBaseFieldsHTML(c){
   '</select>'+
   '<label class="f">等待回复时显示的文字（聊天里那个小气泡）</label><input id="e_thinktxt" placeholder="默认是「思考中…」，可以写「鲸鱼正在输入…」" value="'+esc(c.thinkText||'')+'">'+
   '<label class="f">开场白（第一次进聊天自动发）</label><textarea id="e_greeting">'+esc(c.greeting||'')+'</textarea>'+
-  '<label class="f">单独指定模型（留空用默认）</label><input id="e_model" value="'+esc(c.model||'')+'">';
+  '<label class="f">单独指定模型（留空用默认）</label><input id="e_model" value="'+esc(c.model||'')+'">'+
+  '<label class="f">看图模型（可选，留空就沿用原来的发图方式）</label><input id="e_vision_model" value="'+esc(c.visionModel||'')+'" placeholder="例如：deepseek-v4.1-flash">'+
+  '<p class="dim" style="font-size:11.5px;margin:6px 0 0">聊天模型不能直接看图时，在这里填一个支持图片的模型。你发图后，它会先把图片内容写成文字，再交给上面的聊天模型；识图结果会保存在这条聊天记录里，不用每轮重复识别。</p>';
 }
 /* 角色设定页：自动发消息和免打扰卡片。 */
 function charAutoCardHTML(c,a,id){
@@ -6788,6 +6795,7 @@ function applyCharInputs(id){
   c.thinkText=String(v('e_thinktxt')||'').trim();   /* 自定义「思考中」气泡文字，留空就用默认 */
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
+  c.visionModel=v('e_vision_model').trim();
   c.auto={on:ck('e_auto'),min:+v('e_min')||30,max:+v('e_max')||90,
     quietOn:ck('e_quieton'),
     quietStart:+v('e_qs')||0,quietEnd:+v('e_qe')||8,hint:v('e_hint').trim()};
@@ -12779,13 +12787,14 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【聊天（点 Dock 上的「聊天」，或点桌面上那个圆形头像）】
 底部输入框打字发送；左下角「＋」可以发图片、发文件。
+如果聊天模型不能直接看图，可以在角色设置的「看图模型」里填一个支持图片的模型（例如 deepseek-v4.1-flash）。发图后，系统先让看图模型把画面和文字读成一段文字说明，再交给原来的聊天模型继续聊。这属于「视觉转述 / 多模态识图」，不只是 OCR；OCR 通常只会抄文字，看图模型还能描述人物、动作、场景和界面。
 顶栏左边「‹」是回桌面；右上角放大镜是查找聊天记录；「⋯」是打开这个角色的设定（人设、权限、记忆都在里面）。
 想改「快答 / 正常 / 深想」，要去角色设定里改——聊天页顶上那排按钮已经取消了，别让她去找。
 生成的时候可以点「停止」；也能让角色重说一遍、换一个版本。
 
 【角色（Dock 上那个「角色」）】
 点进去，最上面是「＋ 新建角色」。角色卡片：点一下进聊天，右上角 ✎ 改设定，长按可以拖动排序，有新消息的卡片上有小红点。
-每个角色能单独设定：头像或 emoji、名字、人设、情境、说话风格、额外系统提示、对话示例、开场白、单独指定模型、思考强度。
+每个角色能单独设定：头像或 emoji、名字、人设、情境、说话风格、额外系统提示、对话示例、开场白、单独指定模型、看图模型、思考强度。看图模型留空时和旧版一样；填了以后，图片会先由它识图并转成文字，再交给聊天模型，所以可以「用擅长聊天的模型聊天，用擅长看图的模型看图」。
 每个角色还有一份自己的权限开关，主要有：自动发消息（按随机间隔主动找你；你关着这个前端、没打开的那段时间错过的，下次一打开会补上一条，按「现在」的时间发）、自己决定什么时候回、隐私角色、待办、群聊、朋友圈、创意、演绎记忆、看手机电量、看你在听什么歌、控制音乐、用 MCP 工具、邀请你玩游戏、联网搜索、互动玩具、画图。
 
 【桌面上的应用分别是干什么的】
@@ -12799,7 +12808,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
 · 【狼人杀 · 空刀 / 收刀 / 掀桌】轮到狼人在夜里刀人时，界面上有一个「空刀」按钮（今晚一个人都不杀）：这是高端局偶尔用的打法（做「平安夜」、逼女巫不敢乱用解药、给悍跳做局）。AI 狼也会自己考虑空刀，几只狼各表一态，主张空刀的比主张某个目标的多，这一晚就真的不杀人。另一种是「收刀」：她在那段夜戏里把人说动了，狼放过她——这一晚同样没人死。这两种都会在上帝视角记录里写清楚（「狼人本来要刀 ×号，最后收刀放过了她」），所以裁判知道这是战术、不是程序出错；动手的狼自己也记得「我收刀放过了她」（不会被当成女巫救人）；面杀里的好人也知道「平安夜」未必是女巫开药或守卫守住，也可能就是狼没刀——所以她说「狼昨晚没刀人」时，别人会认真接过来盘。还有「掀桌」：AI 狼要是成了场上**最后一只狼**、自己又觉得翻不了盘，轮到她白天发言时会自己决定「继续装 还是 掀桌」；掀桌就是公开承认自己是狼、说一段投降演说，然后当场被处刑（好人直接获胜）——这样它不用再硬撑着装，也不会一直泡在思考里想不出策略。
 · 【狼人杀 · 面杀的夜戏细节】门口站着几只狼时，会先让她挑要跟谁对线（**可以只挑一个**，也可以多选）；对线时说话顺序每次随机洗一遍（像群聊那样，不是固定按座位号），而且后说的人知道前面的人刚说了什么；聊满 5 轮之后，对面还能自己判断要不要再多聊两轮（最多拖到 30 轮）。这一段（连同「抿身份」和「死了之后的遗言+夜戏」整个流程）都做了容错：里面出小错也不会把整局打断。
-· 【狼人杀 · 界面（暗黑村庄皮肤）】狼人杀的准备页和牌桌都换成了"暗黑村庄"风格，用的是六张村庄插画（**图已经嵌在文件里**，不用外链）。准备页整页铺村子夜景，**右上角有个「⚙ 设置」**：警长竞选开关、AI 发言长度上限、缺人怎么办（NPC 补位）、AI 想多少（省流/照旧）、以及所有详细说明，都收在那里面；准备页现在是大厅：左上「网杀/面杀」点一下切换，右上「N 人场」弹窗选人数和板子，中间「开始游戏」直接按当前配置开局；下面一排是「身份」和「对战/观战模式」，再下面是当前板子的小字；左下「预设配置」可以把配置存起来并设为默认（下次进游戏自动套用），右下「邀请玩家」是选角色的地方。所有按钮都带血迹样式，配置弹窗居中、可滚动、点空白处关闭。牌桌会**跟着阶段自动换背景**：抿身份＝清晨、白天发言＝中午、投票公布＝黄昏、处刑和遗言＝处刑台、夜里＝午夜、面杀「你的房间」＝那间烛光屋子；面板都是半透明玻璃（能看见后面的村子），投票结果那张卡片也跟着主题色。底栏左边那个 🏷 是**标记角色**：点它 → 点某个头像 → 选「怀疑狼／确定狼／像预言家／像女巫／像守卫／像猎人／像白狼王／像白痴／像好人」（守卫、白狼王、白痴只在对应的板子里出现），还能给编号上色（自己盘谁和谁一边用）。
+· 【狼人杀 · 界面（暗黑村庄皮肤）】狼人杀的准备页和牌桌都换成了"暗黑村庄"风格，用的是六张村庄插画（**图已经嵌在文件里**，不用外链）。准备页整页铺村子夜景，**右上角有个「⚙ 高级设置」**：警长竞选、观战时的播放方式、AI 发言长度上限、AI 想多少（省流/照旧），规则说明收在可展开的一栏里；准备页现在是大厅：左上「网杀/面杀」点一下切换，右上「N 人场」弹窗选人数和板子，中间「开始游戏」直接按当前配置开局；下面一排是「身份」和「对战/观战模式」，再下面是当前板子的小字；左下「预设配置」可以把配置存起来并设为默认（下次进游戏自动套用），右下「邀请玩家」是选角色的地方。所有按钮都带血迹样式，配置弹窗居中、可滚动、点空白处关闭。牌桌里每条发言会自动生成一个短标题；下一个人发言后，旧的发言会收成「编号 + 标题」一行，点开看全文，现场标题旁有「展开全部 / 收起全部」。白天场景是更透亮的暖色烟熏玻璃，夜里保持暗色。牌桌会**跟着阶段自动换背景**：抿身份＝清晨、白天发言＝中午、投票公布＝黄昏、处刑和遗言＝处刑台、夜里＝午夜、面杀「你的房间」＝那间烛光屋子；面板都是半透明玻璃（能看见后面的村子），投票结果那张卡片也跟着主题色。底栏左边那个 🏷 是**标记角色**：点它 → 点某个头像 → 选「怀疑狼／确定狼／像预言家／像女巫／像守卫／像猎人／像白狼王／像白痴／像好人」（守卫、白狼王、白痴只在对应的板子里出现），还能给编号上色（自己盘谁和谁一边用）。
 · 【狼人杀 · 面杀：狼队收刀＝身份爆了】她在那段夜戏里把狼说动了、狼真的收了刀的话，她不只是活下来——**狼队是谁她也当场记牢了**（她活着走出那间房，这张底就翻开了）。这一局第二天不走平常的发言和投票，直接开「审」：还活着的狼人被一起推上处刑台，一个一个说遗言（这时候不用再撒谎）——**进过那间房的狼人**带着那一晚的完整记忆、把实话说了；**没进过房间的狼人**一头雾水，会当场冲队友发火、互相指责（她当初只跟其中一只狼对线过的话，那段记忆也只给那只狼自己看）。审完狼队全部出局、直接判**好人获胜**。赛后感想里，收了刀的那只狼也会看到自己那晚的记忆。另外，她当晚要是还用毒药毒死了狼（哪怕毒的正好是收刀那只）：那只狼的遗言也一样按**真话**说，不用再装好人。
 · MCP：接上外部的工具服务器，让角色能调用更多外部工具。
 · 演绎：和角色演一段剧情（相当于另一个世界线，默认和私聊互不相通）。
@@ -12841,7 +12850,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=22;  /* 22：狼人杀「暗黑村庄」新界面（准备页右上角设置、牌桌按阶段自动换场景、玻璃面板、标记角色）；21：收刀局里被毒死的狼也发真话遗言；20：面杀「狼队收刀＝身份爆了」；19：AI 狼人「掀桌认输」 */
+const GUIDE_VER=23;  /* 23：角色可单独设置「看图模型」，先识图转文字再交给聊天模型；22：狼人杀「暗黑村庄」新界面；21：收刀局里被毒死的狼也发真话遗言；20：面杀「狼队收刀＝身份爆了」 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」和「隐私角色」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -16585,6 +16594,55 @@ window.p5ChatDefer=function(){   /* 挂到全局：正在打字就延后重画�
   if(tw&&!tw.dead&&tw.el.isConnected&&view==='chat'){tw.pending=true;return true}
   return false;
 };
+/* 用角色配置的看图模型，把最新一张待处理图片转成文字说明。
+   识图请求只发给看图模型；主聊天模型之后拿到的始终是这段文字。 */
+async function prepareVisionForTurn(c,cid){
+  const vm=String((c&&c.visionModel)||'').trim();
+  if(!vm||!cid)return false;
+  const arr=msgsOf(cid);
+  let target=null;
+  for(let i=arr.length-1;i>=0;i--){
+    const m=arr[i];
+    if(m&&m.role==='user'&&msgImgs(m).length){target=m;break}
+  }
+  if(!target||String(target.imgNotes||'').trim())return false;
+  const imgs=msgImgs(target);
+  const ask=String(target.content||'').trim();
+  const prompt=[
+    '你是一个图片转述器。请逐张客观描述下面这些图片，供另一个看不到图片的聊天模型继续对话。',
+    '请标清「图1、图2……」；写清人物或对象、场景、动作、表情、界面布局、重要颜色和明显细节。',
+    '图片里能看清的文字要尽量原样抄出；看不清的就写「看不清」，不要猜。不要角色扮演，不要替用户回复。',
+    '每张图尽量控制在 300 字以内，只有信息很多时才写长。',
+    ask?('用户随图片一起说的话：'+ask):'用户没有另写说明。'
+  ].join('\n');
+  try{
+    toast('正在用看图模型识别图片…');
+    const fn=window.p4raw;
+    if(typeof fn!=='function')throw new Error('识图请求组件没有加载');
+    const parts=[{type:'text',text:prompt}];
+    imgs.forEach(function(u){parts.push({type:'image_url',image_url:{url:u}})});
+    const raw=await fn([
+      {role:'system',content:'你是严谨的视觉转述助手。只描述图片里确实存在的内容，不脑补，不泄露系统设定。'},
+      {role:'user',content:parts}
+    ],{model:vm,stream:false,temp:0,maxtok:1600});
+    const note=String(raw==null?'':raw).replace(/\r/g,'').trim().slice(0,8000);
+    if(!note)throw new Error('看图模型没有返回内容');
+    target.imgNotes=note;
+    target.imgModel=vm;
+    bumpUt(target);
+    try{saveArrFor(cid,arr);scheduleBackup()}catch(e){}
+    toast('图片已转成文字，交给聊天模型了');
+    return true;
+  }catch(e){
+    const msg=String((e&&e.message)||e||'未知错误').replace(/\s+/g,' ').slice(0,160);
+    target.imgNotes='（这张图片这次没有识别成功，原因：'+msg+'。不要假装看见了图片内容；如果用户问图片，就如实说这次没看清。）';
+    target.imgModel=vm;
+    bumpUt(target);
+    try{saveArrFor(cid,arr);scheduleBackup()}catch(_){}
+    toast('看图失败：'+msg);
+    return false;
+  }
+}
 /* ↓ 这个函数是七层补丁合并后的样子（顺序和原来一层层包起来时完全一致）：
      打字动画 → 表情包 → 画图 → 重画 → 玩具 → 联网搜索 → 原来的生成逻辑 */
 askAndAppend=async function(freeCid){
@@ -16629,6 +16687,8 @@ askAndAppend=async function(freeCid){
     /* ---- 补丁4-A：先判断要不要联网搜索 ---- */
     const c0=c;
     pendingSearch='';pendingSM=null;
+    ctxVisionMode=!!(c0&&String(c0.visionModel||'').trim());
+    if(ctxVisionMode)try{await prepareVisionForTurn(c0,cid)}catch(e){}
     if(c0&&c0.search&&c0.search.on)try{await doSearchStep(c0)}catch(e){}
     const before2=len();
 
@@ -16716,6 +16776,7 @@ askAndAppend=async function(freeCid){
     try{ if(live()&&len()>before6)renderChat(); }catch(e){}
   }finally{
     ctxAsk=null;                 /* 【修复】这一轮结束，记录快照不再需要了 */
+    ctxVisionMode=false;
     busy=false;curAbort=null;    /* 【修复】兜底复位：万一上面某步出错，也不会一直卡在「正在忙」 */
     /* ---- 补丁5-A：收尾 ---- */
     P5.live=false;
@@ -23275,7 +23336,197 @@ var CSS=[
 '.ww-main .ww-smear.s1{transform-origin:top center;animation:wwsmear1 6s ease-in-out infinite}',
 '.ww-main .ww-smear.s2{transform-origin:top center;animation:wwsmear2 6s ease-in-out -2.8s infinite}',
 '@keyframes wwsmear1{0%,100%{transform:rotate(4deg) scaleY(.92);opacity:.85}50%{transform:rotate(2deg) scaleY(1.08);opacity:.96}}',
-'@keyframes wwsmear2{0%,100%{transform:rotate(-7deg) scaleY(.9);opacity:.72}50%{transform:rotate(-5deg) scaleY(1.06);opacity:.86}}'
+'@keyframes wwsmear2{0%,100%{transform:rotate(-7deg) scaleY(.9);opacity:.72}50%{transform:rotate(-5deg) scaleY(1.06);opacity:.86}}',
+/* 【新】高级设置：一行一个选项（左边名称、右边开关），比一大列更直观 */
+'.ww-setup .ww-cfgrow{display:flex;align-items:center;gap:10px;margin:2px 0 8px}',
+'.ww-setup .ww-cfgrow>span{flex:1;min-width:0;font-size:13px;color:#e9e3e1}',
+'.ww-setup .ww-cfgrow .gx-seg{flex:0 0 auto;margin:0}',
+'.ww-setup .ww-cfgrow .gx-seg button{padding:6px 10px;font-size:12px}',
+/* 【改】高级设置美化：吸顶标题、紧凑的分段按钮、暗色说明卡片 */
+'.ww-setup .ww-cfgbox{max-width:430px;max-height:84vh;padding:0 14px calc(env(safe-area-inset-bottom) + 16px);border-radius:18px 18px 0 0;background:linear-gradient(180deg,rgba(27,22,24,.985),rgba(10,8,10,.99));box-shadow:0 -18px 60px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06)}',
+'.ww-setup .ww-cfghead{position:sticky;top:0;z-index:3;margin:0 -14px 10px;padding:14px 14px 11px;background:linear-gradient(180deg,#1b1618 72%,rgba(27,22,24,0));border-bottom:1px solid rgba(255,255,255,.06)}',
+'.ww-setup .ww-cfghead b{font-size:16px;letter-spacing:.18em;color:#f3ded9;text-shadow:0 1px 6px rgba(0,0,0,.6)}',
+'.ww-setup .ww-cfgclose{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}',
+'.ww-setup .ww-cfgbox .gx-sec{position:relative;margin:16px 2px 8px;padding-left:9px;font-size:11.5px;letter-spacing:.18em;color:#e9b3a8}',
+'.ww-setup .ww-cfgbox .gx-sec:before{content:"";position:absolute;left:0;top:50%;width:3px;height:12px;transform:translateY(-50%);border-radius:2px;background:linear-gradient(180deg,#e05748,#8f1a12)}',
+'.ww-setup .ww-cfgrow{margin:0 0 8px;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.03)}',
+'.ww-setup .ww-cfgrow>span{font-size:13px;letter-spacing:.02em;color:#e9e3e1}',
+'.ww-setup .ww-cfgbox .gx-seg{gap:6px}',
+'.ww-setup .ww-cfgbox .gx-seg button{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:#d6cfcd;border-radius:9px;padding:8px 12px;font-size:12.5px}',
+'.ww-setup .ww-cfgbox .gx-seg button.on{background:linear-gradient(180deg,rgba(190,32,22,.92),rgba(110,12,8,.95));border-color:rgba(255,140,120,.5);color:#fff;box-shadow:0 0 0 1px rgba(255,120,100,.18),0 4px 12px rgba(120,10,6,.35)}',
+'.ww-setup .ww-cfgrow .gx-seg{gap:6px}',
+'.ww-setup .ww-cfgrow .gx-seg button{padding:7px 11px;font-size:12px;border-radius:9px;white-space:nowrap}',
+'.ww-setup .ww-cfgbox .ww-toks{display:flex;gap:7px}',
+'.ww-setup .ww-cfgbox .ww-toks button{flex:1 1 0;min-width:0;padding:9px 4px;font-size:12px;border-radius:9px;white-space:nowrap}',
+'.ww-setup .ww-cfgbox input{background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 11px;color:#f2ecea;font-size:12.5px}',
+'.ww-setup .ww-cfgbox .gx-hint{font-size:11.5px;line-height:1.7;color:#a9a2a2}',
+'.ww-setup .ww-cfgbox .gx-log{margin-top:14px;padding:0;overflow:hidden;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:12px}',
+'.ww-setup .ww-cfgbox .gx-log summary{padding:11px 12px;font-size:12.5px;letter-spacing:.04em;color:#e3d6d2;background:rgba(255,255,255,.02)}',
+'.ww-setup .ww-cfgbox .gx-log .gx-vs{padding:0 12px 10px;font-size:11.5px;line-height:1.75;color:#a9a2a2}',
+'.ww-setup .ww-cfgbox .gx-log .gx-hint{color:#a9a2a2}',
+'.ww-setup .ww-cfgbox .ww-btn{margin-top:14px}',
+'.ww-setup .ww-cfgbox .ww-btn .btxt{font-size:15px;letter-spacing:.18em}',
+/* 【新】发言折叠：收起来只留「编号 + 标题」，点一下展开 */
+'.ww-say-mini{display:flex;align-items:center;gap:7px;width:100%;margin:0 0 6px;padding:6px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);color:#e9e4e1;font:inherit;font-size:12px;text-align:left;box-shadow:none;cursor:pointer}',
+'.ww-say-mini:active{background:rgba(255,255,255,.08)}',
+'.ww-mini-dot{flex:0 0 auto;width:5px;height:5px;border-radius:50%}',
+'.ww-say-mini b{flex:0 0 auto;font-size:11.5px;font-weight:600;color:#e9dfd9}',
+'.ww-say-mini i{flex:0 0 auto;font-style:normal;font-size:9.5px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.09);color:#cfc6c2}',
+'.ww-mini-t{flex:1;min-width:0;font-size:11.5px;color:#b9afab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.ww-mini-x{flex:0 0 auto;font-size:14px;line-height:1;color:#8f8582}',
+'.ww-say-mini.me{background:rgba(190,40,26,.10);border-color:rgba(230,90,70,.18)}',
+'.ww-say-mini.me b{color:#ffd9d3}',
+'.ww-say-title{display:inline-block;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:rgba(200,40,26,.16);border:1px solid rgba(230,90,70,.28);color:#f0c9c2;vertical-align:middle}',
+'.ww-say-h .ww-fold{margin-left:auto;flex:0 0 auto;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#cfc8c6;font-size:10.5px;box-shadow:none}',
+'.ww-say-h .ww-fold:active{background:rgba(255,255,255,.09)}',
+'.ww-loghead{display:flex;align-items:flex-end;gap:8px;margin-top:4px}',
+'.ww-loghead .gx-sec{flex:1;margin:0 0 8px}',
+'.ww-logbtns{display:flex;gap:6px;margin-bottom:6px}',
+'.ww-logbtns button{padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#cfc6c2;font-size:10px;box-shadow:none}',
+/* 【新】白天：更透亮的场景 + 暖色烟熏玻璃气泡 */
+'.ww-scenebg.day{filter:saturate(1.1) brightness(1.12)}',
+'.ww-scenebg.day:after{background:linear-gradient(180deg,rgba(255,240,215,.12) 0,rgba(12,16,24,.10) 26%,rgba(8,12,18,.30) 62%,rgba(6,8,14,.56) 100%)}',
+'.ww-atm.day{background:radial-gradient(120% 70% at 50% -10%,rgba(255,214,150,.20),rgba(255,214,150,0) 62%),linear-gradient(180deg,rgba(255,210,150,.09),rgba(255,210,150,0) 260px)}',
+'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,0) 42%),linear-gradient(150deg,rgba(92,74,58,.46),rgba(38,31,26,.38));border-color:rgba(255,226,190,.26);box-shadow:0 8px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.22);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1);color:#fdf6ea}',
+'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,0) 42%),linear-gradient(150deg,rgba(120,52,40,.55),rgba(58,24,18,.42));border-color:rgba(255,190,160,.3)}',
+'.ww-wrap.day .ww-say-h b{color:#f0dfc4}',
+'.ww-wrap.day .ww-say-h i{background:rgba(255,255,255,.10);border-color:rgba(255,230,200,.2);color:#e9d9c6}',
+'.ww-wrap.day .ww-seat{background:linear-gradient(150deg,rgba(70,58,46,.42),rgba(28,24,20,.32));border-color:rgba(255,230,200,.22);box-shadow:0 4px 14px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.18)}',
+'.ww-wrap.day .ww-seat-nm{color:#f1e8dd}',
+'.ww-wrap.day .ww-seat-st{color:#c2b3a5}',
+'.ww-wrap.day .ww-me{background:linear-gradient(150deg,rgba(70,58,46,.42),rgba(28,24,20,.3));border-color:rgba(255,226,190,.28)}',
+'.ww-wrap.day .ww-head:before{background:linear-gradient(180deg,rgba(16,13,11,.55),rgba(16,13,11,.22) 55%,rgba(16,13,11,0));-webkit-backdrop-filter:blur(16px) brightness(1.08) saturate(1.15);backdrop-filter:blur(16px) brightness(1.08) saturate(1.15)}',
+'.ww-wrap.day .ww-foot{background:linear-gradient(180deg,rgba(18,14,12,.55),rgba(8,6,5,.84))}',
+'.ww-wrap.day .ww-say-mini{background:rgba(70,58,46,.28);border-color:rgba(255,226,190,.16)}',
+'.ww-wrap.day .ww-say-mini b{color:#f0e4d4}',
+'.ww-wrap.day .ww-mini-t{color:#cbbbad}',
+/* 【修】白天也要保持「已发言 / 已投票」是绿色，别被上面的米色文字规则盖掉 */
+'.ww-wrap.day .ww-seat-st.spoke,.ww-wrap.day .ww-seat-st.voted{color:#46d98a;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.55)}',
+/* 【修】顶部折叠的发言标题行：加深色磨砂玻璃底，白天也看得清 */
+'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,0) 45%),linear-gradient(150deg,rgba(20,15,12,.74),rgba(8,6,6,.64));border-color:rgba(255,220,180,.22);box-shadow:0 4px 14px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.14);-webkit-backdrop-filter:blur(10px) saturate(1.1);backdrop-filter:blur(10px) saturate(1.1)}',
+'.ww-wrap.day .ww-say-mini b{color:#f5ead9}',
+'.ww-wrap.day .ww-mini-t{color:#e3d3c2}',
+'.ww-wrap.day .ww-mini-x{color:#cbb9a7}',
+/* 【改】所有可滚动气泡统一玻璃质感：夜里烟熏玻璃 + 白字；白天浅磨砂玻璃 + 黑字 */
+'.ww-wrap.night .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.10),rgba(255,255,255,0) 45%),linear-gradient(150deg,rgba(26,30,38,.42),rgba(10,12,18,.34));border-color:rgba(255,255,255,.22);color:#f2f4f7;box-shadow:0 8px 22px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.22);-webkit-backdrop-filter:blur(10px) saturate(1.1);backdrop-filter:blur(10px) saturate(1.1)}',
+'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.6),rgba(255,255,255,.18) 45%),linear-gradient(150deg,rgba(255,250,242,.66),rgba(242,228,212,.56));border-color:rgba(255,255,255,.6);color:#241c16;box-shadow:0 8px 22px rgba(80,50,24,.18),inset 0 1px 0 rgba(255,255,255,.85);-webkit-backdrop-filter:blur(10px) saturate(1.15);backdrop-filter:blur(10px) saturate(1.15)}',
+'.ww-wrap.night .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.10),transparent 45%),linear-gradient(150deg,rgba(90,32,26,.42),rgba(36,14,12,.34));border-color:rgba(255,180,160,.28);color:#fff2ec}',
+'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.12) 45%),linear-gradient(150deg,rgba(255,238,230,.7),rgba(238,208,198,.6));border-color:rgba(255,255,255,.55);color:#3a1a14}',
+'.ww-wrap.day .ww-say-h b{color:#3b2a20}',
+'.ww-wrap.day .ww-say-title{background:rgba(190,60,40,.12);border-color:rgba(180,60,40,.25);color:#8f2b1f}',
+'.ww-wrap.day .ww-say-h .ww-fold{background:rgba(60,40,30,.08);border-color:rgba(90,60,40,.2);color:#5a4436}',
+'.ww-wrap.day .ww-say-h i{background:rgba(60,40,30,.08);border-color:rgba(90,60,40,.2);color:#5a4436}',
+/* 折叠行：夜里烟熏、白天浅磨砂 */
+'.ww-wrap.night .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.08),transparent 45%),rgba(18,20,26,.42);border-color:rgba(255,255,255,.15);color:#e9e4e1;-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
+'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.6),rgba(255,255,255,.16) 45%),linear-gradient(150deg,rgba(255,250,242,.66),rgba(242,228,212,.56));border-color:rgba(255,255,255,.6);box-shadow:0 4px 14px rgba(80,50,24,.16),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(8px) saturate(1.15);backdrop-filter:blur(8px) saturate(1.15)}',
+'.ww-wrap.day .ww-say-mini b{color:#3b2a20}',
+'.ww-wrap.day .ww-mini-t{color:#5b4a3e}',
+'.ww-wrap.day .ww-mini-x{color:#7a6353}',
+'.ww-wrap.day .ww-say-mini i{background:rgba(60,40,30,.08);border-color:rgba(90,60,40,.2);color:#5a4436}',
+/* 系统消息（本局板子 / 本局规矩 / 发言顺序）也包成玻璃气泡 */
+'.ww-wrap .ww-sys{border-radius:12px;border:1px solid rgba(255,255,255,.12);padding:7px 10px;background:rgba(255,255,255,.055);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#d7dde6}',
+'.ww-wrap.day .ww-sys{background:rgba(255,250,242,.66);border-color:rgba(255,255,255,.55);color:#2a211b;box-shadow:0 4px 14px rgba(80,50,24,.14)}',
+'.ww-wrap .ww-sys.strong{background:linear-gradient(180deg,rgba(225,245,255,.82),rgba(185,222,244,.78));border-color:rgba(255,255,255,.5);color:#143246;box-shadow:0 4px 14px rgba(20,50,80,.2),inset 0 1px 0 rgba(255,255,255,.6);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
+'.ww-wrap .ww-sys.strong .ww-vln svg{stroke:#2a5b7a}',
+'.ww-wrap.day .ww-sys.me{background:rgba(255,244,238,.68);border-color:rgba(220,120,100,.4);color:#52241c}',
+'.ww-wrap.night .ww-sys.me{background:linear-gradient(150deg,rgba(200,60,40,.24),rgba(60,20,16,.3));border-color:rgba(255,120,100,.35);color:#ffece6}',
+'.ww-wrap.day .ww-sys.wolf{background:rgba(255,238,236,.66);border-color:rgba(200,80,70,.35);color:#4a1f1b}',
+'.ww-wrap.night .ww-sys.wolf{background:rgba(140,31,24,.24);border-color:rgba(190,60,60,.35);color:#f2e4e0}',
+/* 座位卡同步玻璃，白天用浅磨砂+深色字 */
+'.ww-wrap.night .ww-seat{background:linear-gradient(150deg,rgba(30,34,42,.52),rgba(10,12,18,.38));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
+'.ww-wrap.day .ww-seat{background:linear-gradient(135deg,rgba(255,255,255,.6),rgba(255,255,255,.16) 45%),linear-gradient(150deg,rgba(255,250,242,.66),rgba(242,228,212,.56));border-color:rgba(255,255,255,.6);box-shadow:0 4px 14px rgba(80,50,24,.16),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(8px) saturate(1.15);backdrop-filter:blur(8px) saturate(1.15)}',
+'.ww-wrap.day .ww-seat-nm{color:#33251c}',
+'.ww-wrap.day .ww-seat-st{color:#6b5a4c}',
+'.ww-wrap.day .ww-seat-st.spoke,.ww-wrap.day .ww-seat-st.voted{color:#178a4a;font-weight:700;text-shadow:none}',
+'.ww-wrap.night .ww-seat-st.spoke,.ww-wrap.night .ww-seat-st.voted{color:#46d98a;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.45)}',
+'.ww-wrap.day .ww-seat-av .gx-av{box-shadow:0 2px 10px rgba(80,50,24,.22),0 0 0 1px rgba(255,255,255,.55)}',
+'.ww-wrap.night .ww-seat.spk{background:var(--wwaccsoft,rgba(200,163,90,.16));border-color:var(--wwaccline,rgba(200,163,90,.5));box-shadow:0 0 0 1px var(--wwaccdim,rgba(200,163,90,.2)),0 4px 14px rgba(0,0,0,.3)}',
+'.ww-wrap.day .ww-seat.spk{background:linear-gradient(150deg,rgba(255,232,196,.8),rgba(244,202,156,.62));border-color:rgba(206,132,48,.8);box-shadow:0 0 0 1px rgba(206,132,48,.35),0 6px 18px rgba(120,70,20,.2)}',
+'.ww-wrap.night .ww-seat.pick,.ww-wrap.night .ww-seat.mkpick{border-color:var(--wwaccline,rgba(200,163,90,.6))}',
+'.ww-wrap.day .ww-seat.pick,.ww-wrap.day .ww-seat.mkpick{border-color:rgba(196,122,38,.75);border-style:dashed}',
+/* 身份条 */
+'.ww-wrap.day .ww-me{background:rgba(255,250,242,.66);border-color:rgba(255,255,255,.55);box-shadow:0 4px 14px rgba(80,50,24,.14),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
+'.ww-wrap.day .ww-me-s{color:#6b5a4c}',
+'.ww-wrap.day .ww-me-x{color:#5c4a3d}',
+/* 展开/收起全部：白字，放在深色小胶囊上，白天黑夜都清楚 */
+'.ww-logbtns button{color:#fff;border-color:rgba(255,255,255,.22);background:rgba(20,16,12,.55)}',
+/* 标题/标签不换行，标题标签可伸缩，遗言不再竖排 */
+'.ww-say-h b{white-space:nowrap;flex:0 0 auto}',
+'.ww-say-h i{white-space:nowrap;flex:0 0 auto}',
+'.ww-say-title{flex:1 1 auto;min-width:0;max-width:52%}',
+/* 【改】玻璃更透；座位卡模糊更轻 */
+'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.52),rgba(255,255,255,.14) 45%),linear-gradient(150deg,rgba(255,250,242,.58),rgba(242,228,212,.48));border-color:rgba(255,255,255,.55);color:#241c16;box-shadow:0 8px 22px rgba(80,50,24,.16),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(10px) saturate(1.15);backdrop-filter:blur(10px) saturate(1.15)}',
+'.ww-wrap.night .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.09),transparent 45%),linear-gradient(150deg,rgba(26,30,38,.36),rgba(10,12,18,.30));border-color:rgba(255,255,255,.22);color:#f2f4f7;box-shadow:0 8px 22px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.22);-webkit-backdrop-filter:blur(10px) saturate(1.1);backdrop-filter:blur(10px) saturate(1.1)}',
+'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.48),rgba(255,255,255,.1) 45%),linear-gradient(150deg,rgba(255,238,230,.64),rgba(238,208,198,.52));border-color:rgba(255,255,255,.55);color:#3a1a14}',
+'.ww-wrap.night .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.09),transparent 45%),linear-gradient(150deg,rgba(90,32,26,.38),rgba(36,14,12,.32));border-color:rgba(255,180,160,.28);color:#fff2ec}',
+'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.52),rgba(255,255,255,.14) 45%),linear-gradient(150deg,rgba(255,250,242,.58),rgba(242,228,212,.48));border-color:rgba(255,255,255,.55);box-shadow:0 4px 14px rgba(80,50,24,.14),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(8px) saturate(1.15);backdrop-filter:blur(8px) saturate(1.15)}',
+'.ww-wrap.night .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.08),transparent 45%),rgba(18,20,26,.36);border-color:rgba(255,255,255,.15);color:#e9e4e1;-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
+'.ww-wrap.day .ww-sys{background:rgba(255,250,242,.58);border-color:rgba(255,255,255,.5);color:#2a211b;box-shadow:0 4px 14px rgba(80,50,24,.12)}',
+'.ww-wrap.day .ww-seat{background:linear-gradient(135deg,rgba(255,255,255,.52),rgba(255,255,255,.14) 45%),linear-gradient(150deg,rgba(255,250,242,.58),rgba(242,228,212,.48));border-color:rgba(255,255,255,.55);box-shadow:0 4px 14px rgba(80,50,24,.14),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(4px) saturate(1.1);backdrop-filter:blur(4px) saturate(1.1)}',
+'.ww-wrap.night .ww-seat{background:linear-gradient(150deg,rgba(30,34,42,.46),rgba(10,12,18,.34));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(4px) saturate(1.05);backdrop-filter:blur(4px) saturate(1.05)}',
+'.ww-wrap.day .ww-me{background:rgba(255,250,242,.58);border-color:rgba(255,255,255,.5);box-shadow:0 4px 14px rgba(80,50,24,.12),inset 0 1px 0 rgba(255,255,255,.75);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
+/* 座位编号：更清楚的小玻璃徽章 */
+'.ww-seat-no{min-width:21px;height:21px;border-radius:11px;background:linear-gradient(180deg,rgba(224,76,58,.98),rgba(140,24,18,.98));border:1px solid rgba(255,235,220,.85);color:#fff;font-size:12px;line-height:19px;box-shadow:0 2px 8px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.5)}',
+/* 标题标签：和消息气泡同款的深红玻璃 + 白字 */
+'.ww-wrap.day .ww-say-title,.ww-wrap.night .ww-say-title{background:linear-gradient(135deg,rgba(255,255,255,.18),transparent 45%),linear-gradient(150deg,rgba(140,30,22,.82),rgba(80,14,10,.76));border-color:rgba(255,150,130,.4);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 2px 8px rgba(0,0,0,.2);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}',
+/* 收起：白字深玻璃 */
+'.ww-say-h .ww-fold,.ww-wrap.day .ww-say-h .ww-fold{background:rgba(20,16,12,.55);border-color:rgba(255,255,255,.22);color:#fff}',
+/* 现场标题：深色玻璃胶囊 + 白字 */
+'.ww-loghead{background:rgba(18,14,12,.58);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:4px 8px;margin-top:6px;box-shadow:0 4px 12px rgba(0,0,0,.2);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}',
+'.ww-loghead .gx-sec{color:#fff;margin:0}',
+'.ww-logbtns{margin:0}',
+/* 白天顶部：去掉黑色蒙版，改成天空色浅顶栏；消息滚到这里被盖住 */
+'.ww-wrap.day .ww-head:before{background:linear-gradient(180deg,rgba(207,226,238,.97) 0,rgba(207,226,238,.96) 86%,rgba(207,226,238,.6) 96%,rgba(207,226,238,0) 100%);-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-mask-image:none;mask-image:none}',
+'.ww-wrap.day .ww-head:after{background:linear-gradient(180deg,rgba(207,226,238,.97),rgba(207,226,238,.95) 90%,rgba(207,226,238,.6))}',
+'.ww-wrap.day .ww-top-t{color:#1d2b34;text-shadow:0 1px 0 rgba(255,255,255,.4)}',
+'.ww-wrap.day .ww-top-t i{color:#4b6573}',
+'.ww-wrap.day .ww-back,.ww-wrap.day .ww-snd,.ww-wrap.day .ww-stop{background:rgba(255,255,255,.55);border-color:rgba(45,70,85,.22)}',
+'.ww-wrap.day .ww-back svg,.ww-wrap.day .ww-snd svg,.ww-wrap.day .ww-stop svg{stroke:#22323c}',
+'.ww-wrap.day .ww-snd.on svg{stroke:var(--wwacc)}',
+'.ww-wrap.day .ww-snd.on{background:var(--wwaccdim);border-color:var(--wwaccline);color:var(--wwacc)}',
+/* 【修】「现场」这一行垂直居中 */
+'.ww-loghead{align-items:center}',
+'.ww-loghead .gx-sec{line-height:1.2}',
+/* 【改】白天气泡更透；白色高光边更细、更淡 */
+'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.05) 40%),linear-gradient(150deg,rgba(255,250,242,.5),rgba(242,228,212,.4));border-color:rgba(255,255,255,.2);box-shadow:0 8px 22px rgba(80,50,24,.14),inset 0 .6px 0 rgba(255,255,255,.35)}',
+'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.05) 40%),linear-gradient(150deg,rgba(255,238,230,.56),rgba(238,208,198,.46));border-color:rgba(255,255,255,.2);box-shadow:0 8px 22px rgba(80,50,24,.13),inset 0 .6px 0 rgba(255,255,255,.3)}',
+'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.05) 40%),linear-gradient(150deg,rgba(255,250,242,.5),rgba(242,228,212,.4));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(80,50,24,.12),inset 0 .6px 0 rgba(255,255,255,.35)}',
+'.ww-wrap.day .ww-sys{background:rgba(255,250,242,.5);border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(80,50,24,.1)}',
+'.ww-wrap.day .ww-seat{background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.05) 40%),linear-gradient(150deg,rgba(255,250,242,.5),rgba(242,228,212,.4));border-color:rgba(255,255,255,.22);box-shadow:0 4px 14px rgba(80,50,24,.12),inset 0 .6px 0 rgba(255,255,255,.3);-webkit-backdrop-filter:blur(4px) saturate(1.1);backdrop-filter:blur(4px) saturate(1.1)}',
+'.ww-wrap.day .ww-seat.spk{background:linear-gradient(150deg,rgba(255,232,196,.7),rgba(244,202,156,.55));border-color:rgba(206,132,48,.6);box-shadow:0 0 0 .6px rgba(206,132,48,.3),0 6px 18px rgba(120,70,20,.18)}',
+'.ww-wrap.day .ww-seat.pick,.ww-wrap.day .ww-seat.mkpick{border-color:rgba(196,122,38,.65);border-style:dashed}',
+'.ww-wrap.day .ww-me{background:rgba(255,250,242,.5);border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(80,50,24,.1),inset 0 .6px 0 rgba(255,255,255,.3)}',
+'.ww-wrap .ww-sys.strong{border-color:rgba(255,255,255,.28);box-shadow:0 4px 14px rgba(20,50,80,.18),inset 0 .6px 0 rgba(255,255,255,.35)}',
+'.ww-wrap.day .ww-say-title{border-color:rgba(255,150,130,.25);box-shadow:inset 0 .6px 0 rgba(255,255,255,.18),0 2px 8px rgba(0,0,0,.18)}',
+/* 【修】展开发言的「编号：标题」单独一行，避免被姓名/收起挤成省略号 */
+'.ww-say-title-row{display:flex;margin:0 3px 6px}',
+'.ww-say-title-row .ww-say-title{flex:0 1 auto;max-width:100%;font-size:11px;padding:2px 10px}',
+/* 【改】标题行：气泡 + 收起 + 刷新；刷新改成深底白图标 */
+'.ww-say-title-row{display:flex;align-items:center;gap:6px;margin:0 3px 6px}',
+'.ww-say-title-row .ww-fold{flex:0 0 auto;margin-left:auto;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,16,12,.55);color:#fff;font-size:10.5px;box-shadow:none}',
+'.ww-say-title-row .ww-rsay{flex:0 0 auto;margin-left:0}',
+'.ww-rsay{width:24px;height:24px;padding:0;border-radius:50%;background:rgba(20,16,12,.55);border:1px solid rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:none}',
+'.ww-rsay svg{width:13px;height:13px;stroke:#fff}',
+/* 【改】正在发言的座位高亮：跟着主题色，不再橙黄 */
+'.ww-wrap.day .ww-seat.spk{background:linear-gradient(150deg,var(--wwaccdim,rgba(80,140,200,.18)),var(--wwaccsoft,rgba(80,140,200,.10)));border-color:var(--wwaccline,rgba(80,140,200,.55));box-shadow:0 0 0 .6px var(--wwaccline,rgba(80,140,200,.55)),0 6px 18px rgba(0,0,0,.16)}',
+/* 【改】白天玻璃改成冷白、更透，不再发黄 */
+'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.06) 40%),linear-gradient(150deg,rgba(250,252,255,.44),rgba(232,240,248,.32));border-color:rgba(255,255,255,.2);color:#1f2a33;box-shadow:0 8px 22px rgba(40,60,80,.12),inset 0 .6px 0 rgba(255,255,255,.35)}',
+'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,.05) 40%),linear-gradient(150deg,rgba(255,250,252,.46),rgba(236,230,238,.34));border-color:rgba(255,255,255,.2);color:#2b2026;box-shadow:0 8px 22px rgba(60,40,60,.12),inset 0 .6px 0 rgba(255,255,255,.35)}',
+'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.06) 40%),linear-gradient(150deg,rgba(250,252,255,.44),rgba(232,240,248,.32));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(40,60,80,.1),inset 0 .6px 0 rgba(255,255,255,.35)}',
+'.ww-wrap.day .ww-sys{background:rgba(250,252,255,.44);border-color:rgba(255,255,255,.18);color:#24303a;box-shadow:0 4px 14px rgba(40,60,80,.1)}',
+'.ww-wrap.day .ww-seat{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.06) 40%),linear-gradient(150deg,rgba(250,252,255,.44),rgba(232,240,248,.32));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(40,60,80,.1),inset 0 .6px 0 rgba(255,255,255,.3);-webkit-backdrop-filter:blur(4px) saturate(1.05);backdrop-filter:blur(4px) saturate(1.05)}',
+'.ww-wrap.day .ww-seat-nm{color:#26313a}',
+'.ww-wrap.day .ww-seat-st{color:#68747d}',
+'.ww-wrap.day .ww-me{background:rgba(250,252,255,.44);border-color:rgba(255,255,255,.18);box-shadow:0 4px 14px rgba(40,60,80,.1),inset 0 .6px 0 rgba(255,255,255,.3)}',
+'.ww-wrap.day .ww-me-s{color:#68747d}',
+'.ww-wrap.day .ww-me-x{color:#56636d}',
+/* 【改】座位编号缩小、描边变细 */
+'.ww-seat-no{min-width:18px;height:18px;border-radius:9px;background:linear-gradient(180deg,rgba(224,76,58,.95),rgba(140,24,18,.95));border:.5px solid rgba(255,235,220,.35);color:#fff;font-size:10.5px;line-height:16px;box-shadow:0 1px 6px rgba(0,0,0,.3),inset 0 .5px 0 rgba(255,255,255,.28)}',
+/* 【改】白天未发言等状态改黑 */
+'.ww-wrap.day .ww-seat-st{color:#202428}',
+/* 【改】正在发言的座位卡：主题色实底，更醒目 */
+'.ww-wrap.day .ww-seat.spk,.ww-wrap.night .ww-seat.spk{background:linear-gradient(150deg,var(--wwacc),var(--wwacc2));border-color:var(--wwacc2);box-shadow:0 0 0 .8px var(--wwacc),0 6px 18px var(--wwaccdim)}',
+'.ww-wrap.day .ww-seat.spk .ww-seat-nm,.ww-wrap.night .ww-seat.spk .ww-seat-nm,.ww-wrap.day .ww-seat.spk .ww-seat-st,.ww-wrap.night .ww-seat.spk .ww-seat-st{color:var(--wwonacc)}'
 ].join('\n');
 (function(){var s=D.createElement('style');s.id='g16css';s.textContent=CSS;(D.head||D.documentElement).appendChild(s)})();
 
@@ -25114,100 +25365,46 @@ function wwSceneKey(){
   if(w.scene)return w.scene;
   return 'noon';
 }
-/* 【新·皮肤】右上角「设置」浮层：细致的配置（上警 / 发言长度 / 缺人 / AI 想多少）和
-   那一堆详细说明都收在这里，主页面只留常用选项，干净很多。 */
+/* 右上角「高级设置」：只放大厅上没有的细项（上警 / 观战播放方式 / AI 发言长度 / AI 想多少），
+   规则说明收进可折叠的一栏。 */
 function wwCfgHTML(){
   var w=V.ww,h='';
-  var b=wwBoard(w.count);   /* 这块要用到板子（各身份几个） */
   h+='<div class="ww-cfgmask" onclick="if(event.target===this)GAME.wwCfg(0)"><div class="ww-cfgbox">';
-  h+='<div class="ww-cfghead"><b>设 置</b><button class="ww-cfgclose" type="button" aria-label="关闭" onclick="GAME.wwCfg(0)">'+WW_IC_X+'</button></div>';
-  /* 【改】「怎么玩」这一栏去掉了：现在由底部那两个血红按键（开始游戏 / 进入观战）直接决定玩法 */
-  h+='<p class="gx-hint" style="margin:0 2px 6px">准备页上的配置都收在这里：玩法、人数、你想当的身份、选角色，还有下面的细项和说明。改完直接关掉，回大厅点「开始游戏」就行（人数 / 板子 / 身份 / 邀请玩家也可以直接在大厅点对应的按键）。</p>';
-  /* 【新·面杀】玩法：网上（网杀）／面对面（面杀）。选网上＝和以前一模一样，一个字都没改。 */
-  h+='<div class="gx-sec">玩法</div><div class="gx-seg">'+
-     '<button class="'+(w.table!=='face'?'on':'')+'" onclick="GAME.wwTable(\'online\')">网上（网杀）</button>'+
-     '<button class="'+(w.table==='face'?'on':'')+'" onclick="GAME.wwTable(\'face\')">面对面（面杀）</button></div>'+
-     '<p class="gx-hint">'+(w.table==='face'
-       ? '面杀：一群人住在一个村子里、各自有房间，白天在集会堂碰头。发完身份牌之后、天黑之前会先来一段 <b>抿身份</b>——你要写出自己摆的表情小动作，还能点头像去看别人的脸色（被你看的人会按自己的人设演一下）。夜里狼队在自己的房间里开 <b>夜间密会</b>：<b>她们可以正常说话</b>（只有狼听得见，一夜 100 字）。白天发言也可以用括号写一点语气和动作。另外，你要是真的死在夜里，会多演一段 <b>「夜间 · 你的房间」</b>：凶手会来找你说话（留遗言在前、这段在后，遗言不会剧透）。女巫在面杀里<b>全程不能自救</b>（比网杀更弱）。<b>网杀和面杀只能选一个，选网杀就还是老样子。</b>'
-       : '网杀：和以前完全一样——夜里狼队在「狼队频道」里打字商量，白天发言不许写动作神态。想玩那种靠表情动作抿身份的线下感，就切到「面对面（面杀）」。')+'</p>';
-  h+='<div class="gx-sec">总人数</div><div class="gx-seg">'+WW_COUNTS.map(function(n){
-    return '<button class="'+(w.count===n?'on':'')+'" onclick="GAME.wwCount('+n+')">'+n+'</button>';
-  }).join('')+'</div>';
-  /* 【新】12 人局：选板子（预女猎白 / 守卫白狼王） */
-  if(w.count===12){
-    h+='<div class="gx-sec">12 人局用哪个板子</div><div class="gx-seg">'+
-       '<button class="'+((w.board!=='wolfking')?'on':'')+'" onclick="GAME.wwBoardSet(\'std\')">预女猎白</button>'+
-       '<button class="'+((w.board==='wolfking')?'on':'')+'" onclick="GAME.wwBoardSet(\'wolfking\')">守卫白狼王</button>'+
-       '</div>'+
-       '<p class="gx-hint">「<b>预女猎白</b>」＝预言家 / 女巫 / 猎人 / 白痴 + 4 只狼 + 4 村民；「<b>守卫白狼王</b>」＝预言家 / 女巫 / 猎人 / <b>守卫</b> + <b>白狼王</b>（1 只）+ 3 只普通狼 + 4 村民。</p>';
-  }
-  h+='<p class="gx-hint">这个人数是：狼人 '+((b.wolf||0)+(b.wolfking||0))+' 个'+(b.wolfking?('（其中 1 个是白狼王）'):'')+' · 村民 '+b.villager+' · 预言家 1 · 女巫 1'+(b.guard?' · 守卫 1':'')+(b.hunter?' · 猎人 1':'')+(b.idiot?' · 白痴 1':'')+'。'+
-     '点「开始游戏」你也在局中，要选 '+(w.count-1)+' 个角色；点「进入观战」你不参与，要选 '+w.count+' 个角色。'+
-     '人数越少结束越快（6 人局很快，8~9 人更有得玩）。</p>';
-  /* 【改】「我想当」和「观看方式」现在都一直显示：一个给「开始游戏」用、一个给「进入观战」用 */
-  h+='<div class="gx-sec">我想当（点「开始游戏」时用）</div><div class="ts-topic">'+WW_PICKS.map(function(p){
-    var ok=(p[0]==='random')||((b[p[0]]||0)>0);
-    return '<button class="'+(w.pick===p[0]?'on':'')+'" '+((ok||w.pick===p[0])?'':'disabled style="opacity:.35"')+' onclick="GAME.wwPickRole(\''+p[0]+'\')">'+p[1]+'</button>';
-  }).join('')+'</div>';
-  h+='<p class="gx-hint">选「随机」就完全随机；选具体身份你就一定拿到它（这个人数里没有的身份选不了）。</p>';
-  h+='<div class="gx-sec">观看方式（点「进入观战」时用）</div><div class="gx-seg">'+
-     '<button class="'+(!w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(0)">一步步点</button>'+
-     '<button class="'+(w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(1)">自动往下演</button></div>';
-  h+='<div class="gx-sec">选角色（已选 '+w.cids.length+' 个'+(w.npcFill?'，不够的用 NPC 补位':'')+'）</div>';
-  chars.forEach(function(c){
-    var on=w.cids.indexOf(c.id)>=0,mm=(w.mem[c.id]==='full')?'full':'base';
-    /* 【新·面杀】勾上的角色多一个输入框：一句话形容 TA 的样子（只有你看得到，但会告诉大家） */
-    h+='<div class="gx-char col'+(on?' on':'')+'">'+
-       '<div class="gx-charl">'+
-       '<input type="checkbox" '+(on?'checked':'')+' onchange="GAME.wwToggle(\''+esc(c.id)+'\',this.checked)">'+
-       avOfC(c)+
-       '<span class="gx-cnm">'+esc(c.name||'未命名')+'<small>'+(mm==='full'?'带完整记忆':'只带人设')+
-       ' · <span class="gx-tipb'+(w.tips[c.id]===true?' on':'')+'" onclick="GAME.wwTipsChar(\''+esc(c.id)+'\')">📖 教程'+(w.tips[c.id]===true?'开':'关')+'</span></small></span>'+
-       '<span class="gx-memseg">'+
-       '<button class="'+(mm==='base'?'on':'')+'" onclick="GAME.wwMem(\''+esc(c.id)+'\',\'base\')">人设</button>'+
-       '<button class="'+(mm==='full'?'on':'')+'" onclick="GAME.wwMem(\''+esc(c.id)+'\',\'full\')">完整</button>'+
-       '</span>'+
-       '</div>'+
-       (on?('<input class="gx-look" type="text" value="'+esc((w.looks&&w.looks[c.id])||'')+'" placeholder="一句话形容 TA 的样子（例：一个帅气女教师的样子）" oninput="GAME.wwLook(\''+esc(c.id)+'\',this.value)">'):'')+
-       '</div>';
-  });
-  /* 【新·皮肤】参考图的排版：中间留白给村子，底下只放【开始游戏】+【一起玩 / 旁观】。
-     详细的配置（玩法/人数/身份/选角色/上警/发言长度/说明…）全在右上角「设置」里。 */
+  h+='<div class="ww-cfghead"><b>高级设置</b><button class="ww-cfgclose" type="button" aria-label="关闭" onclick="GAME.wwCfg(0)">'+WW_IC_X+'</button></div>';
+  h+='<p class="gx-hint" style="margin:0 2px 10px">这里只放大厅上没有的细项。人数、板子、身份、邀请玩家，回大厅点对应按键就能改。</p>';
+  h+='<div class="gx-sec">对局</div>';
   if(w.count>=8){
-    h+='<div class="gx-sec">警长竞选（上警）</div><div class="gx-seg">'+
+    h+='<div class="ww-cfgrow"><span>警长竞选（上警）</span><div class="gx-seg">'+
        '<button class="'+((w.sheriff!==false)?'on':'')+'" onclick="GAME.wwSheriffSet(1)">开</button>'+
-       '<button class="'+((w.sheriff===false)?'on':'')+'" onclick="GAME.wwSheriffSet(0)">关</button>'+
-       '</div>'+
-       '<p class="gx-hint">开着的局，第一天会先来一个「上警」环节（在公布昨晚死讯之前）：想当警长的人上警、各发一次竞选发言，其他人投票选出警长；选完警长，才公布昨晚谁出局、死者留遗言。警长白天投票算 <b>1.5 票</b>，每天决定从谁开始、往哪个方向发言；出局时能把警徽交给别人，也可以撕掉。只有 8 人及以上的板子才有这个环节。</p>';
+       '<button class="'+((w.sheriff===false)?'on':'')+'" onclick="GAME.wwSheriffSet(0)">关</button></div></div>'+
+       '<p class="gx-hint">第一天先上警、再公布死讯；警长白天投票算 1.5 票。</p>';
+  }else{
+    h+='<p class="gx-hint">警长竞选（上警）只有 8 人及以上的局才有，现在是 '+w.count+' 人局。</p>';
   }
-  h+='<div class="gx-sec">AI 发言长度上限</div><div class="ww-toks">'+
-     [[0,'不限制（0）'],[200,'短 · 200'],[400,'中 · 400'],[800,'长 · 800']].map(function(x){
+  h+='<div class="ww-cfgrow"><span>观战时</span><div class="gx-seg">'+
+     '<button class="'+(!w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(0)">一步步点</button>'+
+     '<button class="'+(w.autoWatch?'on':'')+'" onclick="GAME.wwAutoWatch(1)">自动往下演</button></div></div>';
+  h+='<div class="gx-sec">AI</div>';
+  h+='<div class="ww-cfgrow"><span>发言长度上限</span></div>';
+  h+='<div class="ww-toks">'+[[0,'不限制'],[200,'短 200'],[400,'中 400'],[800,'长 800']].map(function(x){
        return '<button class="'+(((parseInt(w.sayTok,10)||0)===x[0])?'on':'')+'" onclick="GAME.wwSayTok('+x[0]+')">'+x[1]+'</button>';
      }).join('')+'</div>';
-  h+='<p class="gx-hint">角色说话偶尔被截断，就是被这里卡住的。选「不限制」＝请求里不带上限、让模型自己说完，最不容易断（但更费 token）；也可以直接填一个数字。</p>'+
-     '<input id="wwTokIn" type="number" inputmode="numeric" min="0" placeholder="自定义 token 数（0 = 不限制）" value="'+(parseInt(w.sayTok,10)||0)+'" onchange="GAME.wwSayTok(this.value)">';
-  h+='<div class="gx-sec">缺人怎么办</div>'+
-     '<div class="gx-seg">'+
-     '<button class="'+(!w.npcFill?'on':'')+'" onclick="GAME.wwNpc(0)">只用我选的角色</button>'+
-     '<button class="'+(w.npcFill?'on':'')+'" onclick="GAME.wwNpc(1)">用 NPC 补位</button>'+
-     '</div>'+
-     '<p class="gx-hint">NPC 就是「没有性格设定的普通玩家」——不用读任何角色设定，很省 token，适合同事凑人数。它们只按普通玩家那样说话，名字是随机网名。</p>';
-  h+='<div class="gx-sec">AI 想多少</div>'+
-     '<div class="gx-seg">'+
+  h+='<p class="gx-hint">说话老被截断就来这里放宽；选「不限制」最费 token。</p>';
+  h+='<input id="wwTokIn" type="number" inputmode="numeric" min="0" placeholder="自定义 token 数（0 = 不限制）" value="'+(parseInt(w.sayTok,10)||0)+'" onchange="GAME.wwSayTok(this.value)">';
+  h+='<div class="ww-cfgrow" style="margin-top:10px"><span>思考多少</span><div class="gx-seg">'+
      '<button class="'+(wwHushOn()?'on':'')+'" onclick="GAME.wwHush(1)">省流 · 少想</button>'+
-     '<button class="'+(!wwHushOn()?'on':'')+'" onclick="GAME.wwHush(0)">照旧 · 多想</button>'+
-     '</div>'+
-     '<p class="gx-hint">「省流」会在每次请求里提醒 AI「别在心里长篇大论」，能省下不少 token（尤其是爱长篇思考的模型）。效果不保证——觉得 AI 推理变浅、变笨了，就切回「照旧」。这个设置是全局的，所有对局都跟着变。</p>';
-h+='<div class="gx-sec">详细说明</div>';
-  h+='<p class="gx-hint">勾上角色之后，卡片下面会多出一个输入框，可以写<b>一句话形容 TA 的样子</b>（例：一个帅气女教师的样子 / 一只橘猫）。面杀里大家是面对面坐着的，这句最有用：写上之后别的角色就不容易认错人（不会把女教师当成男教师、也不会把猫当成狗）；网杀里也会让它们知道 TA 的样子。不写也行；NPC 是普通路人，不用写。另外：<b>角色和 NPC 默认都按女生处理</b>，拿不准谁是什么性别时一律用「她」，也不会拿性别刻板印象去猜身份。</p>';
-  h+='<p class="gx-hint">玩法：'+(w.table==='face'?'<b>抿身份</b>（发牌后互相打量：先写自己的表情，再点头像看别人的脸色）→ ':'')+'天黑（狼人刀人 / 预言家验人 / 女巫用药）→ 天亮 '+((w.count>=8&&w.sheriff!==false)?'<b>先进行警长竞选（上警）</b>，选完警长再宣布死讯 → ':'→ 宣布死讯 → ')+'按座位依次发言（没有警长就每天随机一个人先开口，有警长就由警长定顺序）→ 投票放逐（警长的票算 1.5 票；平票就进 PK 再投一次）→ 判胜负。**遗言只有第一轮才有**（第一夜死的、第一天被票出去的）；之后再出局都没有遗言，直接进入下一轮。**主持人由程序担任**，角色们只负责演；每个人只知道自己的身份和该知道的事。</p>';
-  if(w.table==='face')h+='<p class="gx-hint">面杀专属的几件事：① 发完身份先「抿身份」——你先写自己的表情，再点头像去看别人；<b>AI 角色也会随机偷偷打量别人一两次</b>，它们看到的样子会记在自己心里，后面发言时会用上。② 夜里狼队在「夜间密会」里碰头，<b>可以正常说话</b>（只有狼听得见，这一夜一共 <b>100 字</b>）。③ 白天发言可以用括号写语气、动作、神态。④ 你要是真的死在夜里，会先让你留遗言（这时你还不知道是谁下的手），再演一段「夜间 · 你的房间」（凶手来找你说话，可以跳过；留完遗言这段才公开，所以不会剧透）；<b>女巫在面杀里全程不能自救</b>。</p>'+
-     '<p class="gx-hint">场景叫法（面杀的沉浸感）：白天大家开会的地方叫 <b>「集会堂」</b>；狼队夜里碰头叫 <b>「夜间密会」</b>；白天投票出局叫 <b>「处刑」</b>（票数最多的人会被推上处刑台）。你是狼的时候，夜里刀了人会写「<b>今晚你带着刀来到了 ×号 的房间……</b>」；你要是已经出局、由队友去刀，就写成「<b>今晚你的队友带着刀来到了 ×号 的房间……</b>」。预言家、女巫、守卫、猎人这些技能，在你亲自操作时也都会用同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。</p>';
-  h+='<p class="gx-hint">名字下面那个「📖 教程」可以给角色单独开关（**默认是关的**）：打开的角色会多拿一份狼人杀术语和思路小抄（金水、查杀、悍跳、倒钩这些），说话更像老玩家；关掉的就只按人设自由发挥、更"业余"。带教程的那几个角色每局会多花一点 token。</p>';
-  h+='<button class="ww-btn" type="button" onclick="GAME.wwCfg(0)"><span class="bar"><span class="orn">'+WW_ORN_SVG+'</span><span class="btxt">设置好了</span></span></button>';
+     '<button class="'+(!wwHushOn()?'on':'')+'" onclick="GAME.wwHush(0)">照旧 · 多想</button></div></div>'+
+     '<p class="gx-hint">省流会提醒 AI 别长篇思考，更省 token；推理可能浅一点。</p>';
+  h+='<details class="gx-log" style="margin-top:12px"><summary>规则与玩法说明</summary><div class="gx-vs">'+
+     '<p class="gx-hint">网杀：夜里狼队在「狼队频道」打字商量；白天发言不写动作神态。面杀：在村子各自的房间过夜、白天去集会堂，先「抿身份」，狼队夜里在「夜间密会」正常说话。</p>'+
+     '<p class="gx-hint">面杀白天投票出局叫「处刑」；夜里真的死了会先留遗言，再演一段「夜间 · 你的房间」。女巫在面杀里全程不能自救。</p>'+
+     '<p class="gx-hint">角色卡上的「📖 教程」可以单独开关：打开的角色会多拿一份术语和思路小抄（默认关）。</p>'+
+     '</div></details>';
+  h+='<button class="ww-btn" type="button" onclick="GAME.wwCfg(0)"><span class="bar"><span class="orn">'+WW_ORN_SVG+'</span><span class="btxt">完成</span></span></button>';
   h+='</div></div>';
   return h;
 }
+
 /* 投票箱图标（SVG，用在投票公布那一块） */
 var WW_VOTE_ICON='<svg viewBox="0 0 24 24"><rect x="3.9" y="11.3" width="16.2" height="8.8" rx="2.5"/><path d="M8.4 11.3h7.2"/><path d="M8.6 7.7l2.2 2.2 4.7-4.7"/></svg>';
 /* 操作卡右上/左上的小图标：标记（吊牌）、自动播放（快进）、暂停 */
@@ -25477,6 +25674,28 @@ function wwSplitDraft(txt){
   if(di>=0)return {draft:t.slice(di+5).trim(),say:''};
   return {draft:'',say:t};
 }
+/* 去掉发言开头多出来的冒号/空格/逗号（模型有时写「【发言】：...」） */
+function wwStripLead(t){
+  t=String(t||'').replace(/^(【[^】]*】)\s*[:：]\s*/,'$1');
+  return t.replace(/^[\s:：,，、;；\-—–]+/,'').trim();
+}
+/* 给一段发言自动起一个短标题：去掉「遗言 / 竞选发言」这类前缀，取第一句前 16 个字 */
+function wwAutoTitle(t){
+  var s=wwStripLead(String(t||'').replace(/^【[^】]*】/,'').replace(/\s+/g,' ').trim());
+  if(!s)return '没说什么';
+  var m=s.split(/[。！？!?；;\n]/)[0].trim()||s;
+  return m.length>12?m.slice(0,12)+'…':m;
+}
+/* 标题必须是中立的：只描述公开说了什么，不写「装懵 / 装傻 / 演戏 / 悍跳」这类身份或动机判断 */
+var WW_TITLE_BAD=/(装懵|装傻|装良|演戏|假跳|悍跳)/;
+function wwCleanTitle(t,text){
+  t=String(t||'').replace(/^[「『"“]+|[」』"”]+$/g,'').replace(/\s+/g,' ').trim();
+  if(!t||!/[\u4e00-\u9fa5A-Za-z0-9]/.test(t)||WW_TITLE_BAD.test(t)){
+    var a=wwAutoTitle(text);
+    t=WW_TITLE_BAD.test(a)?'无信息量发言':a;
+  }
+  return t.slice(0,12);
+}
 /* 好人的发言任务：先写草稿纸（狼坑 / 好人 / 神），再写发言；狼人不用写，直接说 */
 function wwSpeakTask(p,base){
   /* 【改·去模板化】只讲「怎么开口」这一件事：把人设顶上来、允许长短不一和有情绪，
@@ -25493,33 +25712,47 @@ function wwSpeakTask(p,base){
       '可以用括号写少量语气、动作、神态；只写场上真实发生过的观察。'):'')+
     (face?'':'说话像群聊，不写旁白和动作。')+
     '\n· 不骂人、不靠发誓喊冤、不用 markdown。';
+  var titleAsk='先写【标题】：单独一行，最多 12 个字，只客观概括这段发言公开说了什么、站了谁，不判断身份和动机，不用「装懵、装傻、装良、演戏、假跳、悍跳」这类词；例：跳预、查杀1号 / 站边1号、质疑2号 / 这轮在划水 / 无信息量发言 / 报了女巫。';
   if(wwIsWolf(p))return plain+
-    '\n【输出】先写【草稿纸】：只有你看得到，写装身份、拉票、保谁、推谁。'+
+    '\n【输出】'+titleAsk+'再写【草稿纸】：只有你看得到，写装身份、拉票、保谁、推谁。'+
     '再写【发言】：说给大家听，不能泄露草稿纸。';
   return plain+
-    '\n【输出】先写【草稿纸】：只有你看得到，写怀疑谁、信谁、觉得谁是神、想投谁。'+
+    '\n【输出】'+titleAsk+'再写【草稿纸】：只有你看得到，写怀疑谁、信谁、觉得谁是神、想投谁。'+
     '再写【发言】：说给大家听。';
+}
+/* 从模型输出里把【标题】拆出来（存到 p._lastSayTitle，写记录时一起带上） */
+function wwTakeTitle(p,raw){
+  var t=String(raw||'');
+  var m=t.match(/(?:【标题】|标题[：:])\s*([^\n]{1,40})/);
+  if(m){
+    var s=m[1].replace(/^[：:\s]+/,'').replace(/[。；;，,]+$/,'').trim();
+    var rest=t.replace(m[0],'').trim();
+    if(s&&p&&!p._lastSayTitle)p._lastSayTitle=wwCleanTitle(s,rest);
+    t=rest;
+  }
+  return t;
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
 async function wwSpeak(p,sys){
-  var raw=String(await wwCall(sys,'请发言。',wwSayMax(),.9)||'').trim();
+  if(p)p._lastSayTitle='';
+  var raw=wwTakeTitle(p,String(await wwCall(sys,'请发言。',wwSayMax(),.9)||'').trim());
   var sp=wwSplitDraft(raw);
   if(!sp.say&&!sp.draft){
     /* 接口回了空：再要一次，别让角色当场哑掉 */
-    raw=String(await wwCall(sys,'请直接说你要说的话。',wwSayMax(),.9)||'').trim();
+    raw=wwTakeTitle(p,String(await wwCall(sys,'请直接说你要说的话。',wwSayMax(),.9)||'').trim());
     sp=wwSplitDraft(raw);
   }
   if(!sp.say){
     var sys2=wwSysFor(p,'现在只写你要说给别人听的那几句话。不要写草稿纸、不要写名字、不要用括号写动作，只输出你要说的话。');
-    var s2=String(await wwCall(sys2,'请发言。',wwSayMax(),.9)||'').trim();
+    var s2=wwTakeTitle(p,String(await wwCall(sys2,'请发言。',wwSayMax(),.9)||'').trim());
     var sp2=wwSplitDraft(s2);
     if(sp2.say)sp.say=sp2.say;
     else if(s2)sp.say=String(s2).replace(/【[^】]*】/g,'').trim();   /* 没写标记就当整段是发言 */
     if(!sp.draft&&sp2.draft)sp.draft=sp2.draft;
   }
   if(sp.draft)p.scratch=sp.draft;
-  return sp.say||'（'+p.name+' 这轮没发言）';
+  return wwStripLead(sp.say||('（'+p.name+' 这轮没发言）'));
 }
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
 function wwPlayerByUid(uid){var a=V.ww.players;for(var i=0;i<a.length;i++){if(a[i].uid===uid)return a[i]}return null}
@@ -27145,7 +27378,14 @@ function wwAbort(){var w=V.ww;return !!(w&&(w.stopped||w.over))}
 function wwGenNow(){return (V.ww&&V.ww.gen)||0}
 function wwStaleG(g){return g!==((V.ww&&V.ww.gen)||0)}
 /* 只有还是「当前这一局」才把这条发言写进记录：防止上一局的循环把话插到新一局里 */
-function wwPushSay(g,o){if(wwStaleG(g))return false;V.ww.log.push(o);return true}
+function wwPushSay(g,o){
+  if(wwStaleG(g))return false;
+  if(o&&o.k==='say'){
+    var p=wwPlayerByUid(o.who);
+    if(p&&p._lastSayTitle){o.title=String(p._lastSayTitle).slice(0,24);p._lastSayTitle=''}
+  }
+  V.ww.log.push(o);return true
+}
 function wwCheckOver(){
   var w=V.ww;if(w.over)return true;
   var alive=wwAlive(),wl=alive.filter(wwIsWolf).length,good=alive.length-wl;
@@ -28562,7 +28802,7 @@ function wwStart(){
   }
   var need=w.count-((w.mode==='play')?1:0);
   var cids=w.cids.filter(function(id){return !!chOf(id)});
-  if(cids.length<need&&!w.npcFill)return toast('需要 '+need+' 个角色（现在选了 '+cids.length+' 个）——也可以在「缺人怎么办」里选「用 NPC 补位」');
+  if(cids.length<need&&!w.npcFill)return toast('需要 '+need+' 个角色（现在选了 '+cids.length+' 个）——也可以在「邀请玩家」里打开「缺人用 NPC」');
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
   tokStart('ww');
   cids=cids.slice(0,need);
@@ -29171,7 +29411,8 @@ async function wwResayGo(){
     try{t=wasLW?('【遗言】'+(blownLW?await wwBlownWordsLine(p):await wwLastWords(p))):await wwSpeech(p)}catch(err){t=''}
     if(gen!==(w.gen||0)||w.log!==log){w.resayOn=false;return}   /* 已经开了新的一局：这次结果丢掉，免得出现"上一局的人" */
     if(!t)t=(wasLW?'【遗言】':'')+'（'+p.name+' 想了想，没说什么。）';
-    w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:wwThinkOf(p)});
+    w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:wwThinkOf(p),title:(p&&p._lastSayTitle)||''});
+    if(p)p._lastSayTitle='';
     w.resayOn=false;w.msg='';render(true);
     if(w.over)wwSave(true);
   }catch(err){
@@ -29185,6 +29426,8 @@ function wwLogHTML(){
   arr.forEach(function(e,i){
     if(e&&e.k==='say'){var q=wwPlayerByUid(e.who);if(q&&!q.isUser)lastAI=base+i}
   });
+  var lastSayAll=-1;                   /* 最后一条发言：默认只有它展开，更早的收成标题行 */
+  for(var z=0;z<w.log.length;z++){var ez=w.log[z];if(ez&&ez.k==='say')lastSayAll=z}
   /* 【新·面杀】这里改用 for 循环（原来是最外层 forEach）：为的是能把连续的
      「夜间 · 你的房间」几条收成一块、默认折起来 —— 不然每一句都要写一遍标题、刷屏。 */
   for(var i=0;i<arr.length;i++){
@@ -29194,14 +29437,31 @@ function wwLogHTML(){
       var raw=String(e.text||''),t=raw,tag='';
       if(t.indexOf('【遗言】')===0){tag='遗言';t=t.replace(/^【遗言】/,'')}
       if(t.indexOf('【投降】')===0){tag='掀桌';t=t.replace(/^【投降】/,'')}   /* 【新】狼人掀桌认输的投降演说 */
+      t=wwStripLead(t);
       var col=wwColorOf(p);
+      var title=wwCleanTitle(e.title||wwAutoTitle(t),t);
+      var isLatest=(base+i)===lastSayAll;
+      var open=(e.open===true)||(e.open===undefined&&isLatest);
+      if(!open){
+        h+='<button class="ww-say-mini'+(isMe?' me':'')+'" type="button" onclick="GAME.wwSayOpen('+(base+i)+')">'+
+           '<span class="ww-mini-dot" style="background:'+col+'"></span>'+
+           '<b>'+esc(p?wwTag(p):'（已离开的玩家）')+'</b>'+
+           (tag?('<i>'+tag+'</i>'):'')+
+           '<span class="ww-mini-t">'+esc(title)+'</span>'+
+           '<span class="ww-mini-x">›</span></button>';
+        continue;
+      }
       /* 只有最新那条角色发言能「重说」（长按或点右上角小按钮） */
       var canSay=!!(p&&!isMe&&(base+i)===lastAI);
+      var titleChip=(p&&p.seq?(p.seq+'：'):'')+(title||'发言');
       var lp=canSay?(' data-wwi="'+(base+i)+'" data-wwu="'+esc(e.who||'')+'" data-wwk="'+esc(raw.slice(0,10))+'"'+
         ' ontouchstart="GAME.wwLPDown(event,this)" ontouchend="GAME.wwLPUp()" ontouchmove="GAME.wwLPMove(event)" ontouchcancel="GAME.wwLPUp()"'+
         ' onmousedown="GAME.wwLPDown(event,this)" onmouseup="GAME.wwLPUp()" onmouseleave="GAME.wwLPUp()" oncontextmenu="return false"'):'';
       h+='<div class="ww-say'+(isMe?' me':'')+'"'+lp+'>'+
-         '<div class="ww-say-h"><span class="ww-dot" style="background:'+col+'"></span><b'+((p&&wwKnownWolf(p))?' style="color:#c0392b"':'')+'>'+esc(p?wwTag(p):'（已离开的玩家）')+wwMarkChip(p?p.uid:'')+'</b>'+(tag?('<i>'+tag+'</i>'):'')+
+         '<div class="ww-say-h"><span class="ww-dot" style="background:'+col+'"></span>'+(tag?('<i>'+tag+'</i>'):'')+wwMarkChip(p?p.uid:'')+
+         '</div>'+
+         '<div class="ww-say-title-row"><span class="ww-say-title">'+esc(titleChip)+'</span>'+
+         '<button class="ww-fold" type="button" aria-label="收起" onclick="GAME.wwSayOpen('+(base+i)+',1)">收起</button>'+
          (canSay?('<button class="ww-rsay" type="button" aria-label="重新发言" onclick="GAME.wwResayAsk(\''+esc(p.uid)+'\','+(base+i)+')">'+WW_IC_REDO+'</button>'):'')+
          '</div>'+
          '<div class="ww-say-t" style="border-left-color:'+col+'">'+esc(t)+
@@ -29879,7 +30139,7 @@ function wwHTML(){
   h+='<div class="ww-stage">'+
      '<div class="ww-rail'+(picking?' picking':'')+'">'+w.players.slice(0,half).map(wwSeatHTML).join('')+'</div>'+
      '<div class="ww-center">'+
-       (w.log.length?('<div class="gx-sec" style="margin-top:4px">现场</div>'+wwLogHTML()):'<p class="gx-hint">游戏正在准备…</p>')+
+       (w.log.length?('<div class="ww-loghead"><div class="gx-sec">现场</div><div class="ww-logbtns"><button type="button" onclick="GAME.wwSayAll(1)">展开全部</button><button type="button" onclick="GAME.wwSayAll(0)">收起全部</button></div></div>'+wwLogHTML()):'<p class="gx-hint">游戏正在准备…</p>')+
      '</div>'+
      '<div class="ww-rail'+(picking?' picking':'')+'">'+w.players.slice(half).map(wwSeatHTML).join('')+'</div>'+
      '</div>';
@@ -30001,7 +30261,7 @@ function wwHTML(){
      最后才是牌桌内容 —— 所有面板在这一批里都换成了暗色，压在村庄图上很清楚。 */
   var sc=wwSceneKey();
   return (w.over?'':'<div class="ww-atm '+(w.phase==='night'?'night':'day')+'"></div>')+
-    '<div class="ww-scenebg'+(w.over?' dark':'')+'" style="background-image:url('+((WW_BG[sc]||WW_BG.noon))+'"></div>'+
+    '<div class="ww-scenebg'+(w.over?' dark':((w.phase==='night')?' night':' day'))+'" style="background-image:url('+((WW_BG[sc]||WW_BG.noon))+'"></div>'+
     '<div class="ww-wrap '+(w.phase==='night'?'night':'day')+'">'+h+'</div>';
 }
 /* 顶部那条的高度会变（身份那一条长短不同）：量出来当左右座位栏的吸顶位置，
@@ -31296,6 +31556,18 @@ window.GAME={
   wwResayGo:function(){wwResayGo()},
   wwResayCancel:function(){wwResayCancel()},
   wwResayAsk:function(uid,idx){wwOpenResay(uid||'','',parseInt(idx,10))},
+  /* 发言折叠：点标题行展开；点「收起」收回去；全部展开/收起 */
+  wwSayOpen:function(i,fold){
+    var w=V.ww,e=(w&&w.log)?w.log[i]:null;
+    if(!e||e.k!=='say')return;
+    e.open=fold?false:!(e.open===true);
+    render(false);
+  },
+  wwSayAll:function(open){
+    var w=V.ww;if(!w)return;
+    (w.log||[]).forEach(function(e){if(e&&e.k==='say')e.open=!!open});
+    render(false);
+  },
   wwResume:function(id){wwResume(id)},
   wwRejudge:function(id){wwRejudgeRec(id)},
   wwAudit:function(id){wwAuditRec(id)},
@@ -31306,7 +31578,7 @@ window.GAME={
   wwNpc:function(on){var w=V.ww;w.npcFill=!!on;render(false)},
   wwSheriffSet:function(on){var w=V.ww;w.sheriff=!!on;render(false)},
   /* 【新·皮肤】右上角「设置」浮层开关；关掉时把记下的滚动位置清掉（下次打开从顶部开始） */
-  wwCfg:function(on){var w=V.ww;if(!w)return;w.cfgOpen=!!on;if(!w.cfgOpen)w.cfgScroll=0;render(false)},
+  wwCfg:function(on){var w=V.ww;if(!w)return;w.cfgOpen=!!on;w.cfgScroll=0;render(false)},   /* 每次打开都从顶部开始，标题不会被滚没 */
   wwBoardSet:function(bd){var w=V.ww;w.board=(bd==='wolfking')?'wolfking':'std';w.pick='random';render(false)},
   wwBoom:function(){wwKingUserBoom()},
   wwBoomSay:function(){wwKingBoomFromSay()},
