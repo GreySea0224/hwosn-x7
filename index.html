@@ -2205,7 +2205,7 @@ function idbOpen(){
   return new Promise((res,rej)=>{
     if(_db)return res(_db);
     if(!window.indexedDB)return rej(new Error('这个浏览器不支持 IndexedDB'));
-    const r=indexedDB.open('wh_db',6);
+    const r=indexedDB.open('wh_db',7);
     r.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains('arc'))d.createObjectStore('arc');
@@ -2214,6 +2214,7 @@ function idbOpen(){
       if(!d.objectStoreNames.contains('music'))d.createObjectStore('music');   /* 新增：存手机里的音乐文件 */
       if(!d.objectStoreNames.contains('memidx'))d.createObjectStore('memidx'); /* 记忆宫殿：索引（可随时重建，不是原文） */
       if(!d.objectStoreNames.contains('msglog'))d.createObjectStore('msglog'); /* 【新增】聊天记录安全副本（防丢失用） */
+      if(!d.objectStoreNames.contains('oceanphotos'))d.createObjectStore('oceanphotos'); /* 海底陪伴：游戏照片 */
     };
     r.onsuccess=e=>{_db=e.target.result;res(_db)};
     r.onerror=()=>rej(r.error||new Error('IndexedDB 打不开'));
@@ -4821,7 +4822,7 @@ function musicChipBind(el,mu){
    场景：点「重新生成」不再是删掉旧回复，而是把旧的留着、新的接着存，
    这一条消息下面会出现「‹ 第x/y版 ›」，可以来回切换挑最喜欢的那版。
    只存最近这一段：等发出下一句（进入下一回合）时，没被选中的版本会自动清掉。 */
-const VER_FIELDS=['content','reasoning','tok','ptok','chit','cmiss','search','toys','art','music','sticker','files','img','imgs','imgCleared','text'];
+const VER_FIELDS=['content','reasoning','tok','ptok','chit','cmiss','model','visionModel','search','toys','art','music','sticker','files','img','imgs','imgNotes','imgModel','imgCleared','text'];
 /* 给一条消息的当前样子拍张照（时间 t 和身份 mid 不属于某一版，不拍进去） */
 function snapMsg(m){
   const o={};
@@ -5763,20 +5764,22 @@ function sayOut(el,text){
   if(el)el.innerHTML=mdLite(text);
 }
 /* 把模型返回的文字、思考、用量组装成一条聊天记录。 */
-function makeAssistantMsg(out,reasoning,usage){
+function makeAssistantMsg(out,reasoning,usage,meta){
   const m={role:'assistant',content:out,t:Date.now()};
   if(reasoning)m.reasoning=reasoning;
+  if(meta&&meta.model)m.model=String(meta.model);
+  if(meta&&meta.visionModel)m.visionModel=String(meta.visionModel);
   m.tok=(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out);
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
   markCache(m,usage);                      /* 【新】缓存命中（开发者模式才显示） */
   return m;
 }
 /* 处理生成失败或中途停止；保留了部分内容时返回 true。 */
-function handleAskError(e,a,out,reasoning,usage,cid){
+function handleAskError(e,a,out,reasoning,usage,cid,meta){
   a.classList.remove('typing');
   const aborted=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
   if(aborted&&out){
-    const m=makeAssistantMsg(out,reasoning,usage);
+    const m=makeAssistantMsg(out,reasoning,usage,meta);
     pushMsgTo(cid,m);                      /* 【修复】还存到这个角色自己的记录里 */
     return true;
   }
@@ -11238,6 +11241,13 @@ async function backupPayload(){
       try{const v=await idbGet('idea:'+it.id);d.ideasHTML[it.id]=(v&&v.html)||''}catch(e){}
     }
   }catch(e){}
+  /* 海底陪伴：小鲸鱼状态 + 照片集。照片放在 IndexedDB，单独读进备份。 */
+  try{
+    d.oceanPet=load('wh_oceanpet',null);
+    d.oceanPhotos={};
+    const oceanKeys=await idbKeys('oceanphotos');
+    for(const k of oceanKeys){try{d.oceanPhotos[k]=await idbGet(k,'oceanphotos')}catch(e){}}
+  }catch(e){}
   d.arcs.forEach(a=>{d.arcData[a.id]=getArc(a.id)});
   d.groups.forEach(g=>{d.gmsgs[g.id]=gmsgsOf(g.id)});
   /* ↓ 补丁5-C：备份里真的带上「演绎」的记录（必须在打包字符串之前收集，否则不会进文件） */
@@ -11353,6 +11363,16 @@ async function importBackupIdeas(d){
   if(d.ideasHTML&&typeof d.ideasHTML==='object'){
     for(const id of Object.keys(d.ideasHTML)){
       try{await idbPut('idea:'+id,{html:String(d.ideasHTML[id]||'')})}catch(e){}
+    }
+  }
+}
+/* 导入备份：海底陪伴状态与照片。 */
+async function importBackupOcean(d){
+  if(!d)return;
+  if(d.oceanPet&&typeof d.oceanPet==='object')save('wh_oceanpet',d.oceanPet);
+  if(d.oceanPhotos&&typeof d.oceanPhotos==='object'){
+    for(const k of Object.keys(d.oceanPhotos)){
+      if(d.oceanPhotos[k]!=null)try{await idbPut(k,d.oceanPhotos[k],'oceanphotos')}catch(e){}
     }
   }
 }
@@ -11567,6 +11587,7 @@ async function applyImportedBackup(d){
   importBackupGroupData(d);
   importBackupExtraData(d);
   await importBackupIdeas(d);          /* 角色做的网页（「创意」）：清单 + 正文 */
+  await importBackupOcean(d);          /* 海底陪伴：状态 + 照片 */
   await importBackupRawLogs(d);
   await msgFlush();                    /* 【搬家后】等聊天记录真的写进数据库，再刷新 */
   alert('导入完成，刷新一下');
@@ -12804,7 +12825,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
 · 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。
 · 创意：角色给你做的小网页、小游戏都收在这里，点开就能看、能玩。
-· 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。面杀里**女巫全程不能自救**（网杀是只有第一夜能自救）。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
+· 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。还有一个「海底陪伴」小游戏：里面养一只低多边形 3D 小鲸鱼，单指拖动可以绕着小鲸鱼转视角，双指捏合可以放大缩小，轻点小鲸鱼会和它说话。菜单里可以投喂、拍照、重置状态；「照片集」会保存拍下来的海底照片。点右上角「绑定角色」，可以让小鲸鱼同步一个现有角色的人设和说话习惯，变成那个角色在海里的鲸鱼版本；它会参考一小段长期记忆，但不会把整份聊天记录塞进去。这个游戏的照片和状态跟着本地备份走。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。面杀里**女巫全程不能自救**（网杀是只有第一夜能自救）。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
 · 【狼人杀 · 空刀 / 收刀 / 掀桌】轮到狼人在夜里刀人时，界面上有一个「空刀」按钮（今晚一个人都不杀）：这是高端局偶尔用的打法（做「平安夜」、逼女巫不敢乱用解药、给悍跳做局）。AI 狼也会自己考虑空刀，几只狼各表一态，主张空刀的比主张某个目标的多，这一晚就真的不杀人。另一种是「收刀」：她在那段夜戏里把人说动了，狼放过她——这一晚同样没人死。这两种都会在上帝视角记录里写清楚（「狼人本来要刀 ×号，最后收刀放过了她」），所以裁判知道这是战术、不是程序出错；动手的狼自己也记得「我收刀放过了她」（不会被当成女巫救人）；面杀里的好人也知道「平安夜」未必是女巫开药或守卫守住，也可能就是狼没刀——所以她说「狼昨晚没刀人」时，别人会认真接过来盘。还有「掀桌」：AI 狼要是成了场上**最后一只狼**、自己又觉得翻不了盘，轮到她白天发言时会自己决定「继续装 还是 掀桌」；掀桌就是公开承认自己是狼、说一段投降演说，然后当场被处刑（好人直接获胜）——这样它不用再硬撑着装，也不会一直泡在思考里想不出策略。
 · 【狼人杀 · 面杀的夜戏细节】门口站着几只狼时，会先让她挑要跟谁对线（**可以只挑一个**，也可以多选）；对线时说话顺序每次随机洗一遍（像群聊那样，不是固定按座位号），而且后说的人知道前面的人刚说了什么；聊满 5 轮之后，对面还能自己判断要不要再多聊两轮（最多拖到 30 轮）。这一段（连同「抿身份」和「死了之后的遗言+夜戏」整个流程）都做了容错：里面出小错也不会把整局打断。
@@ -12850,7 +12871,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=23;  /* 23：角色可单独设置「看图模型」，先识图转文字再交给聊天模型；22：狼人杀「暗黑村庄」新界面；21：收刀局里被毒死的狼也发真话遗言；20：面杀「狼队收刀＝身份爆了」 */
+const GUIDE_VER=24;  /* 24：游戏大厅新增「海底陪伴」，可养 3D 小鲸鱼、绑定角色、投喂、拍照；23：角色可单独设置「看图模型」；22：狼人杀「暗黑村庄」新界面 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」和「隐私角色」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -16598,14 +16619,14 @@ window.p5ChatDefer=function(){   /* 挂到全局：正在打字就延后重画�
    识图请求只发给看图模型；主聊天模型之后拿到的始终是这段文字。 */
 async function prepareVisionForTurn(c,cid){
   const vm=String((c&&c.visionModel)||'').trim();
-  if(!vm||!cid)return false;
+  if(!vm||!cid)return null;
   const arr=msgsOf(cid);
   let target=null;
   for(let i=arr.length-1;i>=0;i--){
     const m=arr[i];
     if(m&&m.role==='user'&&msgImgs(m).length){target=m;break}
   }
-  if(!target||String(target.imgNotes||'').trim())return false;
+  if(!target||String(target.imgNotes||'').trim())return null;
   const imgs=msgImgs(target);
   const ask=String(target.content||'').trim();
   const prompt=[
@@ -16684,11 +16705,15 @@ askAndAppend=async function(freeCid){
     try{updSendBtn()}catch(e){}
     /* ---- 补丁4-C：这一轮用过的玩具 ---- */
     W.P4LASTTOY=[];
+    let usedModel='',visionUsed=false;
     /* ---- 补丁4-A：先判断要不要联网搜索 ---- */
     const c0=c;
     pendingSearch='';pendingSM=null;
     ctxVisionMode=!!(c0&&String(c0.visionModel||'').trim());
-    if(ctxVisionMode)try{await prepareVisionForTurn(c0,cid)}catch(e){}
+    if(ctxVisionMode)try{
+      const vr=await prepareVisionForTurn(c0,cid);
+      if(vr!==null)visionUsed=true;
+    }catch(e){}
     if(c0&&c0.search&&c0.search.on)try{await doSearchStep(c0)}catch(e){}
     const before2=len();
 
@@ -16700,6 +16725,10 @@ askAndAppend=async function(freeCid){
     const sendBtn=ui.sendBtn,stopBtn=ui.stopBtn,liveThink=ui.liveThink,a=ui.a,thinkOn=ui.thinkOn;
     window.P5CHATSTAT=ui.setStat||null;      /* 【新】这一轮里，工具可以改胶囊上的字 */
     let ok=false;let usage=null;let reasoning='';let out='';
+    const answerMeta=()=>({
+      model:String(usedModel||modelOf(c)||cfg.model||''),
+      visionModel:visionUsed?String(c.visionModel||''):''
+    });
     const tp=thinkParams(c);
     curAbort=new AbortController();
     const sig=curAbort.signal;
@@ -16707,7 +16736,7 @@ askAndAppend=async function(freeCid){
       const tools=toolsFor(c);
       if(tools.length){
         thinkOn();                       /* 有工具时它要先去想/去调工具，先亮起「思考中」 */
-        const r=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools}))||{};
+        const r=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}}))||{};
         reasoning=r.reasoning||'';usage=r.usage||null;out=r.finalText||'';
         if(!out){
           /* 【修复·重要】以前这里什么情况都说「不要调用工具，直接说话」。可只要第一轮没吐字
@@ -16717,23 +16746,23 @@ askAndAppend=async function(freeCid){
                      ② 实在还是空 → 才退到「不要用工具，直接说话」。 */
           if(!(r&&r.didTool)){
             try{
-              const r2=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools}))||{};
+              const r2=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}}))||{};
               reasoning=r2.reasoning||reasoning;usage=r2.usage||usage;out=r2.finalText||'';
             }catch(e){if(e&&e.name==='AbortError')throw e}   /* 这一遍再失败就算了，继续往下走兜底 */
           }
           if(!out){
             const ctx2=((r&&r.messages)||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
-            await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u});
+            await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u,onModel:m=>{usedModel=m}});
           }
         }
         if(out){
           a.classList.remove('typing');sayOut(a,out);scrollDown();
         }
       }else{
-        await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:r=>{reasoning+=r;thinkOn()},onUsage:u=>usage=u});
+        await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:r=>{reasoning+=r;thinkOn()},onUsage:u=>usage=u,onModel:m=>{usedModel=m}});
       }
       if(!out)throw new Error('模型没返回内容');
-      const m=makeAssistantMsg(out,reasoning,usage);
+      const m=makeAssistantMsg(out,reasoning,usage,answerMeta());
       pushMsgTo(cid,m);ok=true;                 /* 【修复】存进它自己的记录 */
     }catch(e){
       /* ↓ 新增：这次没发出去（内容太长 / 中转站返回空）→ 自动用「精简上下文」再发一次 */
@@ -16745,15 +16774,15 @@ askAndAppend=async function(freeCid){
           await callAPI(buildCtxLite(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,
             onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},
             onReasoning:rr=>{reasoning+=rr;thinkOn()},
-            onUsage:u=>{usage=u}});
+            onUsage:u=>{usage=u},onModel:m=>{usedModel=m}});
           if(out){
-            const mLite=makeAssistantMsg(out,reasoning,usage);
+            const mLite=makeAssistantMsg(out,reasoning,usage,answerMeta());
             pushMsgTo(cid,mLite);ok=true;liteOK=true;
             toast('刚才这条没发出去，已自动精简上下文重发成功');
           }
         }
       }catch(e2){}
-      if(!liteOK)ok=handleAskError(e,a,out,reasoning,usage,cid);
+      if(!liteOK)ok=handleAskError(e,a,out,reasoning,usage,cid,answerMeta());
     }
     finishAskUI(sendBtn,stopBtn,liveThink,ok,cid);
     /* ---- 新功能：这一轮真聊成了，如果开着「新对话自动打标签」，后台悄悄给它补标签 ---- */
@@ -17109,7 +17138,8 @@ toolLoop=async function(c,ctx,opt){
     var preText='';    /* 【新】它「一边说话、一边调工具」时说的那半句话，攒在这里一起显示 */
     var mkOpt=function(mt){return {stream:false,model:modelOf(c),tools:tools,tool_choice:'auto',
       signal:opt.signal,temp:opt.temp,maxtok:mt,
-      onReasoning:function(r){reasoning+=r},onUsage:function(u){usage=u}}};
+      onReasoning:function(r){reasoning+=r},onUsage:function(u){usage=u},
+      onModel:function(m){if(typeof opt.onModel==='function')try{opt.onModel(m)}catch(e){}}}};
     while(rounds<6){
       rounds++;
       var resp=null;
@@ -18114,6 +18144,7 @@ importAll=function(input){
       /* 演绎 / 表情库 / 便条 / 日记 / 好感度记录 / 画册 / 自动总结进度 */
       try{importBackupExtraData(d)}catch(e){}
       await importBackupIdeas(d);        /* 角色做的网页（「创意」）：清单 + 正文 */
+      await importBackupOcean(d);        /* 海底陪伴：状态 + 照片 */
       await importBackupRawLogs(d);      /* 原文日志（IndexedDB） */
       try{await msgFlush()}catch(e){}    /* 【搬家后】等聊天记录真的写进数据库，再刷新 */
       alert('导入完成，刷新一下'+(cryptKey?'':'。\n\n提醒：你还没设置应用锁密码，导入进来的数据现在是不加密的；想加密可以去「设置 → 隐私与安全」设一个。'));
@@ -18256,6 +18287,10 @@ callAPI=async function(msgs,opt){
 
   /* ---- 真正请求的部分 ---- */
   var core=async function(oo){
+    var usedModel=String(oo.model||cfg.model||'');
+    var markModel=function(){
+      if(typeof oo.onModel==='function')try{oo.onModel(usedModel)}catch(e){}
+    };
     /* 流式 / 带工具：走最初那份实现（补丁1） */
     if(oo.stream||oo.tools){
       if(!cfg.key)throw new Error('先去设置里填 API Key');
@@ -18266,10 +18301,14 @@ callAPI=async function(msgs,opt){
         var raw1='',jj=null;           /* 同样先把原文读下来再解析 */
         try{raw1=await res.text()}catch(e){}
         try{jj=raw1?JSON.parse(raw1):null}catch(e){}
-        return handleApiJsonResponse(jj,oo,raw1);
+        var dataOut=handleApiJsonResponse(jj,oo,raw1);
+        markModel();
+        return dataOut;
       }
       var parser=createApiStreamParser(oo);
-      return readApiStreamText(res,parser);
+      markModel();
+      var streamOut=await readApiStreamText(res,parser);
+      return streamOut;
     }
     /* 非流式 / 不带工具：补丁4-A 的五次重试（换模型、去掉温度等） */
     var model=oo.model||cfg.model;
@@ -18290,7 +18329,10 @@ callAPI=async function(msgs,opt){
       if(oo.signal)oo2.signal=oo.signal;                  /* 【新】把「可打断」一起传下去 */
       try{
         var rr=await window.p4raw(msgs,oo2);
-        if(String(rr==null?'':rr).trim())return rr;
+        if(String(rr==null?'':rr).trim()){
+          if(typeof oo.onModel==='function')try{oo.onModel(String(oo2.model||cfg.model||''))}catch(e){}
+          return rr;
+        }
         lastErr=new Error('模型返回空内容');
       }catch(e){
         if(e&&e.name==='AbortError')throw e;   /* 【新】是被「重新想」打断的：别再换着法儿重试，直接抛上去 */
@@ -18438,6 +18480,10 @@ var CSS=[
 '#msgs.p6sel .bub{cursor:pointer;transition:box-shadow .15s ease}',
 '#msgs.p6sel .bub.p6on{box-shadow:0 0 0 2px var(--acc),0 0 0 7px var(--p8accSh,rgba(63,169,216,.16))}',
 '.p6prev{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;color:var(--dim);max-height:26vh;overflow:auto;white-space:pre-wrap;margin-bottom:10px}',
+'.p6model{display:grid;gap:6px;margin:-2px 0 10px;padding:9px 11px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}',
+'.p6model .mrow{display:flex;align-items:flex-start;gap:8px;min-width:0;font-size:12px;line-height:1.45}',
+'.p6model .mk{flex:0 0 auto;color:var(--dim)}',
+'.p6model .mv{min-width:0;color:var(--txt);font-weight:600;word-break:break-all}',
 '.p6grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
 '.p6grid button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 4px;font-size:12.5px;line-height:1.2;background:var(--bg2);border:1px solid var(--line);color:var(--txt);box-shadow:none;border-radius:14px}',
 '.p6grid button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}',
@@ -18657,6 +18703,20 @@ var I={
 function mb(fn,ic,txt,warn){
   return '<button class="'+(warn?'warn':'')+'" onclick="P6.'+fn+'()">'+ic+'<span>'+esc(txt)+'</span></button>';
 }
+function msgModelInfoHTML(m){
+  var rows=[];
+  if(m&&m.role==='assistant'){
+    rows.push({k:'回答模型',v:String(m.model||'').trim()||'旧消息未记录（新回复才会记录）'});
+    if(String(m.visionModel||'').trim())rows.push({k:'看图模型',v:String(m.visionModel).trim()});
+  }
+  if(m&&m.role==='user'&&msgImgs(m).length){
+    rows.push({k:'看图模型',v:String(m.imgModel||'').trim()||'旧消息未记录（新图片才会记录）'});
+  }
+  if(!rows.length)return '';
+  return '<div class="p6model">'+rows.map(function(r){
+    return '<div class="mrow"><span class="mk">'+esc(r.k)+'</span><span class="mv">'+esc(r.v)+'</span></div>';
+  }).join('')+'</div>';
+}
 function msgTextOf(i){
   var m=msgs[i];if(!m)return '';
   return msgBrief(m);
@@ -18672,6 +18732,7 @@ function openMsgSheet(i){
   var vn=isAI?verCount(m):1;
   showSheet('<div class="ttl">这条消息'+(vn>1?('　第 '+(verIndex(m)+1)+' / '+vn+' 版'):'')+'</div>'+
     '<div class="p6prev">'+esc(msgTextOf(i).slice(0,600))+'</div>'+
+    msgModelInfoHTML(m)+
     '<div class="p6grid">'+
       mb('copy',I.copy,'复制')+
       mb('quote',I.quote,'引用')+
@@ -19026,7 +19087,7 @@ renderRoles=function(){
     var sl=dqa('.p6sortbar .col',box)[0];
     if(sl)sl.textContent='排序模式：按住方块上下拖动，就能改顺序';
     var hint=dqa('.p6rolehint',box)[0];
-    if(hint)hint.innerHTML='小提示：点卡片进聊天，右上角 ✎ 改设定（记忆也在里面）；<b>长按卡片</b>进入排序模式，然后直接拖动方块来排顺序。';
+  if(hint)hint.innerHTML='小提示：点卡片进聊天，右上角 ✎ 改设定（记忆也在里面）；<b>长按卡片</b>进入排序模式，然后直接拖动方块来排顺序。';
     window.attachRoleDrag();
   }catch(e){}
 };
@@ -22374,7 +22435,7 @@ var SPY_WORDS=[
 ];
 
 /* ---------- 界面状态 ---------- */
-var V={view:'hall',cids:[],mem:{},wordMode:'rand',w1:'',w2:'',msg:'',sess:null,
+var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:'',msg:'',sess:null,
   ts:{hostCid:null,memMode:'base',src:'ai',topic:'随机',busy:false,msg:'',draft:'',surface:'',truth:'',qa:[],solved:false,revealed:false,hints:0,recId:null},
   mur:{cids:[],mem:{},topic:'随机',phase:'setup',title:'',brief:'',truth:'',culprit:'',roles:{},players:[],
     log:[],clues:0,maxClues:3,target:'',mode:'ask',draft:'',busy:false,msg:'',solved:false,accuseName:'',recId:null,
@@ -22769,7 +22830,64 @@ var CSS=[
 '.recchip-h svg{width:16px;height:16px;flex:0 0 auto;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}',
 '.recchip-h span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
 '.recchip-h i{flex:0 0 auto;font-style:normal;font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--accdim);color:var(--acc)}',
-'.recchip-t{margin-top:6px;font-size:11.5px;line-height:1.7;color:var(--dim);white-space:pre-wrap;word-break:break-word}'
+'.recchip-t{margin-top:6px;font-size:11.5px;line-height:1.7;color:var(--dim);white-space:pre-wrap;word-break:break-word}',
+/* 海底陪伴 */
+'.sheet.gx-oceanfull{padding:0!important;overflow:hidden!important;background:#0d4664}',
+'.oc-wrap{position:relative;width:100%;height:100vh;height:100dvh;min-height:560px;overflow:hidden;background:#0d4664;color:#f7fbff;touch-action:none;overscroll-behavior:none}',
+'.oc-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}',
+'.oc-top{position:absolute;z-index:5;left:16px;right:16px;top:calc(env(safe-area-inset-top) + 14px);display:flex;align-items:center;gap:10px;pointer-events:none}',
+'.oc-round,.oc-rolebtn{pointer-events:auto;border:1px solid rgba(255,255,255,.22);background:rgba(18,47,63,.48);color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}',
+'.oc-round{flex:0 0 42px;width:42px;height:42px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center}',
+'.oc-round svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}',
+'.oc-head{flex:1;min-width:0;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.35);pointer-events:none}',
+'.oc-head b{display:block;font-family:Georgia,"Songti SC",serif;font-size:20px;letter-spacing:1.4px}',
+'.oc-head span{display:block;margin-top:3px;font-size:10.5px;color:rgba(255,255,255,.68);letter-spacing:1px}',
+'.oc-rolebtn{flex:0 0 auto;min-width:42px;max-width:116px;height:42px;border-radius:999px;padding:0 13px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+'.oc-rolebtn .oc-rav{font-size:17px;line-height:1}',
+'.oc-stats{position:absolute;z-index:4;left:16px;top:calc(env(safe-area-inset-top) + 68px);display:flex;gap:7px;flex-wrap:wrap;pointer-events:none}',
+'.oc-chip{padding:6px 10px;border-radius:999px;background:rgba(14,45,62,.45);border:1px solid rgba(255,255,255,.17);font-size:10.5px;color:rgba(255,255,255,.82);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}',
+'.oc-chip b{color:#fff;font-weight:700;margin-left:4px}',
+'.oc-speech{position:absolute;z-index:6;max-width:72%;padding:11px 15px;border-radius:18px;background:rgba(242,247,247,.92);color:#17364a;border:1px solid rgba(255,255,255,.65);font-size:13.5px;line-height:1.65;text-align:center;box-shadow:0 10px 28px rgba(0,17,31,.22);opacity:0;transform:translate(-50%,8px) scale(.96);transition:opacity .2s ease,transform .2s ease;pointer-events:none;word-break:break-word}',
+'.oc-speech.on{opacity:1;transform:translate(-50%,0) scale(1)}',
+'.oc-speech:after{content:"";position:absolute;left:50%;bottom:-8px;width:15px;height:15px;background:inherit;border-right:inherit;border-bottom:inherit;transform:translateX(-50%) rotate(45deg)}',
+'.oc-bottom{position:absolute;z-index:5;left:18px;right:18px;bottom:calc(env(safe-area-inset-bottom) + 18px);display:flex;align-items:center;justify-content:space-between;pointer-events:none}',
+'.oc-albumbtn,.oc-menubtn{pointer-events:auto;border:1px solid rgba(255,255,255,.55);background:rgba(250,247,239,.94);color:#26323b;box-shadow:0 12px 30px rgba(0,16,28,.22)}',
+'.oc-albumbtn{position:absolute;left:50%;transform:translateX(-50%);height:45px;padding:0 20px;border-radius:999px;font-size:13px;white-space:nowrap}',
+'.oc-menubtn{width:56px;height:56px;border-radius:20px;padding:0;display:flex;align-items:center;justify-content:center;margin-left:auto}',
+'.oc-menubtn svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}',
+'.oc-menu{position:absolute;z-index:8;left:14px;right:14px;bottom:calc(env(safe-area-inset-bottom) + 14px);border-radius:26px;padding:20px 22px 16px;background:rgba(250,247,239,.97);color:#263039;box-shadow:0 20px 54px rgba(0,18,32,.34);border:1px solid rgba(255,255,255,.9);transform:translateY(calc(100% + 30px));transition:transform .24s ease;visibility:hidden}',
+'.oc-menu.on{transform:translateY(0);visibility:visible}',
+'.oc-menu-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px}',
+'.oc-mb{border:0;background:transparent;color:#263039;box-shadow:none;padding:8px 4px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;border-radius:14px}',
+'.oc-mb:active{background:rgba(20,55,75,.08)}',
+'.oc-mb .ic{font-size:18px;line-height:1}',
+'.oc-menu-close{position:absolute;right:16px;top:12px;width:30px;height:30px;padding:0;border-radius:50%;border:0;background:rgba(20,50,70,.07);color:#53616a;box-shadow:none;font-size:20px;line-height:1}',
+'.oc-menu-foot{display:flex;gap:8px;margin-top:13px;padding-top:12px;border-top:1px solid rgba(25,55,75,.12)}',
+'.oc-menu-foot button{flex:1;font-size:12px;padding:10px 8px;border-radius:13px}',
+'.oc-flash{position:absolute;inset:0;z-index:9;background:#fff;opacity:0;pointer-events:none}',
+'.oc-flash.on{animation:ocflash .45s ease}',
+'@keyframes ocflash{0%{opacity:0}18%{opacity:.92}100%{opacity:0}}',
+'.oc-album{padding:calc(env(safe-area-inset-top) + 14px) 15px calc(env(safe-area-inset-bottom) + 20px);background:linear-gradient(180deg,#eef4f4,#dce8ea);min-height:100dvh;color:var(--txt)}',
+'.oc-album-h{display:flex;align-items:center;gap:10px;margin-bottom:16px}',
+'.oc-album-h b{font-size:20px;font-family:Georgia,"Songti SC",serif;letter-spacing:1px}',
+'.oc-album-h span{font-size:11px;color:var(--dim);margin-left:auto}',
+'.oc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
+'.oc-photo{position:relative;border-radius:16px;overflow:hidden;background:#0c4563;border:1px solid rgba(30,70,90,.16);box-shadow:0 6px 18px rgba(20,50,70,.12)}',
+'.oc-photo img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover}',
+'.oc-photo .meta{position:absolute;left:0;right:0;bottom:0;padding:18px 9px 8px;background:linear-gradient(transparent,rgba(0,20,35,.78));color:#fff;font-size:10.5px;display:flex;align-items:center;gap:6px}',
+'.oc-photo .odel{margin-left:auto;width:27px;height:27px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;box-shadow:none;font-size:15px}',
+'.oc-empty{padding:44px 20px;text-align:center;color:var(--dim);font-size:13px;line-height:1.8}',
+'.oc-rolelist{display:grid;gap:9px}',
+'.oc-roleitem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 12px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--txt);box-shadow:none}',
+'.oc-roleitem.on{border-color:var(--acc);background:var(--accdim)}',
+'.oc-roleitem img{width:38px;height:38px;border-radius:50%;object-fit:cover}',
+'.oc-roleitem .em{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg2);font-size:21px}',
+'.oc-roleitem b{display:block;font-size:14px}',
+'.oc-roleitem small{display:block;margin-top:3px;color:var(--dim);font-size:11px;line-height:1.4}',
+'.oc-roleitem .tick{margin-left:auto;color:var(--acc);font-size:18px}',
+'.oc-bindwrap{padding:calc(env(safe-area-inset-top) + 14px) 15px 24px;min-height:100dvh;background:var(--bg)}',
+'.oc-bindhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}',
+'.oc-bindhead b{font-size:19px}'
 /* 狼人杀 */
 ,'.ww-sys{margin:9px 0;text-align:center;font-size:12.5px;line-height:1.75;color:var(--dim)}',
 '.gx-pl.wwout{opacity:.42}',
@@ -28943,6 +29061,7 @@ function tokLine(){
 /* 【新】历史记录每行右上角那个小图标：删＝一个小叉（整行都能点开，所以不再需要箭头） */
 var REC_IC_X='<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 var GX_ICONS={
+  ocean:'<svg viewBox="0 0 24 24"><path d="M3.4 13.2c1.7-3.8 4.6-5.8 8.5-5.8 3.1 0 5.7 1.2 8.7 3.8-.6 3.6-3.3 5.7-7.3 5.7-3.7 0-6.8-1.2-9.9-3.7Z"/><path d="M5.2 12c-1.2-1.8-2.4-2.4-3.5-2.1.2 1.4.9 2.4 2.2 3.1"/><path d="M15.2 12.3c2.2-.9 3.9-.8 5.4.2 1.2.8 1.5 1.7 1.1 2.8-1.4-.4-2.7-.2-3.8.5"/><circle cx="9.3" cy="11.1" r=".8" fill="currentColor" stroke="none"/></svg>',
   spy:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8.4" r="3.3"/><path d="M3.4 19.6c0-3.1 2.5-5 5.6-5s5.6 1.9 5.6 5"/><path d="M16.4 6.3a3.1 3.1 0 0 1 0 6.1"/><path d="M17.6 15c2.1.5 3.6 2.1 3.6 4.6"/></svg>',
   soup:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M9.8 10a2.3 2.3 0 1 1 3.2 2.1c-.6.2-.9.7-.9 1.4v.2"/><circle cx="12" cy="16.7" r=".95" fill="currentColor" stroke="none"/></svg>',
   mur:'<svg viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.1"/><path d="M15.2 15.2 20.4 20.4"/></svg>',
@@ -28958,7 +29077,7 @@ function gxIcon(k){
   if(ic&&ic.indexOf('<svg')!==0)ic='<svg viewBox="0 0 24 24">'+ic;   /* 保险：漏了开头标签也补上 */
   return '<span class="gx-ic" style="background:'+c[0]+';color:'+c[1]+'">'+ic+'</span>';
 }
-var GX_COLORS={spy:['#e4ebff','#3f6ad8'],soup:['#e2f5e8','#2f8f5b'],mur:['#efe6ff','#6b4fd0'],dice:['#ffefd8','#c07a1a'],mq:['#ffe6f1','#d1518f'],draw:['#dff2f7','#17879c'],wolf:['#ffe3df','#c0392b'],shop:['#fdf0d4','#a8862a'],soon:['#eceef2','#7d8794']};
+var GX_COLORS={ocean:['#dceeff','#2768b0'],spy:['#e4ebff','#3f6ad8'],soup:['#e2f5e8','#2f8f5b'],mur:['#efe6ff','#6b4fd0'],dice:['#ffefd8','#c07a1a'],mq:['#ffe6f1','#d1518f'],draw:['#dff2f7','#17879c'],wolf:['#ffe3df','#c0392b'],shop:['#fdf0d4','#a8862a'],soon:['#eceef2','#7d8794']};
 function hallHTML(){
   var h='';
   h+='<div class="gx-cover gx-hero">'+
@@ -28967,7 +29086,7 @@ function hallHTML(){
      '<div class="gx-title">和你的角色玩一局</div>'+
      '<div class="gx-sub">AI 当主持人，也当对手和队友</div>'+
      '<div class="gx-desc">挑一个游戏，拉几个角色进来，点「开始」就能玩。剩下交给 AI——它会自己思考、自己发言，你只管参与。</div>'+
-     '<div class="gx-stats"><div><b>8</b><span>款小游戏</span></div><div><b>7</b><span>款多人玩</span></div><div><b>1</b><span>款单人玩</span></div></div>'+
+     '<div class="gx-stats"><div><b>9</b><span>款小游戏</span></div><div><b>7</b><span>款多人玩</span></div><div><b>2</b><span>款单人玩</span></div></div>'+
      '</div>';
   /* 有一局狼人杀没打完：放在最上面，点一下就能接着玩 */
   var pendWW=null;
@@ -28981,6 +29100,11 @@ function hallHTML(){
   }
   h+='<div class="gx-index"><b>游戏目录</b><i>Games</i></div>';
   h+='<div class="gx-list">';
+  h+='<button class="gx-item" onclick="GAME.oceanOpen()">'+
+     gxIcon('ocean')+
+     '<span class="gx-body"><span class="gx-name">海底陪伴<i>Ocean Companion</i></span>'+
+     '<span class="gx-note">养一只会像角色说话的小鲸鱼，能投喂、拍照和转视角</span></span>'+
+     '<span class="gx-tag on solo">单人陪伴</span><span class="gx-chev">›</span></button>';
   h+='<button class="gx-item" onclick="GAME.spySetup()">'+
      gxIcon('spy')+
      '<span class="gx-body"><span class="gx-name">谁是卧底<i>Undercover</i></span>'+
@@ -30976,6 +31100,7 @@ function histHTML(){
 }
 function render(scroll){
   var el=gel('gx');if(!el)return;
+  if(V.view!=='ocean'&&typeof oceanExit==='function'&&OCEAN)oceanExit();
   /* 先记住「她是不是正贴着底部」：只有贴着底部时才跟着滚到底。
      不然后台有新消息（比如投票时）就会把她正在往回翻的地方一把顶掉。 */
   var _wasBottom=false,_viewChanged=(_lastView!==V.view);
@@ -31002,17 +31127,22 @@ function render(scroll){
     :(V.view==='wwSetup')?wwSetupHTML()
     :(V.view==='ww')?wwHTML()
     :(V.view==='shop')?shopHTML()
+    :(V.view==='oceanBind')?oceanBindHTML()
+    :(V.view==='oceanAlbum')?oceanAlbumHTML()
+    :(V.view==='ocean')?oceanHTML()
     :playHTML();
   if(V.view==='dg')try{dgAfterRender()}catch(e){}
   try{var shw=gel('sheet');if(shw)shw.style.paddingBottom=(V.view==='ww')?'0px':''}catch(e){}   /* 狼人杀：底部操作条贴到屏幕最下边 */
   /* 准备页（wwSetup）也要走这个收尾钩子：设置浮层的滚动位置要在重画后还原 */
   if(V.view==='ww'||V.view==='wwSetup')try{wwAfterRender()}catch(e){}
+  if(V.view==='ocean'||V.view==='oceanAlbum')try{oceanAfterRender()}catch(e){console.warn('海底场景打开失败',e)}
   if(scroll&&(_wasBottom||_viewChanged)){try{var sc=gel('sheet');if(sc)sc.scrollTop=sc.scrollHeight}catch(e){}}
 }
 var _lastView=null;
 
 /* ---------- 打开 / 对外接口 ---------- */
 function openGame(){
+  try{oceanExit()}catch(e){}
   showSheet('<div id="gx"></div>');
   sheetFull(true);
   try{$('#modal').classList.add('nox')}catch(e){}   /* 游戏里不要右上角那个 ✕ */
@@ -31251,7 +31381,555 @@ function shareRecSheet(){
   try{sheetOnly(h)}catch(e){try{showSheet(h)}catch(e2){}}
 }
 
+/* ================================================================
+   海底陪伴：小鲸鱼
+   · 原生 Canvas 程序建模，低多边形但镜头是真的绕物体旋转
+   · 状态单独保存，照片放 IndexedDB 的 oceanphotos
+   ================================================================ */
+var OCEAN_KEY='wh_oceanpet';
+var OCEAN_PHOTO_STORE='oceanphotos';
+var OP=null,OCEAN=null,OCEAN_ALBUM=[],OCEAN_ALBUM_LOADED=false;
+function oceanDefault(){
+  return {fullness:72,mood:78,bond:12,roleId:'',lastFed:0,lastChat:0,
+    camera:{yaw:-.28,pitch:.08,zoom:1}};
+}
+function oceanLoad(){
+  var d=oceanDefault(),s=null;
+  try{s=load(OCEAN_KEY,null)}catch(e){}
+  if(s&&typeof s==='object')d=Object.assign(d,s);
+  if(!d.camera||typeof d.camera!=='object')d.camera=oceanDefault().camera;
+  d.fullness=Math.max(0,Math.min(100,Number(d.fullness)||0));
+  d.mood=Math.max(0,Math.min(100,Number(d.mood)||0));
+  d.bond=Math.max(0,Math.min(100,Number(d.bond)||0));
+  d.roleId=String(d.roleId||'');
+  OP=d;
+  return OP;
+}
+function oceanSave(){
+  if(!OP)return;
+  try{save(OCEAN_KEY,OP);if(typeof scheduleBackup==='function')scheduleBackup()}catch(e){}
+}
+function oceanRole(){
+  try{if(!OP)oceanLoad();for(var i=0;i<chars.length;i++){if(chars[i]&&chars[i].id===OP.roleId)return chars[i]}}catch(e){}
+  return null;
+}
+function oceanRoleName(){var r=oceanRole();return r?(r.name||'角色'):'还没有绑定角色'}
+function oceanAvaHTML(c){
+  if(!c)return '<span class="em">🐋</span>';
+  if(c.avatar)return '<img src="'+esc(c.avatar)+'" alt="">';
+  return '<span class="em">'+esc(c.emoji||'🐋')+'</span>';
+}
+function oceanClamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function oceanStatText(){
+  return {f:Math.round(OP.fullness),m:Math.round(OP.mood),b:Math.round(OP.bond)};
+}
+function oceanHTML(){
+  oceanLoad();
+  var r=oceanRole(),st=oceanStatText();
+  return '<div class="oc-wrap" id="ocWrap">'+
+    '<canvas class="oc-canvas" id="ocCanvas" aria-label="海底小鲸鱼"></canvas>'+
+    '<div class="oc-top">'+
+      '<button class="oc-round" type="button" aria-label="返回游戏大厅" onclick="GAME.hall()">'+BACK_ICON+'</button>'+
+      '<div class="oc-head"><b>海底陪伴</b><span>'+(r?'和 '+(r.name||'角色')+' 的海洋化身在一起':'一只会听你说话的小鲸鱼')+'</span></div>'+
+      '<button class="oc-rolebtn" type="button" onclick="GAME.oceanBindView()"><span class="oc-rav">'+esc(r?(r.emoji||'🐋'):'🐋')+'</span><span>'+esc(r?(r.name||'已绑定'):'绑定角色')+'</span></button>'+
+    '</div>'+
+    '<div class="oc-stats">'+
+      '<span class="oc-chip">饱食<b id="ocFull">'+st.f+'</b></span>'+
+      '<span class="oc-chip">心情<b id="ocMood">'+st.m+'</b></span>'+
+      '<span class="oc-chip">亲密<b id="ocBond">'+st.b+'</b></span>'+
+    '</div>'+
+    '<div class="oc-speech" id="ocBubble"></div>'+
+    '<div class="oc-bottom">'+
+      '<button class="oc-albumbtn" type="button" onclick="GAME.oceanAlbum()">📷 照片集</button>'+
+      '<button class="oc-menubtn" type="button" aria-label="打开菜单" onclick="GAME.oceanMenu(true)">'+
+        '<svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg>'+
+      '</button>'+
+    '</div>'+
+    '<div class="oc-menu" id="ocMenu">'+
+      '<button class="oc-menu-close" type="button" aria-label="关闭菜单" onclick="GAME.oceanMenu(false)">×</button>'+
+      '<div class="oc-menu-g">'+
+        '<button class="oc-mb" type="button" onclick="GAME.oceanFeed()"><span class="ic">🍥</span><span>投喂</span></button>'+
+        '<button class="oc-mb" type="button" onclick="GAME.oceanPhoto()"><span class="ic">📷</span><span>拍照</span></button>'+
+        '<button class="oc-mb" type="button" onclick="GAME.oceanBindView()"><span class="ic">🔗</span><span>角色同步</span></button>'+
+        '<button class="oc-mb" type="button" onclick="GAME.oceanAlbum()"><span class="ic">🖼</span><span>照片集</span></button>'+
+        '<button class="oc-mb" type="button" onclick="GAME.oceanReset()"><span class="ic">♻️</span><span>重置状态</span></button>'+
+        '<button class="oc-mb" type="button" onclick="GAME.hall()"><span class="ic">↩️</span><span>返回大厅</span></button>'+
+      '</div>'+
+      '<div class="oc-menu-foot">'+
+        '<button class="ghost" type="button" onclick="GAME.oceanLookHome()">🎥 镜头回正</button>'+
+        '<button class="ghost" type="button" onclick="GAME.oceanTalk(\'arrive\')">💬 和它说句话</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="oc-flash" id="ocFlash"></div>'+
+    '<div style="position:absolute;z-index:4;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 75px);text-align:center;font-size:10.5px;color:rgba(255,255,255,.54);pointer-events:none">拖动转视角 · 双指缩放 · 轻点小鲸鱼说话</div>'+
+  '</div>';
+}
+function oceanAlbumHTML(){
+  var rows=OCEAN_ALBUM.map(function(p){
+    var when='';
+    try{when=new Date(p.t).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){}
+    return '<div class="oc-photo"><img src="'+esc(p.data)+'" alt="海底照片" onclick="GAME.oceanPhotoView(\''+esc(p.id)+'\')">'+
+      '<div class="meta"><span>'+esc(p.roleName||'小鲸鱼')+'</span><span>'+esc(when)+'</span>'+
+      '<button class="odel" type="button" aria-label="删除照片" onclick="event.stopPropagation();GAME.oceanPhotoDel(\''+esc(p.id)+'\')">×</button></div></div>';
+  }).join('');
+  return '<div class="oc-album"><div class="oc-album-h">'+
+    '<button class="oc-round" type="button" style="color:var(--txt);background:var(--panel);border-color:var(--line)" onclick="GAME.oceanAlbumBack()">'+BACK_ICON+'</button>'+
+    '<b>海底照片集</b><span>'+OCEAN_ALBUM.length+' 张</span></div>'+
+    '<div id="ocAlbumBody">'+(OCEAN_ALBUM.length?'<div class="oc-grid">'+rows+'</div>':'<div class="oc-empty">还没有照片。<br>回到海底，点菜单里的「拍照」就能留下这一刻。</div>')+'</div></div>';
+}
+function oceanBindHTML(){
+  oceanLoad();
+  var list='<button class="oc-roleitem '+(OP.roleId?'':'on')+'" type="button" onclick="GAME.oceanBind(\'\')">'+
+    '<span class="em">🐋</span><span><b>不绑定角色</b><small>使用默认的小鲸鱼性格说话</small></span><span class="tick">'+(OP.roleId?'':'✓')+'</span></button>';
+  (chars||[]).forEach(function(c){
+    var on=OP.roleId===c.id;
+    list+='<button class="oc-roleitem '+(on?'on':'')+'" type="button" onclick="GAME.oceanBind(\''+esc(c.id)+'\')">'+
+      oceanAvaHTML(c)+'<span><b>'+esc(c.name||'未命名')+'</b><small>'+esc((c.style||c.persona||'会保留它的人设和说话习惯').slice(0,72))+'</small></span><span class="tick">'+(on?'✓':'')+'</span></button>';
+  });
+  return '<div class="oc-bindwrap"><div class="oc-bindhead">'+
+    '<button class="oc-round" type="button" style="color:var(--txt);background:var(--panel);border-color:var(--line)" onclick="GAME.oceanBindBack()">'+BACK_ICON+'</button>'+
+    '<b>小鲸鱼和谁同频？</b></div>'+
+    '<p class="gx-hint" style="margin:0 2px 12px">绑定后，小鲸鱼会保留这个角色的性格、说话方式和你之间的关系。它仍然是一只生活在海底的小鲸鱼，不会加载整段聊天记录；只会带一小段长期记忆作参考。</p>'+
+    '<div class="oc-rolelist">'+list+'</div></div>';
+}
+
+/* ---------- 低多边形鲸鱼 ---------- */
+function ocBuildWhale(){
+  var verts=[],faces=[],LAT=18,LON=28;
+  function push(p){verts.push(p);return verts.length-1}
+  function tri(a,b,c,color){faces.push({a:a,b:b,c:c,color:color})}
+  function fan(points,color){
+    var ids=points.map(push);
+    for(var i=1;i+1<ids.length;i++)tri(ids[0],ids[i],ids[i+1],color);
+  }
+  for(var i=0;i<=LAT;i++){
+    var u=Math.PI*i/LAT,rs=Math.pow(Math.max(0,Math.sin(u)),.46);
+    for(var j=0;j<=LON;j++){
+      var v=Math.PI*2*j/LON;
+      push({x:.98*Math.cos(u),y:.72*rs*Math.sin(v)*(Math.sin(v)<0?.96:1),z:.88*rs*Math.cos(v)});
+    }
+  }
+  function ix(i,j){return i*(LON+1)+j}
+  for(var i2=0;i2<LAT;i2++)for(var j2=0;j2<LON;j2++){
+    var a=ix(i2,j2),b=ix(i2+1,j2),c=ix(i2+1,j2+1),d=ix(i2,j2+1);
+    var cy=(verts[a].y+verts[b].y+verts[c].y+verts[d].y)/4;
+    var col=cy<-.14?'#d9dfe2':'#386af1';
+    tri(a,b,c,col);tri(a,c,d,col);
+  }
+  /* 尾柄和两片尾鳍 */
+  fan([{x:-.88,y:.14,z:0},{x:-1.30,y:.07,z:0},{x:-1.30,y:-.07,z:0},{x:-.88,y:-.15,z:0}],'#315fe0');
+  fan([{x:-1.18,y:.04,z:0},{x:-1.58,y:.34,z:0},{x:-1.35,y:-.02,z:0}],'#315fe0');
+  fan([{x:-1.18,y:.00,z:0},{x:-1.54,y:-.27,z:0},{x:-1.33,y:-.06,z:0}],'#315fe0');
+  /* 背鳍 */
+  fan([{x:.02,y:.68,z:0},{x:-.14,y:.86,z:0},{x:-.25,y:.61,z:0}],'#2d59dc');
+  /* 两侧胸鳍 */
+  fan([{x:.34,y:-.08,z:.76},{x:-.05,y:-.38,z:.98},{x:-.18,y:-.06,z:.82}],'#315fe0');
+  fan([{x:.34,y:-.08,z:-.76},{x:-.05,y:-.38,z:-.98},{x:-.18,y:-.06,z:-.82}],'#315fe0');
+  return {verts:verts,faces:faces,
+    eyes:[{x:.72,y:.16,z:.75},{x:.72,y:.16,z:-.75}],
+    mouth:[[.92,-.05,.32],[.77,-.13,.52],[.60,-.15,.64]]};
+}
+var OC_WHALE=ocBuildWhale();
+var OC_LIGHT={x:-.35,y:.75,z:.55};
+function ocWorld(p,t){
+  var x=p.x,y=p.y,z=p.z;
+  y+=Math.sin(t*1.18)*.045;
+  if(x<-.58){
+    var k=(-.58-x)/1.5;
+    z+=Math.sin(t*2.05)*k*k*.28;
+    y+=Math.sin(t*2.05+.7)*k*.035;
+  }
+  var roll=Math.sin(t*.62)*.025;
+  var yy=y*Math.cos(roll)-z*Math.sin(roll),zz=y*Math.sin(roll)+z*Math.cos(roll);
+  var yaw=Math.sin(t*.31)*.055;
+  return {x:x*Math.cos(yaw)-zz*Math.sin(yaw),y:yy,z:x*Math.sin(yaw)+zz*Math.cos(yaw)};
+}
+function ocProject(p,cam,w,h){
+  var cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw),cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+  var x=p.x*cy-p.z*sy,z=p.x*sy+p.z*cy;
+  var y=p.y*cp-z*sp;z=p.y*sp+z*cp;
+  var dist=5.8/cam.zoom,dep=z+dist,f=Math.min(w,h)*1.23,sc=f/Math.max(.1,dep);
+  return {x:w/2+x*sc,y:h*.56-y*sc,z:dep,s:sc};
+}
+function ocShade(hex,n){
+  var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  var nl=Math.sqrt(n.x*n.x+n.y*n.y+n.z*n.z)||1;
+  var d=(n.x*OC_LIGHT.x+n.y*OC_LIGHT.y+n.z*OC_LIGHT.z)/nl;
+  var k=.70+Math.max(-.16,Math.min(.30,d*.30));
+  return 'rgb('+Math.max(0,Math.min(255,r*k|0))+','+Math.max(0,Math.min(255,g*k|0))+','+Math.max(0,Math.min(255,b*k|0))+')';
+}
+function ocDrawWhale(ctx,w,h,t,cam){
+  var world=OC_WHALE.verts.map(function(p){return ocWorld(p,t)});
+  var proj=world.map(function(p){return ocProject(p,cam,w,h)});
+  var list=OC_WHALE.faces.map(function(f){
+    var a=world[f.a],b=world[f.b],c=world[f.c];
+    var ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
+    var n={x:uy*vz-uz*vy,y:uz*vx-ux*vz,z:ux*vy-uy*vx};
+    return {f:f,n:n,d:(proj[f.a].z+proj[f.b].z+proj[f.c].z)/3};
+  }).sort(function(a,b){return b.d-a.d});
+  list.forEach(function(q){
+    var a=proj[q.f.a],b=proj[q.f.b],c=proj[q.f.c];
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();
+    ctx.fillStyle=ocShade(q.f.color,q.n);ctx.fill();
+    ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=.45;ctx.stroke();
+  });
+  var nearLimit=5.8/cam.zoom-.16;
+  OC_WHALE.eyes.forEach(function(e){
+    var wp=ocProject(ocWorld(e,t),cam,w,h);
+    if(wp.z>nearLimit)return;
+    var rx=Math.max(4.5,wp.s*.050),ry=Math.max(2.2,wp.s*.022);
+    ctx.save();ctx.translate(wp.x,wp.y);ctx.rotate(-.22);
+    ctx.fillStyle='#f2f5f4';ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
+  });
+  var m=OC_WHALE.mouth.map(function(p){return ocProject(ocWorld({x:p[0],y:p[1],z:p[2]},t),cam,w,h)});
+  if(m[1].z<nearLimit){
+    ctx.strokeStyle='rgba(20,42,78,.55)';ctx.lineWidth=1.25;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(m[0].x,m[0].y);ctx.quadraticCurveTo(m[1].x,m[1].y,m[2].x,m[2].y);ctx.stroke();
+  }
+  var center=ocProject(ocWorld({x:.1,y:0,z:0},t),cam,w,h);
+  return {x:center.x,y:center.y,r:Math.max(80,center.s*.92)};
+}
+function ocSeed(n){var x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x)}
+function ocDrawBackground(ctx,w,h,t,cam,fish){
+  var sky=ctx.createLinearGradient(0,0,0,h);
+  sky.addColorStop(0,'#247296');sky.addColorStop(.45,'#165c7d');sky.addColorStop(1,'#07344f');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+  var glow=ctx.createRadialGradient(w*.52,h*.05,10,w*.52,h*.12,w*.72);
+  glow.addColorStop(0,'rgba(207,241,241,.36)');glow.addColorStop(.38,'rgba(97,184,199,.10)');glow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+  for(var i=0;i<7;i++){
+    var bx=w*(.15+i*.13)+cam.yaw*40,top=w*(.025+ocSeed(i+30)*.035);
+    ctx.fillStyle='rgba(188,238,239,'+(.025+ocSeed(i+35)*.025)+')';
+    ctx.beginPath();ctx.moveTo(bx,0);ctx.lineTo(bx+top,0);ctx.lineTo(bx+w*.10,h*.66);ctx.lineTo(bx-w*.06,h*.66);ctx.closePath();ctx.fill();
+  }
+  /* 礁石、珊瑚和海草 */
+  ctx.fillStyle='rgba(24,76,94,.62)';
+  [[-.15,.18,.38],[-.74,.25,.30],[.35,.22,.28],[.75,.17,.36]].forEach(function(v,i){
+    var x=w*(.5+v[0])-cam.yaw*52,y=h*.70,s=w*v[2]*.48;
+    ctx.beginPath();ctx.moveTo(x-s*.55,y);ctx.lineTo(x-s*.25,y-s*(.24+ocSeed(i)*.22));ctx.lineTo(x+s*.05,y-s*.42);ctx.lineTo(x+s*.52,y);ctx.closePath();ctx.fill();
+  });
+  for(var k=0;k<9;k++){
+    var kx=w*(.08+k*.115)-cam.yaw*35,base=h*.70;
+    ctx.strokeStyle='rgba(30,105,111,'+(.18+ocSeed(k+90)*.22)+')';ctx.lineWidth=2+ocSeed(k+91)*3;
+    ctx.beginPath();ctx.moveTo(kx,base);ctx.bezierCurveTo(kx-10,base-h*.08,kx+15,base-h*.16,kx+Math.sin(t*.6+k)*8,base-h*(.23+ocSeed(k+94)*.10));ctx.stroke();
+  }
+  /* 水面下方光纹 */
+  for(var r=0;r<14;r++){
+    var yy=h*(.60+ocSeed(r+50)*.16),xx=w*((ocSeed(r+60)+t*.012)%1);
+    ctx.strokeStyle='rgba(176,235,235,'+(.025+ocSeed(r+70)*.03)+')';ctx.lineWidth=1.1;
+    ctx.beginPath();ctx.ellipse(xx,yy,w*(.06+ocSeed(r+80)*.09),3+ocSeed(r+82)*5,cam.yaw*.2,0,Math.PI*2);ctx.stroke();
+  }
+  /* 气泡 */
+  for(var b=0;b<24;b++){
+    var bd=.25+ocSeed(b+100)*.8;
+    var lift=((t*(7+bd*8)+ocSeed(b+110)*h)%h);
+    var bx2=w*ocSeed(b+120)+Math.sin(t*.7+b)*7+cam.yaw*18;
+    var by=h-lift;
+    var br=.8+bd*2.7;
+    ctx.strokeStyle='rgba(214,246,247,'+(.13+bd*.22)+')';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.arc(bx2,by,br,0,Math.PI*2);ctx.stroke();
+  }
+  /* 前景海床 */
+  ctx.fillStyle='rgba(5,39,58,.70)';
+  ctx.beginPath();ctx.moveTo(0,h);ctx.lineTo(0,h*.84);
+  for(var q=0;q<=8;q++)ctx.lineTo(w*q/8,h*(.83+ocSeed(q+150)*.04));
+  ctx.lineTo(w,h);ctx.closePath();ctx.fill();
+  if(OCEAN&&OCEAN.feedAt){
+    var age=(performance.now()-OCEAN.feedAt)/1000;
+    if(age<2.2){
+      var target=OCEAN.whaleScreen||{x:w/2,y:h*.55};
+      for(var f=0;f<8;f++){
+        var p=Math.max(0,Math.min(1,age/1.5-f*.06));
+        var fx=target.x+(ocSeed(f+200)-.5)*90*(1-p);
+        var fy=h*.18+(target.y-h*.18)*p+Math.sin(t*3+f)*5;
+        ctx.fillStyle='rgba(255,232,176,'+(.82*(1-age/2.2))+')';
+        ctx.beginPath();ctx.arc(fx,fy,3.2+ocSeed(f)*2.2,0,Math.PI*2);ctx.fill();
+      }
+    }
+  }
+  var vign=ctx.createLinearGradient(0,h*.62,0,h);
+  vign.addColorStop(0,'rgba(0,22,38,0)');vign.addColorStop(1,'rgba(0,23,39,.34)');
+  ctx.fillStyle=vign;ctx.fillRect(0,h*.62,w,h*.38);
+}
+/* ---------- 海底场景运行、触摸和气泡 ---------- */
+function oceanPaintStats(){
+  var st=oceanStatText(),a=document.getElementById('ocFull'),b=document.getElementById('ocMood'),c=document.getElementById('ocBond');
+  if(a)a.textContent=st.f;if(b)b.textContent=st.m;if(c)c.textContent=st.b;
+}
+function oceanHideBubble(){
+  var b=document.getElementById('ocBubble');if(b)b.classList.remove('on');
+  if(OCEAN&&OCEAN.bubbleTimer){clearTimeout(OCEAN.bubbleTimer);OCEAN.bubbleTimer=null}
+}
+function oceanShowBubble(text,ms){
+  var b=document.getElementById('ocBubble');if(!b)return;
+  b.textContent=String(text||'').slice(0,160);b.classList.add('on');
+  if(OCEAN&&OCEAN.bubbleTimer)clearTimeout(OCEAN.bubbleTimer);
+  if(OCEAN)OCEAN.bubbleTimer=setTimeout(function(){try{b.classList.remove('on')}catch(e){}},ms||7000);
+  oceanPlaceBubble();
+}
+function oceanPlaceBubble(){
+  if(!OCEAN||!OCEAN.whaleScreen)return;
+  var b=document.getElementById('ocBubble'),cv=document.getElementById('ocCanvas');
+  if(!b||!cv||!b.classList.contains('on'))return;
+  var w=cv.clientWidth,h=cv.clientHeight,p=OCEAN.whaleScreen;
+  b.style.left=oceanClamp(p.x,w*.22,w*.78)+'px';
+  b.style.top=oceanClamp(p.y-Math.max(74,p.r*.72),84,h*.72)+'px';
+}
+function oceanFrame(now){
+  if(!OCEAN)return;
+  var cv=document.getElementById('ocCanvas');
+  var modal=document.getElementById('modal');
+  if(!cv||!cv.isConnected||!modal||!modal.classList.contains('on')){oceanExit();return}
+  var wrap=document.getElementById('ocWrap'),rect=wrap?wrap.getBoundingClientRect():cv.getBoundingClientRect();
+  var w=Math.max(260,rect.width||cv.clientWidth||360),h=Math.max(420,rect.height||cv.clientHeight||640);
+  var dpr=Math.min(1.8,window.devicePixelRatio||1),pw=Math.round(w*dpr),ph=Math.round(h*dpr);
+  if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph}
+  var ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  var t=now/1000;
+  ocDrawBackground(ctx,w,h,t,OCEAN.cam);
+  OCEAN.whaleScreen=ocDrawWhale(ctx,w,h,t,OCEAN.cam);
+  oceanPlaceBubble();
+  OCEAN.raf=requestAnimationFrame(oceanFrame);
+}
+function oceanExit(){
+  if(OCEAN){
+    try{if(OCEAN.raf)cancelAnimationFrame(OCEAN.raf)}catch(e){}
+    try{if(OCEAN.bubbleTimer)clearTimeout(OCEAN.bubbleTimer)}catch(e){}
+    try{if(OP&&OCEAN.cam){OP.camera={yaw:OCEAN.cam.yaw,pitch:OCEAN.cam.pitch,zoom:OCEAN.cam.zoom};oceanSave()}}catch(e){}
+  }
+  OCEAN=null;
+  try{var sh=document.getElementById('sheet');if(sh)sh.classList.remove('gx-oceanfull')}catch(e){}
+}
+function oceanBindCanvas(cv){
+  if(!cv||!OCEAN)return;
+  var pts=OCEAN.pts;
+  function pair(){var a=[];pts.forEach(function(v){a.push(v)});return a}
+  function beginOne(p){OCEAN.drag={x:p.x,y:p.y,yaw:OCEAN.cam.yaw,pitch:OCEAN.cam.pitch,moved:false,at:Date.now()}}
+  function down(e){
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    try{cv.setPointerCapture(e.pointerId)}catch(_){}
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){
+      beginOne(pts.get(e.pointerId));
+      var menu=document.getElementById('ocMenu');
+      if(menu&&menu.classList.contains('on')){GAME.oceanMenu(false);OCEAN.drag.moved=true}
+    }
+    if(pts.size===2){
+      var a=pair(),d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+      OCEAN.pinch={d:Math.max(1,d),zoom:OCEAN.cam.zoom};OCEAN.drag=null;
+    }
+    e.preventDefault();
+  }
+  function move(e){
+    if(!pts.has(e.pointerId))return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===2&&OCEAN.pinch){
+      var a=pair(),d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
+      OCEAN.cam.zoom=oceanClamp(OCEAN.pinch.zoom*(d/OCEAN.pinch.d),.72,1.85);OCEAN.pinched=true;
+    }else if(pts.size===1&&OCEAN.drag){
+      var p=pts.get(e.pointerId),dx=p.x-OCEAN.drag.x,dy=p.y-OCEAN.drag.y;
+      if(Math.abs(dx)>5||Math.abs(dy)>5)OCEAN.drag.moved=true;
+      if(OCEAN.drag.moved){
+        OCEAN.cam.yaw=oceanClamp(OCEAN.drag.yaw+dx*.0052,-1.08,1.08);
+        OCEAN.cam.pitch=oceanClamp(OCEAN.drag.pitch-dy*.0032,-.38,.46);
+      }
+    }
+    e.preventDefault();
+  }
+  function up(e){
+    var p=pts.get(e.pointerId),wasTap=false;
+    if(pts.size===1&&OCEAN.drag&&p)wasTap=!OCEAN.drag.moved&&!OCEAN.pinched&&(Date.now()-OCEAN.drag.at<700);
+    pts.delete(e.pointerId);
+    if(pts.size===0){
+      OCEAN.drag=null;OCEAN.pinch=null;
+      if(wasTap&&OCEAN.whaleScreen&&p){
+        var d2=Math.hypot(p.x-OCEAN.whaleScreen.x,p.y-OCEAN.whaleScreen.y);
+        if(d2<Math.max(105,OCEAN.whaleScreen.r*.78))oceanTalk('tap');
+      }
+      OCEAN.pinched=false;
+    }else if(pts.size===1){
+      beginOne(pts.values().next().value);OCEAN.pinch=null;
+    }
+  }
+  cv.addEventListener('pointerdown',down,{passive:false});
+  cv.addEventListener('pointermove',move,{passive:false});
+  cv.addEventListener('pointerup',up,{passive:false});
+  cv.addEventListener('pointercancel',function(e){pts.delete(e.pointerId);if(!pts.size){OCEAN.drag=null;OCEAN.pinch=null}},{passive:true});
+  cv.addEventListener('wheel',function(e){
+    e.preventDefault();OCEAN.cam.zoom=oceanClamp(OCEAN.cam.zoom*(e.deltaY>0?.92:1.08),.72,1.85);
+  },{passive:false});
+}
+function oceanAfterRender(){
+  if(V.view==='oceanAlbum'){
+    if(!OCEAN_ALBUM_LOADED)oceanAlbumLoad();
+    return;
+  }
+  if(V.view!=='ocean')return;
+  oceanLoad();
+  var cv=document.getElementById('ocCanvas');if(!cv)return;
+  oceanExit();
+  var cam=OP.camera||oceanDefault().camera;
+  OCEAN={cam:{yaw:Number(cam.yaw)||0,pitch:Number(cam.pitch)||0,zoom:oceanClamp(Number(cam.zoom)||1,.72,1.85)},
+    pts:new Map(),drag:null,pinch:null,pinched:false,whaleScreen:null,feedAt:0,bubbleTimer:null,raf:0};
+  var sh=document.getElementById('sheet');if(sh)sh.classList.add('gx-oceanfull');
+  oceanBindCanvas(cv);
+  oceanPaintStats();
+  OCEAN.raf=requestAnimationFrame(oceanFrame);
+}
+/* ---------- 小鲸鱼说话、投喂和照片集 ---------- */
+function oceanActionText(action,food){
+  if(action==='feed')return '她刚刚喂了你'+(food?('「'+food+'」'):'一点好吃的')+'，你游过去吃掉了。';
+  if(action==='photo')return '她刚刚在海底给你拍了一张照片。';
+  if(action==='arrive')return '她回到海底来看你了。';
+  return '她刚刚轻轻点了一下你。';
+}
+function oceanMemory(role){
+  if(!role)return '';
+  try{
+    var M=Object.assign(EMPTY_MEM(),load(LS.mem(role.id),null)||{});
+    return String(memBlock(M,false)||'').slice(-1200);
+  }catch(e){return ''}
+}
+function oceanPrompt(role,action){
+  var st=oceanStatText(),mem=oceanMemory(role);
+  var who=role?('「'+(role.name||'角色')+'」在海里的鲸鱼化身'):'一只生活在深海里的蓝色小鲸鱼';
+  return '你就是'+who+'。你不是在描述别的角色，也不是旁白；保留这个人物的性格、说话习惯、和用户的关系。\n'+
+    '现在你生活在一小片安静的海底，身体是小鲸鱼。不要提 AI、模型、提示词、系统或游戏机制；除非用户问，不要解释自己是“化身”。\n'+
+    '用户刚刚做的动作：'+oceanActionText(action)+'\n'+
+    '你的状态：饱食度 '+st.f+' / 100，心情 '+st.m+' / 100，亲密度 '+st.b+' / 100。状态可以自然影响语气，但不要机械报数字。\n'+
+    (role&&role.persona?('【角色人设】\n'+String(role.persona).slice(0,2400)+'\n'):'')+
+    (role&&role.scenario?('【角色原来的情境】\n'+String(role.scenario).slice(0,900)+'\n'):'')+
+    (role&&role.style?('【说话风格】\n'+String(role.style).slice(0,700)+'\n'):'')+
+    (mem?('【一小段长期记忆，只用来保持熟悉感】\n'+mem+'\n'):'')+
+    '只说 1 到 2 句中文短句，像真的在海里和她说话。总长尽量不超过 45 个字，不用括号写动作，不要列清单，不要解释规则。';
+}
+function oceanFallback(action){
+  if(action==='feed')return ['这枚我收下啦。','刚刚好，再来一枚也不嫌多。','吃完就继续陪你看海。'];
+  if(action==='photo')return ['要拍就拍得好看一点。','咔嚓。别把我的呆样发出去。','刚才那一下，记得留住。'];
+  if(action==='arrive')return ['你来啦，我刚刚还在等你。','今天的海很安静，陪我待一会儿吧。','一听见你的动静我就游过来了。'];
+  return ['你刚刚碰到我了。','我在这里，没有走。','再点一下，我就当你是在想我。'];
+}
+async function oceanTalk(action){
+  if(!OCEAN||V.ocean.busy)return;
+  var role=oceanRole(),food=OCEAN.lastFood||'';
+  V.ocean.busy=true;oceanShowBubble('……',30000);
+  var ac=null,timer=null;
+  try{
+    if(!cfg||!cfg.key)throw new Error('no-key');
+    ac=new AbortController();timer=setTimeout(function(){try{ac.abort()}catch(e){}},18000);
+    var msgs=[{role:'system',content:oceanPrompt(role,action)},{role:'user',content:'（'+oceanActionText(action,food)+'）'}];
+    var model=role?modelOf(role):cfg.model;
+    var raw=await callAPI(msgs,{stream:false,model:model,temp:.82,maxtok:90,signal:ac.signal});
+    var txt=String(raw==null?'':raw).replace(/\r/g,'').replace(/^["“'‘]+|["”'’]+$/g,'').replace(/\s*\n+\s*/g,' ').trim();
+    if(!txt)throw new Error('empty');
+    txt=txt.slice(0,100);
+    OP.lastLine=txt;OP.lastChat=Date.now();OP.mood=oceanClamp(OP.mood+1,0,100);OP.bond=oceanClamp(OP.bond+1,0,100);oceanSave();oceanPaintStats();
+    oceanShowBubble(txt,Math.max(6500,Math.min(12000,txt.length*260)));
+  }catch(e){
+    var lines=oceanFallback(action),line=lines[Math.floor(Math.random()*lines.length)];
+    oceanShowBubble(line,6500);
+  }finally{
+    V.ocean.busy=false;if(timer)clearTimeout(timer);
+  }
+}
+function oceanFeed(){
+  if(!OCEAN)return;
+  var foods=['会发光的小鱼食','一枚海盐 token','软软的浮游点心'];
+  var food=foods[Math.floor(Math.random()*foods.length)];
+  OCEAN.lastFood=food;OCEAN.feedAt=performance.now();
+  OP.fullness=oceanClamp(OP.fullness+12,0,100);
+  OP.mood=oceanClamp(OP.mood+4,0,100);OP.bond=oceanClamp(OP.bond+2,0,100);
+  OP.lastFed=Date.now();oceanSave();oceanPaintStats();
+  try{GAME.oceanMenu(false)}catch(e){}
+  oceanShowBubble('咕嘟……',1800);
+  setTimeout(function(){oceanTalk('feed')},520);
+}
+function oceanTakePhoto(){
+  if(!OCEAN)return;
+  try{GAME.oceanMenu(false)}catch(e){}
+  var cv=document.getElementById('ocCanvas'),flash=document.getElementById('ocFlash');
+  if(!cv)return;
+  if(flash){flash.classList.add('on');setTimeout(function(){flash.classList.remove('on')},520)}
+  oceanShowBubble('看这边——',1400);
+  setTimeout(async function(){
+    try{
+      var data=cv.toDataURL('image/jpeg',.9);
+      var id='op'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      var photo={id:id,data:data,t:Date.now(),roleId:OP.roleId||'',roleName:oceanRoleName()};
+      await idbPut('photo:'+id,photo,OCEAN_PHOTO_STORE);
+      toast('照片已放进海底照片集');oceanTalk('photo');
+    }catch(e){toast('拍照失败：'+((e&&e.message)||e))}
+  },260);
+}
+async function oceanAlbumLoad(){
+  try{
+    var keys=await idbKeys(OCEAN_PHOTO_STORE),out=[];
+    for(var i=0;i<keys.length;i++){
+      try{var p=await idbGet(keys[i],OCEAN_PHOTO_STORE);if(p&&p.data)out.push(p)}catch(e){}
+    }
+    out.sort(function(a,b){return (b.t||0)-(a.t||0)});OCEAN_ALBUM=out;
+  }catch(e){OCEAN_ALBUM=[]}
+  OCEAN_ALBUM_LOADED=true;
+  if(V.view==='oceanAlbum')render(false);
+}
+function oceanPhotoView(id){
+  var p=null;OCEAN_ALBUM.forEach(function(x){if(x&&x.id===id)p=x});
+  if(p&&typeof viewImg==='function')viewImg(p.data);
+}
+async function oceanPhotoDelete(id){
+  if(!confirm('删除这张海底照片？'))return;
+  try{await idbDel('photo:'+id,OCEAN_PHOTO_STORE)}catch(e){}
+  OCEAN_ALBUM=OCEAN_ALBUM.filter(function(p){return p&&p.id!==id});
+  if(V.view==='oceanAlbum')render(false);
+}
 window.GAME={
+  oceanOpen:function(){
+    oceanLoad();V.view='ocean';render(false);
+  },
+  oceanMenu:function(on){
+    var m=document.getElementById('ocMenu');if(!m)return;
+    m.classList.toggle('on',!!on);
+  },
+  oceanLookHome:function(){
+    if(!OCEAN)return;
+    OCEAN.cam.yaw=-.28;OCEAN.cam.pitch=.08;OCEAN.cam.zoom=1;
+    try{GAME.oceanMenu(false)}catch(e){}
+  },
+  oceanTalk:function(kind){
+    try{GAME.oceanMenu(false)}catch(e){}
+    oceanTalk(kind||'tap');
+  },
+  oceanFeed:function(){oceanFeed()},
+  oceanPhoto:function(){oceanTakePhoto()},
+  oceanAlbum:function(){
+    try{GAME.oceanMenu(false)}catch(e){}
+    oceanExit();OCEAN_ALBUM=[];OCEAN_ALBUM_LOADED=false;V.view='oceanAlbum';render(false);
+  },
+  oceanAlbumBack:function(){
+    V.view='ocean';render(false);
+  },
+  oceanPhotoView:function(id){oceanPhotoView(id)},
+  oceanPhotoDel:function(id){oceanPhotoDelete(id)},
+  oceanBindView:function(){
+    oceanExit();oceanLoad();V.view='oceanBind';render(false);
+  },
+  oceanBindBack:function(){
+    V.view='ocean';render(false);
+  },
+  oceanBind:function(id){
+    oceanLoad();OP.roleId=String(id||'');
+    OP.mood=oceanClamp(OP.mood+2,0,100);oceanSave();
+    V.view='ocean';render(false);
+    setTimeout(function(){oceanShowBubble(OP.roleId?('我会像 '+oceanRoleName()+' 那样和你说话。'):'那我就做一只自己的小鲸鱼。',6000)},260);
+  },
+  oceanReset:function(){
+    if(!confirm('把小鲸鱼的饱食度、心情和亲密度重置？角色绑定和照片不会删除。'))return;
+    var keep=OP&&OP.roleId||'';
+    var cam=OP&&OP.camera||oceanDefault().camera;
+    OP=oceanDefault();OP.roleId=keep;OP.camera=cam;oceanSave();
+    try{GAME.oceanMenu(false)}catch(e){}
+    oceanPaintStats();oceanShowBubble('重新认识了，你好呀。',4500);
+  },
   /* 【新增】给「我的状态」用：现在游戏弹层里是什么情况，返回一整句（不在游戏里就返回空）。
      牌桌（正在玩）和开局设置（正在准备）分开说，游戏大厅 / 战绩 / 小铺也各有一句。 */
   nowPlaying:function(){
@@ -31266,6 +31944,9 @@ window.GAME={
       if(v==='tad')return '正在玩真心话大冒险';
       if(v==='mq')return '正在玩默契大考验';
       if(v==='dg')return '正在玩你画我猜';
+      if(v==='ocean')return '正在海底陪小鲸鱼';
+      if(v==='oceanAlbum')return '正在看海底照片';
+      if(v==='oceanBind')return '正在给小鲸鱼绑定角色';
       /* 正在开局设置（拉人、选参数） */
       if(v==='setup')return '正在准备玩谁是卧底';
       if(v==='wwSetup')return '正在准备玩狼人杀';
@@ -31285,6 +31966,7 @@ window.GAME={
     /* 在狼人杀里点「返回」：先把这一局真正结束掉，不然它会挂在后台，下一局「开始」就点不动了 */
     try{if(V.view==='ww'&&V.ww&&V.ww.running)return wwStop()}catch(e){}
     try{if(V.view==='ww')wwBgmStop()}catch(e){}       /* 离开牌桌就把音乐关掉 */
+    oceanExit();
     V.view='hall';V.sess=null;try{GTOK.game=''}catch(e){}render(false)
   },
   spySetup:function(){
