@@ -21871,7 +21871,7 @@ function syncGameRecords(done){
     var ids=(it.cids||[]).filter(Boolean);
     return Promise.all(ids.map(function(rawId){
       var c=chOf(rawId);var main=ownerOf(c);if(!main)return null;
-      var summary=roamUserName()+'邀我玩了「'+it.title+'」；这局我亲身在场。';
+      var summary=roamUserName()+'邀我玩了【'+it.title+'】';
       var detail='【这是我自己亲身经历的一局；如果下面的复盘里写“你”，指的就是我。】\n'+
         '时间：'+when(it.t)+'\n'+
         '活动：'+it.title+'\n'+
@@ -22327,9 +22327,14 @@ function allFeedHTML(){
   }
   return picker+rows.slice(0,160).map(function(x){
     var e=x.e,st=e.status==='pending'?'待查看':(e.status==='read'?'看过详情':'不感兴趣');
-    return '<div class="roam-card"><h3>'+esc(e.summary||e.title||'一件小事')+
+    var summary=String(e.summary||e.title||'一件小事');
+    if(e.source==='game'){
+      summary=summary.replace(/邀我玩了「([\s\S]*?)」；这局我亲身在场。$/,'邀我玩了【$1】');
+      summary=summary.replace(/^（(.+?)）(?=邀我玩了)/,'$1');
+    }
+    return '<div class="roam-card"><h3>'+esc((x.c.name||'角色')+'：“'+summary+'”')+
       '<span class="roam-badge '+(e.status==='pending'?'pending':'')+'">'+esc(st)+'</span></h3>'+
-      '<div class="roam-meta">'+esc(when(e.t))+' · '+esc(x.c.name||'角色')+' · '+esc(sourceName(e.source))+
+      '<div class="roam-meta">'+esc(when(e.t))+' · '+esc(sourceName(e.source))+
       (e.branchId?(' · '+esc((chOf(e.branchId)||{}).branchLabel||'分身')):'')+'</div>'+
       '<div class="roam-row"><button class="ghost" onclick="ROAM.detail(\''+x.c.id+'\',\''+e.id+'\')">查看详情</button></div></div>';
   }).join('');
@@ -22361,12 +22366,12 @@ function charCardsHTML(){
 }
 function shellHTML(){
   return '<div class="roam-head"><button onclick="ROAM.close()" aria-label="返回">‹</button>'+
-    '<div class="rt"><b>洄游</b><span>我在别处经历的事，回到这里</span></div>'+
+    '<div class="rt"><b>洄游</b><span>汇集分散的记录，供角色查看。</span></div>'+
     '<button onclick="ROAM.render()" aria-label="刷新">↻</button></div>'+
     '<div class="roam-body"><div class="roam-tabs">'+
       '<button class="'+(R.tab==='feed'?'on':'')+'" onclick="ROAM.tabGo(\'feed\')">经历记录</button>'+
       '<button class="'+(R.tab==='chars'?'on':'')+'" onclick="ROAM.tabGo(\'chars\')">角色与分身</button>'+
-    '</div><p class="roam-lead">默认关闭。开启后，我只会以自己为“我”记住这些经历；主聊天先收到摘要，想看哪条详情由我自己决定，也可以选择不回复。</p>'+
+    '</div>'+
     '<div class="roam-body-inner">'+(R.tab==='feed'?allFeedHTML():charCardsHTML())+'</div></div>';
 }
 async function loadForUI(){
@@ -24116,17 +24121,28 @@ var CSS=[
 '.gx-pl.wwout{opacity:.42}',
 '.gx-pl .gx-tag{margin-left:2px}'
 /* 狼人杀：顶部细条 + 左右座位列 + 中间发言 + 底部操作区 */
-,'.ww-top{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:4px 0 10px;border-bottom:1px solid var(--line)}',
+,'.ww-top{display:flex;align-items:center;gap:9px;margin:0 0 6px;padding:2px 0 6px;border-bottom:1px solid var(--line)}',
 '.ww-mood{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:700;padding:2.5px 10px;border-radius:999px;vertical-align:middle;white-space:nowrap}',
 '.ww-mood.night{background:linear-gradient(135deg,rgba(96,130,220,.24),rgba(150,110,220,.18));color:var(--acc);border:1px solid rgba(96,130,220,.42)}',
 '.ww-mood.day{background:linear-gradient(135deg,var(--wwaccdim,rgba(245,200,100,.32)),var(--wwaccsoft,rgba(245,150,110,.20)));color:var(--wwacc2,#a86f12);border:1px solid var(--wwaccline,rgba(224,168,60,.5))}',
 '.ww-back{flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:var(--panel);border:1px solid var(--line);padding:0;display:flex;align-items:center;justify-content:center;box-shadow:none}',
 '.ww-back svg{width:15px;height:15px;display:block;stroke:var(--txt);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}',
-'.ww-top-t{flex:1;min-width:0;font-size:15px;font-weight:800;color:var(--txt);letter-spacing:.3px}',
-'.ww-top-t i{display:block;margin-top:3px;font-style:normal;font-size:11px;font-weight:400;color:var(--dim);letter-spacing:0}',
+'.ww-top-t{flex:1;min-width:0;font-size:14.5px;font-weight:800;color:var(--txt);letter-spacing:.3px}',
+'.ww-top-t i{display:block;margin-top:2px;font-style:normal;font-size:10.5px;font-weight:400;color:var(--dim);letter-spacing:0}',
+'.ww-top-t .ww-top-role{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:2px}',
 '.ww-stop{flex:0 0 auto;width:32px;height:32px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg2);border:1px solid var(--line);color:var(--dim);box-shadow:none}',
 '.ww-stop svg{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}',
 '.ww-stop:active{transform:scale(.94)}',
+'.ww-helpbtn{color:var(--dim)}',
+'.ww-helpmask{background:rgba(3,5,8,.38);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:auto}',
+'.ww-helpbox{max-width:370px;padding:16px;background:linear-gradient(160deg,rgba(20,27,36,.97),rgba(8,12,18,.96));border-color:rgba(218,235,248,.24)}',
+'.ww-help-board{padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(218,235,248,.16)}',
+'.ww-help-board b{display:block;font-size:16px;color:#f5f8fb}',
+'.ww-help-board span{display:block;margin-top:4px;font-size:11.5px;line-height:1.55;color:#cdd9e1}',
+'.ww-help-label{margin:14px 2px 7px;font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--wwacc2,#edd49a)}',
+'.ww-help-list>div{position:relative;margin:0 0 7px;padding:8px 10px 8px 24px;border-radius:11px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);font-size:12.5px;line-height:1.58;color:#e8eef4}',
+'.ww-help-list>div:before{content:"·";position:absolute;left:10px;top:8px;color:var(--wwacc2,#edd49a);font-weight:800}',
+'.ww-help-actions{display:flex;gap:8px;margin-top:14px}.ww-help-actions button{flex:1;padding:9px;font-size:12.5px}',
 '.ww-stage{display:flex;gap:7px;align-items:flex-start;margin:12px 0 4px}',
 '.ww-rail{flex:0 0 52px;display:flex;flex-direction:column;gap:11px;position:sticky;top:calc(var(--wwhead,124px) - env(safe-area-inset-top) + 12px);padding-top:12px}',
 '.ww-center{flex:1;min-width:0;-webkit-user-select:none;user-select:none}',   /* 发言区禁止选字：长按只用来「重说」，不弹复制 */
@@ -24218,9 +24234,9 @@ var CSS=[
 '.ww-wrap>*:not(.ww-foot):not(.ww-head){position:relative;z-index:1}',   /* 别覆盖底部操作区/顶部信息条的 sticky 定位 */
 /* 顶部信息条：一直吸在屏幕最上面，并且盖住上边的留白（消息不会从它上面露出去）；
    顶部再留出灵动岛/摄像头的安全区，字不会被挡 */
-'.ww-head{position:sticky;top:calc(-1 * (env(safe-area-inset-top) + 16px));z-index:4;margin-top:calc(-1 * (env(safe-area-inset-top) + 16px));background:var(--panel);padding:calc(env(safe-area-inset-top) + 8px) 0 8px;margin-bottom:8px;box-shadow:0 4px 12px rgba(0,0,0,.05)}',
+'.ww-head{position:sticky;top:calc(-1 * (env(safe-area-inset-top) + 16px));z-index:4;margin-top:calc(-1 * (env(safe-area-inset-top) + 16px));background:var(--panel);padding:calc(env(safe-area-inset-top) + 5px) 0 6px;margin-bottom:6px;box-shadow:0 4px 12px rgba(0,0,0,.05)}',
 /* 身份浓缩成一小条：身份 · 状态 ·（该知道的线索） */
-'.ww-me{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;margin:6px 0 0;padding:6px 11px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);font-size:12.5px;line-height:1.5}',
+'.ww-me{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;overflow:hidden;margin:4px 0 0;padding:3px 10px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:12px;line-height:1.35;min-height:30px}',
 '.ww-me-r{font-weight:700;color:var(--acc);white-space:nowrap;flex:0 0 auto}',
 '.ww-me-s{font-size:11.5px;color:var(--dim);white-space:nowrap;flex:0 0 auto}',
 '.ww-me-s:before{content:"·";margin-right:7px;opacity:.7}',
@@ -24258,7 +24274,7 @@ var CSS=[
 '.ww-say-h{display:flex;align-items:center;gap:6px;margin:0 3px 4px}',
 '.ww-say-h b{font-size:12px;font-weight:600;color:var(--txt)}',
 '.ww-say-h i{font-style:normal;font-size:10px;padding:1px 7px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--dim)}',
-'.ww-say-t{padding:9px 13px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:14px;line-height:1.7;color:var(--txt);word-break:break-word}',
+'.ww-say-t{padding:9px 13px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);font-size:13.2px;line-height:1.62;color:var(--txt);word-break:break-word}',
 '.ww-say.me .ww-say-t{background:var(--bubme);border-color:transparent}',
 '.ww-say.me .ww-say-h{flex-direction:row-reverse}',
 /* 能重新发言的气泡（角色的发言）：长按弹「重新说」，顺带把系统的长按菜单/选字挡掉 */
@@ -24708,13 +24724,13 @@ var CSS=[
 '.ww-setup .ww-cfgbox .ww-btn{margin-top:14px}',
 '.ww-setup .ww-cfgbox .ww-btn .btxt{font-size:15px;letter-spacing:.18em}',
 /* 【新】发言折叠：收起来只留「编号 + 标题」，点一下展开 */
-'.ww-say-mini{display:flex;align-items:center;gap:7px;width:100%;margin:0 0 6px;padding:6px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);color:#e9e4e1;font:inherit;font-size:12px;text-align:left;box-shadow:none;cursor:pointer}',
+'.ww-say-mini{display:flex;align-items:flex-start;gap:7px;width:100%;margin:0 0 6px;padding:6px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);color:#e9e4e1;font:inherit;font-size:12px;text-align:left;box-shadow:none;cursor:pointer}',
 '.ww-say-mini:active{background:rgba(255,255,255,.08)}',
 '.ww-mini-dot{flex:0 0 auto;width:5px;height:5px;border-radius:50%}',
 '.ww-say-mini b{flex:0 0 auto;font-size:11.5px;font-weight:600;color:#e9dfd9}',
 '.ww-say-mini i{flex:0 0 auto;font-style:normal;font-size:9.5px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.09);color:#cfc6c2}',
-'.ww-mini-t{flex:1;min-width:0;font-size:11.5px;color:#b9afab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-'.ww-mini-x{flex:0 0 auto;font-size:14px;line-height:1;color:#8f8582}',
+'.ww-mini-t{flex:1;min-width:0;font-size:11.5px;line-height:1.42;color:#b9afab;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}',
+'.ww-mini-x{flex:0 0 auto;font-size:14px;line-height:1.4;color:#8f8582;margin-top:1px}',
 '.ww-say-mini.me{background:rgba(190,40,26,.10);border-color:rgba(230,90,70,.18)}',
 '.ww-say-mini.me b{color:#ffd9d3}',
 '.ww-say-title{display:inline-block;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:600;padding:1px 7px;border-radius:999px;background:rgba(200,40,26,.16);border:1px solid rgba(230,90,70,.28);color:#f0c9c2;vertical-align:middle}',
@@ -24725,9 +24741,9 @@ var CSS=[
 '.ww-logbtns{display:flex;gap:6px;margin-bottom:6px}',
 '.ww-logbtns button{padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#cfc6c2;font-size:10px;box-shadow:none}',
 /* 【新】白天：更透亮的场景 + 暖色烟熏玻璃气泡 */
-'.ww-scenebg.day{filter:saturate(1.1) brightness(1.12)}',
-'.ww-scenebg.day:after{background:linear-gradient(180deg,rgba(255,240,215,.12) 0,rgba(12,16,24,.10) 26%,rgba(8,12,18,.30) 62%,rgba(6,8,14,.56) 100%)}',
-'.ww-atm.day{background:radial-gradient(120% 70% at 50% -10%,rgba(255,214,150,.20),rgba(255,214,150,0) 62%),linear-gradient(180deg,rgba(255,210,150,.09),rgba(255,210,150,0) 260px)}',
+'.ww-scenebg.day{filter:saturate(1.04) brightness(1.03) contrast(1.02)}',
+'.ww-scenebg.day:after{background:linear-gradient(180deg,rgba(255,244,225,.04) 0,rgba(6,13,20,.08) 24%,rgba(5,11,17,.18) 70%,rgba(4,8,14,.34) 100%)}',
+'.ww-atm.day{background:linear-gradient(180deg,rgba(8,15,22,.08),rgba(8,15,22,0) 30%)}',
 '.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,0) 42%),linear-gradient(150deg,rgba(92,74,58,.46),rgba(38,31,26,.38));border-color:rgba(255,226,190,.26);box-shadow:0 8px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.22);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1);color:#fdf6ea}',
 '.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,0) 42%),linear-gradient(150deg,rgba(120,52,40,.55),rgba(58,24,18,.42));border-color:rgba(255,190,160,.3)}',
 '.ww-wrap.day .ww-say-h b{color:#f0dfc4}',
@@ -24737,7 +24753,7 @@ var CSS=[
 '.ww-wrap.day .ww-seat-st{color:#c2b3a5}',
 '.ww-wrap.day .ww-me{background:linear-gradient(150deg,rgba(70,58,46,.42),rgba(28,24,20,.3));border-color:rgba(255,226,190,.28)}',
 '.ww-wrap.day .ww-head:before{background:linear-gradient(180deg,rgba(16,13,11,.55),rgba(16,13,11,.22) 55%,rgba(16,13,11,0));-webkit-backdrop-filter:blur(16px) brightness(1.08) saturate(1.15);backdrop-filter:blur(16px) brightness(1.08) saturate(1.15)}',
-'.ww-wrap.day .ww-foot{background:linear-gradient(180deg,rgba(18,14,12,.55),rgba(8,6,5,.84))}',
+'.ww-wrap.day .ww-foot{background:linear-gradient(180deg,rgba(7,12,18,.30),rgba(5,9,14,.72));-webkit-backdrop-filter:blur(16px) saturate(1.12);backdrop-filter:blur(16px) saturate(1.12)}',
 '.ww-wrap.day .ww-say-mini{background:rgba(70,58,46,.28);border-color:rgba(255,226,190,.16)}',
 '.ww-wrap.day .ww-say-mini b{color:#f0e4d4}',
 '.ww-wrap.day .ww-mini-t{color:#cbbbad}',
@@ -24753,25 +24769,25 @@ var CSS=[
 '.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.6),rgba(255,255,255,.18) 45%),linear-gradient(150deg,rgba(255,250,242,.66),rgba(242,228,212,.56));border-color:rgba(255,255,255,.6);color:#241c16;box-shadow:0 8px 22px rgba(80,50,24,.18),inset 0 1px 0 rgba(255,255,255,.85);-webkit-backdrop-filter:blur(10px) saturate(1.15);backdrop-filter:blur(10px) saturate(1.15)}',
 '.ww-wrap.night .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.10),transparent 45%),linear-gradient(150deg,rgba(90,32,26,.42),rgba(36,14,12,.34));border-color:rgba(255,180,160,.28);color:#fff2ec}',
 '.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.12) 45%),linear-gradient(150deg,rgba(255,238,230,.7),rgba(238,208,198,.6));border-color:rgba(255,255,255,.55);color:#3a1a14}',
-'.ww-wrap.day .ww-say-h b{color:#3b2a20}',
+'.ww-wrap.day .ww-say-h b{color:#f4f8fb;text-shadow:0 1px 3px rgba(0,0,0,.58)}',
 '.ww-wrap.day .ww-say-title{background:rgba(190,60,40,.12);border-color:rgba(180,60,40,.25);color:#8f2b1f}',
 '.ww-wrap.day .ww-say-h .ww-fold{background:rgba(60,40,30,.08);border-color:rgba(90,60,40,.2);color:#5a4436}',
-'.ww-wrap.day .ww-say-h i{background:rgba(60,40,30,.08);border-color:rgba(90,60,40,.2);color:#5a4436}',
+'.ww-wrap.day .ww-say-h i{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#e9f0f5}',
 /* 折叠行：夜里烟熏、白天浅磨砂 */
 '.ww-wrap.night .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.08),transparent 45%),rgba(18,20,26,.42);border-color:rgba(255,255,255,.15);color:#e9e4e1;-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
 '.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.6),rgba(255,255,255,.16) 45%),linear-gradient(150deg,rgba(255,250,242,.66),rgba(242,228,212,.56));border-color:rgba(255,255,255,.6);box-shadow:0 4px 14px rgba(80,50,24,.16),inset 0 1px 0 rgba(255,255,255,.8);-webkit-backdrop-filter:blur(8px) saturate(1.15);backdrop-filter:blur(8px) saturate(1.15)}',
-'.ww-wrap.day .ww-say-mini b{color:#3b2a20}',
-'.ww-wrap.day .ww-mini-t{color:#5b4a3e}',
-'.ww-wrap.day .ww-mini-x{color:#7a6353}',
-'.ww-wrap.day .ww-say-mini i{background:rgba(60,40,30,.08);border-color:rgba(90,60,40,.2);color:#5a4436}',
+'.ww-wrap.day .ww-say-mini b{color:#f4f8fb;text-shadow:0 1px 3px rgba(0,0,0,.58)}',
+'.ww-wrap.day .ww-mini-t{color:#dce8ef}',
+'.ww-wrap.day .ww-mini-x{color:#c3d1db}',
+'.ww-wrap.day .ww-say-mini i{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);color:#e9f0f5}',
 /* 系统消息（本局板子 / 本局规矩 / 发言顺序）也包成玻璃气泡 */
 '.ww-wrap .ww-sys{border-radius:12px;border:1px solid rgba(255,255,255,.12);padding:7px 10px;background:rgba(255,255,255,.055);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#d7dde6}',
 '.ww-wrap.day .ww-sys{background:rgba(255,250,242,.66);border-color:rgba(255,255,255,.55);color:#2a211b;box-shadow:0 4px 14px rgba(80,50,24,.14)}',
 '.ww-wrap .ww-sys.strong{background:linear-gradient(180deg,rgba(225,245,255,.82),rgba(185,222,244,.78));border-color:rgba(255,255,255,.5);color:#143246;box-shadow:0 4px 14px rgba(20,50,80,.2),inset 0 1px 0 rgba(255,255,255,.6);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
-'.ww-wrap .ww-sys.strong .ww-vln svg{stroke:#2a5b7a}',
-'.ww-wrap.day .ww-sys.me{background:rgba(255,244,238,.68);border-color:rgba(220,120,100,.4);color:#52241c}',
+'.ww-wrap .ww-sys.strong .ww-vln svg{stroke:#e8c77c}',
+'.ww-wrap.day .ww-sys.me{background:linear-gradient(135deg,rgba(255,210,200,.1),transparent 58%),rgba(35,18,20,.42);border-color:rgba(255,172,155,.28);color:#fff2ed;text-shadow:0 1px 3px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1)}',
 '.ww-wrap.night .ww-sys.me{background:linear-gradient(150deg,rgba(200,60,40,.24),rgba(60,20,16,.3));border-color:rgba(255,120,100,.35);color:#ffece6}',
-'.ww-wrap.day .ww-sys.wolf{background:rgba(255,238,236,.66);border-color:rgba(200,80,70,.35);color:#4a1f1b}',
+'.ww-wrap.day .ww-sys.wolf{background:linear-gradient(135deg,rgba(255,180,165,.08),transparent 58%),rgba(38,14,16,.44);border-color:rgba(230,104,92,.32);color:#ffece8;text-shadow:0 1px 3px rgba(0,0,0,.52);-webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1)}',
 '.ww-wrap.night .ww-sys.wolf{background:rgba(140,31,24,.24);border-color:rgba(190,60,60,.35);color:#f2e4e0}',
 /* 座位卡同步玻璃，白天用浅磨砂+深色字 */
 '.ww-wrap.night .ww-seat{background:linear-gradient(150deg,rgba(30,34,42,.52),rgba(10,12,18,.38));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(8px) saturate(1.1);backdrop-filter:blur(8px) saturate(1.1)}',
@@ -24816,13 +24832,14 @@ var CSS=[
 '.ww-loghead{background:rgba(18,14,12,.58);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:4px 8px;margin-top:6px;box-shadow:0 4px 12px rgba(0,0,0,.2);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}',
 '.ww-loghead .gx-sec{color:#fff;margin:0}',
 '.ww-logbtns{margin:0}',
-/* 白天顶部：去掉黑色蒙版，改成天空色浅顶栏；消息滚到这里被盖住 */
-'.ww-wrap.day .ww-head:before{background:linear-gradient(180deg,rgba(207,226,238,.97) 0,rgba(207,226,238,.96) 86%,rgba(207,226,238,.6) 96%,rgba(207,226,238,0) 100%);-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-mask-image:none;mask-image:none}',
-'.ww-wrap.day .ww-head:after{background:linear-gradient(180deg,rgba(207,226,238,.97),rgba(207,226,238,.95) 90%,rgba(207,226,238,.6))}',
-'.ww-wrap.day .ww-top-t{color:#1d2b34;text-shadow:0 1px 0 rgba(255,255,255,.4)}',
-'.ww-wrap.day .ww-top-t i{color:#4b6573}',
-'.ww-wrap.day .ww-back,.ww-wrap.day .ww-snd,.ww-wrap.day .ww-stop{background:rgba(255,255,255,.55);border-color:rgba(45,70,85,.22)}',
-'.ww-wrap.day .ww-back svg,.ww-wrap.day .ww-snd svg,.ww-wrap.day .ww-stop svg{stroke:#22323c}',
+/* 白天顶部：轻量烟熏玻璃，让村庄背景从顶栏后面透出来；滚动时只加深到可读程度 */
+'.ww-wrap.day .ww-head:before{background:linear-gradient(180deg,rgba(7,15,22,.5) 0,rgba(7,15,22,.28) 62%,rgba(7,15,22,0) 100%);-webkit-backdrop-filter:blur(13px) saturate(1.12);backdrop-filter:blur(13px) saturate(1.12);-webkit-mask-image:linear-gradient(180deg,#000 0,#000 64%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 0,#000 64%,rgba(0,0,0,0) 100%)}',
+'.ww-wrap.day .ww-head:after{background:linear-gradient(180deg,rgba(7,15,22,.78),rgba(7,15,22,.66) 88%,rgba(7,15,22,.36))}',
+'.ww-wrap.day .ww-top-t{color:#f7fafc;text-shadow:0 1px 4px rgba(0,0,0,.72)}',
+'.ww-wrap.day .ww-top-t i{color:rgba(233,242,248,.76)}',
+'.ww-wrap.day .ww-mood.day{background:linear-gradient(135deg,rgba(240,195,105,.2),rgba(240,170,90,.1));border-color:rgba(255,226,160,.34);color:#ffe3a0;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}',
+'.ww-wrap.day .ww-back,.ww-wrap.day .ww-snd,.ww-wrap.day .ww-stop{background:rgba(6,12,18,.42);border-color:rgba(255,255,255,.3)}',
+'.ww-wrap.day .ww-back svg,.ww-wrap.day .ww-snd svg,.ww-wrap.day .ww-stop svg{stroke:#f4f9fc}',
 '.ww-wrap.day .ww-snd.on svg{stroke:var(--wwacc)}',
 '.ww-wrap.day .ww-snd.on{background:var(--wwaccdim);border-color:var(--wwaccline);color:var(--wwacc)}',
 /* 【修】「现场」这一行垂直居中 */
@@ -24850,24 +24867,49 @@ var CSS=[
 '.ww-rsay svg{width:13px;height:13px;stroke:#fff}',
 /* 【改】正在发言的座位高亮：跟着主题色，不再橙黄 */
 '.ww-wrap.day .ww-seat.spk{background:linear-gradient(150deg,var(--wwaccdim,rgba(80,140,200,.18)),var(--wwaccsoft,rgba(80,140,200,.10)));border-color:var(--wwaccline,rgba(80,140,200,.55));box-shadow:0 0 0 .6px var(--wwaccline,rgba(80,140,200,.55)),0 6px 18px rgba(0,0,0,.16)}',
-/* 【改】白天玻璃改成冷白、更透，不再发黄 */
-'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.06) 40%),linear-gradient(150deg,rgba(250,252,255,.44),rgba(232,240,248,.32));border-color:rgba(255,255,255,.2);color:#1f2a33;box-shadow:0 8px 22px rgba(40,60,80,.12),inset 0 .6px 0 rgba(255,255,255,.35)}',
-'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,.05) 40%),linear-gradient(150deg,rgba(255,250,252,.46),rgba(236,230,238,.34));border-color:rgba(255,255,255,.2);color:#2b2026;box-shadow:0 8px 22px rgba(60,40,60,.12),inset 0 .6px 0 rgba(255,255,255,.35)}',
-'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.06) 40%),linear-gradient(150deg,rgba(250,252,255,.44),rgba(232,240,248,.32));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(40,60,80,.1),inset 0 .6px 0 rgba(255,255,255,.35)}',
-'.ww-wrap.day .ww-sys{background:rgba(250,252,255,.44);border-color:rgba(255,255,255,.18);color:#24303a;box-shadow:0 4px 14px rgba(40,60,80,.1)}',
-'.ww-wrap.day .ww-seat{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.06) 40%),linear-gradient(150deg,rgba(250,252,255,.44),rgba(232,240,248,.32));border-color:rgba(255,255,255,.2);box-shadow:0 4px 14px rgba(40,60,80,.1),inset 0 .6px 0 rgba(255,255,255,.3);-webkit-backdrop-filter:blur(4px) saturate(1.05);backdrop-filter:blur(4px) saturate(1.05)}',
-'.ww-wrap.day .ww-seat-nm{color:#26313a}',
-'.ww-wrap.day .ww-seat-st{color:#68747d}',
-'.ww-wrap.day .ww-me{background:rgba(250,252,255,.44);border-color:rgba(255,255,255,.18);box-shadow:0 4px 14px rgba(40,60,80,.1),inset 0 .6px 0 rgba(255,255,255,.3)}',
-'.ww-wrap.day .ww-me-s{color:#68747d}',
-'.ww-wrap.day .ww-me-x{color:#56636d}',
-/* 【改】座位编号缩小、描边变细 */
-'.ww-seat-no{min-width:18px;height:18px;border-radius:9px;background:linear-gradient(180deg,rgba(224,76,58,.95),rgba(140,24,18,.95));border:.5px solid rgba(255,235,220,.35);color:#fff;font-size:10.5px;line-height:16px;box-shadow:0 1px 6px rgba(0,0,0,.3),inset 0 .5px 0 rgba(255,255,255,.28)}',
+/* 【改】白天玻璃改成轻量冷色烟熏玻璃：背景透得出来，白字仍有足够对比 */
+'.ww-wrap.day .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.025) 42%,rgba(255,255,255,0) 72%),rgba(7,14,21,.38);border-color:rgba(218,235,248,.24);color:#f7fafc;text-shadow:0 1px 3px rgba(0,0,0,.54);box-shadow:0 8px 22px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.18);-webkit-backdrop-filter:blur(14px) saturate(1.14);backdrop-filter:blur(14px) saturate(1.14)}',
+'.ww-wrap.day .ww-say.me .ww-say-t{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.02) 42%,rgba(255,255,255,0) 72%),rgba(28,20,24,.4);border-color:rgba(255,224,218,.24);color:#fff8f5;box-shadow:0 8px 22px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.16)}',
+'.ww-wrap.day .ww-say-mini{background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.02) 42%,rgba(255,255,255,0) 72%),rgba(7,14,21,.36);border-color:rgba(218,235,248,.2);box-shadow:0 4px 14px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(12px) saturate(1.12);backdrop-filter:blur(12px) saturate(1.12)}',
+'.ww-wrap.day .ww-sys{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,0) 58%),rgba(8,16,24,.42);border-color:rgba(215,235,250,.22);color:#f3f7fa;text-shadow:0 1px 3px rgba(0,0,0,.52);box-shadow:0 6px 18px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(14px) saturate(1.12);backdrop-filter:blur(14px) saturate(1.12)}',
+'.ww-wrap.day .ww-seat{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.02) 42%,rgba(255,255,255,0) 72%),rgba(7,14,20,.3);border-color:rgba(218,235,248,.18);box-shadow:0 4px 12px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.15);-webkit-backdrop-filter:blur(7px) saturate(1.1);backdrop-filter:blur(7px) saturate(1.1)}',
+'.ww-wrap.day .ww-seat-nm{color:#f2f6f8;text-shadow:0 1px 3px rgba(0,0,0,.65)}',
+'.ww-wrap.day .ww-seat-st{color:rgba(235,242,247,.78);text-shadow:0 1px 3px rgba(0,0,0,.62)}',
+'.ww-wrap.day .ww-me{background:linear-gradient(135deg,rgba(255,255,255,.1),rgba(255,255,255,.02) 45%,rgba(255,255,255,0) 75%),rgba(7,14,20,.32);border-color:rgba(218,235,248,.2);box-shadow:0 4px 14px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(12px) saturate(1.12);backdrop-filter:blur(12px) saturate(1.12)}',
+'.ww-wrap.day .ww-me-r{color:var(--wwacc2,#f1dca8);text-shadow:0 1px 3px rgba(0,0,0,.55)}',
+'.ww-wrap.day .ww-me-s{color:rgba(237,244,248,.76)}',
+'.ww-wrap.day .ww-me-x{color:rgba(243,247,250,.84)}',
+/* 【改】座位编号缩小，去掉描边和内侧亮线 */
+'.ww-seat-no{min-width:18px;height:18px;border-radius:9px;background:linear-gradient(180deg,rgba(224,76,58,.95),rgba(140,24,18,.95));border:0;color:#fff;font-size:10.5px;line-height:18px;box-shadow:0 1px 6px rgba(0,0,0,.3)}',
 /* 【改】白天未发言等状态改黑 */
-'.ww-wrap.day .ww-seat-st{color:#202428}',
-/* 【改】正在发言的座位卡：主题色实底，更醒目 */
-'.ww-wrap.day .ww-seat.spk,.ww-wrap.night .ww-seat.spk{background:linear-gradient(150deg,var(--wwacc),var(--wwacc2));border-color:var(--wwacc2);box-shadow:0 0 0 .8px var(--wwacc),0 6px 18px var(--wwaccdim)}',
-'.ww-wrap.day .ww-seat.spk .ww-seat-nm,.ww-wrap.night .ww-seat.spk .ww-seat-nm,.ww-wrap.day .ww-seat.spk .ww-seat-st,.ww-wrap.night .ww-seat.spk .ww-seat-st{color:var(--wwonacc)}'
+'.ww-wrap.day .ww-seat-st{color:rgba(235,242,247,.78)}',
+/* 【改】正在发言：只加主题色光边和轻微底色，不再用整块实色压住背景 */
+'.ww-wrap.day .ww-seat.spk,.ww-wrap.night .ww-seat.spk{background:linear-gradient(150deg,var(--wwaccdim),var(--wwaccsoft));border-color:var(--wwacc2);box-shadow:0 0 0 1px var(--wwacc),0 6px 18px rgba(0,0,0,.18)}'
+,'.ww-wrap>.ww-mkmodal.ww-helpmask{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;margin:0;padding:16px 18px;background:rgba(3,5,8,.38);pointer-events:auto}',
+'.ww-wrap>.ww-mkmodal.ww-helpmask .ww-helpbox{width:100%;max-width:370px;max-height:calc(100vh - 56px - var(--kb,0px));overflow-y:auto;margin:0}'
+,'.ww-wrap .ww-say-t,.ww-wrap .ww-say-mini,.ww-wrap .ww-sys,.ww-wrap .ww-sys.strong,.ww-wrap .ww-say.me .ww-say-t{border-width:.5px;box-shadow:0 6px 18px rgba(0,0,0,.15)}',
+'.ww-wrap.day .ww-say-t,.ww-wrap.day .ww-say-mini,.ww-wrap.day .ww-sys,.ww-wrap.day .ww-sys.strong{border-width:.5px;border-color:rgba(218,235,248,.16);box-shadow:0 6px 18px rgba(0,0,0,.15)}',
+'.ww-wrap.night .ww-say-t,.ww-wrap.night .ww-say-mini,.ww-wrap.night .ww-sys,.ww-wrap.night .ww-sys.strong{border-width:.5px;border-color:rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.18)}',
+'.ww-wrap.day .ww-say.me .ww-say-t{border-width:.5px;border-color:rgba(255,224,218,.16);box-shadow:0 6px 18px rgba(0,0,0,.15)}',
+'.ww-wrap.night .ww-say.me .ww-say-t{border-width:.5px;border-color:rgba(255,180,160,.16);box-shadow:0 6px 18px rgba(0,0,0,.18)}',
+'.ww-wrap.day .ww-seat.knw .ww-seat-nm,.ww-wrap.night .ww-seat.knw .ww-seat-nm{color:#ff7166;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.7)}',
+'.ww-wrap.day .ww-seat.mk-wolf1 .ww-seat-nm,.ww-wrap.night .ww-seat.mk-wolf1 .ww-seat-nm{color:#ffaaa1;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.65)}',
+'.ww-wrap.day .ww-seat.mk-wolf2 .ww-seat-nm,.ww-wrap.night .ww-seat.mk-wolf2 .ww-seat-nm{color:#ff6258;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.7)}',
+'.ww-wrap .ww-seat-av .gx-av{border-width:1px;box-sizing:border-box}',
+'.ww-wrap.day .ww-seat-av .gx-av{box-shadow:0 0 0 1px rgba(255,255,255,.18),0 2px 8px rgba(0,0,0,.22)}',
+'.ww-wrap.night .ww-seat-av .gx-av{box-shadow:0 0 0 1px rgba(255,255,255,.28),0 2px 8px rgba(0,0,0,.32)}',
+'.ww-wrap.day .ww-seat.me .gx-av,.ww-wrap.night .ww-seat.me .gx-av{border-color:rgba(112,202,250,.82);box-shadow:0 0 0 1px rgba(100,195,245,.1),0 3px 10px rgba(0,0,0,.24)}',
+'.ww-wrap.day .ww-seat,.ww-wrap.night .ww-seat{border-width:.5px;box-shadow:0 4px 12px rgba(0,0,0,.16)}',
+'.ww-day-divider{display:flex;align-items:center;gap:9px;margin:14px 2px 12px;color:rgba(240,246,250,.82);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-shadow:0 1px 3px rgba(0,0,0,.65)}',
+'.ww-day-divider:before,.ww-day-divider:after{content:"";height:1px;flex:1}',
+'.ww-day-divider:before{background:linear-gradient(90deg,transparent,rgba(218,235,248,.28))}',
+'.ww-day-divider:after{background:linear-gradient(90deg,rgba(218,235,248,.28),transparent)}',
+'.ww-day-divider span{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 10px;border-radius:999px;background:rgba(8,14,20,.48);border:.5px solid rgba(218,235,248,.14);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}',
+'.ww-ui-ic{display:inline-flex;align-items:center;justify-content:center;width:1.05em;height:1.05em;vertical-align:-.16em;margin-right:.2em;color:currentColor;flex:0 0 auto}',
+'.ww-ui-ic svg{width:1em;height:1em;display:block;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}',
+'.ww-wrap.day .ww-say-t,.ww-wrap.night .ww-say-t{border-left-width:0}',
+'.ww-wrap.day .ww-say-title,.ww-wrap.night .ww-say-title{background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.01) 58%),rgba(15,20,27,.48);border:.5px solid rgba(218,235,248,.14);color:#e9f1f6;box-shadow:0 2px 8px rgba(0,0,0,.12);text-shadow:0 1px 3px rgba(0,0,0,.45)}',
+'.ww-mini-dot{display:none}'
 ].join('\n');
 (function(){var s=D.createElement('style');s.id='g16css';s.textContent=CSS;(D.head||D.documentElement).appendChild(s)})();
 
@@ -26742,7 +26784,7 @@ function wwCfgHTML(){
   h+='<details class="gx-log" style="margin-top:12px"><summary>规则与玩法说明</summary><div class="gx-vs">'+
      '<p class="gx-hint">网杀：夜里狼队在「狼队频道」打字商量；白天发言不写动作神态。面杀：在村子各自的房间过夜、白天去集会堂，先「抿身份」，狼队夜里在「夜间密会」正常说话。</p>'+
      '<p class="gx-hint">面杀白天投票出局叫「处刑」；夜里真的死了会先留遗言，再演一段「夜间 · 你的房间」。女巫在面杀里全程不能自救。</p>'+
-     '<p class="gx-hint">角色卡上的「📖 教程」可以单独开关：打开的角色会多拿一份术语和思路小抄（默认关）。</p>'+
+     '<p class="gx-hint">角色卡上的「'+wwUiIcon('book')+'教程」可以单独开关：打开的角色会多拿一份术语和思路小抄（默认关）。</p>'+
      '</div></details>';
   h+='<button class="ww-btn" type="button" onclick="GAME.wwCfg(0)"><span class="bar"><span class="orn">'+WW_ORN_SVG+'</span><span class="btxt">完成</span></span></button>';
   h+='</div></div>';
@@ -26761,6 +26803,52 @@ var WW_IC_REDO='<svg viewBox="0 0 24 24"><path d="M19.6 12a7.6 7.6 0 1 1-2.3-5.4
    （「重新说」那个是顺时针的，方向反着，两个一眼能分开） */
 var WW_IC_RETHINK='<svg viewBox="0 0 24 24"><path d="M4.4 12a7.6 7.6 0 1 0 2.3-5.4"/><path d="M4.1 4.8v4.2h4.2"/></svg>';
 var WW_IC_MUSIC='<svg viewBox="0 0 24 24"><path d="M9.6 17.4V6.8l7.6-1.5v10.3"/><circle cx="7.4" cy="17.6" r="2.2"/><circle cx="15" cy="16.1" r="2.2"/></svg>';
+var WW_IC_HELP='<svg viewBox="0 0 24 24"><path d="M9.3 8.9a2.9 2.9 0 1 1 4.4 2.5c-1 .65-1.7 1.25-1.7 2.7"/><circle cx="12" cy="17.6" r=".9"/></svg>';
+function wwUiIcon(kind){
+  var p={
+    moon:'<path d="M19.6 14.8A7.8 7.8 0 0 1 9.2 4.4 8 8 0 1 0 19.6 14.8Z"/>',
+    sun:'<circle cx="12" cy="12" r="3.5"/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4"/>',
+    flag:'<path d="M6.5 21V3.5"/><path d="M6.5 4.5h10l-2 4 2 4h-10"/>',
+    eye:'<path d="M2.8 12s3.2-5 9.2-5 9.2 5 9.2 5-3.2 5-9.2 5-9.2-5-9.2-5Z"/><circle cx="12" cy="12" r="2.2"/>',
+    ballot:'<rect x="3.9" y="11.3" width="16.2" height="8.8" rx="2.5"/><path d="M8.4 11.3h7.2"/><path d="m8.7 7.8 2.1 2.1 4.7-4.7"/>',
+    retreat:'<path d="M14 5h5v14h-5"/><path d="M4.5 12h9"/><path d="m10.5 9 3 3-3 3"/>',
+    sheriff:'<circle cx="12" cy="12" r="8.4"/><path d="m12 6.3 1.7 3.5 3.8.5-2.8 2.7.7 3.8-3.4-1.8-3.4 1.8.7-3.8-2.8-2.7 3.8-.5Z"/>',
+    boom:'<path d="m12 2.8 2 5.2 5-3-3 5 5 2-5 2 3 5-5-3-2 5.2-2-5.2-5 3 3-5-5-2 5-2-3-5 5 3Z"/>',
+    seer:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/><path d="m17.2 5.4 1 1M5.8 17.2l1 1"/>',
+    witch:'<path d="M9 3h6M10 3v6l-4.4 8.3A2.2 2.2 0 0 0 7.6 21h8.8a2.2 2.2 0 0 0 2-3.7L14 9V3"/><path d="M7.8 16h8.4"/>',
+    hunter:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+    wolf:'<path d="M12 11.2c-3 0-5.5 2.2-5.5 5.2 0 2.1 2.1 3.8 5.5 3.8s5.5-1.7 5.5-3.8c0-3-2.5-5.2-5.5-5.2Z"/><path d="M5.2 10.1c.4-2.2 1.2-3.8 2.3-4.8M18.8 10.1c-.4-2.2-1.2-3.8-2.3-4.8M8.3 8.1c.2 1.2.8 2.1 1.7 2.7M15.7 8.1c-.2 1.2-.8 2.1-1.7 2.7"/>',
+    guard:'<path d="M12 3 5.2 5.7v5.6c0 4.3 2.8 7.5 6.8 9.2 4-1.7 6.8-4.9 6.8-9.2V5.7Z"/><path d="M12 7v8M8.8 11h6.4"/>',
+    wolfking:'<path d="m4.5 8 4.2 3.1L12 5l3.3 6.1L19.5 8l-1.4 9H5.9Z"/><path d="M6.2 20h11.6"/>',
+    villager:'<circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.6-4 2.8-6 6.5-6s5.9 2 6.5 6"/>',
+    idiot:'<rect x="5.5" y="3.5" width="13" height="17" rx="2.2"/><path d="M9.6 9.2a2.4 2.4 0 1 1 3.7 2c-.8.5-1.3 1-1.3 2"/><circle cx="12" cy="16.7" r=".75"/>',
+    trophy:'<path d="M8 4h8v4.5c0 3-1.6 5.2-4 5.2s-4-2.2-4-5.2Z"/><path d="M8 5H4.8v2.2c0 2 1.5 3.6 3.5 3.8M16 5h3.2v2.2c0 2-1.5 3.6-3.5 3.8"/><path d="M12 13.7V18M8.5 21h7M9.5 18h5"/>',
+    pointer:'<path d="m5.2 3.8 13.3 8.7-6.1 1.4-2.8 5.7Z"/>',
+    book:'<path d="M4 4.5h5.2c1.5 0 2.8 1.1 2.8 2.7v12.3c0-1.5-1.3-2.7-2.8-2.7H4Z"/><path d="M20 4.5h-5.2c-1.5 0-2.8 1.1-2.8 2.7v12.3c0-1.5 1.3-2.7 2.8-2.7H20Z"/>',
+    judge:'<path d="M12 3v18M6.5 21h11"/><path d="M5 6h14"/><path d="m5 6-3 6h6Z"/><path d="m19 6-3 6h6Z"/>',
+    chat:'<path d="M4 5.5h16v10H9l-5 4Z"/><path d="M8 9h8M8 12h5"/>',
+    copy:'<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5H5v11h3"/>',
+    refresh:'<path d="M19.5 9A8 8 0 1 0 20 14"/><path d="M19.5 4.8V9h-4.2"/>',
+    scan:'<circle cx="10.5" cy="10.5" r="6.2"/><path d="m15.2 15.2 5 5"/><path d="M8 10.5h5M10.5 8v5"/>',
+    thumb:'<path d="M8.5 10.2 11.8 4l.8.2c1.4.3 2.1 1.3 1.8 2.8l-.4 2h4.1c1.4 0 2.2 1 1.9 2.4l-1.3 5a2.2 2.2 0 0 1-2.2 1.6H8.5"/><path d="M8.5 10.2H4.2V18h4.3Z"/>',
+    alert:'<path d="M12 3.3 21 20H3Z"/><path d="M12 8.5v5M12 16.8v.2"/>',
+    coin:'<circle cx="12" cy="12" r="8.2"/><path d="M9.3 9.2c.8-.9 1.7-1.3 2.8-1.3 1.7 0 2.8 1 2.8 2.4 0 1.2-.8 1.9-2.9 2.2-2 .3-2.9 1-2.9 2.4 0 1.5 1.2 2.5 3 2.5 1.1 0 2.1-.4 2.9-1.3"/><path d="M12 5.9v12.2"/>'
+  };
+  return '<span class="ww-ui-ic" aria-hidden="true"><svg viewBox="0 0 24 24">'+(p[kind]||p.villager)+'</svg></span>';
+}
+var WW_UI_EMOJI={'🌙':'moon','🌑':'moon','☀️':'sun','☀':'sun','🏁':'flag','👀':'eye','🗳️':'ballot','🗳':'ballot','🙇':'retreat','👮':'sheriff','💥':'boom','🔮':'seer','🧪':'witch','🔫':'hunter','🐺':'wolf','🔪':'wolf','🛡️':'guard','🛡':'guard','👑':'wolfking','👤':'villager','🃏':'idiot','🏆':'trophy','👉':'pointer','📖':'book','📋':'copy','🔁':'refresh','🧠':'scan','💬':'chat','🧑‍⚖️':'judge','👍':'thumb','😅':'alert','🪙':'coin'};
+var WW_ROLE_ICON={wolf:'wolf',wolfking:'wolfking',villager:'villager',seer:'seer',witch:'witch',hunter:'hunter',guard:'guard',idiot:'idiot'};
+function wwRoleIcon(role){return wwUiIcon(WW_ROLE_ICON[role]||'villager')}
+function wwCleanSystemText(t){
+  return String(t==null?'':t).replace(/[ \t]+$/gm,'').replace(/。+(?=\n|$)/g,'').trim();
+}
+function wwSystemHTML(t){
+  var x=esc(wwCleanSystemText(t));
+  Object.keys(WW_UI_EMOJI).sort(function(a,b){return b.length-a.length}).forEach(function(e){
+    x=x.split(e).join(wwUiIcon(WW_UI_EMOJI[e]));
+  });
+  return x;
+}
 /* 「上警」那个举手小图标：一只举起的手（掌心 + 四根手指 + 大拇指）—— 手掌别太矮扁 */
 var WW_IC_HAND='<svg viewBox="0 0 24 24"><g fill="currentColor">'+
  '<rect x="7.6" y="5.2" width="2.3" height="8.2" rx="1.15"/>'+
@@ -26851,7 +26939,7 @@ function wwTipsBlock(){
   return '【狼人杀术语与思路小抄】下面是老玩家的常用术语和打法，你说话时可以自然地用（能对上就用，别硬堆词）：\n'+WW_TIPS+extra;
 }
 /* 自己可以给角色打的标记（纯给自己看，不会发给 AI） */
-var WW_MARKS=[['wolf1','🐺 怀疑狼'],['wolf2','🐺 确定狼'],['seer','🔮 像预言家'],['witch','🧪 像女巫'],['guard','🛡️ 像守卫'],['hunter','🔫 像猎人'],['wolfking','👑 像白狼王'],['idiot','🃏 像白痴'],['good','👤 像好人']];
+var WW_MARKS=[['wolf1','怀疑狼','wolf'],['wolf2','确定狼','wolf'],['seer','像预言家','seer'],['witch','像女巫','witch'],['guard','像守卫','guard'],['hunter','像猎人','hunter'],['wolfking','像白狼王','wolfking'],['idiot','像白痴','idiot'],['good','像好人','villager']];
 var WW_MARK_TXT={wolf1:'狼',wolf2:'狼',seer:'预',witch:'女',guard:'守',hunter:'猎',wolfking:'狼王',idiot:'白',good:'好'};
 /* 给编号圆圈上色的备选色（自己盘「谁和谁一边」时很有用） */
 var WW_COLORS=['#b23c33','#e0a23c','#4fae6b','#3f9ad8','#8a6fe0','#d86ba8','#2fb3a8','#7d8794'];
@@ -27023,12 +27111,12 @@ function wwStripLead(t){
   t=String(t||'').replace(/^(【[^】]*】)\s*[:：]\s*/,'$1');
   return t.replace(/^[\s:：,，、;；\-—–]+/,'').trim();
 }
-/* 给一段发言自动起一个短标题：去掉「遗言 / 竞选发言」这类前缀，取第一句前 16 个字 */
+/* 给一段发言自动起一个短标题：去掉「遗言 / 竞选发言」这类前缀，最多保留第一句前 28 个字 */
 function wwAutoTitle(t){
   var s=wwStripLead(String(t||'').replace(/^【[^】]*】/,'').replace(/\s+/g,' ').trim());
   if(!s)return '没说什么';
   var m=s.split(/[。！？!?；;\n]/)[0].trim()||s;
-  return m.length>12?m.slice(0,12)+'…':m;
+  return m.length>28?m.slice(0,28)+'…':m;
 }
 /* 标题必须是中立的：只描述公开说了什么，不写「装懵 / 装傻 / 演戏 / 悍跳」这类身份或动机判断 */
 var WW_TITLE_BAD=/(装懵|装傻|装良|演戏|假跳|悍跳)/;
@@ -27038,7 +27126,7 @@ function wwCleanTitle(t,text){
     var a=wwAutoTitle(text);
     t=WW_TITLE_BAD.test(a)?'无信息量发言':a;
   }
-  return t.slice(0,12);
+  return t.length>28?t.slice(0,28)+'…':t;
 }
 /* 好人的发言任务：先写草稿纸（狼坑 / 好人 / 神），再写发言；狼人不用写，直接说 */
 function wwSpeakTask(p,base){
@@ -27888,10 +27976,10 @@ function wwJudgeHTML(txt){
   var j=wwJudgeParse(txt);
   if(!j.sum&&!j.mvp)return '';
   return '<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
-     (j.mvp?('<div class="ww-mvp">🏆 MVP：'+esc(j.mvp)+'</div>'):'')+
+     (j.mvp?('<div class="ww-mvp">'+wwUiIcon('trophy')+'MVP：'+esc(j.mvp)+'</div>'):'')+
      (j.sum?('<div class="gx-vs">'+esc(j.sum)+'</div>'):'')+
-     (j.best?('<div class="gx-vs" style="margin-top:7px">👍 最佳操作：'+esc(j.best)+'</div>'):'')+
-     (j.worst?('<div class="gx-vs" style="margin-top:7px">😅 最惨失误：'+esc(j.worst)+'</div>'):'')+
+     (j.best?('<div class="gx-vs" style="margin-top:7px">'+wwUiIcon('thumb')+'最佳操作：'+esc(j.best)+'</div>'):'')+
+     (j.worst?('<div class="gx-vs" style="margin-top:7px">'+wwUiIcon('alert')+'最惨失误：'+esc(j.worst)+'</div>'):'')+
      '</div>';
 }
 
@@ -28033,15 +28121,14 @@ async function wwFacePeek(){
   w.peekDone=true;
   w.scene='dawn';                 /* 【修】抿身份这一段：背景铺「清晨」那张 */
   var me=wwMe();
-  w.log.push({k:'sys',text:wwTxt('【抿身份】身份牌都到手了。集会堂里安静了几秒——所有人都在偷偷打量别人的脸色……',
-                                 '【抿身份】身份牌都到手了。桌上安静了几秒——所有人都在偷偷打量别人的脸色……')});
+  w.log.push({k:'sys',text:'👀 抿身份开始。'});
   render(true);
   await wwGate('抿身份');                    /* 旁观模式：一步一步点着看 */
   if(wwStaleG(gen))return;
   if(me&&me.alive){
-    var r=await wwAskSay('👀 你刚拿到身份牌。你现在摆出什么表情、什么小动作？（写一句就好，桌上所有人都看在眼里）','面无表情',{ok:'摆好了',ph:'比如：装作若无其事地低头看牌；或者不耐烦地催大家快点'});
+    var r=await wwAskSay('👀 你摆什么表情？','面无表情',{ok:'摆好了',ph:'例如：若无其事地看牌'});
     if(wwStaleG(gen))return;
-    w.log.push({k:'sys',text:'抿身份 · '+wwTag(me)+'：'+((r&&r.text)||'面无表情，什么也没露出来')});
+    w.log.push({k:'sys',text:'👀 '+wwTag(me)+'：'+((r&&r.text)||'面无表情')});
     render(true);
   }
   var cap=(me&&me.alive)?12:4,seen=0;        /* 你自己看：最多记 12 次；旁观：只看 4 个人，别花太多请求 */
@@ -28051,7 +28138,7 @@ async function wwFacePeek(){
     if(!pool.length)break;
     var q=null;
     if(me&&me.alive){
-      var rr=await wwAsk('👀 想盯谁看？点 TA 的头像，看看 TA 现在什么表情'+(seen?('（已经看了 '+seen+' 个）'):''),pool,{none:'开始入夜 ›'});
+      var rr=await wwAsk('👀 看谁？'+(seen?('（已看 '+seen+'）'):''),pool,{none:'入夜 ›'});
       if(wwStaleG(gen))return;
       if(!rr.uid)break;
       q=wwPlayerByUid(rr.uid);
@@ -28066,7 +28153,7 @@ async function wwFacePeek(){
     var d=await wwFaceRead(q);
     if(wwStaleG(gen))return;
     w.msg='';
-    w.log.push({k:'sys',text:'抿身份 · '+wwTag(q)+'：'+(d||'（一脸平静，看不出什么）')});
+    w.log.push({k:'sys',text:'👀 '+wwTag(q)+'：'+(d||'看不出什么')});
     render(true);
     seen++;
   }
@@ -28092,7 +28179,7 @@ async function wwFacePeek(){
     var dtxt=(dd||'（一脸平静，看不出什么）');
     ob.peeks=ob.peeks||[];
     ob.peeks.push({tag:wwTag(tg),text:dtxt});
-    w.log.push({k:'sys',text:'抿身份 · 「'+wwTag(ob)+'」盯着「'+wwTag(tg)+'」看：'+dtxt});
+    w.log.push({k:'sys',text:'👀 '+wwTag(ob)+'看'+wwTag(tg)+'：'+dtxt});
     render(true);
   }
   w.scene='';                     /* 【修】抿身份结束：场景交还给「白天」（中午那张） */
@@ -28448,15 +28535,15 @@ async function wwUserDeathFlow(deaths){
       w.rec.push({d:w.day,t:_spTxt});
     }
     }catch(e){try{console.warn('收刀记录出错（不影响这一局）',e)}catch(_){}}
-    w.log.push({k:'sys',text:wwTxt('天亮了——你活了下来。','你没有死。')});
+    w.log.push({k:'sys',text:'你活下来了。'});
     /* 【新·面杀】狼队收了刀：她不光活了下来，狼队是谁她也清清楚楚了（今天当众把这事挑明） */
-    if(w.wolfBlown)w.log.push({k:'sys',text:'（你从那间房里活着走了出来——来杀你的狼是谁，你已经记牢了。这张底，今天当着全场翻开了。）'});
-    if(words)w.log.push({k:'sys',text:'（你活下来了，刚才那段遗言就不用公布了。）'});
+    if(w.wolfBlown)w.log.push({k:'sys',text:'狼队收刀，身份暴露。'});
+    if(words)w.log.push({k:'sys',text:'你已生还，遗言作废。'});
     w.wordsDone=true;
     render(true);
     return;
   }
-  w.log.push({k:'sys',text:wwTxt('天亮了——你没有醒过来。','你出局了。')});
+  w.log.push({k:'sys',text:'你出局了。'});
   if(mayWords){
     if(words)w.log.push({k:'say',who:me.uid,text:'【遗言】'+words});
     else w.log.push({k:'sys',text:'你没有留遗言。'});
@@ -28474,7 +28561,7 @@ function wwRoomHTML(){
   if(!rn)return '';
   var nm=function(p){return p?wwBareName(p):'？'};   /* 【新】夜戏里只用角色名，不写「3号」 */
   var h='<div class="ww-room">';
-  h+='<div class="ww-room-t">🌙 夜间 · 你的房间</div>';
+  h+='<div class="ww-room-t">'+wwUiIcon('moon')+'夜间 · 你的房间</div>';
   if(rn.mode==='pick'){
     var list=(rn.killers||[]).map(function(u){return wwPlayerByUid(u)}).filter(function(p){return !!p});
     h+='<div class="ww-room-pickwrap">';
@@ -28522,9 +28609,9 @@ async function wwNight(){
       if(wwStaleG(gen))return;
       gTgt=rg.uid?wwPlayerByUid(rg.uid):null;
     }else{
-      await wwStep('🛡️ 守卫正在决定守谁');
+      await wwStep('🌙 天黑请闭眼');
       if(wwStaleG(gen))return;
-      w.msg='🛡️ 守卫正在决定守谁…';render(true);
+      w.msg='🌙 天黑请闭眼…';render(true);
       gTgt=await wwGuardChoose(guard0,gPool);
       if(wwStaleG(gen))return;
     }
@@ -28553,9 +28640,9 @@ async function wwNight(){
       w.night.wolf=r1.uid?wwPlayerByUid(r1.uid):null;
       if(w.night.wolf)wwFx(w.night.wolf.uid,'claw',2600);   /* 你刀谁，谁的头像上就留一下爪印 */
     }else{
-      await wwStep(wwTxt('🌙 夜间密会：狼人正在行动','🐺 狼人正在行动'));
+      await wwStep('🌙 天黑请闭眼');
       if(wwStaleG(gen))return;
-      w.msg=wwTxt('🌙 夜间密会：狼人正在密会…','🐺 狼人正在行动…');render(true);
+      w.msg='🌙 天黑请闭眼…';render(true);
       var wf=await wwWolfChoose(wolves);
       if(wwStaleG(gen))return;                  /* 等生成的这几秒里换了局：别把结果写进新局 */
       w.night.wolf=wf;
@@ -28585,7 +28672,7 @@ async function wwNight(){
     }
     /* 【新】空刀：也给她留一条（面杀才有这段氛围文案） */
     if(!w.night.wolf&&me&&wwIsWolf(me)&&wwFaceOn()&&!w.stopped){
-      w.log.push({k:'me',text:'🌑 今晚你们按住了刀——空刀，谁也没动。'});
+      w.log.push({k:'me',text:'🌑 今晚空刀。'});
       render(true);
     }
   }
@@ -28599,7 +28686,7 @@ async function wwNight(){
       if(wwStaleG(gen))return;
       tgt=wwPlayerByUid(r2.uid)||pool[0];
     }else{
-      if(!wwQuietNight()){await wwStep('🔮 预言家正在验人');w.msg='🔮 预言家正在验人…';render(true)}
+      if(!wwQuietNight()){await wwStep('🌙 天黑请闭眼');w.msg='🌙 天黑请闭眼…';render(true)}
       tgt=await wwSeerChoose(seer);
       if(wwStaleG(gen))return;
     }
@@ -28612,8 +28699,7 @@ async function wwNight(){
       if(seer.isUser){
         w.marks=w.marks||{};
         if(!isW&&!w.marks[tgt.uid])w.marks[tgt.uid]='good';      /* 验到金水：自动给 TA 标上"好人" */
-        w.log.push({k:'me',text:wwTxt('🔮 你悄悄来到 '+wwTag(tgt)+' 的门口，看清了 TA：'+(isW?'是狼人（查杀）':'是好人（金水）'),
-                                      '🔮 你查验了 '+wwTag(tgt)+'：'+(isW?'是狼人（查杀）':'是好人（金水）'))});
+        w.log.push({k:'me',text:'🔮 '+wwTag(tgt)+'是'+(isW?'狼人（查杀）':'好人（金水）')});
         render(true);
       }
     }
@@ -28627,31 +28713,27 @@ async function wwNight(){
       var selfKnife=!!(w.night.wolf&&w.night.wolf===me);
       if(w.night.wolf&&w.witchSave){
         if(selfKnife&&(wwFaceOn()||w.day!==1)){
-          w.log.push({k:'me',text:wwTxt('🧪 倒下的是你自己。面杀里女巫救不了自己——你只能眼睁睁看着。',
-                                        '🧪 今晚被刀的是你自己。规则上第二夜起女巫不能自救，所以救不了。')});
+          w.log.push({k:'me',text:'🧪 今晚被刀的是你，不能自救。'});
           render(true);
         }else{
-          var r3=await wwAskOpt(wwTxt('🧪 夜里你赶到时，'+wwTag(w.night.wolf)+(selfKnife?'（你自己）':'')+' 已经倒在血泊里——要用解药救 TA 吗？',
-                                      '🧪 你是女巫。今晚被刀的是「'+wwTag(w.night.wolf)+'」'+(selfKnife?'（你自己）':'')+'，要用解药救 TA 吗？'),[['救 TA',1],['不救',0]]);
+          var r3=await wwAskOpt('🧪 今晚被刀的是'+wwTag(w.night.wolf)+(selfKnife?'（你）':'')+'，要救吗？',[['救',1],['不救',0]]);
           if(wwStaleG(gen))return;
           if(r3.val===1){
             w.night.save=true;w.witchSave=false;
             w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf)});
             w.witchLog.push({d:w.day,k:'save',txt:wwNum(w.night.wolf)+w.night.wolf.name});
-            w.log.push({k:'me',text:wwTxt('🧪 你把解药灌进了 '+wwTag(w.night.wolf)+' 的嘴里（TA 今晚是银水）',
-                                          '🧪 你用解药救了 '+wwTag(w.night.wolf)+'（TA 今晚是银水）')});
+            w.log.push({k:'me',text:'🧪 你用解药救了 '+wwTag(w.night.wolf)});
             render(true);
           }
         }
       }
       if(w.witchPoison){
         if(w.night.save){
-          w.log.push({k:'me',text:'🧪 同一晚只能开一瓶药：你已经用了 解药，毒药留到下一次。'});
+          w.log.push({k:'me',text:'🧪 今晚已用解药。'});
           render(true);
         }else{
           var pool2=wwAlive().filter(function(p){return p!==witch});
-          var r4=await wwAsk(wwTxt('🧪 毒药还在你手上——今晚要让谁再也醒不过来？（可以跳过）',
-                                   '🧪 要用毒药毒一个人吗？（可以跳过）'),pool2,{none:'不毒'});
+          var r4=await wwAsk('🧪 今晚毒谁？',pool2,{none:'不毒'});
           if(wwStaleG(gen))return;
           if(r4.uid){
             var t2=wwPlayerByUid(r4.uid);
@@ -28659,15 +28741,14 @@ async function wwNight(){
               w.night.poison=t2;w.witchPoison=false;
               w.rec.push({d:w.day,t:'女巫毒了 '+wwTag(t2)});
               w.witchLog.push({d:w.day,k:'poison',txt:wwNum(t2)+t2.name});
-              w.log.push({k:'me',text:wwTxt('🧪 你把毒药倒进了 '+wwTag(t2)+' 的水杯里——TA 今晚不会再醒过来。',
-                                            '🧪 你用毒药毒了 '+wwTag(t2))});
+              w.log.push({k:'me',text:'🧪 你用毒药毒了 '+wwTag(t2)});
               render(true);
             }
           }
         }
       }
     }else{
-      if(!wwQuietNight()){await wwStep('🧪 女巫正在用药');w.msg='🧪 女巫正在决定要不要用药…';render(true)}
+      if(!wwQuietNight()){await wwStep('🌙 天黑请闭眼');w.msg='🌙 天黑请闭眼…';render(true)}
       var res=await wwWitchChoose(witch,w.night.wolf);
       if(wwStaleG(gen))return;
       if(res.save&&w.witchSave&&w.night.wolf){w.night.save=true;w.witchSave=false;w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf),tk:(WW_LAST&&WW_LAST.reason)||''});w.witchLog.push({d:w.day,k:'save',txt:wwTag(w.night.wolf)})}
@@ -28698,9 +28779,8 @@ async function wwNight(){
     /* 【新·面杀】天亮之前：先让你盲留遗言，再演「夜间 · 你的房间」，最后才公开遗言 */
     if(!w.stopped){await wwUserDeathFlow(deaths);if(wwStaleG(gen))return}
     /* 【新·面杀】天亮这一条：面杀写在「集会堂」聚齐，网杀照旧 */
-    w.log.push({k:'sys',text:wwTxt('第 '+w.day+' 天 · 集会堂：众人陆续到齐，',
-                                   '第 '+w.day+' 天早上：')+
-      (deaths.length?('昨晚 '+deaths.map(function(x){return wwTag(x)}).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
+    w.log.push({k:'sys',text:'第 '+w.day+' 天：'+
+      (deaths.length?(deaths.map(function(x){return wwTag(x)}).join('、')+'出局。'):'平安夜。')});
   }
   w.nightDone=true;
 }
@@ -28756,12 +28836,11 @@ async function wwHunterCheck(p){
   }
   if(tgt&&tgt.alive){
     tgt.alive=false;tgt.killedBy='shot';
-    w.log.push({k:'sys',text:wwTxt('💥 '+wwName(p)+' 临死前扣下扳机，'+wwName(tgt)+' 应声倒下。',
-                                   '💥 猎人 '+wwTag(p)+' 开枪带走了 '+wwTag(tgt)+'。')});
+    w.log.push({k:'sys',text:'💥 '+wwTag(p)+'开枪带走'+wwTag(tgt)+'。'});
     w.rec.push({d:w.day,t:'猎人开枪带走：'+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
     wwFx(tgt.uid,'hit',2200);        /* 被带走的人头像上闪一下中枪特效 */
   }else{
-    w.log.push({k:'sys',text:wwTxt('🔫 '+wwTag(p)+' 放下了枪，什么也没说。','🔫 猎人 '+wwTag(p)+' 没有开枪。')});
+    w.log.push({k:'sys',text:'🔫 '+wwTag(p)+'未开枪。'});
   }
   render(true);
 }
@@ -28774,22 +28853,20 @@ async function wwExile(p){
   /* 白痴第一次被票：翻开身份牌、不出局（之后不能投票、也不能再被票出去） */
   if(p.role==='idiot'&&!p.revealed){
     p.revealed=true;
-    w.log.push({k:'vote',text:wwTxt('投票结果：'+wwName(p)+' 被押上处刑台——TA 翻开身份牌：白痴！处刑作废，TA 重新坐回集会堂（以后不能再投票，也不能再被票）。',
-                                    '投票结果：'+wwTag(p)+' 被票出——TA 翻开身份牌：白痴！不会出局，继续留在场上（以后不能再投票，也不能再被票出去）。')});
+    w.log.push({k:'vote',text:'🃏 '+wwTag(p)+'翻牌免死，本轮不出局。'});
     w.rec.push({d:w.day,t:'白痴 '+wwTag(p)+' 被票后翻牌，没有出局'});
     render(true);
     return;
   }
   p.alive=false;p.killedBy='vote';
   w.scene='exec';      /* 【第三批】这一幕是「处刑」：换成处刑台那张图（投票公布那一刻才是黄昏） */
-  w.log.push({k:'vote',text:wwTxt('投票结果：'+wwName(p)+' 被处刑了。',
-                                  '投票结果：'+wwTag(p)+' 被放逐出局。')});
+  w.log.push({k:'vote',text:'投票：'+wwTag(p)+'出局。'});
   w.rec.push({d:w.day,t:'被放逐：'+wwTag(p)});
   render(true);
   var over=wwCheckOver();                    /* 这一票是不是直接把游戏结束了 */
   var mayWords=(w.day===1)&&!over;           /* 遗言只有第一轮才有；游戏已经结束就不留了 */
   if(p.isUser){
-    w.log.push({k:'sys',text:wwTxt('你被处刑了……','你被放逐了……')});
+    w.log.push({k:'sys',text:'你已出局。'});
     if(mayWords){                          /* 第一天被票出去，规则上可以留遗言：给「你」开输入框 */
       var uw=await wwUserLastWords(wwTxt('你被处刑了……这是第一天，你还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。',
                                          '你被放逐了……这是第一天，你还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。'));
@@ -28804,7 +28881,7 @@ async function wwExile(p){
     if(wwStaleG(gen)||wwDayCut())return;
     if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+lw,think:wwThinkOf(p)}))return;
   }else if(!over){
-    w.log.push({k:'sys',text:'遗言只有第一轮才有，'+wwTag(p)+' 没有留遗言。'});
+    w.log.push({k:'sys',text:wwTag(p)+'未留遗言。'});
   }
   render(true);
   if(!over)await wwHunterCheck(p);
@@ -28849,7 +28926,7 @@ async function wwDoVote(voters,targets){
       w.voteResolve=null;w.votePool=[];w.voteHit='';
       if(uid)w.votes[me.uid]=uid;
       var tp=uid?wwPlayerByUid(uid):null;
-      w.log.push({k:'me',icon:'vote',text:'你把票投给了 '+(tp?wwTag(tp):'（弃权）')+'，等所有人投完一起公布。'});
+      w.log.push({k:'me',icon:'vote',text:'你投了'+(tp?wwTag(tp):'弃权')+'。'});
       render(true);
     }
   }
@@ -28872,21 +28949,21 @@ function wwAnnounceVotes(){
     var v=wwPlayerByUid(k);
     if(v)by[t].push(wwTag(v));
   });
-  if(!order.length){w.log.push({k:'vote',text:'投票公布：这一轮没有人投票。'});render(true);return}
+  if(!order.length){w.log.push({k:'vote',text:'本轮无人投票。'});render(true);return}
   order.sort(function(a,b){var pa=wwPlayerByUid(a),pb=wwPlayerByUid(b);return ((pa&&pa.seq)||99)-((pb&&pb.seq)||99)});
   var parts=order.map(function(t){
     var p=wwPlayerByUid(t);
-    return by[t].join('、')+' 投给了 '+(p?wwTag(p):'？');
+    return by[t].join('、')+' → '+(p?wwTag(p):'？');
   });
   var note='';
-  if(w.sheriffUid&&w.votes&&w.votes[w.sheriffUid]){var shp=wwPlayerByUid(w.sheriffUid);if(shp)note='\n（👮 警长 '+wwTag(shp)+' 的票算 1.5 票）'}
-  w.log.push({k:'vote',text:'投票公布：\n'+parts.join('\n')+note});   /* 每条占一行，前面有投票箱图标 */
+  if(w.sheriffUid&&w.votes&&w.votes[w.sheriffUid]){var shp=wwPlayerByUid(w.sheriffUid);if(shp)note='\n👮 '+wwTag(shp)+' 票权 1.5'}
+  w.log.push({k:'vote',text:'投票：\n'+parts.join('\n')+note});   /* 每条占一行，前面有投票箱图标 */
   render(true);
 }
 /* 投票公布那种「一条一行、行首带图标」的排版（图标是 SVG，不能塞进被转义的文字里） */
 function wwVoteLines(txt){
   return String(txt||'').split('\n').map(function(ln){
-    return '<div class="ww-vln">'+WW_VOTE_ICON+'<span>'+esc(ln)+'</span></div>';
+    return '<div class="ww-vln">'+WW_VOTE_ICON+'<span>'+wwSystemHTML(ln)+'</span></div>';
   }).join('');
 }
 /* 底部操作卡顶部那一行：左上＝标记，中间＝说明文字，右上＝自动播放（都是图标，省地方） */
@@ -28896,7 +28973,7 @@ function wwActHead(title,noMark){
     ? '<button class="ww-ico on" type="button" aria-label="取消标记" onclick="GAME.wwMarkCancel()">'+WW_IC_TAG+'</button>'
     : '<button class="ww-ico'+(noMark?' off':'')+'" type="button" aria-label="标记" onclick="GAME.wwMarkStart()">'+WW_IC_TAG+'</button>';
   return '<div class="ww-act-h">'+tag+
-    '<div class="ww-act-t">'+esc(title||'')+'</div>'+
+    '<div class="ww-act-t">'+wwSystemHTML(title||'')+'</div>'+
     /* 「重新想」只在「游戏自己在往下演」的时候出现（轮到你操作、或者等你按继续时不用显示） */
     ((w.userAsk||w.voteMode||w.gateResolve||w.over)?'':('<button class="ww-ico" type="button" aria-label="打断这次思考，让它重新想" onclick="GAME.wwRethink()">'+WW_IC_RETHINK+'</button>'))+
     (w.auto?
@@ -28944,13 +29021,13 @@ async function wwFlipTry(gen,p){
   if(wwStaleG(gen))return false;
   p.flipped=true;
   w.scene='exec';      /* 【第三批】掀桌＝公开认输后被处刑，也用处刑台那张图 */
-  w.log.push({k:'sys',text:'💥 '+wwTag(p)+' 掀桌了：TA 公开承认自己是狼，当场认输。'});
+  w.log.push({k:'sys',text:'💥 '+wwTag(p)+'掀桌认输。'});
   w.log.push({k:'say',who:p.uid,text:'【投降】'+sp});
   render(true);
   /* 认输之后：当场被处刑（相当于被票出去，但没有遗言环节） */
   var wasSheriff=(w.sheriffUid===p.uid);
   p.alive=false;p.killedBy='flip';
-  w.log.push({k:'vote',text:wwTxt('投票结果：'+wwName(p)+' 被处刑了。','投票结果：'+wwTag(p)+' 被放逐出局。')});
+  w.log.push({k:'vote',text:'投票：'+wwTag(p)+'出局。'});
   w.rec.push({d:w.day,t:'狼人 '+wwTag(p)+' 掀桌认输（公开身份、投降后被处刑）'});
   render(true);
   if(wasSheriff&&wwSheriffOn()&&!w.badgeGone){try{await wwBadgePass()}catch(e){}if(wwStaleG(gen))return true}
@@ -29004,8 +29081,7 @@ async function wwKingBoom(p,tgt){
   p.alive=false;p.killedBy='boom';
   var t=(tgt&&tgt.alive&&tgt!==p)?tgt:null;
   if(t){t.alive=false;t.killedBy='boom';}
-  w.log.push({k:'sys',text:wwTxt('💥 '+wwName(p)+' 当场撕开自己的牌子自爆了！'+(t?('爆炸把 '+wwName(t)+' 一起卷了进去。'):'')+'（白天的集会到此结束，直接进入黑夜。）',
-                                 '💥 白狼王 '+wwTag(p)+' 自爆了！'+(t?('带走了 '+wwTag(t)+'。'):'')+'（白天到此结束，直接进入黑夜。）')});
+  w.log.push({k:'sys',text:'💥 '+wwTag(p)+'自爆'+(t?('，带走'+wwTag(t)):'')+'。'});
   w.rec.push({d:w.day,t:'白狼王 '+wwTag(p)+' 自爆'+(t?('，带走 '+wwTag(t)):'')});
   if(t)wwFx(t.uid,'hit',2200);
   w.dayOver=w.day;                 /* 标记：今天到此为止 */
@@ -29088,9 +29164,10 @@ function wwSpeechOrderList(){
 }
 /* 叫一个 AI 决定上不上警 */
 async function wwPoliceDecide(p){
+  var seerHint=p&&p.role==='seer'?'你是真预言家，通常应该上警，方便报验人。':'';
   var sys=wwSysFor(p,'现在是第一天的「警长竞选」。你要不要上警（竞选警长）？\n'+
     '当上警长以后：白天投票算 1.5 票、每天能决定发言顺序、出局时手里还有警徽可以交出去；代价是要在所有人面前发言拉票、会被全场盯着。'+
-    '（狼上警抢警徽是很常见的打法。）\n【输出格式】只输出：上警 或 不上警。');
+    '（狼上警抢警徽是很常见的打法。）按你的身份判断是否必要，不要默认上警。'+seerHint+'\n【输出格式】只输出：上警 或 不上警。');
   var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
   if(/不上警|不参选|不竞选|不上/.test(s))return false;
   return /上警|竞选|参选|要上/.test(s);
@@ -29159,7 +29236,7 @@ async function wwPolicePoll(gen,cand){
     if(me){
       var mypool=cand.filter(function(x){return x&&x!==me});
       if(mypool.length){
-        var r=await wwAsk(wwTxt('🗳️ 集会堂里正在选警长：你这一票投给谁？','🗳️ 第一天的警长竞选：把你这一票投给谁？'),mypool,{none:'弃权'});
+        var r=await wwAsk('🗳️ 投警长：选谁？',mypool,{none:'弃权'});
         if(wwStaleG(gen)||wwDayCut())return null;
         if(r.uid)votes[me.uid]=r.uid;
       }
@@ -29169,23 +29246,23 @@ async function wwPolicePoll(gen,cand){
     if(wwStaleG(gen)||wwDayCut())return null;
     var by={},order=[];
     Object.keys(votes).forEach(function(k){var t=votes[k];if(!t)return;if(!by[t]){by[t]=[];order.push(t)}var vv=wwPlayerByUid(k);if(vv)by[t].push(wwTag(vv))});
-    if(!order.length){w.log.push({k:'vote',text:'警长投票：没有人投票。'});render(true);return null}
+    if(!order.length){w.log.push({k:'vote',text:'警长票：无人投票。'});render(true);return null}
     var cnt={},max=0;
     order.forEach(function(t){cnt[t]=by[t].length;if(cnt[t]>max)max=cnt[t]});
     var list=order.filter(function(t){return cnt[t]===max});
     order.sort(function(a,b){var pa=wwPlayerByUid(a),pb=wwPlayerByUid(b);return ((pa&&pa.seq)||99)-((pb&&pb.seq)||99)});
-    w.log.push({k:'vote',text:'警长投票：\n'+order.map(function(t){var p=wwPlayerByUid(t);return by[t].join('、')+' 投给 '+(p?wwTag(p):'？')}).join('\n')});
+    w.log.push({k:'vote',text:'警长票：\n'+order.map(function(t){var p=wwPlayerByUid(t);return by[t].join('、')+' → '+(p?wwTag(p):'？')}).join('\n')});
     render(true);
     if(list.length===1)return wwPlayerByUid(list[0]);
     cand=list.map(wwPlayerByUid).filter(function(p){return !!p});
     if(cand.length<2)return null;
-    w.log.push({k:'sys',text:'警长票平票！'+cand.map(wwTag).join('、')+' 再各补一句，然后重投（这一轮退水的人和警下一起投）。'});
+    w.log.push({k:'sys',text:'警长票平票：'+cand.map(wwTag).join('、')+'，重投。'});
     render(true);
     for(var i=0;i<cand.length;i++){
       var q=cand[i];if(wwStaleG(gen))return null;
       w.speaking=q.uid;
       if(q.isUser){
-        var rs=await wwAskSay('🗳️ 你的警长票平票了：再补一句，给自己拉票。','不说了');
+        var rs=await wwAskSay('🗳️ 平票，再补一句拉票。','不说了');
         if(wwStaleG(gen))return null;
         if(rs.text)w.log.push({k:'say',who:q.uid,text:'【竞选发言】'+rs.text});
       }else{
@@ -29206,8 +29283,7 @@ async function wwElection(){
   if(!w.players||w.players.length<3)return;
   w.policeUp=[];w.policeVote={};w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;
   w.policeAll=[];w.upSpoke={};
-  w.log.push({k:'sys',text:wwTxt('🗳️ 集会堂里开始「警长竞选」：想当警长的人现在走到前面来（上警，等会儿要发言拉票），其他人留在座位上。',
-                                 '🗳️ 进入「警长竞选」：想当警长的人现在上警（等会儿要发言拉票），其他人不上警。')});
+  w.log.push({k:'sys',text:'🗳️ 开始警长竞选。'});
   render(true);
   /* ① 表态：谁上警（第一夜死的人也可以上警） —— AI 在后台一个个决定，你同时选自己的 */
   var chain=Promise.resolve();
@@ -29219,7 +29295,7 @@ async function wwElection(){
   });
   var me=wwMe();
   if(me){
-    var ru=await wwAskOpt(wwTxt('🗳️ 集会堂里在问：谁愿意当警长？你要上警（走到前面去竞选）吗？','🗳️ 第一天的警长竞选：你要上警（竞选警长）吗？'),[['上警',1],['不上警',0]]);
+    var ru=await wwAskOpt('🗳️ 你要上警吗？',[['上警',1],['不上警',0]]);
     if(wwStaleG(gen))return;
     if(ru&&ru.val===1)w.policeUp.push(me.uid);
   }
@@ -29228,10 +29304,10 @@ async function wwElection(){
   if(wwStaleG(gen)||wwDayCut())return;
   var up=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
   w.policeAll=up.map(function(p){return p.uid});   /* 【新】记下「上过警的人」（含后来退水的）：退水的人不能再投警长票 */
-  w.log.push({k:'sys',text:up.length?('上警的人：'+up.map(wwTag).join('、')+'。'):'没有人上警。'});
+  if(!up.length){w.log.push({k:'sys',text:'无人上警，本局无警长。'});w.sheriffDone=true;render(true);return}
+  w.log.push({k:'sys',text:'上警：'+up.map(function(p){return p.seq||'?'}).join('/')});
   render(true);
-  if(!up.length){w.log.push({k:'sys',text:'没有人上警 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
-  if(up.length===1){w.sheriffUid=up[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:'只有 '+wwTag(up[0])+' 一个人上警，TA 直接当选警长。'});render(true);return}
+  if(up.length===1){w.sheriffUid=up[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:wwTag(up[0])+'直接当选警长。'});render(true);return}
   var cand=up.slice();
   /* ② 警上发言（按座位号） */
   for(var j=0;j<cand.length;j++){
@@ -29240,12 +29316,11 @@ async function wwElection(){
     /* 【新】白狼王可以在竞选警长发言的时候自爆 */
     if(q.role==='wolfking'&&!w.kingBoom){if(await wwKingTry(gen,q))return;if(wwStaleG(gen)||wwDayCut())return;}
     if(q.isUser){
-      var rs=await wwAskSay(wwTxt('🗳️ 轮到你站起来说话（竞选发言）：说说你的身份、打法、当选后你会怎么带，以及你怀疑谁。',
-                                  '🗳️ 轮到你竞选发言：说说你的身份、打法、当选后你会怎么带，以及你怀疑谁。'),'不发言');
+      var rs=await wwAskSay('🗳️ 竞选发言：说身份、打法、怀疑谁。','不发言');
       if(wwStaleG(gen))return;
       if(rs&&rs.boom)return;             /* 【新】你在竞选发言框里点了自爆 */
       if(rs.text)w.log.push({k:'say',who:q.uid,text:'【竞选发言】'+rs.text});
-      else w.log.push({k:'sys',text:wwTag(q)+' 上警了但没说话。'});
+      else w.log.push({k:'sys',text:wwTag(q)+'未发言。'});
     }else{
       await wwStep('轮到「'+wwTag(q)+'」竞选发言');
       if(wwStaleG(gen))return;
@@ -29259,13 +29334,13 @@ async function wwElection(){
     render(true);w.speaking=null;
   }
   /* ③ 退水（AI 在后台决定，你同时选自己的） */
-  var chain2=Promise.resolve();
+  var chain2=Promise.resolve(),retired=[];
   cand.filter(function(p){return !p.isUser}).forEach(function(c){
     chain2=chain2.then(function(){
       if(wwStaleG(gen))return;
       return wwPoliceWater(c).then(function(wa){
         if(wwStaleG(gen))return;
-        if(wa){w.policeUp=w.policeUp.filter(function(u){return u!==c.uid});w.log.push({k:'sys',text:'🙇 '+wwTag(c)+' 退水了。'});render(true);}
+        if(wa){w.policeUp=w.policeUp.filter(function(u){return u!==c.uid});retired.push(c);render(true);}
       },function(){});
     });
   });
@@ -29273,20 +29348,25 @@ async function wwElection(){
   if(myCand){
     var rw=await wwAskOpt(wwTxt('🗳️ 竞选发言说完了：你要退水（不再争这个警长）吗？','🗳️ 竞选发言结束：你要退水（退出竞选）吗？'),[['不退水，继续选',1],['退水',0]]);
     if(wwStaleG(gen))return;
-    if(rw&&rw.val===0){w.policeUp=w.policeUp.filter(function(u){return u!==myCand.uid});w.log.push({k:'sys',text:'🙇 '+wwTag(myCand)+' 退水了。'});render(true)}
+    if(rw&&rw.val===0){w.policeUp=w.policeUp.filter(function(u){return u!==myCand.uid});retired.push(myCand);render(true)}
   }
   w.msg='其他人正在决定退不退水…';render(true);
   await chain2;
   if(wwStaleG(gen)||wwDayCut())return;
+  if(retired.length){
+    retired.sort(function(a,b){return (a.seq||99)-(b.seq||99)});
+    w.log.push({k:'sys',text:'🙇 '+retired.map(function(p){return wwTag(p)}).join('、')+'退水'});
+    render(true);
+  }
   var left=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
-  if(!left.length){w.log.push({k:'sys',text:'上警的人全都退水了 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
-  if(left.length===1){w.sheriffUid=left[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:'只剩 '+wwTag(left[0])+' 没有退水，TA 直接当选警长。'});render(true);return}
+  if(!left.length){w.log.push({k:'sys',text:'全员退水，本局无警长。'});w.sheriffDone=true;render(true);return}
+  if(left.length===1){w.sheriffUid=left[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:wwTag(left[0])+'直接当选警长。'});render(true);return}
   /* ④ 警下投票选警长 */
   var win=await wwPolicePoll(gen,left);
   if(wwStaleG(gen))return;
-  if(!win){w.log.push({k:'sys',text:'警长票一直分不出胜负 —— 警徽流失，这一局没有警长。'});w.sheriffDone=true;render(true);return}
+  if(!win){w.log.push({k:'sys',text:'警长票未决，本局无警长。'});w.sheriffDone=true;render(true);return}
   w.sheriffUid=win.uid;w.sheriffDone=true;
-  w.log.push({k:'sys',text:'👮 '+wwTag(win)+' 当选警长（白天投票算 1.5 票，每天的发言顺序也由 TA 来定）。'});
+  w.log.push({k:'sys',text:'👮 '+wwTag(win)+'当选警长。'});
   w.rec.push({d:w.day,t:'警长竞选：'+wwTag(win)+' 当选警长'});
   render(true);
 }
@@ -29313,7 +29393,7 @@ async function wwDecideOrder(){
   }
   w.speechStart=startUid;w.speechDir=dir;w.speechMode=startUid?'sheriff':'sheriff-random';
   var sP=startUid?wwPlayerByUid(startUid):null;
-  w.log.push({k:'sys',text:'👮 警长 '+wwTag(sh)+' 定的发言顺序：从 '+(sP?wwTag(sP):'随机一个座位')+' 开始，'+(dir===-1?'按座位号往上':'按座位号往下')+'轮。'});
+  w.log.push({k:'sys',text:'👮 '+(sP?wwTag(sP):'随机座位')+'起，'+(dir===-1?'逆序':'正序')});
   render(true);
   return {start:startUid,dir:dir};
 }
@@ -29342,11 +29422,11 @@ async function wwBadgePass(){
   }
   if(tear||!to||!to.alive){
     w.sheriffUid=null;w.badgeGone=true;
-    w.log.push({k:'sys',text:'👮 警长 '+wwTag(sh)+' 撕毁了警徽 —— 这一局之后没有警长了。'});
+    w.log.push({k:'sys',text:'👮 警徽已撕毁。'});
     w.rec.push({d:w.day,t:'警长 '+wwTag(sh)+' 出局，撕毁警徽'});
   }else{
     w.sheriffUid=to.uid;
-    w.log.push({k:'sys',text:'👮 警长 '+wwTag(sh)+' 把警徽交给了 '+wwTag(to)+'，'+wwTag(to)+' 成为新的警长。'});
+    w.log.push({k:'sys',text:'👮 警徽交给'+wwTag(to)+'。'});
     w.rec.push({d:w.day,t:'警长 '+wwTag(sh)+' 出局，警徽移交给 '+wwTag(to)});
   }
   render(true);
@@ -29367,8 +29447,8 @@ async function wwApplyPendingDeaths(){
   /* 【新·面杀】押后的死讯现在公布：盲留遗言 +「夜间 · 你的房间」也跟着押后到这里才走一遍 */
   if(!w.stopped){await wwUserDeathFlow(ds);if(gen!==((V.ww&&V.ww.gen)||0))return}
   /* 【修】这句以前写死成网杀的「第 N 天早上」，面杀里也照抄了 —— 改成跟着玩法走。 */
-  w.log.push({k:'sys',text:wwTxt('第 '+w.day+' 天 · 集会堂：','第 '+w.day+' 天早上：')+
-    (ds.length?('昨晚 '+ds.map(function(x){return wwTag(x)}).join('、')+' 出局了。'):'昨晚是平安夜，没有人出局。')});
+  w.log.push({k:'sys',text:'第 '+w.day+' 天：'+
+    (ds.length?(ds.map(function(x){return wwTag(x)}).join('、')+'出局。'):'平安夜。')});
   render(true);
 }
 /* 【新·面杀】把「夜间 · 你的房间」那一晚的对话，整理成一段文字。
@@ -29436,8 +29516,7 @@ async function wwBlownDay(){
   if(!w||w.over||w.stopped)return;
   var wolves=wwAlive().filter(wwIsWolf);
   if(!wolves.length){wwCheckOver();return}
-  w.log.push({k:'sys',text:'（昨晚狼队在她房里收了刀，她活着走了出来——狼队是谁，她清清楚楚。这件事今天再也包不住：'+
-    '不用投票了，'+wolves.map(function(p){return wwTag(p)}).join('、')+' 当场被认了出来，一起推上处刑台。）'});
+  w.log.push({k:'sys',text:'狼队收刀，身份暴露：'+wolves.map(function(p){return wwTag(p)}).join('、')+'。'});
   w.rec.push({d:w.day,t:'狼队收刀暴露了身份，直接被处刑：'+wolves.map(function(p){return wwTag(p)}).join('、')});
   render(true);
   for(var i=0;i<wolves.length;i++){
@@ -29454,8 +29533,7 @@ async function wwBlownDay(){
   }
   /* 处刑：狼队一个不剩 —— 好人获胜，这一局到这里就结束了 */
   wolves.forEach(function(p){p.alive=false;p.killedBy='vote'});
-  w.log.push({k:'vote',text:wwTxt('处刑结束——'+wolves.map(function(p){return wwName(p)}).join('、')+' 全部出局。狼队一个不剩，好人获胜。',
-                                  '放逐结束——'+wolves.map(function(p){return wwName(p)}).join('、')+' 全部出局。狼队一个不剩，好人获胜。')});
+  w.log.push({k:'vote',text:'狼队全出局，好人获胜。'});
   w.msg='';
   w.over=true;w.winner='good';
   w.endText='狼队收刀放过了她，身份当众暴露——狼人全部出局，好人获胜。';
@@ -29490,9 +29568,8 @@ async function wwDay(){
         if(w.wordsDone){
           /* 【新·面杀】遗言已经在夜里（进房间之前）留过、也公开过了：这里不重复问、也不重复那条「你没有醒过来」 */
         }else{
-          w.log.push({k:'sys',text:wwTxt('天亮了——你没有醒过来。','你出局了。')});render(true);
-          var uw=await wwUserLastWords(wwTxt('你没有醒过来……这是第一夜，你还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。',
-                                             '你出局了……这是第一夜，你还可以留一段遗言：可以说说自己的身份、知道什么线索、最怀疑谁。'));
+          w.log.push({k:'sys',text:'你出局了。'});render(true);
+          var uw=await wwUserLastWords('第一夜可留遗言：报身份、线索或怀疑。');
           if(wwStaleG(gen))return;
           if(uw)wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+uw});
           else w.log.push({k:'sys',text:'你没有留遗言。'});
@@ -29509,8 +29586,8 @@ async function wwDay(){
         render(true);
       }
     }else{
-      if(p.isUser)w.log.push({k:'sys',text:wwTxt('你没有醒过来（第二夜起，夜里出局没有遗言）。','你出局了（第二夜起，夜里出局没有遗言）。')});
-      else w.log.push({k:'sys',text:wwTag(p)+' 出局，没有遗言。'});
+      if(p.isUser)w.log.push({k:'sys',text:'你出局了，无遗言。'});
+      else w.log.push({k:'sys',text:wwTag(p)+'出局，无遗言。'});
       render(true);
     }
     await wwHunterCheck(p);
@@ -29527,7 +29604,7 @@ async function wwDay(){
   if(wwHasBadge()){await wwDecideOrder();if(wwStaleG(gen))return;}
   else{w.speechStart='';w.speechDir=1;w.speechMode='random';}
   var _so=wwSpeechOrderList(),order=_so.list;
-  if(order.length)w.log.push({k:'sys',text:'发言顺序：今天从 '+wwTag(order[0])+' 开始，'+( _so.dir===-1?'按座位号往上轮。':'按座位号往下轮。')});
+  if(order.length&&!wwHasBadge())w.log.push({k:'sys',text:'发言：'+wwTag(order[0])+'起，'+( _so.dir===-1?'逆序':'正序')});
   for(var j=0;j<order.length;j++){
     var q=order[j];if(!q.alive)continue;
     if(wwStaleG(gen))return;
@@ -29543,11 +29620,11 @@ async function wwDay(){
       if(flipped)return;
     }
     if(q.isUser){
-      var r=await wwAskSay(wwTxt('轮到你发言了（集会堂里所有人都看着你）：说说你怀疑谁，也可以报自己的身份','轮到你发言了（可以说说你怀疑谁，也可以报自己的身份）'),'跳过此发言');
+      var r=await wwAskSay('轮到你发言：怀疑谁？可报身份。','跳过');
       if(wwStaleG(gen))return;
       if(r&&r.boom)return;               /* 【新】你在发言框里点了自爆：这一天到此为止 */
       if(r.text)w.log.push({k:'say',who:q.uid,text:r.text});
-      else w.log.push({k:'sys',text:wwTag(q)+' 跳过了发言，什么也没说。'});
+      else w.log.push({k:'sys',text:wwTag(q)+'跳过。'});
       w.spoke[q.uid]=1;
     }else{
       await wwStep('轮到「'+wwTag(q)+'」发言');
@@ -29578,8 +29655,7 @@ async function wwDay(){
     var pk=top.list.map(wwPlayerByUid).filter(function(x){return x&&x.alive});
       var rest=wwVotable().filter(function(x){return pk.indexOf(x)<0});
     if(pk.length>1&&rest.length){
-      w.log.push({k:'vote',text:wwTxt('出现平票！'+pk.map(function(x){return wwName(x)}).join('、')+' 被推到集会堂中央，各自再辩一轮。',
-                                      '出现平票！'+pk.map(function(x){return wwTag(x)}).join('、')+' 进入 PK 发言。')});
+      w.log.push({k:'vote',text:'平票：'+pk.map(wwTag).join('、')+'进入 PK。'});
       render(true);
       for(var pi=0;pi<pk.length;pi++){
         var pp=pk[pi];if(!pp.alive)continue;
@@ -29589,7 +29665,7 @@ async function wwDay(){
           var rp=await wwAskSay('平票 PK：轮到你发言了（为自己辩解，或者指出别人是狼）','跳过此发言');
           if(wwStaleG(gen))return;
           if(rp.text)w.log.push({k:'say',who:pp.uid,text:rp.text});
-          else w.log.push({k:'sys',text:wwTag(pp)+' 在 PK 时跳过了发言，什么也没说。'});
+          else w.log.push({k:'sys',text:wwTag(pp)+'跳过 PK。'});
         }else{
           await wwStep('轮到「'+wwTag(pp)+'」PK 发言');
           w.msg='「'+wwTag(pp)+'」正在 PK 发言…';render(true);
@@ -29605,13 +29681,13 @@ async function wwDay(){
       if(wwStaleG(gen))return;
       var top2=wwTallyTop(),ex2=top2.list.length===1?wwPlayerByUid(top2.list[0]):null;
       if(ex2&&ex2.alive)await wwExile(ex2);
-      else{w.log.push({k:'vote',text:wwTxt('再辩一轮还是平票，这一轮没有人被处刑。','PK 完还是平票，这一轮没有人被放逐。')});render(true)}
+      else{w.log.push({k:'vote',text:'再 PK 仍平票，本轮无人出局。'});render(true)}
     }else{
-      w.log.push({k:'vote',text:wwTxt('投票结果：平票，这一轮没有人被处刑。','投票结果：平票，这一轮没有人被放逐。')});
+      w.log.push({k:'vote',text:'平票，本轮无人出局。'});
       render(true);
     }
   }else{
-    w.log.push({k:'vote',text:wwTxt('投票结果：没有人被处刑。','投票结果：没有人被放逐。')});
+    w.log.push({k:'vote',text:'本轮无人出局。'});
     render(true);
   }
 }
@@ -29633,10 +29709,10 @@ async function wwLoop(){
           if(stale())return;
           if(w.over)break;
         }
-        w.phase='night';w.msg=wwTxt('🌙 集会散了，天色暗了下来……','天黑请闭眼…');render(true);
+        w.phase='night';w.msg='🌙 天黑请闭眼…';render(true);
         await wwGate('夜晚');
         if(stale())return;
-        if(!w.over){w.msg='🌙 夜晚进行中…';render(true);await wwNight()}
+        if(!w.over){w.msg='🌙 天黑请闭眼…';render(true);await wwNight()}
         if(stale())return;
         if(wwCheckOver())break;
       }
@@ -29748,11 +29824,11 @@ function wwSnapFromRec(rec){
   (rec.log||[]).forEach(function(e){
     if(!e||e.k!=='me')return;
     var t=String(e.text||''),m;
-    m=t.match(/你查验了\s*(\d{1,2})\s*号/);
+    m=t.match(/你查验了\s*(\d{1,2})\s*号/)||t.match(/🔮\s*(\d{1,2})号是/);
     if(m&&seer&&bySeq[+m[1]]){seer.check=seer.check||[];seer.check.push({uid:bySeq[+m[1]].uid,isWolf:bySeq[+m[1]].role==='wolf'})}
     if(/你用解药救了/.test(t))witchSave=false;
     if(/你用毒药毒了/.test(t))witchPoison=false;
-    if(/翻开身份牌：白痴/.test(t)){var mm=t.match(/(\d{1,2})\s*号/);if(mm&&bySeq[+mm[1]])bySeq[+mm[1]].revealed=true}
+    if((/翻开身份牌：白痴/.test(t)||/🃏\s*\d{1,2}号翻牌免死/.test(t))){var mm=t.match(/(\d{1,2})\s*号/);if(mm&&bySeq[+mm[1]])bySeq[+mm[1]].revealed=true}
   });
   return {day:rec.day||1,phase:'day',mode:rec.mode||'play',count:rec.count||players.length,winner:'',endText:'',
     nightDone:true,                        /* 老记录一律按"夜里已经结算过"处理：从白天接着玩，不会重复刀人 */
@@ -30202,28 +30278,11 @@ function wwStart(){
   w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
   w.auto=(w.mode==='watch'&&w.autoWatch);
   w.phase='night';
-  /* 开局不铺一串座位号了：改成「本局板子 + 几条要记住的规则」（按人数自动适配） */
-  var bd=wwBoard(w.count),bl=['狼人 '+bd.wolf];
-  if(bd.seer)bl.push('预言家 '+bd.seer);
-  if(bd.witch)bl.push('女巫 '+bd.witch);
-  if(bd.hunter)bl.push('猎人 '+bd.hunter);
-  if(bd.idiot)bl.push('白痴 '+bd.idiot);
-  bl.push('村民 '+bd.villager);
-  w.log.push({k:'sys',text:'【本局板子】'+w.count+' 人局：'+bl.join(' · ')});
-  /* 只留「各地规矩不一样、得看这条才知道」的几条；狼一晚一刀、扣枪杀人数那种常识就不写了 */
-  if(bd.witch||bd.hunter||bd.idiot){
-    var rl=[];
-    if(bd.witch)rl.push(wwTxt('女巫解药、毒药各一瓶，同一晚只能用一瓶；【面杀】女巫全程不能自救（连第一夜也不行）',
-                              '女巫解药、毒药各一瓶，同一晚只能用一瓶；第一夜可以救自己，第二夜起不能自救'));
-    if(bd.hunter)rl.push('猎人被女巫毒死不能开枪');
-    if(bd.idiot)rl.push('白痴被投票放逐时翻牌免死，之后不能再投票、也不能再被票（夜里被刀照样死）');
-    w.log.push({k:'sys',text:'【本局规矩】'+rl.join('；')+'。'});
-  }
-  /* 【新·面杀】开场铺一句：这是一桌面对面的人，不是网上的房间 */
-  if(wwFaceOn())w.log.push({k:'sys',text:'【集会堂】你们在集会堂里围坐成一圈，每个座位前面都扣着一张身份牌。看牌的时候，可以偷偷打量别人的脸色。'});
+  w.helpOpen=false;
+  /* 板子简称显示在「现场」标题栏，不再单独写一条系统气泡 */
   /* 【新】她在准备页写的「大家的样子」：也铺一条到现场，方便她自己核对有没有生效 */
   var lkArr=w.players.filter(function(p){return p&&String(p.look||'').trim()}).map(function(p){return wwTag(p)+'·'+wwBareName(p)+'：'+String(p.look).trim()});
-  if(lkArr.length)w.log.push({k:'sys',text:'【大家的样子】'+lkArr.join('；')});
+  if(lkArr.length)w.log.push({k:'sys',text:'形象：'+lkArr.join('；')});
   wwBgmAuto();                        /* 上次开了音乐就接着放（这里是点「开始」触发的，能出声） */
   V.view='ww';render(true);
   wwLoop();
@@ -30274,7 +30333,7 @@ function tokAdd(usage,out,msgs){
 function tokNum(n){return String(Math.round(Number(n)||0)).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
 function tokLine(){
   if(!GTOK.runs||!GTOK.total)return '';
-  var s='🪙 本局共消耗 '+(GTOK.est?'约 ':'')+
+  var s=wwUiIcon('coin')+'本局共消耗 '+(GTOK.est?'约 ':'')+
     '<b style="color:var(--txt)">'+tokNum(GTOK.total)+'</b> token · 共 '+GTOK.runs+' 次请求';
   if(GTOK.chitRuns){
     var tt=Number(GTOK.ptok)||0;
@@ -30390,7 +30449,7 @@ function hallHTML(){
          (bd?('<span class="gx-badge '+bd.cls+'">'+esc(bd.text)+'</span>'):'')+
          '<div class="fic-lm">'+
          '<div class="fic-lt">'+esc(recTitle(r))+'</div>'+
-         '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">🏆 MVP</span>':'')+esc(recSub(r))+'</div></div>'+
+         '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+esc(recSub(r))+'</div></div>'+
          ((r.game==='ww'&&!r.winner&&!r.endText)?('<button class="ghost" type="button" style="color:var(--acc)" onclick="event.stopPropagation();GAME.wwResume(\''+esc(r.id)+'\')">继续</button>'):'')+
          '<button class="rec-x" type="button" aria-label="删除" onclick="event.stopPropagation();GAME.histDel(\''+esc(r.id)+'\')">'+REC_IC_X+'</button>'+
          '</div>';
@@ -30688,7 +30747,7 @@ function wwSeatHTML(p){
      (pickable?(' onclick="GAME.wwPickUid(\''+p.uid+'\')"'):(votable?(' onclick="GAME.wwVotePick(\''+p.uid+'\')"'):(markable?(' onclick="GAME.wwMarkPick(\''+p.uid+'\')"'):'')))+'>'+
      '<span class="ww-seat-av">'+(p.seq?('<span class="ww-seat-no"'+(cc?(' style="background:'+esc(cc)+'"'):'')+'>'+p.seq+'</span>'):'')+
      (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid))))+wwMarkBadge(p.uid)+(upNow?('<span class="ww-uphand'+(mk?' lft':'')+'" title="上警">'+WW_IC_HAND+'</span>'):'')+((w.sheriffUid&&p.uid===w.sheriffUid)?('<span class="ww-sheriff" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+fx+'</span>'+
-     '<span class="ww-seat-nm">'+esc(p.name)+'</span>'+
+     '<span class="ww-seat-nm">'+esc(p.isUser?'我':p.name)+'</span>'+
      '<span class="ww-seat-st'+(p.alive&&voted?' voted':((p.alive&&((dayOn&&spoke)||(w.electing&&upNow&&upSpoke)))?' spoke':''))+'">'+esc(st)+'</span>'+
      '</div>';
 }
@@ -30782,6 +30841,14 @@ function wwLogHTML(){
      「夜间 · 你的房间」几条收成一块、默认折起来 —— 不然每一句都要写一遍标题、刷屏。 */
   for(var i=0;i<arr.length;i++){
     var e=arr[i];
+    if(e&&e.k==='sys'){
+      var dayText=String(e.text||''),dm=dayText.match(/^第\s*(\d+)\s*天/);
+      if(dm){
+        var daySub=dayText.replace(/^第\s*\d+\s*天(?:\s*[·]\s*集会堂|\s*早上)?\s*[：:]?\s*/,'').trim();
+        h+='<div class="ww-day-divider"><span>第 '+dm[1]+' 天'+(daySub?(' · '+wwSystemHTML(daySub)):'')+'</span></div>';
+        continue;
+      }
+    }
     if(e.k==='say'){
       var p=wwPlayerByUid(e.who),isMe=!!(p&&p.isUser);
       var raw=String(e.text||''),t=raw,tag='';
@@ -30794,7 +30861,6 @@ function wwLogHTML(){
       var open=(e.open===true)||(e.open===undefined&&isLatest);
       if(!open){
         h+='<button class="ww-say-mini'+(isMe?' me':'')+'" type="button" onclick="GAME.wwSayOpen('+(base+i)+')">'+
-           '<span class="ww-mini-dot" style="background:'+col+'"></span>'+
            '<b>'+esc(p?wwTag(p):'（已离开的玩家）')+'</b>'+
            (tag?('<i>'+tag+'</i>'):'')+
            '<span class="ww-mini-t">'+esc(title)+'</span>'+
@@ -30803,18 +30869,18 @@ function wwLogHTML(){
       }
       /* 只有最新那条角色发言能「重说」（长按或点右上角小按钮） */
       var canSay=!!(p&&!isMe&&(base+i)===lastAI);
-      var titleChip=(p&&p.seq?(p.seq+'：'):'')+(title||'发言');
+      var titleChip=p&&p.seq?(p.seq+'号'):'发言';
+      var sayHead=tag?('<div class="ww-say-h"><i>'+tag+'</i></div>'):'';
       var lp=canSay?(' data-wwi="'+(base+i)+'" data-wwu="'+esc(e.who||'')+'" data-wwk="'+esc(raw.slice(0,10))+'"'+
         ' ontouchstart="GAME.wwLPDown(event,this)" ontouchend="GAME.wwLPUp()" ontouchmove="GAME.wwLPMove(event)" ontouchcancel="GAME.wwLPUp()"'+
         ' onmousedown="GAME.wwLPDown(event,this)" onmouseup="GAME.wwLPUp()" onmouseleave="GAME.wwLPUp()" oncontextmenu="return false"'):'';
       h+='<div class="ww-say'+(isMe?' me':'')+'"'+lp+'>'+
-         '<div class="ww-say-h"><span class="ww-dot" style="background:'+col+'"></span>'+(tag?('<i>'+tag+'</i>'):'')+wwMarkChip(p?p.uid:'')+
-         '</div>'+
+         sayHead+
          '<div class="ww-say-title-row"><span class="ww-say-title">'+esc(titleChip)+'</span>'+
          '<button class="ww-fold" type="button" aria-label="收起" onclick="GAME.wwSayOpen('+(base+i)+',1)">收起</button>'+
          (canSay?('<button class="ww-rsay" type="button" aria-label="重新发言" onclick="GAME.wwResayAsk(\''+esc(p.uid)+'\','+(base+i)+')">'+WW_IC_REDO+'</button>'):'')+
          '</div>'+
-         '<div class="ww-say-t" style="border-left-color:'+col+'">'+esc(t)+
+         '<div class="ww-say-t">'+esc(t)+
          ((w.over&&wwTransparentOn()&&e.think)?wwThinkHTML(base+i,e.think,'ww'):'')+'</div></div>';
     }else if(e.k==='vote'){
       h+='<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>';
@@ -30822,19 +30888,19 @@ function wwLogHTML(){
       /* 【新】狼队频道：只有「你也是狼」才看得到（你要是好人，这几条直接跳过） */
       var _m=wwMe();
       if(!_m||!wwIsWolf(_m))continue;      /* 注意：这里是 for 循环，要用 continue（用 return 会把整个日志截断） */
-      h+='<div class="ww-sys wolf"><b>'+(wwFaceOn()?'🌙 夜间密会':'🐺 狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
+      h+='<div class="ww-sys wolf"><b>'+wwUiIcon(wwFaceOn()?'moon':'wolf')+(wwFaceOn()?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
     }else if(e.k==='me'){
-      h+='<div class="ww-sys me'+(e.icon==='vote'?' ww-vln':'')+'">'+(e.icon==='vote'?WW_VOTE_ICON:'')+'<span>'+esc(e.text)+'</span></div>';
+      h+='<div class="ww-sys me'+(e.icon==='vote'?' ww-vln':'')+'">'+(e.icon==='vote'?WW_VOTE_ICON:'')+'<span>'+wwSystemHTML(e.text)+'</span></div>';
     }else if(e.k==='scene'){
       /* 【新·面杀】「夜间 · 你的房间」那一段：连续几条收成一个折叠块、默认收起来；
          这种条目不进 AI 的公共记录，所以不剧透。 */
       var lines=[],j=i;
       while(j<arr.length&&arr[j]&&arr[j].k==='scene'){lines.push(String(arr[j].text||'').replace(/^【夜间 · 你的房间】/,''));j++}
-      h+='<details class="ww-scene"><summary>🌙 夜间 · 你的房间（点开看这段）</summary><div class="ww-scene-b">'+
+      h+='<details class="ww-scene"><summary>'+wwUiIcon('moon')+'夜间 · 你的房间（点开看这段）</summary><div class="ww-scene-b">'+
          lines.map(function(x){return '<div>'+esc(x)+'</div>'}).join('')+'</div></details>';
       i=j-1;
     }else{
-      h+='<div class="ww-sys">'+esc(e.text)+'</div>';
+      h+='<div class="ww-sys">'+wwSystemHTML(e.text)+'</div>';
     }
   }
   return h;
@@ -30902,6 +30968,16 @@ function wwBoardCompo(){
   if(b.idiot)a.push(b.idiot+' 白痴');
   return a.join(' · ');
 }
+function wwBoardBrief(){
+  var w=V.ww||{},b=wwBoard(w.count),a=[];
+  if(w.count===12)return '12人'+wwBoardName();
+  if(b.seer)a.push('预');
+  if(b.witch)a.push('女');
+  if(b.guard)a.push('守');
+  if(b.hunter)a.push('猎');
+  if(b.idiot)a.push('白');
+  return (w.count||'?')+'人'+(a.join('')||'标准');
+}
 function wwPresetDesc(p){
   var c=parseInt(p.count,10)||0;
   var bn=(c===12)?((p.board==='wolfking')?'守卫白狼王':'预女猎白'):(c+' 人标准板');
@@ -30951,7 +31027,7 @@ function wwPopHTML(){
          '<input type="checkbox" '+(on?'checked':'')+' onchange="GAME.wwToggle(\''+esc(c.id)+'\',this.checked)">'+
          avOfC(c)+
          '<span class="gx-cnm">'+esc(c.name||'未命名')+'<small>'+(mm==='full'?'带完整记忆':'只带人设')+
-         ' · <span class="gx-tipb'+(w.tips[c.id]===true?' on':'')+'" onclick="GAME.wwTipsChar(\''+esc(c.id)+'\')">📖 教程'+(w.tips[c.id]===true?'开':'关')+'</span></small></span>'+
+         ' · <span class="gx-tipb'+(w.tips[c.id]===true?' on':'')+'" onclick="GAME.wwTipsChar(\''+esc(c.id)+'\')">'+wwUiIcon('book')+'教程'+(w.tips[c.id]===true?'开':'关')+'</span></small></span>'+
          '<span class="gx-memseg">'+
          '<button class="'+(mm==='base'?'on':'')+'" onclick="GAME.wwMem(\''+esc(c.id)+'\',\'base\')">人设</button>'+
          '<button class="'+(mm==='full'?'on':'')+'" onclick="GAME.wwMem(\''+esc(c.id)+'\',\'full\')">完整</button>'+
@@ -31447,6 +31523,42 @@ function wwBgmToggle(){
 function wwBgmAuto(){
   try{if(load(LS_WWMUSIC,0))wwBgmStart()}catch(e){}
 }
+function wwInfoHTML(){
+  var w=V.ww;if(!w||!w.helpOpen)return '';
+  var b=wwBoard(w.count),rules=[],alive=wwAlive().length,me=wwMe(),mine=[];
+  if(me){
+    mine.push(WW_ROLE_EMOJI[me.role]+' '+WW_ROLE_NAME[me.role]+' · '+(me.alive?'活着':'已出局'));
+    if(wwHasBadge()&&wwSheriffP()===me)mine.push('👮 警长 · 票权 1.5');
+    if(me.role==='seer'){
+      var ck=(me.check||[]).map(function(c){var t=wwPlayerByUid(c.uid);return (t?wwTag(t):'?')+'='+(c.isWolf?'狼':'好人')}).join('，');
+      mine.push('验人：'+(ck||'还没验过'));
+    }else if(me.role==='witch'){
+      mine.push('药：解药'+(w.witchSave?'在':'没了')+' · 毒药'+(w.witchPoison?'在':'没了'));
+    }else if(wwIsWolf(me)){
+      var mateN=w.players.filter(function(p){return wwIsWolf(p)&&p!==me}).map(function(p){return (p.seq||'?')+'号'}).join('、');
+      mine.push('狼队：'+(mateN||'没有队友')+(me.role==='wolfking'?(w.kingBoom?' · 💥已用':' · 💥可用'):''));
+    }
+  }
+  if(b.witch)rules.push('女巫：解药、毒药各一瓶，同一晚限用一瓶。'+(wwFaceOn()?'面杀全程不能自救。':'第一夜可自救，之后不能。'));
+  if(b.hunter)rules.push('猎人：被毒杀不能开枪。');
+  if(b.idiot)rules.push('白痴：被票翻牌免死，之后不能投票、不能再被票。');
+  if(wwSheriffOn())rules.push('警长：票权 1.5，决定每天的发言顺序。');
+  rules.push('胜负：狼人全出局则好人胜；狼人不少于好人则狼人胜。');
+  return '<div class="ww-mkmodal ww-helpmask" onclick="GAME.wwInfo(0)">'+
+    '<div class="ww-mkbox ww-helpbox" onclick="event.stopPropagation()">'+
+      '<div class="ww-pophead"><b>本局说明</b><button class="ww-popx" type="button" aria-label="关闭" onclick="GAME.wwInfo(0)">×</button></div>'+
+      '<div class="ww-help-board"><b>'+esc(wwBoardBrief())+'</b><span>'+esc(wwBoardCompo())+'</span>'+
+        '<span>开局 '+w.count+' 人 · 当前 '+alive+' 人 · '+(wwFaceOn()?'面杀':'网杀')+'</span></div>'+
+      (mine.length?('<div class="ww-help-label">你的身份</div><div class="ww-help-list">'+
+        mine.map(function(x){return '<div>'+wwSystemHTML(x)+'</div>'}).join('')+'</div>'):'')+
+      '<div class="ww-help-label">规则</div><div class="ww-help-list">'+
+        rules.map(function(x){return '<div>'+wwSystemHTML(x)+'</div>'}).join('')+
+      '</div>'+
+      '<div class="ww-help-actions"><button class="ghost" type="button" onclick="GAME.wwInfo(0)">关闭</button>'+
+        (w.over?'':'<button class="ghost" type="button" style="color:var(--warn)" onclick="GAME.wwInfo(0);GAME.wwStop()">结束本局</button>')+
+      '</div>'+
+    '</div></div>';
+}
 function wwHTML(){
   var w=V.ww,h='',me=wwMe(),alive=wwAlive();
   /* 【新·面杀】夜间 · 你的房间：这一段独占整屏 —— 不再叠在牌桌上（以前那种定位会跟着弹层一起滚，看着像分屏） */
@@ -31454,33 +31566,30 @@ function wwHTML(){
      上面压一层暗蒙版 + 底部压得更暗，文字还是清楚；白天/黑夜的氛围层照旧不叠在这段上。 */
   if(w.room)return '<div class="ww-wrap ww-nightwrap" style="background-image:linear-gradient(180deg,rgba(6,7,12,.88),rgba(8,8,13,.72) 36%,rgba(4,5,9,.94)),url('+WW_BG.room+');background-size:cover;background-position:center">'+wwRoomHTML()+'</div>';
   var watching=(w.mode==='watch'||!(me&&me.alive));   /* 已经不用你操作了，可以给「自动演到底」 */
+  var topRole='';
+  if(me){
+    var rb=[WW_ROLE_EMOJI[me.role]+' '+WW_ROLE_NAME[me.role],me.alive?'活着':'已出局'];
+    if(wwHasBadge()&&wwSheriffP()===me)rb.push('👮警长');
+    if(me.role==='seer')rb.push((me.check||[]).length?('已验'+(me.check||[]).length+'人'):'未验');
+    else if(me.role==='witch')rb.push('解药'+(w.witchSave?'在':'没了'),'毒药'+(w.witchPoison?'在':'没了'));
+    else if(wwIsWolf(me)){
+      var mates=w.players.filter(function(p){return wwIsWolf(p)&&p!==me}).map(function(p){return (p.seq||'?')+'号'}).join('、');
+      rb.push('队友 '+(mates||'无'));
+    }
+    topRole='<i class="ww-top-role">'+wwSystemHTML(rb.join(' · '))+'</i>';
+  }else{
+    topRole='<i class="ww-top-role">旁观 · 余 '+alive.length+' 人</i>';
+  }
   /* 顶部游戏栏：返回 + 第几天 + 白天/夜晚气氛胶囊 + 结束（不再用那张大黑海报） */
   h+='<div class="ww-head"><div class="ww-top">'+
      '<button class="ww-back" type="button" aria-label="返回" onclick="GAME.hall()">'+BACK_ICON+'</button>'+
      '<div class="ww-top-t">第 '+w.day+' 天'+
-     '<span class="ww-mood '+(w.phase==='night'?'night':'day')+'">'+(w.over?'🏁 结束':(w.phase==='night'?'🌙 夜里':'☀️ 白天'))+'</span>'+
-     '<i>'+(w.over?(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局')):(w.count+' 人局 · 余 '+alive.length+' 人'))+'</i></div>'+
+     '<span class="ww-mood '+(w.phase==='night'?'night':'day')+'">'+(w.over?(wwUiIcon('flag')+'结束'):(w.phase==='night'?(wwUiIcon('moon')+'夜里'):(wwUiIcon('sun')+'白天')))+'</span>'+
+     topRole+'</div>'+
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
-     ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">💥</button>':'')+
-     (w.over?'':'<button class="ww-stop" type="button" aria-label="结束这一局" onclick="GAME.wwStop()">'+WW_IC_STOP+'</button>')+
+     ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
+     (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="查看本局说明" onclick="GAME.wwInfo(1)">'+WW_IC_HELP+'</button>')+
      '</div>';
-  /* 我的身份：浓缩成一小条（身份 · 状态 · 该知道的道具/线索） */
-  if(me){
-    var ck=(me.check||[]).map(function(c){var t=wwPlayerByUid(c.uid);return (t?wwTag(t):'?')+'='+(c.isWolf?'狼':'好人')}).join('，');
-    var extra='';
-    if(me.role==='seer')extra='验过：'+(ck||'还没验过');
-    else if(me.role==='witch')extra='解药'+(w.witchSave?'在':'没了')+' · 毒药'+(w.witchPoison?'在':'没了');
-    else if(wwIsWolf(me)){
-      var mateN=w.players.filter(function(p){return wwIsWolf(p)&&p!==me}).map(function(p){return (p.seq||'?')}).join('·');
-      extra='队友 '+(mateN||'无')+(me.role==='wolfking'?(w.kingBoom?' · 💥已用':' · 💥可用'):'');
-    }
-    h+='<div class="ww-me">'+
-       '<span class="ww-me-r">'+WW_ROLE_EMOJI[me.role]+' '+WW_ROLE_NAME[me.role]+'</span>'+
-       (wwHasBadge()&&wwSheriffP()===me?('<span class="ww-me-x"><span class="ww-badge">'+WW_IC_SHERIFF+'</span>警长 1.5票</span>'):'')+
-       '<span class="ww-me-s">'+(me.alive?'活着':'已出局')+'</span>'+
-       (extra?('<span class="ww-me-x">'+esc(extra)+'</span>'):'')+
-       '</div>';
-  }
   h+='</div>';   /* 关掉顶部信息条 .ww-head */
   /* 桌面：左边一列座位、右边一列座位，中间是「现场」
      （像围桌坐，谁说话哪边就亮；往下翻发言时两边座位会吸在屏幕上） */
@@ -31489,7 +31598,7 @@ function wwHTML(){
   h+='<div class="ww-stage">'+
      '<div class="ww-rail'+(picking?' picking':'')+'">'+w.players.slice(0,half).map(wwSeatHTML).join('')+'</div>'+
      '<div class="ww-center">'+
-       (w.log.length?('<div class="ww-loghead"><div class="gx-sec">现场</div><div class="ww-logbtns"><button type="button" onclick="GAME.wwSayAll(1)">展开全部</button><button type="button" onclick="GAME.wwSayAll(0)">收起全部</button></div></div>'+wwLogHTML()):'<p class="gx-hint">游戏正在准备…</p>')+
+       (w.log.length?wwLogHTML():'<p class="gx-hint">游戏正在准备…</p>')+
      '</div>'+
      '<div class="ww-rail'+(picking?' picking':'')+'">'+w.players.slice(half).map(wwSeatHTML).join('')+'</div>'+
      '</div>';
@@ -31500,11 +31609,11 @@ function wwHTML(){
     /* 【新】裁判还在写复盘 / 评 MVP 的时候：先显示一排跳动的点点，让她知道是在等裁判 */
     if(w.judging&&!w.judge){
       h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
-         '<div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>🧑‍⚖️ 中立裁判正在总结这一局（复盘 + 评 MVP）…</span></div></div>';
+         '<div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+'中立裁判正在总结这一局（复盘 + 评 MVP）…</span></div></div>';
     }else h+=wwJudgeHTML(w.judge);
     h+=wwTransRow();
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
-       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwNum(p)+p.name)+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
+       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwNum(p)+p.name)+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x,ri){
       return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('r'+ri,x.tk,'hist'):'')+'</div>';
     }).join('')+'</div></details>';
@@ -31514,11 +31623,11 @@ function wwHTML(){
     }else if((w.reacts||[]).length){
       h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(w.reacts,w.players)+'</div></div>';
     }else{
-      h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs"><span class="dim">赛后感想改成「想看再看」了——点下面的按钮，她们会一个个说；不想看就不点。</span></div><div class="gx-row"><button class="ghost" onclick="GAME.wwReactGo()">💬 让她们一个个说</button></div></div>';
+      h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs"><span class="dim">赛后感想改成「想看再看」了——点下面的按钮，她们会一个个说；不想看就不点。</span></div><div class="gx-row"><button class="ghost" onclick="GAME.wwReactGo()">'+wwUiIcon('chat')+'让她们一个个说</button></div></div>';
     }
     h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>'+
-       '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDump()">📋 复制整局文字（含思考过程）</button></div>'+
+       '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDump()">'+wwUiIcon('copy')+'复制整局文字（含思考过程）</button></div>'+
        '<div class="gx-row"><button class="pri" onclick="GAME.wwAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   }else{
    var mkHTML='';   /* 【修】标记浮窗先攒着，等底栏拼完再挂到底栏外面 */
@@ -31537,7 +31646,7 @@ function wwHTML(){
           if(k==='guard')return !!bd.guard;
           if(k==='wolfking')return !!bd.wolfking;
           return true;
-        }).map(function(m){return '<button onclick="GAME.wwMarkSet(\''+m[0]+'\')">'+m[1]+'</button>'}).join('')+'</div>'+
+        }).map(function(m){return '<button onclick="GAME.wwMarkSet(\''+m[0]+'\')">'+wwUiIcon(m[2])+m[1]+'</button>'}).join('')+'</div>'+
         '<div class="ww-mkbox-t" style="margin-top:12px">给编号上色（盘共边很方便）</div>'+
         '<div class="ww-colors">'+WW_COLORS.map(function(c){return '<button class="ww-cbtn" style="background:'+c+'" aria-label="上色" onclick="GAME.wwColorSet(\''+c+'\')"></button>'}).join('')+
         '<button class="ww-cbtn ww-cnone" onclick="GAME.wwColorSet(\'\')">默认</button></div>'+
@@ -31550,7 +31659,7 @@ function wwHTML(){
      h+='<div class="ww-act">'+wwActHead(wwTxt('轮到你投票了——你要把谁推上处刑台？','轮到你投票了'),true)+
         (vp?('<div class="ww-vote-sel">你投给：<b>'+esc(wwTag(vp))+'</b>　（想换就点别的头像）</div>'+
              '<div class="gx-row"><button class="pri" onclick="GAME.wwVoteConfirm()">确认投票</button></div>')
-           :'<div class="ww-pick-h">👉 点两边任意一个头像，就是投给 TA</div>')+
+           :'<div class="ww-pick-h">'+wwUiIcon('pointer')+'点两边任意一个头像，就是投给 TA</div>')+
         '</div>';
    }else if(w.voteMode==='wait'){
      h+='<div class="ww-act">'+wwActHead('等待其他玩家投票')+
@@ -31561,19 +31670,19 @@ function wwHTML(){
     if(ua.kind==='pick'){
       /* 选人：不铺列表了，直接点两边的头像 */
       h+='<div class="ww-act">'+wwActHead(ua.label,true)+
-         '<div class="ww-pick-h">👉 点两边任意一个头像，就是选 TA'+(ua.none?('；不想选就按下面的「'+esc(ua.none)+'」'):'')+'</div>'+
-         (ua.none?('<button class="ghost ww-pick-n" onclick="GAME.wwPickUid(\'\')">'+esc(ua.none)+'</button>'):'')+
+         '<div class="ww-pick-h">'+wwUiIcon('pointer')+'点两边任意一个头像，就是选 TA'+(ua.none?('；不想选就按下面的「'+wwSystemHTML(ua.none)+'」'):'')+'</div>'+
+         (ua.none?('<button class="ghost ww-pick-n" onclick="GAME.wwPickUid(\'\')">'+wwSystemHTML(ua.none)+'</button>'):'')+
          '</div>';
     }else if(ua.kind==='opt'){
       h+='<div class="ww-act">'+wwActHead(ua.label)+
          '<div class="gx-seg">'+(ua.opts||[]).map(function(o){
-        return '<button onclick="GAME.wwPickOpt('+Number(o[1])+')">'+esc(o[0])+'</button>';
+        return '<button onclick="GAME.wwPickOpt('+Number(o[1])+')">'+wwSystemHTML(o[0])+'</button>';
       }).join('')+'</div></div>';
     }else if(ua.kind==='say'){
       h+='<div class="ww-act">'+wwActHead(ua.label)+
          '<textarea id="wwSay" rows="3" placeholder="'+esc(ua.ph||'说说你的想法：怀疑谁、为谁辩护、或者报自己的身份…')+'"></textarea>'+
          '<div class="gx-row"><button class="pri" onclick="GAME.wwSayIt(0)">'+esc(ua.ok||'发言')+'</button><button class="ghost" onclick="GAME.wwSayIt(1)">'+esc(ua.skipLabel||'过')+'</button>'+
-         ((me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ghost" onclick="GAME.wwBoomSay()">💥 自爆</button>':'')+
+         ((me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ghost" onclick="GAME.wwBoomSay()">'+wwUiIcon('boom')+'自爆</button>':'')+
          '</div></div>';
     }else if(ua.kind==='wolf'){
       /* 【新】狼队频道：夜里给队友留言（这一夜一共 50 字，输入框自己也会拦）
@@ -31590,7 +31699,7 @@ function wwHTML(){
     /* 投票面板在上面已经画过了：这里不再重复显示上一次发言留下的旧状态 */
   }else if(w.gateResolve&&!w.resayOn){
     h+='<div class="ww-act">'+wwActHead(w.gate.step||'继续')+
-       '<div class="gx-row"><button class="pri" onclick="GAME.wwGo()">'+esc(w.gate.btn||('进入'+(w.gate.step||'下一步')+' ›'))+'</button></div></div>';
+       '<div class="gx-row"><button class="pri" onclick="GAME.wwGo()">'+wwSystemHTML(w.gate.btn||('进入'+(w.gate.step||'下一步')+' ›'))+'</button></div></div>';
   }else{
     h+='<div class="ww-act">'+wwActHead(w.msg||'进行中…')+
       '<div class="gx-busy" style="padding:2px"><i></i><i></i><i></i><span>请稍等</span></div></div>';
@@ -31607,6 +31716,7 @@ function wwHTML(){
        '<div class="gx-row"><button class="pri" onclick="GAME.wwResayGo()">重新说一遍</button><button class="ghost" onclick="GAME.wwResayCancel()">取消</button></div>'+
        '</div></div>';
   }
+  if(w.helpOpen)h+=wwInfoHTML();
   /* 【新·皮肤·第二批】先铺一层全屏场景图（白天/黄昏/夜里/处刑自动换），再叠原来的早晚氛围层，
      最后才是牌桌内容 —— 所有面板在这一批里都换成了暗色，压在村庄图上很清楚。 */
   var sc=wwSceneKey();
@@ -31662,12 +31772,12 @@ function wwHistHTML(rec){
      '<div class="gx-vsub">'+esc(rec.endText||'')+'</div></div>';
   if(V.histJudgeBusy){
     /* 【新】正在叫裁判重新复盘：先显示跳动的点点 */
-    h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>🧑‍⚖️ 中立裁判正在重新总结这一局（复盘 + 评 MVP）…</span></div></div>';
+    h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+'中立裁判正在重新总结这一局（复盘 + 评 MVP）…</span></div></div>';
   }else{
     h+=wwJudgeHTML(rec.judge||'');
     /* 【新】打完的局才能重新评选（没打完、没结局的记录不显示这个按钮） */
     if(rec.winner||rec.endText){
-      h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwRejudge(\''+esc(rec.id)+'\')">🔁 让裁判重新评选 MVP（连复盘一起重写）</button></div>';
+      h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwRejudge(\''+esc(rec.id)+'\')">'+wwUiIcon('refresh')+'让裁判重新评选 MVP（连复盘一起重写）</button></div>';
     }
   }
   h+=wwTransRow();
@@ -31675,17 +31785,17 @@ function wwHistHTML(rec){
   if(rec.winner||rec.endText){
     h+='<div class="gx-sec">AI 复盘助手 · 提示词体检</div>';
     if(V.histAuditBusy){
-      h+='<div class="gx-card"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>🧠 复盘助手正在读整局记录、写优化建议…</span></div></div>';
+      h+='<div class="gx-card"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('scan')+'复盘助手正在读整局记录、写优化建议…</span></div></div>';
     }else if(rec.audit){
       h+='<div class="gx-card"><div class="ww-audit">'+esc(rec.audit)+'</div>'+
-         '<div class="gx-row"><button class="pri" onclick="GAME.wwCopyAudit(\''+esc(rec.id)+'\')">📋 复制全部</button><button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">🔁 重新体检</button></div></div>';
+         '<div class="gx-row"><button class="pri" onclick="GAME.wwCopyAudit(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制全部</button><button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">'+wwUiIcon('refresh')+'重新体检</button></div></div>';
     }else{
       h+='<div class="gx-card"><p class="gx-hint" style="margin:0 0 8px">让一个客观的 AI 读完整局记录，指出这局 AI 暴露了什么问题、并给出能直接抄去改的系统提示词优化建议。<b>默认不跑</b>，点下面的按钮才会开始（会花一次比较长的请求）。</p>'+
-         '<button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">🧠 让助手体检这一局</button></div>';
+         '<button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">'+wwUiIcon('scan')+'让助手体检这一局</button></div>';
     }
   }
   h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+((rec.players||[]).map(function(p){
-    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">🏆 MVP</span>':'')+'：'+WW_ROLE_EMOJI[p.role]+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>';
+    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>';
   }).join(''))+'</div>';
   if((rec.rec||[]).length)h+='<details class="gx-log"><summary>夜间行动（复盘）</summary><div class="gx-vs">'+rec.rec.map(function(x,ri){
     return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('hr'+ri,x.tk,'hist'):'')+'</div>';
@@ -31698,7 +31808,7 @@ function wwHistHTML(rec){
     if(e.k==='scene'){
       var _ln=[],_lj=_li;
       while(_lj<_logs.length&&_logs[_lj]&&_logs[_lj].k==='scene'){_ln.push(String(_logs[_lj].text||'').replace(/^【夜间 · 你的房间】/,''));_lj++}
-      _logHTML+='<details class="ww-scene"><summary>🌙 夜间 · 你的房间（点开看这段）</summary><div class="ww-scene-b">'+
+      _logHTML+='<details class="ww-scene"><summary>'+wwUiIcon('moon')+'夜间 · 你的房间（点开看这段）</summary><div class="ww-scene-b">'+
         _ln.map(function(x){return '<div>'+esc(x)+'</div>'}).join('')+'</div></details>';
       _li=_lj-1;
       continue;
@@ -31713,16 +31823,16 @@ function wwHistHTML(rec){
     if(e.k==='vote'){_logHTML+='<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>';continue}
     /* 【新】狼队频道：赛后全部公开（透明模式里能看到她们夜里偷偷商量了什么）。
        面杀那几局就是「桌下的比划」，标题跟着换一下，别写成网杀的说法。 */
-    if(e.k==='wolf'){_logHTML+='<div class="ww-sys wolf"><b>'+((rec&&rec.table==='face')?'🌙 夜间密会':'🐺 狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';continue}
-    _logHTML+='<div class="ww-sys'+(e.k==='me'?' me':'')+'">'+esc(e.text)+'</div>';
+    if(e.k==='wolf'){_logHTML+='<div class="ww-sys wolf"><b>'+wwUiIcon((rec&&rec.table==='face')?'moon':'wolf')+((rec&&rec.table==='face')?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';continue}
+    _logHTML+='<div class="ww-sys'+(e.k==='me'?' me':'')+'">'+wwSystemHTML(e.text)+'</div>';
   }
   h+='<div class="gx-sec">记录</div>'+_logHTML;
   if((rec.reacts||[]).length)h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
   if(rec.game==='ww'&&!rec.winner&&!rec.endText)
     h+='<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续这一局</button></div>';
-  h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDumpRec(\''+esc(rec.id)+'\')">📋 复制整局文字（含思考过程）</button></div>';
+  h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDumpRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制整局文字（含思考过程）</button></div>';
   /* 【新】挨刀小剧场：不跟着普通战绩走，想分享就单独点这个 */
-  if(wwSceneHas(rec))h+='<div class="gx-row"><button class="ghost" onclick="GAME.shareScene(\''+esc(rec.id)+'\')">🌙 单独分享「夜间 · 你的房间」</button></div>';
+  if(wwSceneHas(rec))h+='<div class="gx-row"><button class="ghost" onclick="GAME.shareScene(\''+esc(rec.id)+'\')">'+wwUiIcon('moon')+'单独分享「夜间 · 你的房间」</button></div>';
   h+='<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button>'+
      '<button class="ghost" style="color:var(--warn)" onclick="GAME.histDel(\''+esc(rec.id)+'\')">删除这一局</button></div>';
   return h;
@@ -32596,7 +32706,7 @@ function shareRecSheet(){
          (bd?('<span class="gx-badge '+bd.cls+'">'+esc(bd.text)+'</span>'):'')+
          '<div class="fic-lm" onclick="GAME.shareRec(\''+esc(r.id)+'\')">'+
          '<div class="fic-lt">'+esc(recTitle(r))+'</div>'+
-         '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">🏆 MVP</span>':'')+esc(recSub(r))+'</div></div>'+
+         '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+esc(recSub(r))+'</div></div>'+
          '<button class="ghost" type="button" onclick="GAME.shareRec(\''+esc(r.id)+'\')">分享</button>'+
          '</div>';
     });
@@ -33568,6 +33678,7 @@ window.GAME={
   wwAgain:function(){wwAgain()},
   wwReactGo:function(){wwReactGo()},
   wwStop:function(){wwStop()},
+  wwInfo:function(on){var w=V.ww;if(!w)return;w.helpOpen=!!on;render(false)},
   /* 装扮小铺（单人 · 做任务攒贝壳 · 换 SVG 头像图标 / 头像框） */
   shopHome:function(){V.view='shop';render(false)},
   shopBack:function(){V.view='shop';render(false)},
