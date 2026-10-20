@@ -4982,6 +4982,15 @@ function verIndex(x){
 }
 /* 改动时间：切换版本 / 编辑后把它调大，存盘合并时「改过的那份」才会胜出 */
 function bumpUt(m){if(m)m.ut=Math.max(Date.now(),(Number(m.ut)||0)+1)}
+/* 编辑旧消息时先补一个稳定编号：即使只改了正文前 64 个字之后的内容，
+   存盘合并时也能分清「旧内容不要了」和「改好的新内容要留下」。 */
+function newMsgMid(){return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function prepareMsgForEdit(id,m){
+  if(!m)return false;
+  if(!m.mid){markMsgDeleted(id,m);m.mid=newMsgMid()}
+  bumpUt(m);
+  return true;
+}
 /* 保证这条消息的 vs 里，至少已经存着「当前显示的这一版」 */
 function keepVer(m){
   if(!m)return;
@@ -6099,9 +6108,11 @@ async function regen(){
     }
   }catch(e){}
 }
+let basicEditTarget=null;
 function editMsg(){
   if(busy||!msgs.length)return;
   const c=curChar(),m=msgs[msgs.length-1];
+  basicEditTarget=m;
   showSheet('<div class="ttl">编辑这条（'+(m.role==='user'?'你说的':esc(c?c.name:'AI')+'说的')+'）</div>'+
   (msgImgs(m).length?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条消息带了图片，编辑只改文字。</p>':'')+
   '<textarea id="emv" style="min-height:180px">'+esc(m.content)+'</textarea>'+
@@ -6110,10 +6121,11 @@ function editMsg(){
 }
 function saveEdit(){
   const v=$('#emv').value.trim();
-  const m=msgs[msgs.length-1];
+  const m=(basicEditTarget&&msgs.indexOf(basicEditTarget)>=0)?basicEditTarget:null;
+  if(!m){basicEditTarget=null;closeSheet();renderChat();return alert('聊天记录刚刚有变化，请重新长按那条消息再编辑')}
   if(!v&&!msgImgs(m).length)return alert('不能空着');
-  if(m.mid)bumpUt(m);                 /* 【新】带版本的消息：按「改过时间更晚」胜过存盘里的旧内容 */
-  else markMsgDeleted(curId,m);       /* 记一笔：这条的旧内容不要了 */
+  basicEditTarget=null;
+  prepareMsgForEdit(curId,m);
   m.content=v;m.tok=estTokens(v);syncVer(m);persist();closeSheet();renderChat();
 }
 function delMsg(){
@@ -19193,6 +19205,7 @@ P5.actNewSheet=function(){
    ③  消息操作：长按（电脑右键）弹出面板
    ================================================================ */
 var curI=-1;
+var editTarget=null;
 var I={
   copy:'<svg viewBox="0 0 24 24"><rect x="8.6" y="8.6" width="11" height="11" rx="3"/><path d="M15.6 5.6v-.2a2 2 0 0 0-2-2H6.4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 2 2h.2"/></svg>',
   quote:'<svg viewBox="0 0 24 24"><path d="M9.4 6.6C6.9 7.8 5.4 10 5.4 12.6c0 2.3 1.3 3.9 3.2 3.9 1.7 0 2.9-1.2 2.9-2.8 0-1.5-1-2.6-2.5-2.6-.3 0-.6 0-.8.1.3-1.2 1.2-2.2 2.4-2.9Z"/><path d="M17.6 6.6c-2.5 1.2-4 3.4-4 6 0 2.3 1.3 3.9 3.2 3.9 1.7 0 2.9-1.2 2.9-2.8 0-1.5-1-2.6-2.5-2.6-.3 0-.6 0-.8.1.3-1.2 1.2-2.2 2.4-2.9Z"/></svg>',
@@ -19288,19 +19301,33 @@ P6.quote=function(){
 };
 P6.edit=function(){
   var m=msgs[curI];if(!m)return;
-  showSheet('<div class="ttl">编辑这条</div>'+
+  var html='<div class="ttl">编辑这条</div>'+
     (msgImgs(m).length?'<p class="dim" style="font-size:12px;margin:0 0 8px">这条带图，编辑只改文字。</p>':'')+
     '<textarea id="p6ed" style="min-height:180px">'+esc(m.content||'')+'</textarea>'+
     '<div class="row" style="margin-top:12px"><button class="pri col" onclick="P6.saveEdit()">保存</button>'+
-    '<button class="ghost col" onclick="closeSheet()">取消</button></div>');
+    '<button class="ghost col" onclick="closeSheet()">取消</button></div>';
+  /* 记住具体消息对象，不只看序号：编辑期间即使来了新消息，也不会改错条。 */
+  editTarget={msg:m,index:curI,mid:m.mid||'',oldKey:msgContentKey(m)};
+  try{if(P6.sel&&P6.sel.on&&P6.selStop)P6.selStop()}catch(e){}
+  /* 用编辑框替换长按菜单；保存后就能一次关回聊天。 */
+  closeSheet();
+  showSheet(html);
 };
 P6.saveEdit=function(){
-  var m=msgs[curI];if(!m)return;
+  var t=editTarget,m=null;
+  if(t){
+    if(msgs.indexOf(t.msg)>=0)m=t.msg;
+    if(!m&&t.mid){
+      for(var i=msgs.length-1;i>=0;i--){if(msgs[i]&&msgs[i].mid===t.mid){m=msgs[i];break}}
+    }
+    if(!m&&msgs[t.index]&&msgContentKey(msgs[t.index])===t.oldKey)m=msgs[t.index];
+  }
+  if(!m){editTarget=null;closeSheet();renderChat();return say('聊天记录刚刚有变化，请重新长按那条消息再编辑')}
   var el=document.getElementById('p6ed');
   var v=el?String(el.value||'').trim():'';
   if(!v&&!msgImgs(m).length)return say('不能空着');
-  if(m.mid)bumpUt(m);                 /* 【新】带版本的消息：按「改过时间更晚」胜过存盘里的旧内容 */
-  else markMsgDeleted(curId,m);       /* 记一笔：这条的旧内容不要了 */
+  editTarget=null;
+  prepareMsgForEdit(curId,m);
   m.content=v;m.tok=estTokens(v);
   syncVer(m);                         /* 【新】改动同步进当前这一版 */
   persist();closeSheet();renderChat();say('已保存');
