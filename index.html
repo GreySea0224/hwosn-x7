@@ -7090,6 +7090,7 @@ async function delChar(id){
   try{await idbDel('records:'+id,'roam')}catch(e){}
   try{await idbDel('activity:'+id,'roam')}catch(e){}
   removeKey('wh_roamcache_'+id);
+  removeKey('wh_roampending_'+id);
   const gone={};gone[id]=1;
   for(const b of branchList){
     gone[b.id]=1;clearUnread(b.id);
@@ -7098,6 +7099,7 @@ async function delChar(id){
     try{await idbDel(b.id,'rawlog')}catch(e){}
     try{await idbDel('activity:'+b.id,'roam')}catch(e){}
     removeKey('wh_roamcache_'+b.id);
+    removeKey('wh_roampending_'+b.id);
     delete autoMap[b.id];
   }
   try{
@@ -21926,6 +21928,11 @@ var R={
 
 function chOf(id){try{return (chars||[]).find(function(c){return c&&c.id===id})||null}catch(e){return null}}
 function mainChars(){try{return (chars||[]).filter(function(c){return c&&!c.branchOf})}catch(e){return[]}}
+function primePending(){
+  return Promise.all(mainChars().map(function(c){
+    return loadRecords(c.id).catch(function(){return[]});
+  }));
+}
 function uiChars(){
   return mainChars().filter(function(c){
     try{return !c.priv||c.id===curId}catch(e){return !c.priv}
@@ -22018,6 +22025,15 @@ function roamActive(c){
 function recKey(cid){return 'records:'+cid}
 function actKey(cid){return 'activity:'+cid}
 function fallbackKey(cid){return 'wh_roamcache_'+cid}
+function pendingIndexKey(cid){return 'wh_roampending_'+cid}
+function updatePendingIndex(cid,arr){
+  try{
+    var rows=(arr||[]).filter(function(e){return e&&e.status==='pending'}).map(function(e){
+      return {id:String(e.id||''),source:String(e.source||''),status:'pending',t:Number(e.t)||0};
+    });
+    save(pendingIndexKey(cid),rows);
+  }catch(e){}
+}
 function compactRecords(arr){
   return (arr||[]).slice(0,12).map(function(e){
     return Object.assign({},e,{detail:safeText(e&&e.detail,2000)});
@@ -22045,6 +22061,7 @@ async function loadRecords(cid,force){
   }catch(e){}
   R.records[cid]=arr;
   R.recLoaded[cid]=true;
+  updatePendingIndex(cid,arr);
   return arr;
 }
 async function saveRecords(cid,arr){
@@ -22060,6 +22077,7 @@ async function saveRecords(cid,arr){
     var check=load(fallbackKey(cid),null);
     mirrorOk=Array.isArray(check)&&JSON.stringify(check)===mirrorJSON;
   }catch(e){}
+  updatePendingIndex(cid,arr);
   if(idbOk||mirrorOk){
     try{scheduleBackup()}catch(e){}
     if(!idbOk&&mirrorOk&&!R.fallbackWarned){
@@ -22414,6 +22432,10 @@ async function runCharacter(c,events,manual){
   busy=true;try{updSendBtn()}catch(e){}
   var savedAsk=ctxAsk,savedBg=ctxBg,savedDrop=ctxDropMid,savedDyn=CTX_DYN;
   var msgs2=[],out='',pre='',reasoning='',usage=null,readIds=[],ok=false;
+  var release=function(){
+    R.runBusy[c.id]=false;
+    busy=false;try{updSendBtn()}catch(e){}
+  };
   try{
     ctxAsk=null;
     ctxBg={cid:c.id,msgs:msgsOf(c.id).slice(),mem:Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{})};
@@ -22460,44 +22482,50 @@ async function runCharacter(c,events,manual){
     try{toast('洄游这次没处理成功，记录会留到下次：'+String((e&&e.message)||e).slice(0,60))}catch(_){}
   }finally{
     ctxAsk=savedAsk;ctxBg=savedBg;ctxDropMid=savedDrop;CTX_DYN=savedDyn;
-    R.runBusy[c.id]=false;
-    busy=false;try{updSendBtn()}catch(e){}
+    if(!ok)release();
   }
   if(!ok)return false;
-  var arr=await loadRecords(c.id);
-  var now=Date.now();
-  arr.forEach(function(e){
-    if(!events.some(function(x){return x.id===e.id}))return;
-    e.status=readIds.indexOf(e.id)>=0?'read':'skipped';
-    e.processedAt=now;
-    e.readAt=readIds.indexOf(e.id)>=0?now:0;
-    e.replied=!!out;
-  });
-  if(!Array.isArray(c.roamRecent))c.roamRecent=[];
-  events.forEach(function(e){
-    c.roamRecent.push({t:now,text:safeText(e.summary||e.title||'一件小事',180)});
-  });
-  while(c.roamRecent.length>24)c.roamRecent.shift();
-  await saveRecords(c.id,arr);
-  var rc=cfgOf(c);
-  if(rc.mode==='scheduled')rc.lastRunDay=todayKey();
-  save(LS.chars,chars);scheduleBackup();
-  if(out){
-    var m=makeAssistantMsg(out,reasoning,usage,{model:modelOf(c)});
-    m.roam=true;
-    pushMsgTo(c.id,m);
-    tideLogAdd({kind:'roam',cid:c.id,title:c.name,where:'洄游',text:out,manual:!!manual});
-    var looking=(curId===c.id&&view==='chat'&&!document.hidden);
-    if(looking){try{renderChat()}catch(e){}}
-    else{
-      try{markUnread(c.id)}catch(e){}
-      try{toast((c.emoji||'')+' '+c.name+' 看完洄游后发来一条消息')}catch(e){}
-      try{notify(c.name,(c.emoji||'')+out.slice(0,80))}catch(e){}
+  try{
+    var arr=await loadRecords(c.id);
+    var now=Date.now();
+    arr.forEach(function(e){
+      if(!events.some(function(x){return x.id===e.id}))return;
+      e.status=readIds.indexOf(e.id)>=0?'read':'skipped';
+      e.processedAt=now;
+      e.readAt=readIds.indexOf(e.id)>=0?now:0;
+      e.replied=!!out;
+    });
+    if(!await saveRecords(c.id,arr)){
+      try{toast('洄游记录保存失败，这次回复没有发出；记录会留到下次重试')}catch(e){}
+      return false;
     }
+    if(!Array.isArray(c.roamRecent))c.roamRecent=[];
+    events.forEach(function(e){
+      c.roamRecent.push({t:now,text:safeText(e.summary||e.title||'一件小事',180)});
+    });
+    while(c.roamRecent.length>24)c.roamRecent.shift();
+    var rc=cfgOf(c);
+    if(rc.mode==='scheduled')rc.lastRunDay=todayKey();
+    save(LS.chars,chars);scheduleBackup();
+    if(out){
+      var m=makeAssistantMsg(out,reasoning,usage,{model:modelOf(c)});
+      m.roam=true;
+      pushMsgTo(c.id,m);
+      tideLogAdd({kind:'roam',cid:c.id,title:c.name,where:'洄游',text:out,manual:!!manual});
+      var looking=(curId===c.id&&view==='chat'&&!document.hidden);
+      if(looking){try{renderChat()}catch(e){}}
+      else{
+        try{markUnread(c.id)}catch(e){}
+        try{toast((c.emoji||'')+' '+c.name+' 看完洄游后发来一条消息')}catch(e){}
+        try{notify(c.name,(c.emoji||'')+out.slice(0,80))}catch(e){}
+      }
+    }
+    if(R.open)render();
+    if(pendingOf(arr).length)scheduleSoon(c.id,1200);
+    return true;
+  }finally{
+    release();
   }
-  if(R.open)render();
-  if(pendingOf(arr).length)scheduleSoon(c.id,1200);
-  return true;
 }
 
 function dueNow(c,events){
@@ -22974,6 +23002,7 @@ function editBase(id){
 W.ROAM={
   VERSION:1,
   userName:roamUserName,
+  primePending:primePending,
   open:open,close:close,back:back,render:render,tabGo:tabGo,feedChar:feedChar,detail:detail,
   charEdit:charEdit,saveChar:saveChar,manual:manual,clearRecords:clearRecords,backfillFic:backfillFic,backfillGame:backfillGame,
   branchNew:branchNew,branchEdit:branchEdit,saveBranch:saveBranch,branchSummaryNow:branchSummaryNow,
@@ -22987,6 +23016,7 @@ injectCSS();
 if(R.tickTimer)clearInterval(R.tickTimer);
 R.tickTimer=setInterval(function(){try{tick()}catch(e){}},45000);
 window.addEventListener('focus',function(){try{tick()}catch(e){}});
+setTimeout(function(){try{primePending()}catch(e){}},1200);
 setTimeout(function(){try{tick()}catch(e){}},4500);
 })();
 </script>
@@ -23671,7 +23701,8 @@ function tideDayKey(t){
 }
 function tideRoamPending(c){
   try{
-    var arr=load('wh_roamcache_'+c.id,[]);
+    var arr=load('wh_roampending_'+c.id,null);
+    if(!Array.isArray(arr))arr=load('wh_roamcache_'+c.id,[]);
     if(!Array.isArray(arr))return [];
     var allowed=(c.roam&&Array.isArray(c.roam.sources))?c.roam.sources:['game','fic','tarot','branch'];
     return arr.filter(function(e){return e&&e.status==='pending'&&allowed.indexOf(e.source)>=0});
@@ -24007,7 +24038,7 @@ function tideControl(c,args){
     if(!q0)return {ok:false,msg:'这个安排已经不在了'};
     if(action==='reschedule'){
       var t0=tideScheduleArg(a);if(t0.err)return {ok:false,msg:t0.err};
-      var q1=tideQueuePatch(q0.id,function(x){x.at=t0.at;x.atSource=t0.source||'absolute';x.afterMinutes=t0.after_minutes||0;x.status='pending';x.pauseReason='';x.lastError=''});
+      var q1=tideQueuePatch(q0.id,function(x){x.at=t0.at;x.atSource=t0.source||'absolute';x.afterMinutes=t0.after_minutes||0;x.status='pending';x.pauseReason='';x.lastError='';x.attempts=0});
       return {ok:true,id:'queue:'+q1.id,at:tideLocalInput(q1.at),msg:'已改到 '+tideWhen(q1.at)};
     }
     if(action==='cancel'){
@@ -24016,7 +24047,11 @@ function tideControl(c,args){
     }
     if(action==='pause'||action==='resume'){
       if(action==='pause'&&Date.now()-Number(q0.createdAt||0)<30000)return {ok:false,msg:'这条安排刚创建，不能立刻暂停；如果是时间不对，请用 reschedule 按 after_minutes 改时间'};
-      tideQueuePatch(q0.id,function(x){x.status=action==='pause'?'paused':'pending';x.pauseReason=action==='pause'?'角色主动暂停':''});
+      tideQueuePatch(q0.id,function(x){
+        x.status=action==='pause'?'paused':'pending';
+        x.pauseReason=action==='pause'?'角色主动暂停':'';
+        if(action==='resume'){x.attempts=0;x.lastError=''}
+      });
       return {ok:true,msg:action==='pause'?'已暂停这个安排':'已恢复这个安排'};
     }
     if(action==='edit_text'){
@@ -24152,6 +24187,26 @@ async function tideFireQueueItem(q,manual){
   return {ok:false,drop:true,msg:'未知安排类型'};
 }
 var tideQueueTicking=false;
+var TIDE_QUEUE_MAX_ATTEMPTS=5;
+var TIDE_QUEUE_RETRY_MS=5*60000;
+function tideQueueMarkFailure(q,res,manual){
+  var msg=String((res&&res.msg)||'执行失败').slice(0,180);
+  var attempts=Number(q.attempts||0)+1;
+  q.attempts=attempts;
+  q.lastError=msg;
+  q.updatedAt=Date.now();
+  if(manual){
+    q.status='paused';
+    q.pauseReason='手动执行失败，已暂停；可点“恢复”重新尝试';
+    return;
+  }
+  if(attempts>=TIDE_QUEUE_MAX_ATTEMPTS){
+    q.status='paused';
+    q.pauseReason='连续执行失败 '+TIDE_QUEUE_MAX_ATTEMPTS+' 次，已停止自动重试';
+    return;
+  }
+  q.at=Date.now()+TIDE_QUEUE_RETRY_MS;
+}
 async function tideQueueTick(){
   if(tideQueueTicking||busy||groupBusy||!cfg||!cfg.autoOn||isLocked())return;
   var list=tideQueueAll();
@@ -24171,10 +24226,7 @@ async function tideQueueTick(){
     if(list[i].id!==q.id)continue;
     if(res&&(res.ok||res.drop)){list.splice(i,1);break}
     if(res&&res.pause){list[i].status='paused';list[i].pauseReason=String(res.msg||'执行条件不满足').slice(0,180);list[i].lastError=String(res.msg||'').slice(0,180);list[i].updatedAt=Date.now();break}
-    list[i].at=Date.now()+5*60000;
-    list[i].attempts=Number(list[i].attempts||0)+1;
-    list[i].lastError=String((res&&res.msg)||'执行失败').slice(0,180);
-    list[i].updatedAt=Date.now();
+    tideQueueMarkFailure(list[i],res,false);
     break;
   }
   tideQueueSave(list);
@@ -24191,7 +24243,7 @@ async function tideQueueFireNow(id){
   try{res=await tideFireQueueItem(q,true)}catch(e){res={ok:false,msg:String((e&&e.message)||e)}}finally{tideQueueTicking=false}
   if(res&&(res.ok||res.drop))tideQueueSave(tideQueueAll().filter(function(x){return x.id!==id}));
   else if(res&&res.pause)tideQueuePatch(id,function(x){x.status='paused';x.pauseReason=String(res.msg||'执行条件不满足').slice(0,180);x.lastError=String(res.msg||'').slice(0,180)});
-  else tideQueuePatch(id,function(x){x.at=Date.now()+5*60000;x.attempts=Number(x.attempts||0)+1;x.lastError=String((res&&res.msg)||'执行失败').slice(0,180)});
+  else tideQueuePatch(id,function(x){tideQueueMarkFailure(x,res,true)});
   try{updateDots()}catch(e){}
   return res||{ok:false,msg:'执行失败'};
 }
@@ -24357,11 +24409,18 @@ function tideOpen(){
   showSheet('<div id="tideRoot"></div>',true);
   try{var md=D.getElementById('modal');if(md)md.classList.add('nox')}catch(e){}
   sheetFull(true);
-  tideRender();
+  tideRefresh();
 }
 function tideRefresh(){
   autoMapLoadOnce();groupAutoMapLoadOnce();
   tideRender();
+  try{
+    if(window.ROAM&&ROAM.primePending){
+      ROAM.primePending().then(function(){
+        if(D.getElementById('tideRoot'))tideRender();
+      }).catch(function(){});
+    }
+  }catch(e){}
 }
 function tideClearLog(){
   if(!confirm('清空潮汐里的最近自动发送记录？聊天记录和待办不会受影响。'))return;
@@ -24460,7 +24519,11 @@ async function tideAct(action,kind,keyEnc){
   if(action==='pause'||action==='resume'){
     var on=action==='pause';
     if(kind.indexOf('role_')===0){
-      var rq=tideQueuePatch(key,function(x){x.status=on?'paused':'pending';x.pauseReason=on?'用户暂停':''});
+      var rq=tideQueuePatch(key,function(x){
+        x.status=on?'paused':'pending';
+        x.pauseReason=on?'用户暂停':'';
+        if(!on){x.attempts=0;x.lastError=''}
+      });
       if(!rq)return toast('这个安排已经找不到了');
       toast(on?'已暂停这个角色安排':'已恢复这个角色安排');
       tideRender();return;
