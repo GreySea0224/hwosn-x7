@@ -5503,7 +5503,7 @@ function buildCtxSystem(c,extra){
     dyn.push('【潮汐控制】你可以用 control_tide 查看和管理自己尚未执行的排期。用户说“半小时后、一小时后、过一会儿”时，新增或改时间必须填 after_minutes，交给程序计算，不要自己手算 at；只有用户明确说出某个日期或钟点时才用 at。新建成功后状态就是待执行，不要紧接着调用 pause；如果时间填错，用 reschedule 改成正确的 after_minutes。列表里的 delay 是你对当前聊天消息的延迟回复，不是主动排期：除非用户明确让你改或取消这次回复，否则不要碰它；要安排以后主动发一条，必须调用 add_message。');
   }
   if(permOn(c,'shapePerm')){
-    dyn.push('【塑形】你可以用 shape_self 更新自己的文字人设和普通记忆。只能改人设、情境、说话风格、开场白、对话示例，以及记忆页的核心设定、时间线、长期总结、偏好、习惯；名字、头像、模型、额外系统提示、权限和任何运行开关都不能改。只有用户明确要求你调整自己，或确实需要长期记住已经发生的重要约定时才使用。每次修改都要写清原因，不要为了临时对话反复重写核心人设。');
+    dyn.push('【塑形】你可以用 shape_self 更新自己的文字人设、普通记忆和名字后缀。人设部分只能改人设、情境、说话风格、开场白、对话示例；记忆部分只能改核心设定、时间线、长期总结、偏好、习惯。可以用 set_name_suffix 在原名字后面添加、替换或清空后缀（例如“大白”变成“大白_吃骨头”），但绝不能修改名字主体；头像、模型、额外系统提示、权限和任何运行开关也不能改。只有用户明确要求你调整自己，或确实需要长期记住已经发生的重要约定时才使用。每次修改都要写清原因，不要为了临时对话反复重写核心人设。');
   }
   /* ↓ 新增：把「用户正在听的歌」告诉角色（一起听音乐功能） */
   try{
@@ -7139,7 +7139,7 @@ function charPermissionCardsHTML(c){
   '<input type="checkbox" id="e_tideperm" '+(permOn(c,'tidePerm')?'checked':'')+'></div></div>'+
   /* 【新增】塑形权限：默认关，只允许它修改自己的文字人设和普通记忆 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>允许角色自己塑形</b><div class="dim" style="font-size:12px">默认关闭。打开后，它只能修改自己的文字人设、情境、说话风格、开场白、对话示例，以及记忆页的核心设定、时间线、长期总结、偏好和习惯。修改前会保存旧文字，在桌面「塑形」里可以撤销。名字、头像、模型和所有权限/运行开关都不能改。</div></div>'+
+  '<div class="col"><b>允许角色自己塑形</b><div class="dim" style="font-size:12px">默认关闭。打开后，它可以修改自己的文字人设、情境、说话风格、开场白、对话示例、普通记忆，也可以在原名字后面添加、替换或清空后缀（例：大白变成大白_吃骨头）。名字主体、头像、模型和所有权限/运行开关都不能改。修改前会保存旧内容，在桌面「塑形」里可以撤销。</div></div>'+
   '<input type="checkbox" id="e_shapeperm" '+(permOn(c,'shapePerm')?'checked':'')+'></div></div>'+
   /* 【新增】游戏邀请权限：开了以后它才能在聊天里拉你进游戏房间（默认关；关着的时候工具和那段提示词都不发，不占 token） */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
@@ -13525,8 +13525,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 角色设置新增“允许角色自己控制潮汐”，默认关闭。开启后角色可以用一个统一工具查看、修改、暂停或取消自己尚未执行的排期，也能新增待办提醒、一次性私聊/群聊消息、分身 MCP 总结、洄游处理；新增提醒还需要这个角色的待办权限，群消息还需要群聊权限。新增消息有两种：一种现在就写死文案；另一种只留下“到时候去做什么”的想法，到点再结合聊天上下文自由决定具体说什么。它只能碰自己的任务，最多同时保留 10 个由它新建的安排，每天最多新增 20 个，最早 2 分钟后、最晚 30 天内；关闭权限时，角色新建但未执行的任务会暂停。
 
 【最近更新 · 2026-10-20】
-角色设置新增“允许角色自己塑形”，默认关闭。打开后，角色可以修改自己的文字人设、情境/世界观、说话风格、开场白、对话示例，以及记忆页的“我是谁”核心设定、时间线、长期总结、偏好与认知、性格与习惯；可以新增、修改或删除普通记忆条目。名字、emoji、头像、模型、额外系统提示和所有权限/运行开关都不能改。
-每次塑形都会保存修改前和修改后的文字、时间、角色与原因。桌面第二页新增「塑形」应用，可以按角色查看这些记录并撤销某一次改动；如果同一项之后又被改过，撤销前会明确提醒会覆盖较新的内容。撤销本身也会留下记录。
+狼人杀准备页的「邀请玩家」新增两项设置。每个已邀请角色都可以指定一个必须拿到的身份，开局发牌时会先满足这些指定；如果当前人数或板子里没有这张身份牌、同一种身份指定得比牌数多，或和玩家自己的指定身份冲突，程序会明确提示并阻止开局，不会偷偷改掉。每个已邀请角色还可以打开「游戏中匿名」：开启后，牌桌座位、发言记录、赛后身份表和发给其他 AI 的公共信息只显示座位编号，不显示角色真实名字；匿名角色自己也会被告知不能说真名。这个设置很适合配合“给某个角色固定身份”使用，让游戏过程只围绕编号展开。
+角色设置新增“允许角色自己塑形”，默认关闭。打开后，角色可以修改自己的文字人设、情境/世界观、说话风格、开场白、对话示例，以及记忆页的“我是谁”核心设定、时间线、长期总结、偏好与认知、性格与习惯；可以新增、修改或删除普通记忆条目。塑形还支持给名字添加、替换或清空后缀，例如原名“大白”可以变成“大白_吃骨头”，但不能把名字主体改成“大黑”。emoji、头像、模型、额外系统提示和所有权限/运行开关都不能改。
+每次塑形都会保存修改前和修改后的文字、时间、角色与原因。桌面第二页的「塑形」应用可以按角色查看这些记录并撤销某一次改动；如果同一项之后又被改过，撤销前会明确提醒会覆盖较新的内容。撤销名字后缀时也会恢复原来的完整名字。撤销本身也会留下记录。
 
 【上次更新 · 2026-10-18】
 新增桌面应用「洄游」：它记录角色在聊天窗口外亲身经历的事，以角色自己为“我”。每个角色可以设置每条新记录都处理、累积到指定条数处理、每天固定时间处理，或默认关闭。主聊天先收到摘要，角色自己决定看哪些详情，也可以不回复。经历记录页可以只看某一个角色；每个角色还能单独选择自己能看见游戏、番外、塔罗、分身中的哪些类型。还新增「角色分身窗口」：每个分身有独立聊天和工具权限，默认复制本体人设与记忆快照，也可选择参考主窗口完整上下文；分身用 MCP 的活动可按日总结进洄游，主角色自己用 MCP 不会重复记录。分身会像普通角色一样显示在「角色」应用里，并标注“分身”和本体。
@@ -13602,7 +13603,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么新建角色：点桌面 Dock 上的「角色」→ 最上面「＋ 新建角色」，填人设和开场白，保存。
 · 怎么让它主动找我说话：点角色卡片右上角 ✎ → 自动发消息，打开并设间隔。
 · 怎么让角色自己安排以后的消息：点角色卡片右上角 ✎ → 打开“允许角色自己控制潮汐”，保存。以后可以直接对它说“一小时后按你现在想好的文案发给我”，或者“一小时后去我那边看看，到时候再想说什么”。第二种只保存目的，不写死文案。它还能改时间、改文案、暂停、取消，或安排分身 MCP 总结和洄游处理；这些都会出现在潮汐里，用户可以随时取消。
-· 怎么让角色自己修改人设或记忆：点角色卡片右上角 ✎ → 打开“允许角色自己塑形”并保存。以后明确让它改人设、改说话方式，或把重要事情记进记忆；它每次修改都会保存旧版本。去桌面第二页的「塑形」可以查看原因和前后文字，并撤销某一次改动。权限、名字、头像、模型和额外系统提示不会开放给它改。
+· 怎么让角色自己修改人设、记忆或名字后缀：点角色卡片右上角 ✎ → 打开“允许角色自己塑形”并保存。以后明确让它改人设、改说话方式、把重要事情记进记忆，或者说“给名字加个后缀”；它每次修改都会保存旧版本。去桌面第二页的「塑形」可以查看原因和前后内容，并撤销某一次改动。名字主体、权限、头像、模型和额外系统提示不会开放给它改。
 · 怎么看它什么时候会自动发消息：在桌面空白处向左滑到第二页，点「潮汐」；也可以按角色或触发方式筛选。私聊、群聊、提醒和延迟回复有具体时间，洄游按条件或固定时间处理。
 · 怎么不让某条自动消息发出：去「潮汐」，私聊或群聊可以点「跳过这次」或暂停这类来源；待办提醒和延迟回复可以取消那一次；洄游可以暂停处理。涉及立即调用接口的「现在发一条」会先询问，可能产生费用。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
@@ -13619,7 +13620,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=31;  /* 31：记忆整理、总结撤回与提炼记忆检索；30：角色塑形与撤销 */
+const GUIDE_VER=32;  /* 32：狼人杀固定身份/匿名与塑形名字后缀；31：记忆整理、总结撤回与提炼记忆检索 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -22094,10 +22095,11 @@ window.execTideTool=execTideTool;
 /* 塑形：只开放自己的文字人设和普通记忆；权限与运行开关由执行器白名单彻底隔离。 */
 var SHAPE_TOOL={type:'function',function:{
   name:'shape_self',
-  description:'查看或修改我自己的文字人设和普通记忆。只能改人设、情境、说话风格、开场白、对话示例，以及核心设定、时间线、长期总结、偏好、习惯。不能修改名字、头像、模型、额外系统提示、权限或任何设置。用于用户明确要求调整自己，或需要长期记住重要约定时。每次修改都必须给出简短原因。',
+  description:'查看或修改我自己的文字人设、普通记忆和名字后缀。人设部分只能改人设、情境、说话风格、开场白、对话示例；记忆部分只能改核心设定、时间线、长期总结、偏好、习惯。可以用 set_name_suffix 在原名字后面添加、替换或清空后缀，但不能修改名字主体。不能修改头像、模型、额外系统提示、权限或任何设置。用于用户明确要求调整自己，或需要长期记住重要约定时。每次修改都必须给出简短原因。',
   parameters:{type:'object',properties:{
-    action:{type:'string',enum:['inspect','update_profile','set_core','add_memory','edit_memory','delete_memory'],description:'inspect 查看当前可改内容；update_profile 修改角色文字；其余动作操作普通记忆。'},
+    action:{type:'string',enum:['inspect','update_profile','set_name_suffix','set_core','add_memory','edit_memory','delete_memory'],description:'inspect 查看当前可改内容；update_profile 修改角色文字；set_name_suffix 只改名字后缀；其余动作操作普通记忆。'},
     reason:{type:'string',maxLength:300,description:'为什么要做这次修改。写入类动作必填。'},
+    suffix:{type:'string',maxLength:24,description:'set_name_suffix 时要用的后缀，例如“吃骨头”会变成“原名字_吃骨头”；留空表示清空后缀。这里只能填后缀，不能填完整的新名字。'},
     fields:{type:'object',description:'update_profile 时要修改的文字栏目，只填需要改的项。',properties:{
       persona:{type:'string',maxLength:12000,description:'人设 / 我自己'},
       scenario:{type:'string',maxLength:6000,description:'情境 / 世界观'},
@@ -25069,7 +25071,7 @@ P14.tideClearLog=tideClearLog;
 /* ---------- ⑦-a 塑形：角色修改自己的文字资料，用户可查看和撤销 ---------- */
 (function(){
 var W=window,D=document;
-if(W.SHAPE&&W.SHAPE.VERSION>=1)return;
+if(W.SHAPE&&W.SHAPE.VERSION>=2)return;
 var CHAR_DEFS=[
   {key:'persona',name:'人设',max:12000},
   {key:'scenario',name:'情境 / 世界观',max:6000},
@@ -25087,6 +25089,23 @@ var MEM_DEFS=[
 var S={open:false,filter:'all',cache:{}};
 var MAX_HISTORY=200;
 function clone(v){try{return JSON.parse(JSON.stringify(v))}catch(e){return v}}
+function nameSuffixState(c){
+  var full=String((c&&c.name)||''),suffix=String((c&&c.nameSuffix)||''),base=String((c&&c.nameBase)||'');
+  if(suffix&&full.slice(-suffix.length)===suffix){
+    if(!base||base+suffix!==full)base=full.slice(0,-suffix.length);
+  }else{
+    suffix='';
+    base=full;
+  }
+  return {name:full,base:base,suffix:suffix};
+}
+function applyNameSuffixState(c,v){
+  var full=String((v&&v.name)||''),suffix=String((v&&v.suffix)||''),base=String((v&&v.base)||'');
+  if(!base)base=(suffix&&full.slice(-suffix.length)===suffix)?full.slice(0,-suffix.length):full;
+  c.nameBase=base;
+  c.nameSuffix=suffix;
+  c.name=full||(base+suffix);
+}
 function charOfShape(id){try{return (chars||[]).find(function(c){return c&&c.id===id})||null}catch(e){return null}}
 function visibleChars(){
   try{return (chars||[]).filter(function(c){return c&&(!c.priv||c.id===curId)})}catch(e){return[]}
@@ -25144,6 +25163,7 @@ function ensureMemId(M,field,id){
 function appliedValue(c,M,ch,side){
   var v=ch[side];
   if(ch.scope==='char')return String(c[ch.field]||'');
+  if(ch.scope==='nameSuffix')return nameSuffixState(c);
   if(ch.scope==='core')return String(M.core||'');
   if(ch.scope==='mem'){
     var arr=M[ch.field]||[],id=String(ch.id||(v&&v.id)||'');
@@ -25159,6 +25179,8 @@ function applySide(cid,c,changes,side){
     var v=clone(ch[side]);
     if(ch.scope==='char'){
       c[ch.field]=String(v==null?'':v);
+    }else if(ch.scope==='nameSuffix'){
+      applyNameSuffixState(c,v);
     }else if(ch.scope==='core'){
       M.core=String(v==null?'':v);
     }else if(ch.scope==='mem'){
@@ -25184,7 +25206,7 @@ function verifySide(cid,changes,side){
     var ch=changes[i],want=ch[side],got=appliedValue(storedC,storedM,ch,side);
     if(ch.scope==='char'||ch.scope==='core'){
       if(String(got==null?'':got)!==String(want==null?'':want))return false;
-    }else if(ch.scope==='mem'&&!sameJSON(got,want==null?null:want))return false;
+    }else if((ch.scope==='mem'||ch.scope==='nameSuffix')&&!sameJSON(got,want==null?null:want))return false;
   }
   return true;
 }
@@ -25197,6 +25219,7 @@ function invertChanges(changes){
 }
 function shapeChangeLabel(ch){
   if(ch.scope==='char'){var d=charDef(ch.field);return d?d.name:ch.field}
+  if(ch.scope==='nameSuffix')return '名字 · 后缀';
   if(ch.scope==='core')return '记忆 · 我是谁（核心设定）';
   var md=memDef(ch.field),base=md?md.name:ch.field;
   if(ch.before==null)return '记忆 · '+base+' · 新增';
@@ -25205,11 +25228,17 @@ function shapeChangeLabel(ch){
 }
 function shapeChangeText(v){
   if(v==null)return '（无）';
+  if(typeof v==='object'&&Object.prototype.hasOwnProperty.call(v,'suffix'))
+    return '完整名字：'+(v.name||'')+(v.suffix?('（后缀 '+v.suffix+'）'):'（无后缀）');
   if(typeof v==='object')return String(v.text||'');
   return String(v);
 }
 function inspectShape(c,args){
   var a=args||{},out={ok:true,profile:{},memory:{core:memAll(c.id).core,counts:{}},allowed_profile_fields:CHAR_DEFS.map(function(x){return x.key}),allowed_memory_fields:MEM_DEFS.map(function(x){return x.key})};
+  var ns=nameSuffixState(c);
+  out.name=ns.name;
+  out.name_base=ns.base;
+  out.name_suffix=ns.suffix;
   CHAR_DEFS.forEach(function(d){out.profile[d.key]=String(c[d.key]||'')});
   var M=memAll(c.id);
   MEM_DEFS.forEach(function(d){if(d.list)out.memory.counts[d.key]=(M[d.key]||[]).length});
@@ -25225,7 +25254,7 @@ function inspectShape(c,args){
     }).slice(-80);
     if(arr.length>80)out.memory.note='只返回最近 80 条；总数是 '+arr.length+' 条。';
   }
-  out.msg='可修改：'+CHAR_DEFS.map(function(x){return x.name}).join('、')+'；记忆：'+MEM_DEFS.map(function(x){return x.name}).join('、')+'。权限和运行开关不可修改。';
+  out.msg='可修改：'+CHAR_DEFS.map(function(x){return x.name}).join('、')+'；可以用 set_name_suffix 添加、替换或清空名字后缀，但不能改名字主体；记忆：'+MEM_DEFS.map(function(x){return x.name}).join('、')+'。权限和运行开关不可修改。';
   return out;
 }
 async function commitShape(c,changes,reason,extra){
@@ -25256,6 +25285,18 @@ async function control(c,args){
   if(action==='inspect')return inspectShape(c,a);
   var reason=String(a.reason||'').trim().slice(0,300);
   if(!reason)return {ok:false,msg:'写入塑形内容前必须说明原因'};
+  if(action==='set_name_suffix'){
+    var suffix=String(a.suffix==null?'':a.suffix).replace(/[\r\n\t]+/g,' ').trim();
+    if(suffix&&suffix.charAt(0)!=='_')suffix='_'+suffix;
+    if(suffix==='_')return {ok:false,msg:'名字后缀不能只有一个下划线'};
+    if(suffix.length>24)return {ok:false,msg:'名字后缀最多 24 个字符（包括开头的下划线）'};
+    var cur=nameSuffixState(c);
+    if(!cur.base.trim())return {ok:false,msg:'角色名字主体是空的，暂时不能添加后缀'};
+    var beforeSuffix={name:cur.name,base:cur.base,suffix:cur.suffix};
+    var afterSuffix={name:cur.base+suffix,base:cur.base,suffix:suffix};
+    if(sameJSON(beforeSuffix,afterSuffix))return {ok:false,msg:'名字后缀没有发生变化'};
+    return commitShape(c,[{scope:'nameSuffix',before:beforeSuffix,after:afterSuffix}],reason);
+  }
   if(action==='update_profile'){
     var f=a.fields;
     if(!f||typeof f!=='object'||Array.isArray(f))return {ok:false,msg:'没有提供要修改的文字栏目'};
@@ -25433,12 +25474,12 @@ async function renderShape(){
   var undoCount=filtered.filter(canUndo).length;
   r.innerHTML='<div class="shape-shell">'+
     '<div class="shape-head"><button class="shape-close" type="button" onclick="closeSheet()" aria-label="关闭">‹</button>'+
-      '<div class="shape-title"><h2>塑形</h2><p>查看角色修改过自己的文字，保存了修改前后的版本；有问题可以撤销。</p></div>'+
+      '<div class="shape-title"><h2>塑形</h2><p>查看角色修改过自己的文字或名字后缀，保存了修改前后的版本；有问题可以撤销。</p></div>'+
       '<button class="shape-refresh" type="button" onclick="SHAPE.refresh()" aria-label="刷新">↻</button></div>'+
     '<div class="shape-summary"><div class="shape-sum"><small>改动记录</small><b>'+filtered.length+' 次</b></div><div class="shape-sum"><small>可以撤销</small><b>'+undoCount+' 次</b></div></div>'+
     '<div class="shape-tools"><select aria-label="按角色筛选" onchange="SHAPE.filter(this.value)">'+roleOpts+'</select></div>'+
     '<div style="display:flex;flex-direction:column;gap:9px">'+
-      (visible.length?visible.map(function(x){return cardHTML(x.c,x.rev)}).join(''):'<div class="shape-empty">还没有角色修改过自己的文字。<br>在角色设置里打开“允许角色自己塑形”后，它做的文字改动会出现在这里。</div>')+
+      (visible.length?visible.map(function(x){return cardHTML(x.c,x.rev)}).join(''):'<div class="shape-empty">还没有角色修改过自己的文字或名字后缀。<br>在角色设置里打开“允许角色自己塑形”后，它做的改动会出现在这里。</div>')+
     '</div>'+
     (filtered.length>visible.length?('<div class="shape-empty">记录较多，这里先显示最近 '+visible.length+' 次；按角色筛选可以继续查看。</div>'):'')+
   '</div>';
@@ -25452,7 +25493,7 @@ function openShape(){
   renderShape();
 }
 W.SHAPE={
-  VERSION:1,
+  VERSION:2,
   control:control,
   open:openShape,
   detail:detailShape,
@@ -25973,7 +26014,7 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
   dg:{cids:[],mem:{},bank:'随机',maxGuess:5,cands:[],answer:'',phase:'setup',players:[],
     strokes:[],color:'#111111',size:.012,eraser:false,img:'',thumb:'',
     guesses:{},used:{},busy:false,msg:'',reacts:[],recId:null},
-  ww:{cids:[],mem:{},count:7,mode:'play',pick:'random',table:'online',autoWatch:false,
+  ww:{cids:[],mem:{},roleLocks:{},anon:{},count:7,mode:'play',pick:'random',table:'online',autoWatch:false,
     players:[],day:1,phase:'setup',over:false,winner:'',endText:'',
     night:null,votes:{},log:[],rec:[],witchSave:true,witchPoison:true,
     userAsk:null,resolve:null,gate:{},gateResolve:null,
@@ -26239,6 +26280,10 @@ var CSS=[
 '.gx-char.col{flex-direction:column;align-items:stretch;gap:8px}',
 '.gx-charl{display:flex;align-items:center;gap:10px}',
 '.gx-look{width:100%;box-sizing:border-box;font-size:12.5px;padding:8px 10px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--txt)}',
+'.gx-inviteopts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
+'.gx-inviteopts label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}',
+'.gx-inviteopts select{min-width:112px;max-width:150px;font-size:12px;padding:7px 8px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);color:var(--txt)}',
+'.gx-inviteopts .gx-anon{flex:1;min-width:170px}',
 '.gx-av{width:36px;height:36px;flex:0 0 36px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg2);font-size:19px;line-height:1}',
 '.gx-av img{width:100%;height:100%;object-fit:cover;display:block}',
 '.gx-cnm{flex:1;min-width:0;font-size:14px}',
@@ -29251,8 +29296,9 @@ function wwLooksLine(){
   if(!w||!w.players)return '';
   w.players.forEach(function(p){
     if(!p)return;
+    if(p.anon)return;
     var lk=String(p.look||'').trim();
-    if(lk)L.push(wwTag(p)+' · '+wwBareName(p)+'：'+lk);
+    if(lk)L.push(wwName(p)+'：'+lk);
   });
   if(!L.length)return '';
   var head=wwFaceOn()?'【大家的样子（面对面坐着，这些是看得见的）】':'【大家的样子（这是这些人本来的样子）】';
@@ -29286,6 +29332,8 @@ function wwFactsFor(p){
   var w=V.ww,L=[];
   if(!w||!w.players||!w.players.length)return '';
   var alive=wwAlive(),dead=w.players.filter(function(x){return !x.alive});
+  if(w.players.some(function(x){return x&&x.anon}))
+    L.push('【匿名玩家】本局有角色开启了匿名，真实名字不会发给你；所有匿名玩家只按座位编号辨认。不要根据人设、关系、头像或名字去猜她是谁，也不要说出任何匿名玩家的真实名字。');
   var lkAll=wwLooksLine();if(lkAll)L.push(lkAll);   /* 【新】大家的样子放在最前面，最显眼 */
   L.push('【事实清单（主持人给的，不用怀疑、也不用再推）】'+
     '\n· 现在是第 '+w.day+' 天 · '+(w.phase==='night'?'夜晚':'白天')+'。'+
@@ -29521,7 +29569,7 @@ async function wwSpeak(p,sys){
     if(!sp.draft&&sp2.draft)sp.draft=sp2.draft;
   }
   if(sp.draft)p.scratch=sp.draft;
-  return wwStripLead(sp.say||('（'+p.name+' 这轮没发言）'));
+  return wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）'));
 }
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
 function wwPlayerByUid(uid){var a=V.ww.players;for(var i=0;i<a.length;i++){if(a[i].uid===uid)return a[i]}return null}
@@ -29554,11 +29602,12 @@ function wwNum(p){return (p&&p.seq)?(p.seq+'号 · '):''}
 function wwTag(p){return p?((p.seq?p.seq+'号':p.name)):'?'}
 function wwBareName(p){
   if(!p)return '?';
+  if(p.anon)return p.seq?(p.seq+'号'):'匿名玩家';
   var nm=String(p.name||'').trim();
   if(!nm||/^(我|你|咱|俺|我们|你们|自己|本人|用户|user|me|you)$/i.test(nm))nm='玩家';
   return nm;
 }
-function wwName(p){return p?(wwNum(p)+wwBareName(p)):'?'}
+function wwName(p){return p?((p.anon&&p.seq)?(p.seq+'号'):(wwNum(p)+wwBareName(p))):'?'}
 function wwMatch(txt,list){
   var s=String(txt||'').trim(),i;
   for(i=0;i<list.length;i++){if(list[i]&&(s.indexOf(list[i].name)>=0||s.indexOf(wwBareName(list[i]))>=0))return list[i]}
@@ -29605,7 +29654,7 @@ function wwSysFor(p,task){
     '说话要完全像这个人：语气、用词、口头禅、脾气都照下面来，别用通用 AI 的客气口吻；该毒舌就毒舌、该怂就怂，被发现是狼也照样是这个人。\n\n'+
     '=== 你就是下面这个人 ===\n'+wwCharBlock(p)+'\n=== 以上都是你自己 ===');
   L.push(wwGenderLine());   /* 【新】不知道性别就按女生：别默认大家都男的 */
-  L.push('【你是谁 / 你的身份】你是 '+(p.seq||'?')+' 号「'+p.name+'」（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwNum(p)+p.name+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
+  L.push('【你是谁 / 你的身份】你是 '+wwName(p)+'（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwName(p)+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'无特殊能力。听发言盘 1~2 个狼和理由，独立投票；被怀疑时用时间线自证。':
      r==='seer'?'每晚验一人。报清金水/查杀、狼坑和归票；通常第一轮起跳，别一直藏。':
      r==='witch'?'解药、毒药各一次，同一晚只用一瓶。'+(wwFaceOn()?'面杀全程不能自救。':'只有第一夜能自救。')+'有守卫时首夜主流开解药；不乱毒。不要轻易暴露身份。':
@@ -29614,6 +29663,7 @@ function wwSysFor(p,task){
      r==='guard'?'每晚守一人，不能连守；只挡刀，同守同救会死。首夜主流空守，之后重点守预言家。藏好身份。':
      r==='wolfking'?'狼队成员。白天可自爆并带走一名活人，之后直接入夜。快被票或能炸关键神职时用；节奏已顺时别炸。':
      '狼队成员。白天装好人，可悍跳、假金水、假查杀。真预查到队友或好人明显站真预时，狼队应有人悍跳；成功后咬住目标，别乱加戏。'));
+  if(p.anon)L.push('【你这一局匿名】其他玩家只知道你是 '+(p.seq||'?')+' 号，不会拿到你的真实名字。发言时用编号自称，绝不要说出自己的真实名字；就算你的人设里写着名字，也要把它当成只有自己知道的信息。');
   if(wwIsWolf(p)){
     var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':'')});
     L.push('你的狼队友：'+(mates.join('、')||'（没有别人，只有你自己）'));
@@ -29968,7 +30018,7 @@ async function wwVoteAI(p,pool){
 async function wwLastWords(p){
   var sys=wwSysFor(p,'你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
     '时间够，把该交代的都说清楚，别只留一句话。提到别人时带上编号。只输出你要说的话。');
-  return (await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+p.name+' 没留下什么。）';
+  return (await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+wwTag(p)+' 没留下什么。）';
 }
 /* 真人玩家留遗言：规则里第一轮出局能留遗言，就让「你」自己在发言框里说一段（不想说可以跳过） */
 async function wwUserLastWords(label){
@@ -30020,11 +30070,11 @@ async function wwReactGo(){
   for(var i=0;i<w.players.length;i++){
     var p=w.players[i];
     if(p.isUser)continue;
-    w.msg='「'+p.name+'」正在说感想…';render(true);
+    w.msg='「'+(p.anon?wwTag(p):p.name)+'」正在说感想…';render(true);
     var t='';
     try{t=await wwReact(p,result,brief)}catch(e){t=''}
     if(gen!==(w.gen||0)){w.reacting=false;return}
-    if(t)w.reacts.push({name:p.name,uid:p.uid,text:t});
+    if(t)w.reacts.push({name:(p.anon?wwTag(p):p.name),uid:p.uid,text:t});
   }
   w.reacting=false;w.msg='';
   wwSave(true);        /* 把感想补进那条已经存好的历史记录里 */
@@ -31167,7 +31217,7 @@ async function wwHunterCheck(p){
     if(wwStaleG(gen))return;
     tgt=r.uid?wwPlayerByUid(r.uid):null;
   }else{
-    w.msg='🔫 猎人 '+p.name+' 正在考虑开枪…';render(true);
+    w.msg='🔫 猎人 '+wwTag(p)+' 正在考虑开枪…';render(true);
     tgt=await wwHunterShoot(p);
     if(wwStaleG(gen))return;
   }
@@ -32127,7 +32177,7 @@ function wwSnap(){
       deaths:(w.night.deaths||[]).map(function(p){return p&&p.uid}).filter(function(u){return !!u})
     }:null,
     players:(w.players||[]).map(function(p){
-      return {uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,
+      return {uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,anon:!!p.anon,
         killedBy:p.killedBy||'',revealed:!!p.revealed,check:(p.check||[]).map(function(c){return {uid:c.uid,isWolf:!!c.isWolf}}),
         scratch:p.scratch||'',look:p.look||'',peeks:(p.peeks||[]).slice()};
     }),
@@ -32153,7 +32203,7 @@ function wwSnap(){
 /* 老记录里没存进度：尽量按记录还原一局（预言家验过谁、女巫用没用过药，从当时的私密提示里认回来） */
 function wwSnapFromRec(rec){
   var players=(rec.players||[]).map(function(p){
-    return {uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,killedBy:'',revealed:false,check:[],scratch:'',look:''};
+    return {uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,anon:!!p.anon,killedBy:'',revealed:false,check:[],scratch:'',look:''};
   });
   var bySeq={};players.forEach(function(p){if(p.seq)bySeq[p.seq]=p});
   var seer=players.filter(function(p){return p.role==='seer'})[0];
@@ -32181,7 +32231,7 @@ function wwSnapFromRec(rec){
 function wwApplySnap(s,recId){
   var w=V.ww,byUid={};
   w.players=(s.players||[]).map(function(p){
-    var q={uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,
+    var q={uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,anon:!!p.anon,
       killedBy:p.killedBy||'',revealed:!!p.revealed,check:(p.check||[]).slice(),scratch:p.scratch||'',
       look:p.look||'',peeks:(p.peeks||[]).slice()};
     byUid[q.uid]=q;return q;
@@ -32420,6 +32470,8 @@ function wwReady(inv){
   w.pick='random';
   w.autoWatch=false;
   w.cids=[];
+  w.roleLocks={};
+  w.anon={};
   if(inv&&inv.cid){try{if(chars.some(function(c){return c.id===inv.cid}))w.cids.push(inv.cid)}catch(e){}}
   w.npcFill=true;                     /* 人不齐就用 NPC 补位，她直接点「开始」就能玩 */
   w.inviteFrom=(inv&&inv.cid)||'';
@@ -32448,7 +32500,11 @@ window.gameInviteResult=function(cid,inviteId,rec){
         var isW=(p.role==='wolf'||p.role==='wolfking');
         return (side==='wolf')?isW:!isW;
       });
-      var nm='';winP.forEach(function(p){if(!nm&&p.name===cnameOf(cid,inviteId))nm=p.name});
+      var nm='';winP.forEach(function(p){
+        if(nm)return;
+        if(p.cid===cid)nm=cnameOf(cid,inviteId);
+        else if(p.name===cnameOf(cid,inviteId))nm=p.name;
+      });
       if(!nm&&winP.length)nm=winP[0].name;
       winName=nm||'角色';winTxt=winName+' 赢了';
     }else{
@@ -32522,7 +32578,7 @@ function wwSave(silent){
     count:w.count,mode:w.mode,table:(w.table==='face')?'face':'online',day:w.day,winner:w.winner||'',endText:w.endText||'',
     players:w.players.map(function(p){
       var c=p.isUser?null:chOf(p.cid);
-      return {uid:p.uid,name:p.name,seq:p.seq||0,isUser:!!p.isUser,cid:p.cid||null,role:p.role,alive:!!p.alive,
+      return {uid:p.uid,name:p.name,seq:p.seq||0,isUser:!!p.isUser,cid:p.cid||null,role:p.role,alive:!!p.alive,anon:!!p.anon,
         npc:!!p.npc,emoji:p.isUser?userEmoji():((p.npc&&p.emoji)?p.emoji:((c&&c.emoji)||''))};
     }),
     sheriffUid:w.sheriffUid||null,sheriff:(w.sheriff!==false),
@@ -32567,8 +32623,10 @@ function wwStart(){
   if(w.mode==='play')players.push({uid:'u',cid:null,name:userName(),isUser:true,alive:true,check:[]});
   cids.forEach(function(cid,i){
     var c=chOf(cid)||{};
+    var anon=!!(w.anon&&w.anon[cid]);
     /* 【新·面杀】带上她在准备页写的「一句话形象」：大家就知道 TA 长什么样了 */
-    players.push({uid:'c'+i,cid:cid,name:c.name||('角色'+(i+1)),isUser:false,alive:true,check:[],
+    players.push({uid:'c'+i,cid:cid,name:anon?'匿名玩家':(c.name||('角色'+(i+1))),isUser:false,alive:true,check:[],
+      anon:anon,
       look:String((w.looks&&w.looks[cid])||'').trim()});
   });
   /* 人数不够时用 NPC 补上：没有 cid，就不会去读任何角色设定（省 token） */
@@ -32579,16 +32637,33 @@ function wwStart(){
     npcN++;
   }
   var seen={};
-  players.forEach(function(p){var base=String(p.name||'角色').trim()||'角色',n=base,k=1;while(seen[n]){k++;n=base+'·'+k}seen[n]=1;p.name=n});
-  var roles=wwShuffle(wwRoleList(w.count));
+  players.forEach(function(p){
+    if(p.anon)return;
+    var base=String(p.name||'角色').trim()||'角色',n=base,k=1;
+    while(seen[n]){k++;n=base+'·'+k}
+    seen[n]=1;p.name=n;
+  });
+  /* 发身份牌：先保留「你自己指定要拿的身份」，再逐个满足邀请角色的指定身份；
+     剩下的身份才随机分给其他人。某张身份牌数量不够时会先拦住，不会悄悄改掉。 */
+  var roles=wwRoleList(w.count),fixed={};
   if(w.mode==='play'&&w.pick&&w.pick!=='random'){
     var pk=roles.indexOf(w.pick);
     if(pk<0)return toast('这个人数里没有「'+WW_ROLE_NAME[w.pick]+'」这个身份');
-    roles.splice(pk,1);      /* 只拿掉一张（狼人/村民本来就有好几张，别拿光） */
-    roles.unshift(w.pick);
+    roles.splice(pk,1);
+    fixed.u=w.pick;
   }
-  while(roles.length<players.length)roles.push('villager');   /* 保险：数量对不上时补齐 */
-  players.forEach(function(p,i){p.role=roles[i]});
+  for(var fi=0;fi<players.length;fi++){
+    var fp=players[fi];
+    if(fp.isUser||!fp.cid)continue;
+    var wanted=String((w.roleLocks&&w.roleLocks[fp.cid])||'');
+    if(!wanted||wanted==='random')continue;
+    var wi=roles.indexOf(wanted);
+    if(wi<0)return toast('「'+(chOf(fp.cid)||{}).name+'」指定了「'+(WW_ROLE_NAME[wanted]||wanted)+'」，但当前人数和板子里已经没有这张身份牌了。请换一个身份或调整人数。');
+    roles.splice(wi,1);
+    fixed[fp.uid]=wanted;
+  }
+  roles=wwShuffle(roles);
+  players.forEach(function(p){p.role=fixed[p.uid]||roles.pop()||'villager'});
   /* 座位号随机：先把座位顺序打乱，再按顺序编号 —— 你不会每次都坐 1 号 */
   wwShuffle(players);
   players.forEach(function(p,i){p.seq=i+1});
@@ -32618,7 +32693,7 @@ function wwStart(){
   w.helpOpen=false;
   /* 板子简称显示在「现场」标题栏，不再单独写一条系统气泡 */
   /* 【新】她在准备页写的「大家的样子」：也铺一条到现场，方便她自己核对有没有生效 */
-  var lkArr=w.players.filter(function(p){return p&&String(p.look||'').trim()}).map(function(p){return wwTag(p)+'·'+wwBareName(p)+'：'+String(p.look).trim()});
+  var lkArr=w.players.filter(function(p){return p&&!p.anon&&String(p.look||'').trim()}).map(function(p){return wwName(p)+'：'+String(p.look).trim()});
   if(lkArr.length)w.log.push({k:'sys',text:'形象：'+lkArr.join('；')});
   wwBgmAuto();                        /* 上次开了音乐就接着放（这里是点「开始」触发的，能出声） */
   V.view='ww';render(true);
@@ -33083,8 +33158,8 @@ function wwSeatHTML(p){
   return '<div class="ww-seat'+(p.alive?'':' out')+(p.isUser?' me':'')+((w.speaking&&w.speaking===p.uid)?' spk':'')+(pickable?' pick':'')+(votable?' pick':'')+(mypick?' mypick':'')+(hit?' hit':'')+(markable?' mkpick':'')+(knw?' knw':'')+(mk?(' mk-'+mk):'')+'"'+
      (pickable?(' onclick="GAME.wwPickUid(\''+p.uid+'\')"'):(votable?(' onclick="GAME.wwVotePick(\''+p.uid+'\')"'):(markable?(' onclick="GAME.wwMarkPick(\''+p.uid+'\')"'):'')))+'>'+
      '<span class="ww-seat-av">'+(p.seq?('<span class="ww-seat-no"'+(cc?(' style="background:'+esc(cc)+'"'):'')+'>'+p.seq+'</span>'):'')+
-     (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid))))+wwMarkBadge(p.uid)+(upNow?('<span class="ww-uphand'+(mk?' lft':'')+'" title="上警">'+WW_IC_HAND+'</span>'):'')+((w.sheriffUid&&p.uid===w.sheriffUid)?('<span class="ww-sheriff" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+fx+'</span>'+
-     '<span class="ww-seat-nm">'+esc(p.isUser?'我':p.name)+'</span>'+
+     (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.anon?'':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid)))))+wwMarkBadge(p.uid)+(upNow?('<span class="ww-uphand'+(mk?' lft':'')+'" title="上警">'+WW_IC_HAND+'</span>'):'')+((w.sheriffUid&&p.uid===w.sheriffUid)?('<span class="ww-sheriff" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+fx+'</span>'+
+     '<span class="ww-seat-nm">'+esc(p.isUser?'我':(p.anon?'':p.name))+'</span>'+
      '<span class="ww-seat-st'+(p.alive&&voted?' voted':((p.alive&&((dayOn&&spoke)||(w.electing&&upNow&&upSpoke)))?' spoke':''))+'">'+esc(st)+'</span>'+
      '</div>';
 }
@@ -33156,7 +33231,7 @@ async function wwResayGo(){
     var blownLW=wasLW&&!!w.wolfBlown&&wwIsWolf(p);
     try{t=wasLW?('【遗言】'+(blownLW?await wwBlownWordsLine(p):await wwLastWords(p))):await wwSpeech(p)}catch(err){t=''}
     if(gen!==(w.gen||0)||w.log!==log){w.resayOn=false;return}   /* 已经开了新的一局：这次结果丢掉，免得出现"上一局的人" */
-    if(!t)t=(wasLW?'【遗言】':'')+'（'+p.name+' 想了想，没说什么。）';
+    if(!t)t=(wasLW?'【遗言】':'')+'（'+wwTag(p)+' 想了想，没说什么。）';
     w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:wwThinkOf(p),title:(p&&p._lastSayTitle)||''});
     if(p)p._lastSayTitle='';
     w.resayOn=false;w.msg='';render(true);
@@ -33261,7 +33336,8 @@ function wwSnapSetup(){
     table:w.table,count:w.count,board:w.board||'std',mode:w.mode,pick:w.pick,
     npcFill:!!w.npcFill,sheriff:(w.sheriff!==false),sayTok:parseInt(w.sayTok,10)||0,
     autoWatch:!!w.autoWatch,
-    cids:(w.cids||[]).slice(),mem:Object.assign({},w.mem||{}),looks:Object.assign({},w.looks||{}),tips:Object.assign({},w.tips||{})};
+    cids:(w.cids||[]).slice(),mem:Object.assign({},w.mem||{}),roleLocks:Object.assign({},w.roleLocks||{}),
+    anon:Object.assign({},w.anon||{}),looks:Object.assign({},w.looks||{}),tips:Object.assign({},w.tips||{})};
 }
 function wwApplySetup(p){
   if(!p)return;
@@ -33280,6 +33356,8 @@ function wwApplySetup(p){
   try{(chars||[]).forEach(function(c){ids[c.id]=1})}catch(e){}
   w.cids=(p.cids||[]).filter(function(id){return ids[id]});
   w.mem=Object.assign({},p.mem||{});
+  w.roleLocks=Object.assign({},p.roleLocks||{});
+  w.anon=Object.assign({},p.anon||{});
   w.looks=Object.assign({},p.looks||{});
   w.tips=Object.assign({},p.tips||{});
 }
@@ -33314,6 +33392,18 @@ function wwBoardBrief(){
   if(b.hunter)a.push('猎');
   if(b.idiot)a.push('白');
   return (w.count||'?')+'人'+(a.join('')||'标准');
+}
+function wwLockRoleOptions(selected){
+  var b=wwBoard(V.ww.count),h='<option value="">不指定</option>',seen={};
+  WW_PICKS.forEach(function(x){
+    var k=x[0],n=Number(b[k]||0);
+    if(k==='random'||!n||seen[k])return;
+    seen[k]=1;
+    h+='<option value="'+k+'"'+(selected===k?' selected':'')+'>'+esc(x[1])+(n>1?(' × '+n):'')+'</option>';
+  });
+  if(selected&&!seen[selected])
+    h+='<option value="'+esc(selected)+'" selected>'+esc(WW_ROLE_NAME[selected]||selected)+'（当前板子没有）</option>';
+  return h;
 }
 function wwPresetDesc(p){
   var c=parseInt(p.count,10)||0;
@@ -33350,7 +33440,7 @@ function wwPopHTML(){
     }).join('')+'</div>';
   }else if(p==='players'){
     title='邀请玩家';
-    h+='<p class="gx-hint">点一下角色＝邀请 TA。没邀请的位置，开局时会按下面的设置补成普通玩家。</p>';
+    h+='<p class="gx-hint">点一下角色＝邀请 TA。邀请后可以给 TA 固定一个身份，也可以打开匿名：游戏里只显示座位编号，不显示角色名字。没邀请的位置会按下面的设置补成普通玩家。</p>';
     h+='<div class="ww-ogrid">'+
       '<button class="wwb'+(!w.npcFill?' on':'')+'" onclick="GAME.wwNpc(0)">'+wwBlot('B')+'<span class="wwb-c">只用我邀请的</span><span class="wwb-e">No NPC</span></button>'+
       '<button class="wwb'+(w.npcFill?' on':'')+'" onclick="GAME.wwNpc(1)">'+wwBlot('B')+'<span class="wwb-c">缺人用 NPC</span><span class="wwb-e">Fill with NPC</span></button>'+
@@ -33359,6 +33449,8 @@ function wwPopHTML(){
     h+='<div class="gx-sec">角色</div>';
     (chars||[]).forEach(function(ch){
       c=ch;on=w.cids.indexOf(c.id)>=0;mm=(w.mem[c.id]==='full')?'full':'base';
+      var lock=String((w.roleLocks&&w.roleLocks[c.id])||'');
+      var anon=!!(w.anon&&w.anon[c.id]);
       h+='<div class="gx-char col'+(on?' on':'')+'">'+
          '<div class="gx-charl">'+
          '<input type="checkbox" '+(on?'checked':'')+' onchange="GAME.wwToggle(\''+esc(c.id)+'\',this.checked)">'+
@@ -33370,6 +33462,10 @@ function wwPopHTML(){
          '<button class="'+(mm==='full'?'on':'')+'" onclick="GAME.wwMem(\''+esc(c.id)+'\',\'full\')">完整</button>'+
          '</span>'+
          '</div>'+
+         (on?('<div class="gx-inviteopts">'+
+           '<label><span>指定身份</span><select onchange="GAME.wwRoleLock(\''+esc(c.id)+'\',this.value)" aria-label="指定这个角色的身份">'+wwLockRoleOptions(lock)+'</select></label>'+
+           '<label class="gx-anon"><input type="checkbox" '+(anon?'checked':'')+' onchange="GAME.wwAnon(\''+esc(c.id)+'\',this.checked)"><span>游戏中匿名（只显示编号）</span></label>'+
+           '</div>'):'')+
          (on?('<input class="gx-look" type="text" value="'+esc((w.looks&&w.looks[c.id])||'')+'" placeholder="一句话形容 TA 的样子（例：一个帅气女教师的样子）" oninput="GAME.wwLook(\''+esc(c.id)+'\',this.value)">'):'')+
          '</div>';
     });
@@ -33950,7 +34046,7 @@ function wwHTML(){
     }else h+=wwJudgeHTML(w.judge);
     h+=wwTransRow();
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
-       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwNum(p)+p.name)+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
+       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwName(p))+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x,ri){
       return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('r'+ri,x.tk,'hist'):'')+'</div>';
     }).join('')+'</div></details>';
@@ -35850,6 +35946,19 @@ window.GAME={
   wwAutoWatch:function(v){V.ww.autoWatch=!!v;render(false)},
   wwToggle:function(id,on){var a=V.ww.cids,i=a.indexOf(id);if(on){if(i<0)a.push(id)}else if(i>=0)a.splice(i,1);render(false)},
   wwMem:function(id,m){V.ww.mem[id]=(m==='full')?'full':'base';render(false)},
+  wwRoleLock:function(id,role){
+    var w=V.ww;if(!w||!id)return;
+    if(!w.roleLocks||typeof w.roleLocks!=='object')w.roleLocks={};
+    role=String(role||'');
+    if(role)w.roleLocks[id]=role;else delete w.roleLocks[id];
+    render(false);
+  },
+  wwAnon:function(id,on){
+    var w=V.ww;if(!w||!id)return;
+    if(!w.anon||typeof w.anon!=='object')w.anon={};
+    if(on)w.anon[id]=true;else delete w.anon[id];
+    render(false);
+  },
   wwTipsChar:function(id){
     var w=V.ww;
     if(!w.tips||typeof w.tips!=='object')w.tips={};
