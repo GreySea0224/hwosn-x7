@@ -2066,9 +2066,117 @@ let todoCharId=null,todoFilter='open';
 let toolTab='todo';                 /* 应用页当前子页：todo / group / fun */
 let groupOpenId=null,groupBusy=false,groupTick=null;
 const gAutoMap={};                  /* 群聊自动发消息的下次时间 */
+let gAutoMapLoaded=false;
+function groupAutoMapSave(){try{save(LS.gauto,gAutoMap)}catch(e){}}
+function groupAutoMapLoadOnce(){
+  if(gAutoMapLoaded)return;gAutoMapLoaded=true;
+  try{
+    const p=load(LS.gauto,null);
+    if(p&&typeof p==='object'&&!Array.isArray(p))Object.keys(p).forEach(k=>{
+      if(!gAutoMap[k]&&p[k]&&typeof p[k]==='object'&&typeof p[k].at==='number')gAutoMap[k]=p[k];
+    });
+  }catch(e){}
+}
 let backupHandle=null,bkTimer=null,bkTick=null,lastBackup=0,bkNeed=false,bkArmed=false,bkErr='';
 let curAbort=null;
 let autoMap={},autoTick=null,autoKeep=null;
+/* ---------- 潮汐：自动消息总管 ---------- */
+const TIDE_CTRL_KEY='wh_tide_ctrl';
+const TIDE_REASON_KEY='wh_tide_reason';
+const TIDE_SKIP_KEY='wh_tide_skip';
+const TIDE_LOG_KEY='wh_tide_log';
+const TIDE_SEEN_KEY='wh_tide_seen';
+const TIDE_QUEUE_KEY='wh_tide_queue';
+const TIDE_CREATE_KEY='wh_tide_create';
+function tideCtrlAll(){
+  try{const o=load(TIDE_CTRL_KEY,{});return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}}catch(e){return{}}
+}
+function tideCtrlKey(kind,key){return String(kind||'')+'|'+String(key||'')}
+function tidePaused(kind,key){return !!tideCtrlAll()[tideCtrlKey(kind,key)]}
+function tideReasonsAll(){
+  try{const o=load(TIDE_REASON_KEY,{});return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}}catch(e){return{}}
+}
+function tidePauseReason(kind,key){return String(tideReasonsAll()[tideCtrlKey(kind,key)]||'')}
+function tideSetPaused(kind,key,on,reason){
+  const o=tideCtrlAll(),k=tideCtrlKey(kind,key);
+  if(on)o[k]=Date.now();else delete o[k];
+  save(TIDE_CTRL_KEY,o);
+  const rs=tideReasonsAll();
+  if(on)rs[k]=String(reason||'手动暂停');else delete rs[k];
+  save(TIDE_REASON_KEY,rs);
+  try{scheduleBackup()}catch(e){}
+}
+function tideClearDelayPauses(){
+  var changed=false;
+  var controls=tideCtrlAll(),reasons=tideReasonsAll();
+  Object.keys(controls).forEach(function(k){if(k.indexOf('delay|')===0){delete controls[k];changed=true}});
+  Object.keys(reasons).forEach(function(k){if(k.indexOf('delay|')===0){delete reasons[k];changed=true}});
+  if(!changed)return;
+  save(TIDE_CTRL_KEY,controls);
+  save(TIDE_REASON_KEY,reasons);
+  try{scheduleBackup()}catch(e){}
+}
+function tideSkipAll(){
+  try{const o=load(TIDE_SKIP_KEY,{});return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}}catch(e){return{}}
+}
+function tideSkipAdd(kind,key){
+  const o=tideSkipAll();o[tideCtrlKey(kind,key)]=Date.now();save(TIDE_SKIP_KEY,o);
+  try{scheduleBackup()}catch(e){}
+}
+function tideSkipTake(kind,key){
+  const o=tideSkipAll(),k=tideCtrlKey(kind,key);
+  if(!o[k])return false;
+  delete o[k];save(TIDE_SKIP_KEY,o);
+  try{scheduleBackup()}catch(e){}
+  return true;
+}
+function tideLogAll(){
+  try{const a=load(TIDE_LOG_KEY,[]);return Array.isArray(a)?a:[]}catch(e){return[]}
+}
+function tideLogAdd(entry){
+  if(!entry)return;
+  const text=String(entry.text||'').replace(/\s+/g,' ').slice(0,220);
+  if(!text)return;
+  const list=tideLogAll();
+  list.unshift({
+    id:uid(),t:Date.now(),kind:String(entry.kind||'other'),
+    cid:String(entry.cid||''),gid:String(entry.gid||''),
+    rid:String(entry.rid||''),title:String(entry.title||''),
+    where:String(entry.where||''),manual:!!entry.manual,text:text
+  });
+  save(TIDE_LOG_KEY,list.slice(0,50));
+  try{scheduleBackup()}catch(e){}
+  try{if(typeof updateDots==='function')updateDots()}catch(e){}
+  try{if(document.getElementById('tideRoot')&&window.P14&&P14.tideRefresh)setTimeout(function(){try{P14.tideRefresh()}catch(e){}},20)}catch(e){}
+}
+function tideQueueAll(){
+  try{const a=load(TIDE_QUEUE_KEY,[]);return Array.isArray(a)?a.filter(function(x){return x&&x.id&&x.cid&&x.at}):[]}catch(e){return[]}
+}
+function tideQueueSave(list){
+  save(TIDE_QUEUE_KEY,Array.isArray(list)?list.slice(0,200):[]);
+  try{scheduleBackup()}catch(e){}
+  try{if(typeof updateDots==='function')updateDots()}catch(e){}
+  try{if(document.getElementById('tideRoot')&&window.P14&&P14.tideRefresh)setTimeout(function(){try{P14.tideRefresh()}catch(e){}},20)}catch(e){}
+}
+function tideCreateStats(){
+  try{const o=load(TIDE_CREATE_KEY,{});return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}}catch(e){return{}}
+}
+function tideCreateDay(){
+  var d=new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function tideCreatedToday(cid){
+  var today=tideCreateDay(),x=tideCreateStats()[cid];
+  return x&&x.day===today?Number(x.n)||0:0;
+}
+function tideCreateNote(cid){
+  var o=tideCreateStats(),today=tideCreateDay(),x=o[cid];
+  o[cid]={day:today,n:(x&&x.day===today?(Number(x.n)||0):0)+1};
+  save(TIDE_CREATE_KEY,o);
+}
+function tideRoleCanControl(c){
+  return !!(c&&c.tidePerm&&c.tidePerm.on&&cfg&&cfg.autoOn);
+}
 /* 【新】把「下次该主动发消息的时间」存进本地：刷新、关掉页面再打开都不会丢。
    关着浏览器、没打开这个前端的那段时间里，谁该发却没发，下次一打开就会补上一条——
    消息还是按「现在」的时间生成，只是让角色知道现在几点了。 */
@@ -2131,6 +2239,36 @@ function fmtStamp(t){
 function nowText(){
   const d=new Date(),w='日一二三四五六'[d.getDay()];
   return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 星期'+w+' '+fmtTime(d.getTime());
+}
+function latestUserContent(cid){
+  try{
+    const a=msgsOf(cid);
+    for(let i=a.length-1;i>=0;i--)if(a[i]&&a[i].role==='user'&&String(a[i].content||'').trim())return String(a[i].content||'');
+  }catch(e){}
+  return '';
+}
+function tideIntentInfo(text){
+  const s=String(text||'').trim();
+  if(!s)return null;
+  const tideWord=/潮汐/.test(s);
+  const timeWord=/(分钟|小时|点|明天|后天|今天|过会儿|过一会儿|稍后|以后)/.test(s);
+  const planWord=/(排期|安排|提醒|总结|处理|发消息|来找|来看我|过来)/.test(s);
+  const directFuture=/你.{0,10}(分钟|小时|点).{0,12}(发|来|找|看我)|(分钟|小时)后.{0,10}(发个?消息|来找我|过来找我|来看我|找我说话)/.test(s);
+  if(!(tideWord||(timeWord&&planWord)||directFuture))return null;
+  if(!tideWord&&!directFuture&&!/(加.{0,6}排期|新建.{0,6}排期|调用.{0,6}工具|安排.{0,10}(主动|发消息|提醒|总结|处理))/.test(s))return null;
+  let action='';
+  if(/(取消|撤销|删掉|删除).*(排期|安排|提醒|消息|总结|处理)|(取消这次|取消安排)/.test(s))action='cancel';
+  else if(/(改|调整|推迟|提前|改成|换到).*(时间|分钟|小时|点|明天|后天)/.test(s))action='reschedule';
+  else if(/提醒/.test(s)&&timeWord&&/(安排|加|新建|设|定)/.test(s))action='add_reminder';
+  else if(/分身/.test(s)&&/(总结|活动|MCP|记录)/i.test(s))action='add_branch_summary';
+  else if(/洄游/.test(s)&&/(处理|看看|查看).*(记录|洄游)|安排.*处理/.test(s))action='add_roam_review';
+  else if(/(主动|发消息|发个消息|来找|来看我|过来|找我|说句话)/.test(s)&&(timeWord||/(排期|安排)/.test(s)))action='add_message';
+  else if(tideWord&&/(查看|看看|列出|哪些|所有)/.test(s)&&/(排期|安排)/.test(s))action='list';
+  return action?{action:action,text:s}:null;
+}
+function tideIntentFor(cid,c){
+  if(!c||!(c.tidePerm&&c.tidePerm.on)||!cfg||!cfg.autoOn)return null;
+  return tideIntentInfo(latestUserContent(cid));
 }
 function stampOf(t){const d=new Date(t||Date.now());return (d.getMonth()+1)+'/'+d.getDate()+' '+fmtTime(d.getTime())}
 function ago(ts){
@@ -5317,6 +5455,9 @@ function buildCtxSystem(c,extra){
   const th=THINK_LEVELS[(c.think==null?1:c.think)];
   if(th&&th.hint)sys.push('【思考要求】'+th.hint);
   if(cfg.timeOn!==false)dyn.push('【现在的时间】'+nowText()+'。消息开头「（月/日 时:分）」是那条消息发出的时间，你可以据此判断现在几点、上次聊天是多久以前、隔了几天。');
+  if(permOn(c,'tidePerm')&&cfg.autoOn){
+    dyn.push('【潮汐控制】你可以用 control_tide 查看和管理自己尚未执行的排期。用户说“半小时后、一小时后、过一会儿”时，新增或改时间必须填 after_minutes，交给程序计算，不要自己手算 at；只有用户明确说出某个日期或钟点时才用 at。新建成功后状态就是待执行，不要紧接着调用 pause；如果时间填错，用 reschedule 改成正确的 after_minutes。列表里的 delay 是你对当前聊天消息的延迟回复，不是主动排期：除非用户明确让你改或取消这次回复，否则不要碰它；要安排以后主动发一条，必须调用 add_message。');
+  }
   /* ↓ 新增：把「用户正在听的歌」告诉角色（一起听音乐功能） */
   try{
     musicEnsure();
@@ -5689,7 +5830,7 @@ const TODO_TOOLS=[
 function todoBrief(arr){
   if(!arr||!arr.length)return '（空）';
   return arr.map(t=>(t.done?'✅':'⬜')+' ['+(t.type||'事项')+'] '+t.text+
-    (t.remindAt?('（到点提醒她：'+remindStamp(t.remindAt)+(t.remindSent?'，已经提醒过':'，还没到点')+'）'):'')+
+    (t.remindAt?('（到点提醒她：'+remindStamp(t.remindAt)+(t.remindSkipped?'，已取消提醒':(t.remindSent?'，已经提醒过':'，还没到点'))+'）'):'')+
     '（id:'+t.id+'）').join('\n');
 }
 function execTodoTool(name,args,cid){
@@ -5894,7 +6035,8 @@ async function send(){
   if(view!=='chat')go('chat');else renderChat();
   /* 【新增】开了「自己决定什么时候回」的角色：先让它自己判断（秒回 / 等会儿回 / 不回）；
      没开的角色，和以前一样：马上回。 */
-  const p=(c&&c.freeTiming)?freeReplyFlow(cid):askAndAppend();
+  const tideReq=tideIntentFor(cid,c);
+  const p=tideReq?askAndAppend(cid,{tideIntent:tideReq}):((c&&c.freeTiming)?freeReplyFlow(cid):askAndAppend());
   /* ↓ 补丁13-A：表情发出去以后，收起预览，并把表情记在这条消息上 */
   if(st){
     try{clearPicked()}catch(e){}
@@ -6186,7 +6328,7 @@ function autoIsRepeat(a,b){
   const short=x.length<=y.length?x:y,long=x.length<=y.length?y:x;
   return short.length>=8&&long.indexOf(short)>=0;
 }
-async function autoGenerate(c,forceNudge){
+async function autoGenerate(c,forceNudge,tideMeta){
   /* 【修复】这里原来是把全局 curId/msgs/mem 临时换成这个角色的。
      结果：只要你在它生成的时候切到别的角色，它的回复就会发到那个角色
      的聊天里；收尾时又把一份「生成开始前的旧记录」放回内存，之后
@@ -6241,6 +6383,7 @@ async function autoGenerate(c,forceNudge){
   markCache(m,usage);                      /* 【新】缓存命中（主动发消息这条也记上） */
   if(reasoning)m.reasoning=reasoning;      /* ← 自动消息也保存思考链 */
   pushMsgTo(c.id,m);                       /* 【修复】存到它自己的记录里，和当前打开的是谁无关 */
+  tideLogAdd(Object.assign({kind:'auto',cid:c.id,title:c.name,text:out},tideMeta||{}));
   notify(c.name,(c.emoji||'')+out.slice(0,80));
   /* 你现在正好看着这个聊天，这条就逐字显示；没看着才标红点、弹提示 */
   const looking=(curId===c.id&&view==='chat'&&!document.hidden);
@@ -6278,11 +6421,11 @@ async function autoSumForLoaded(c){
   const hit=await runSummary(slice,true,c.id);
   if(!hit)setAutoSumMark(c.id,done);
 }
-async function runAutoNow(c,forceNudge){
+async function runAutoNow(c,forceNudge,tideMeta){
   busy=true;curAbort=new AbortController();
   let ok=false;
   try{
-    ok=await autoGenerate(c,forceNudge);
+    ok=await autoGenerate(c,forceNudge,tideMeta);
   }catch(e){
     const aborted=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
     if(!aborted)toast('自动消息失败：'+((e&&e.message)||'未知错误'));
@@ -6301,12 +6444,15 @@ async function runAutoNow(c,forceNudge){
 async function checkAuto(){
   if(busy||!cfg||!cfg.autoOn||!cfg.key)return;
   const now=Date.now();
-  const due=chars.filter(c=>c.auto&&c.auto.on&&autoMap[c.id]&&autoMap[c.id].at<=now&&!isQuiet(c.auto));
+  const due=chars.filter(c=>c.auto&&c.auto.on&&autoMap[c.id]&&autoMap[c.id].at<=now&&!isQuiet(c.auto)&&!tidePaused('auto',c.id));
   if(!due.length)return;
   due.sort((x,y)=>autoMap[x.id].at-autoMap[y.id].at);
-  const c=due[0];
-  autoArm(c,true);
-  await runAutoNow(c);
+  for(const c of due){
+    autoArm(c,true);
+    if(tideSkipTake('auto',c.id))continue;
+    await runAutoNow(c,null,{kind:'auto',title:c.name});
+    return;
+  }
 }
 /* ---------- 角色自己决定什么时候回（角色设置里的「自己决定什么时候回」） ---------- */
 /* 开了这个开关的角色：你发完消息后，它先自己判断一次——秒回 / 等一会儿再回 / 不回。
@@ -6369,7 +6515,7 @@ function freeReplyNudge(){
     '用 1-2 句自然的话回'+UP+'。）';
 }
 /* 到点了却刚好在忙别的（它正在回别人 / 在自动冒泡）→ 过 8 秒再试，最多试十几次 */
-async function freeReplyFire(cid,tries){
+async function freeReplyFire(cid,tries,manual){
   freeTimers[cid]=null;
   const c=chars.find(x=>x.id===cid);
   if(!c||!c.freeTiming){freePendDel(cid);return}       /* 角色删了 / 关了这个开关 → 就不回了 */
@@ -6383,12 +6529,19 @@ async function freeReplyFire(cid,tries){
   }
   freePendDel(cid);
   const looking=(curId===cid&&view==='chat'&&!document.hidden);
+  const tideReq=tideIntentFor(cid,c);
   try{
-    if(looking){
-      await askAndAppend(cid);           /* 你正看着这个聊天：和平时一样打字显示 */
+    if(looking||tideReq){
+      const before=msgsOf(cid).length;
+      await askAndAppend(cid,tideReq?{tideIntent:tideReq}:null);   /* 明确要求潮汐操作时，即使不在聊天页也要走完整工具流程 */
+      const after=msgsOf(cid);
+      const last=after[after.length-1];
+      if(after.length>before&&last&&last.role==='assistant'){
+        tideLogAdd({kind:'delay',cid:cid,title:c.name,text:last.content||'',manual:!!manual});
+      }
     }else{
       /* 你没在看它：后台生成，直接发进它的记录里；切回去能看到小红点 */
-      await runAutoNow(c,freeReplyNudge());
+      await runAutoNow(c,freeReplyNudge(),{kind:'delay',title:c.name,manual:!!manual});
     }
   }catch(e){}
 }
@@ -6396,6 +6549,7 @@ async function freeReplyFire(cid,tries){
 async function freeReplyFlow(cid){
   const c=chars.find(x=>x.id===cid);
   if(!c||!c.freeTiming)return;
+  tideClearDelayPauses();                                /* 新一轮消息开始，清掉上一轮留下的旧暂停状态 */
   const seq=(freeSeq[cid]=(freeSeq[cid]||0)+1);
   if(freeTimers[cid]){clearTimeout(freeTimers[cid]);freeTimers[cid]=null}
   freePendDel(cid);                                      /* 上一条还没回？重新判断 */
@@ -6418,6 +6572,7 @@ function freeReplyCheckDue(){
 }
 /* 打开应用时：把上次留着没回的重新排上（太久以前的就算了） */
 function freeReplyBoot(){
+  tideClearDelayPauses();                                /* 延迟回复不允许暂停；清掉旧版本可能留下的误暂停 */
   const o=freePendAll(),now=Date.now();
   let changed=false;
   Object.keys(o).forEach(function(cid){
@@ -6452,6 +6607,7 @@ function copyChar(id){
   n.priv=false;
   delete n.guide;                     /* 副本只是普通角色，不带「引导者」内部标记 */
   if(n.auto)n.auto.on=false;          /* 副本默认关掉自动发消息，免得突然刷屏 */
+  n.tidePerm={on:false};              /* 潮汐控制权限不随复制继承，必须重新开启 */
   chars.push(n);
   save(LS.chars,chars);scheduleBackup();scheduleAuto(false);
   renderRoles();
@@ -6498,7 +6654,7 @@ function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',
     visionModel:'',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},tidePerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -6617,6 +6773,10 @@ function charPermissionCardsHTML(c){
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能用 MCP 工具</b><div class="dim" style="font-size:12px">允许它使用你在手机桌面「MCP」应用里接上的外部工具（比如和小机一起玩游戏）。不想让这个角色用，就把这个关掉</div></div>'+
   '<input type="checkbox" id="e_mcpperm" '+(permOn(c,'mcpPerm')?'checked':'')+'></div></div>'+
+  /* 【新增】潮汐控制权限：默认关，只允许它管理自己的排期 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>允许角色自己控制潮汐</b><div class="dim" style="font-size:12px">默认关闭。打开后，它可以在聊天里查看、修改、暂停或取消自己尚未执行的排期，也能新增待办提醒、一次性消息或分身总结；消息可以写死文案，也可以只定时间、到点再决定说什么。新增提醒还要打开待办权限，群消息还要打开群聊权限。它碰不到别的角色；设置里的“全局自动发消息”关掉时它也不能用。最多同时留 10 个由它新建的任务，每个任务最早 2 分钟后、最晚 30 天内。</div></div>'+
+  '<input type="checkbox" id="e_tideperm" '+(permOn(c,'tidePerm')?'checked':'')+'></div></div>'+
   /* 【新增】游戏邀请权限：开了以后它才能在聊天里拉你进游戏房间（默认关；关着的时候工具和那段提示词都不发，不占 token） */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能邀请我玩游戏</b><div class="dim" style="font-size:12px">允许它拉你进游戏房间一起玩（比如「和我玩一局狼人杀」）。开着它才会在聊天里发「邀请你加入房间」的卡片；关着（默认）连工具和提示词都不发给模型，一分 token 都不花。</div></div>'+
@@ -6887,6 +7047,15 @@ function applyCharInputs(id){
   const elMcpP=document.getElementById('e_mcpperm');
   if(elMcpP)c.mcpPerm={on:!!elMcpP.checked};
   else if(!c.mcpPerm)c.mcpPerm={on:false};
+  /* ↓ 潮汐控制权限：默认关；关闭时把由它自己创建但还没执行的任务暂停 */
+  const elTideP=document.getElementById('e_tideperm');
+  if(elTideP){
+    const wasTide=permOn(c,'tidePerm');
+    c.tidePerm={on:!!elTideP.checked};
+    if(wasTide&&!c.tidePerm.on){
+      try{if(window.TIDE&&window.TIDE.pauseRoleQueue)window.TIDE.pauseRoleQueue(c.id)}catch(e){}
+    }
+  }else if(!c.tidePerm)c.tidePerm={on:false};
   /* ↓ 游戏邀请权限：现在默认关 */
   const elGameP=document.getElementById('e_gameperm');
   if(elGameP)c.gamePerm={on:!!elGameP.checked};
@@ -6931,6 +7100,10 @@ async function delChar(id){
     removeKey('wh_roamcache_'+b.id);
     delete autoMap[b.id];
   }
+  try{
+    tideQueueSave(tideQueueAll().filter(function(q){return !gone[q.cid]}));
+    var cs=tideCreateStats();Object.keys(gone).forEach(function(gid){delete cs[gid]});save(TIDE_CREATE_KEY,cs);
+  }catch(e){}
   chars=chars.filter(c=>!gone[c.id]);delete autoMap[id];
   /* 【新增】把它从所有群里移出去 */
   try{
@@ -8563,6 +8736,7 @@ function remindChip(t){
   if(!t||!t.remindAt)return '';
   if(t.done)return '⏰ '+remindStamp(t.remindAt)+'（已完成）';
   if(t.remindMissed)return '⏰ '+remindStamp(t.remindAt)+'（错过太久，没提醒）';
+  if(t.remindSkipped)return '⏰ '+remindStamp(t.remindAt)+'（已取消提醒）';
   if(t.remindSent)return '⏰ '+remindStamp(t.remindAt)+'（已经提醒过）';
   if(t.remindAt<=Date.now())return '⏰ '+remindStamp(t.remindAt)+'（已过时）';
   return '⏰ '+remindStamp(t.remindAt)+' 会来提醒 · ';
@@ -8596,6 +8770,7 @@ async function checkReminders(){
     let arr=[];try{arr=todosOf(c.id)}catch(e){arr=[]}
     arr.forEach(t=>{
       if(!t||!t.remindAt||t.done||t.remindSent)return;
+      if(tidePaused('reminder',c.id+'|'+t.id))return;
       if(t.remindAt>now)return;
       if(now-t.remindAt>REMIND_LATE)old.push({cid:c.id,todo:t});else due.push({cid:c.id,todo:t});
     });
@@ -8616,14 +8791,14 @@ async function checkReminders(){
   if(due.length>1)setTimeout(checkReminders,1500);   /* 一次来一条，别刷屏 */
 }
 /* 到点了：先响闹钟，再让角色自己说一句提醒她 */
-async function fireReminder(cid,todo){
+async function fireReminder(cid,todo,manual){
   const c=(chars||[]).find(x=>x.id===cid);if(!c)return;
   /* 先标成已提醒：万一接口出问题，也不会过 20 秒又响一次 */
   try{const a=todosOf(cid),t=a.find(y=>y.id===todo.id);if(t){t.remindSent=true;saveTodos(cid,a)}}catch(e){}
   playAlarm();
   let ok=false;
-  if(cfg&&cfg.key&&!busy){try{ok=await runAutoNow(c,remindNudge(todo))}catch(e){ok=false}}
-  if(!ok)remindFallback(c,todo);
+  if(cfg&&cfg.key&&!busy){try{ok=await runAutoNow(c,remindNudge(todo),{kind:'reminder',cid:cid,rid:todo.id,title:c.name,where:todo.text,manual:!!manual})}catch(e){ok=false}}
+  if(!ok)remindFallback(c,todo,manual);
   try{if(view==='tools'&&toolTab==='todo')renderToolPane()}catch(e){}
 }
 /* 塞给模型的「该你提醒她了」提示 */
@@ -8636,12 +8811,13 @@ function remindNudge(t){
     '不要提到系统、提醒功能、闹钟或这条说明本身，也不要重复你上一条说过的话。）';
 }
 /* 接口没配好、或者正好在忙：至少用一条消息把提醒送到，别让闹钟白响 */
-function remindFallback(c,t){
+function remindFallback(c,t,manual){
   const txt='⏰ 到点啦，别忘了「'+String(t.text||'')+'」哦。';
   const m={role:'assistant',content:txt,t:Date.now(),tok:0};
   const wasOpen=(curId===c.id&&view==='chat'&&!document.hidden);
   if(curId===c.id&&msgs&&msgs.length!==undefined){msgs.push(m);persist()}
   else{const a=load(LS.msg(c.id),[]);a.push(m);saveArrFor(c.id,a)}
+  tideLogAdd({kind:'reminder',cid:c.id,rid:t.id,title:c.name,where:String(t.text||''),text:txt,manual:!!manual});
   try{window.P5.maybeNotify({kind:'char',cid:c.id,name:(c.emoji||'')+' '+c.name,emoji:c.emoji,avatar:c.avatar,text:txt})}catch(e){}
   if(wasOpen){try{renderChat()}catch(e){}}
   else{markUnread(c.id);toast('⏰ '+c.name+' 提醒你：'+String(t.text||''))}
@@ -10696,20 +10872,25 @@ function cleanGroupOutput(out,names){
   return out;
 }
 /* 群里的自动发消息 */
-function groupAutoEligible(g,m){return !!(cfg&&cfg.key&&m&&m.auto&&charOf(m.cid))}
+function groupAutoEligible(g,m){return !!(cfg&&cfg.autoOn&&cfg.key&&m&&m.auto&&charOf(m.cid))}
 function groupAutoRange(g){const mi=Math.max(1,Number(g.autoMin)||15),ma=Math.max(mi+1,Number(g.autoMax)||60);return {mi:mi,ma:ma}}
 function scheduleGroupAuto(force){
+  groupAutoMapLoadOnce();
   if(!chars||!chars.length){if(groupTick){clearInterval(groupTick);groupTick=null}return}
+  const liveKeys={};
   groupsAll().forEach(g=>{
     (g.members||[]).forEach(m=>{
       const k=g.id+'|'+m.cid;
       if(!groupAutoEligible(g,m)){delete gAutoMap[k];return}
+      liveKeys[k]=1;
       const r=groupAutoRange(g);
       const cur=gAutoMap[k];
       if(!force&&cur&&cur.mi===r.mi&&cur.ma===r.ma)return;
       gAutoMap[k]={at:Date.now()+(r.mi+Math.random()*(r.ma-r.mi))*MS_PER_MIN,mi:r.mi,ma:r.ma};
     });
   });
+  Object.keys(gAutoMap).forEach(k=>{if(!liveKeys[k])delete gAutoMap[k]});
+  groupAutoMapSave();
   const live=Object.keys(gAutoMap).length;
   if(live&&!groupTick)groupTick=setInterval(checkGroupAuto,20000);
   if(!live&&groupTick){clearInterval(groupTick);groupTick=null}
@@ -10722,11 +10903,14 @@ async function checkGroupAuto(){
       const k=g.id+'|'+m.cid;
       const rec=gAutoMap[k];
       if(!rec||rec.at>now)continue;
+      if(tidePaused('group',k))continue;
       /* 【新增】角色自己设了免打扰时段（且开着）时，群里也不打扰 */
       const mc=charOf(m.cid);
       if(mc&&isQuiet(mc.auto||{}))continue;
       const r=groupAutoRange(g);
       gAutoMap[k].at=Date.now()+(r.mi+Math.random()*(r.ma-r.mi))*MS_PER_MIN;
+      groupAutoMapSave();
+      if(tideSkipTake('group',k))continue;
       await groupAutoSpeak(g,m);
       return;                     /* 一次只发一条，绝不批量刷屏 */
     }
@@ -10816,6 +11000,7 @@ function delGroup(id){
   if(!confirm('删掉这个群？群里的聊天记录也会一起清掉（角色本人的聊天和记忆不受影响）'))return;
   const g=findGroup(id);
   if(g)(g.members||[]).forEach(m=>{const cur=gmemOf(m.cid);const left=cur.filter(x=>x.gid!==id);if(left.length!==cur.length)save(LS.gmem(m.cid),left)});
+  try{tideQueueSave(tideQueueAll().filter(function(q){return q.gid!==id}))}catch(e){}
   saveGroups(groupsAll().filter(g2=>g2.id!==id));
   removeKey(LS.gmsg(id));
   if(groupOpenId===id)groupOpenId=null;
@@ -11258,7 +11443,7 @@ async function backupNow(){
 }
 function cfgSafe(){const c=JSON.parse(JSON.stringify(cfg||{}));delete c.key;if(c.web)delete c.web.key;if(c.img)delete c.img.key;return c}
 async function backupPayload(){
-  const d={v:9,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
+  const d={v:10,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{},stickers:load('wh_stickers',[]),stickerCats:load('wh_sticker_cats',[]),
     notes:{},diary:{},favs:{},arts:{},summarks:{},rawMarks:{},rawLogs:{},world:load('wh_world',[]),
     /* 【新】歌单清单（歌名/歌手/链接；音频文件本身不进备份） */
@@ -11273,7 +11458,19 @@ async function backupPayload(){
     /* 【新增】「心愿小铺」的进度（贝壳 / 任务 / 礼物墙）；老备份里没有这个字段，导入时会跳过 */
     shop:load('wh_shop',null),
     /* 看图文字缓存：换模型后同一张图不需要重新识图 */
-    visionCache:load('wh_visioncache',{})};
+    visionCache:load('wh_visioncache',{}),
+    /* 潮汐：最近发送记录、暂停/跳过控制、私聊和群聊的下次预计时间 */
+    tide:{
+      log:tideLogAll(),
+      controls:tideCtrlAll(),
+      reasons:tideReasonsAll(),
+      skip:tideSkipAll(),
+      seen:load(TIDE_SEEN_KEY,''),
+      queue:tideQueueAll(),
+      create:tideCreateStats(),
+      auto:autoMap||{},
+      group:gAutoMap||{}
+    }};
   chars.forEach(c=>{d.messages[c.id]=load(LS.msg(c.id),[]);d.memories[c.id]=load(LS.mem(c.id),null);d.todos[c.id]=todosOf(c.id);d.gmems[c.id]=gmemOf(c.id);
     /* 这几类数据以前没进备份，恢复后会缺，这里补上：便条、日记、好感度记录、画册、自动总结进度 */
     d.notes[c.id]=load('wh_p4_note_'+c.id,[]);
@@ -11394,6 +11591,26 @@ function importBackupExtraData(d){
   /* 【新增】「心愿小铺」的进度。老备份里没有这个字段，就不动本机现有的。 */
   if(d.shop&&typeof d.shop==='object')save('wh_shop',d.shop);
   if(d.visionCache&&typeof d.visionCache==='object')save('wh_visioncache',d.visionCache);
+  /* 潮汐：新备份带这个字段；老备份没有，就保留本机现有记录。 */
+  if(d.tide&&typeof d.tide==='object'){
+    if(Array.isArray(d.tide.log))save(TIDE_LOG_KEY,d.tide.log.slice(0,50));
+    if(d.tide.controls&&typeof d.tide.controls==='object')save(TIDE_CTRL_KEY,d.tide.controls);
+    if(d.tide.reasons&&typeof d.tide.reasons==='object')save(TIDE_REASON_KEY,d.tide.reasons);
+    if(d.tide.skip&&typeof d.tide.skip==='object')save(TIDE_SKIP_KEY,d.tide.skip);
+    if(typeof d.tide.seen==='string')save(TIDE_SEEN_KEY,d.tide.seen);
+    if(Array.isArray(d.tide.queue))tideQueueSave(d.tide.queue);
+    if(d.tide.create&&typeof d.tide.create==='object')save(TIDE_CREATE_KEY,d.tide.create);
+    if(d.tide.auto&&typeof d.tide.auto==='object'){
+      Object.keys(autoMap).forEach(function(k){delete autoMap[k]});
+      Object.keys(d.tide.auto).forEach(function(k){autoMap[k]=d.tide.auto[k]});
+      autoMapLoaded=true;autoMapSave();
+    }
+    if(d.tide.group&&typeof d.tide.group==='object'){
+      Object.keys(gAutoMap).forEach(function(k){delete gAutoMap[k]});
+      Object.keys(d.tide.group).forEach(function(k){gAutoMap[k]=d.tide.group[k]});
+      gAutoMapLoaded=true;groupAutoMapSave();
+    }
+  }
   if(d.stickers)save('wh_stickers',d.stickers);
   if(d.stickerCats)save('wh_sticker_cats',d.stickerCats);
   /* 【修复】朋友圈、朋友圈已读时间、记忆宫殿的人工标签、「一直记得」。
@@ -12891,12 +13108,18 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-18 */
+   最后更新：2026-10-19 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
-【最近更新 · 2026-10-18】
+【最近更新 · 2026-10-19】
+新增桌面第二页：在桌面空白处左右滑动可以翻页，底部的小圆点也能点。第一页保留原来的时钟、音乐组件和 16 个应用图标；第二页新增「潮汐」。
+「潮汐」是自动消息总管，可以按角色和来源查看所有会主动发消息的时机：私聊自动消息、群聊自动冒泡、待办到点提醒、角色自己决定的延迟回复、洄游处理（包括每条记录、累积条数、每天固定时间），以及分身每天把 MCP 活动总结进洄游后再可能触发的回复。私聊、群聊、提醒和延迟回复会显示具体预计时间；洄游则会显示“等条件满足”或固定时间。点进去可以暂停某类来源、跳过下一次私聊或群聊冒泡、取消某次提醒或延迟回复、现在执行，以及打开原来的角色、群、待办或洄游设置。潮汐还会保留最近 50 条实际自动发送记录，页面默认显示最近 10 条。浏览器关着时不会在后台发送；到点但没执行的任务会在下次打开时补做。
+分身设置里还能看到今天记录了多少条 MCP 活动、当前还有多少条待总结、上次总结结果或错误；也可以点“现在总结一次”立刻生成一条洄游记录，不用等到每日设定时间。
+角色设置新增“允许角色自己控制潮汐”，默认关闭。开启后角色可以用一个统一工具查看、修改、暂停或取消自己尚未执行的排期，也能新增待办提醒、一次性私聊/群聊消息、分身 MCP 总结、洄游处理；新增提醒还需要这个角色的待办权限，群消息还需要群聊权限。新增消息有两种：一种现在就写死文案；另一种只留下“到时候去做什么”的想法，到点再结合聊天上下文自由决定具体说什么。它只能碰自己的任务，最多同时保留 10 个由它新建的安排，每天最多新增 20 个，最早 2 分钟后、最晚 30 天内；关闭权限时，角色新建但未执行的任务会暂停。
+
+【上次更新 · 2026-10-18】
 新增桌面应用「洄游」：它记录角色在聊天窗口外亲身经历的事，以角色自己为“我”。每个角色可以设置每条新记录都处理、累积到指定条数处理、每天固定时间处理，或默认关闭。主聊天先收到摘要，角色自己决定看哪些详情，也可以不回复。经历记录页可以只看某一个角色；每个角色还能单独选择自己能看见游戏、番外、塔罗、分身中的哪些类型。还新增「角色分身窗口」：每个分身有独立聊天和工具权限，默认复制本体人设与记忆快照，也可选择参考主窗口完整上下文；分身用 MCP 的活动可按日总结进洄游，主角色自己用 MCP 不会重复记录。分身会像普通角色一样显示在「角色」应用里，并标注“分身”和本体。
 
 【最要紧的一条：不要教她填接口】
@@ -12905,10 +13128,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【界面长什么样（现在是桌面版）】
 打开 App 先看到的是一屏仿手机的「桌面」。老版本那种「底部四个页面」（聊天、角色、应用、设置）已经没有了，别再这样说。
-桌面上有：最上面一行仿手机状态栏（时间、电量）；一个时钟卡片；一个「正在播放」的音乐小卡片；下面是一整屏应用图标。
+桌面现在有两页，在空白处左右滑动就能翻页，底部两个小圆点表示当前在哪一页，也可以直接点圆点。
+第一页有：最上面一行仿手机状态栏（时间、电量）；一个时钟卡片；一个「正在播放」的音乐小卡片；下面是一整屏应用图标。
 桌面最底下有一条 Dock，只有三个图标：聊天、角色、设置。
 点任意图标就打开对应的应用；进了应用以后，左上角的「‹」是返回桌面。
-那一屏图标分别是：我的资料、待办、群聊、朋友圈、小工具、音乐、游戏、MCP、创意、互动、演绎、世界书、番外、洄游、主题、记忆宫殿。
+第一页图标分别是：我的资料、待办、群聊、朋友圈、小工具、音乐、游戏、MCP、创意、互动、演绎、世界书、番外、洄游、主题、记忆宫殿。
+第二页目前是「潮汐」，专门查看和管理所有自动消息的时机。潮汐图标上可能出现小红点，表示 10 分钟内有任务即将触发或已经到点。
 
 【聊天（点 Dock 上的「聊天」，或点桌面上那个圆形头像）】
 底部输入框打字发送；左下角「＋」可以发图片、发文件。
@@ -12920,11 +13145,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【角色（Dock 上那个「角色」）】
 点进去，最上面是「＋ 新建角色」。角色卡片：点一下进聊天，右上角 ✎ 改设定，长按可以拖动排序，有新消息的卡片上有小红点。角色分身也会作为普通角色卡片显示在这里，卡片上会标“分身”并写明本体是谁。
 每个角色能单独设定：头像或 emoji、名字、人设、情境、说话风格、额外系统提示、对话示例、开场白、单独指定模型、看图模型、思考强度。看图模型留空时和旧版一样；填了以后，图片会先由它识图并转成文字，再交给聊天模型，所以可以「用擅长聊天的模型聊天，用擅长看图的模型看图」。
-每个角色还有一份自己的权限开关，主要有：自动发消息（按随机间隔主动找你；你关着这个前端、没打开的那段时间错过的，下次一打开会补上一条，按「现在」的时间发）、自己决定什么时候回、隐私角色、待办、群聊、朋友圈、创意、演绎记忆、看手机电量、看你在听什么歌、控制音乐、用 MCP 工具、邀请你玩游戏、联网搜索、互动玩具、画图。
+每个角色还有一份自己的权限开关，主要有：自动发消息（按随机间隔主动找你；你关着这个前端、没打开的那段时间错过的，下次一打开会补上一条，按「现在」的时间发）、自己决定什么时候回、隐私角色、待办、群聊、朋友圈、创意、演绎记忆、看手机电量、看你在听什么歌、控制音乐、用 MCP 工具、允许角色自己控制潮汐（默认关）、邀请你玩游戏、联网搜索、互动玩具、画图。
 
 【桌面上的应用分别是干什么的】
 · 待办：角色能帮你加、勾选清单，到点还会主动发消息提醒你。
 · 群聊：把好几个角色拉进一个群一起聊，角色会记得自己在群里说过的话。
+· 潮汐：第二页的自动消息总管。按角色和来源查看私聊自动消息、群聊自动冒泡、待办提醒、延迟回复、洄游处理、分身每日总结，以及“角色安排”的消息和总结；能暂停来源、跳过下一次、取消某次任务、现在执行，并查看最近实际发出去的自动消息。角色设置里单独打开“允许角色自己控制潮汐”后，它才能自己查看和管理自己的排期。
 · 朋友圈：角色自己发动态，你可以点赞、评论。
 · 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
 · 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。
@@ -12940,7 +13166,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 世界书：多角色共用的设定，写了以后相关角色都会知道。
 · 番外：给角色写一段小故事。
 · 洄游：记录角色在聊天窗口以外亲身经历的事，比如玩游戏、写番外、做塔罗解读、在分身窗口用 MCP。记录以角色自己为“我”来理解。每个角色可以单独设置：每条新记录都交给主聊天、累积到指定条数再交、每天固定时间交，或者完全关闭；还能单独勾选这个角色能看见游戏、番外、塔罗、分身中的哪几类。经历记录页有一个“只看角色”下拉框，可以只看某一个角色的记录。交给主聊天时先只有摘要，角色可以自己选择查看哪些详情，也可以看完不回复；处理过的摘要会压成很短的个人记忆留在角色身上，详情仍在洄游里。关闭是默认设置，不会偷偷调用接口。浏览器关闭时不会后台处理，固定时间和每日总结会在下次打开 App 时补做。
-· 角色分身窗口：可以从「洄游 → 角色与分身」创建，也可以在一个角色下面创建多个分身。分身有独立聊天、独立工具权限，默认复制本体的人设和记忆快照，不复制主窗口聊天气泡。还可以选择让分身在生成时参考主窗口当前完整上下文，这时分身聊天顶部只显示“主窗口记忆已同步”的时间。分身窗口使用 MCP 时，活动只留在分身自己的活动区，按设置每天总结成第一人称记录进入洄游；主角色自己使用 MCP 不会重复记录。
+· 角色分身窗口：可以从「洄游 → 角色与分身」创建，也可以在一个角色下面创建多个分身。分身有独立聊天、独立工具权限，默认复制本体的人设和记忆快照，不复制主窗口聊天气泡。还可以选择让分身在生成时参考主窗口当前完整上下文，这时分身聊天顶部只显示“主窗口记忆已同步”的时间。分身窗口使用 MCP 时，活动只留在分身自己的活动区，按设置每天总结成第一人称记录进入洄游；主角色自己使用 MCP 不会重复记录。分身设置会显示今天记录了几条 MCP 活动、当前待总结条数和上次总结结果；点“现在总结一次”可以立刻处理，不用等到每日时间。
 · 主题：换主题色、字体、字号、锁屏样式、背景图。
 · 记忆宫殿：把旧聊天归档，需要时按关键词、按时间、按标签翻出来。
 · 小工具：骰子、塔罗、随机这类小玩意。
@@ -12963,6 +13189,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【新手最常问的几件事】
 · 怎么新建角色：点桌面 Dock 上的「角色」→ 最上面「＋ 新建角色」，填人设和开场白，保存。
 · 怎么让它主动找我说话：点角色卡片右上角 ✎ → 自动发消息，打开并设间隔。
+· 怎么让角色自己安排以后的消息：点角色卡片右上角 ✎ → 打开“允许角色自己控制潮汐”，保存。以后可以直接对它说“一小时后按你现在想好的文案发给我”，或者“一小时后去我那边看看，到时候再想说什么”。第二种只保存目的，不写死文案。它还能改时间、改文案、暂停、取消，或安排分身 MCP 总结和洄游处理；这些都会出现在潮汐里，用户可以随时取消。
+· 怎么看它什么时候会自动发消息：在桌面空白处向左滑到第二页，点「潮汐」；也可以按角色或触发方式筛选。私聊、群聊、提醒和延迟回复有具体时间，洄游按条件或固定时间处理。
+· 怎么不让某条自动消息发出：去「潮汐」，私聊或群聊可以点「跳过这次」或暂停这类来源；待办提醒和延迟回复可以取消那一次；洄游可以暂停处理。涉及立即调用接口的「现在发一条」会先询问，可能产生费用。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
@@ -12977,18 +13206,18 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=26;  /* 26：洄游增加按角色筛选、每角色可见类型；分身显示在角色应用；25：洄游与角色分身；24：海底陪伴 */
+const GUIDE_VER=29;  /* 29：角色自控潮汐与到时自由发挥；28：修复分身每日总结并增加活动状态/现在总结 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
-   权限能开的都开，只关掉「自动发消息」和「隐私角色」；
+   权限能开的都开，只关掉「自动发消息」「隐私角色」和「角色自控潮汐」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
 function makeGuideChar(){
   return {id:uid(),name:'引导者',emoji:'🧭',avatar:'',
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
-    persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面上是一堆应用图标，最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。',
+    persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么让它主动找我说话？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
 /* 【启动检查】老账号（已经有别的角色、却没有引导者）也补一个引导者：
    只往列表最前面加一个，绝不改动旧角色。删掉以后不会再自己长回来。 */
@@ -15118,21 +15347,23 @@ async function runGroupRound(g,round,chain,maxAI,total,prioFn){
   }
   return {spoke:spoke,speaks:speaks};
 }
-groupAutoSpeak=async function(g,m){
+groupAutoSpeak=async function(g,m,manual,customNudge,tideMeta){
   const c=charOf(m.cid);if(!c)return;
   if(groupBusy)return;
   groupBusy=true;
   try{
-    const out=await groupGenerate(g,c,true);
-    if(!out||!out.text)return;
+    const out=await groupGenerate(g,c,true,customNudge);
+    if(!out||!out.text)return false;
     const arr=gmsgsOf(g.id);
     arr.push({role:'char',cid:c.id,content:out.text,t:Date.now(),tok:out.tok,ptok:out.ptok,chit:out.chit,cmiss:out.cmiss,search:out.search});
     saveGmsgs(g.id,arr);
     gmemAdd(c.id,g.id,g.name,out.text,true);
+    tideLogAdd(Object.assign({kind:'group',cid:c.id,gid:g.id,title:c.name,where:g.name,text:out.text,manual:!!manual},tideMeta||{}));
     const watching=(groupOpenId===g.id&&view==='tools'&&toolTab==='group'&&!document.hidden);
     if(watching){renderToolPane();scrollGroupDown();toast((c.emoji||'')+' '+c.name+'：'+out.text.slice(0,22));}
     else{markUnread(c.id);toast((c.emoji||'')+' '+c.name+' 在《'+g.name+'》里发了一条');}
-  }catch(e){}finally{
+    return true;
+  }catch(e){return false}finally{
     groupBusy=false;
     if(view==='tools'&&toolTab==='group'){renderToolPane();scrollGroupDown()}
   }
@@ -15749,7 +15980,7 @@ async function runGroupToyProbe(sys,dyn,c,g,hist,tp){
     }
   }catch(e){}
 }
-groupGenerate=async function(g,c,autoSay){
+groupGenerate=async function(g,c,autoSay,customNudge){
   var dyn=[];                       /* 每轮可能变的内容：不放系统提示，附在最后那条用户消息里 */
   var base=buildGroupBaseContext(g,c,dyn);
   var arr=base.arr,nm=base.nm,me=base.me,sys=base.sys;
@@ -15767,9 +15998,9 @@ groupGenerate=async function(g,c,autoSay){
   var ctx=[{role:'system',content:sys.join('\n\n')}].concat(hist);
   /* ↓ 主动冒泡：说清楚是系统戳了它一下，不然它会去回答已经聊过的内容、或重复上一条 */
   var dynHead=dyn.length?('【我这轮知道的情况】下面这些是群里这轮的背景：\n'+dyn.join('\n\n')+'\n\n'):'';
-  ctx.push({role:'user',content:dynHead+(autoSay
+  ctx.push({role:'user',content:dynHead+(customNudge||(autoSay
     ?'（系统提示：群里这会儿没有人说话，也不是她刚发了新消息。是她给你开了「自动发消息」，现在时间到了，系统戳了你一下，让你主动在群里冒个泡。你可以开个新话头（想起一件事、看到点什么、想聊什么），也可以顺着群里刚才的气氛自然接一句。注意：不要去回答上面最后一条消息、不要重复你上一条说过的话、不要解释你为什么突然冒泡，也不要提到这条提示本身。用你的身份发一条，只说你要发的消息。）'
-    :'（继续群聊，现在轮到你发言，用你的身份发一条）')});
+    :'（继续群聊，现在轮到你发言，用你的身份发一条）'))});
   var out='',usage=null;
   try{
     out=String(await callAPI(ctx,{stream:false,model:modelOf(c),temp:tp.temp,maxtok:Math.min(400,tp.maxtok||400),onUsage:function(u){usage=u}})||'').trim();
@@ -16299,6 +16530,10 @@ if(P5_toysExec){
 /* execCharTool 是「私聊里用工具」的入口 */
 /* ↓ 这个函数是五层补丁合并后的样子：表情包 → 画图 → 好感度/提示 → 玩具 → 原来的工具分发 */
 execCharTool=function(name,args,cid){
+  if(name==='control_tide'){
+    try{return window.execTideTool(args,cid)}
+    catch(e){return {ok:false,msg:'潮汐操作失败：'+((e&&e.message)||e)}}
+  }
   /* ↓ MCP：名字带 mcp_ 前缀的，交给外面的工具服务器执行（异步，交回结果） */
   if(name&&name.indexOf('mcp_')===0){
     try{
@@ -16847,7 +17082,7 @@ async function prepareVisionForTurn(c,cid){
 }
 /* ↓ 这个函数是七层补丁合并后的样子（顺序和原来一层层包起来时完全一致）：
      打字动画 → 表情包 → 画图 → 重画 → 玩具 → 联网搜索 → 原来的生成逻辑 */
-askAndAppend=async function(freeCid){
+askAndAppend=async function(freeCid,opts){
   /* 【修复】这一轮回复属于哪个角色，开头就定死，之后一律用它。
      以前这里到处用全局的 curId / msgs：你只要在它打字的时候切到别的角色，
      回复就会存进那个角色的聊天里，搜索结果、图片、表情也会挂错人。
@@ -16855,6 +17090,9 @@ askAndAppend=async function(freeCid){
      回话时，会明确把「这次是替谁回」传进来（freeCid），免得回错人。 */
   const cid=freeCid||curId;
   const c=chars.find(x=>x.id===cid)||null;
+  opts=opts||{};
+  const tideReq=opts.tideIntent||tideIntentFor(cid,c)||null;
+  const tidePrompt=tideReq?('【这一轮必须实际操作潮汐】用户明确要求你管理潮汐，目标动作是 '+tideReq.action+'。你必须真的调用 control_tide 并等工具返回结果，不能只在文字里说“安排好了”或“五分钟后找你”。如果用户说几分钟后、一小时后，必须填 after_minutes，由程序计算时间。新建主动消息时 action 用 add_message，mode 用 generate 表示到点再决定说什么。') : '';
   const len=()=>msgsOf(cid).length;
   const live=()=>(curId===cid&&view==='chat');
   const lastIn=()=>{const arr=msgsOf(cid);return {arr:arr,m:arr.length?arr[arr.length-1]:null}};
@@ -16917,7 +17155,10 @@ askAndAppend=async function(freeCid){
       const tools=toolsFor(c);
       if(tools.length){
         thinkOn();                       /* 有工具时它要先去想/去调工具，先亮起「思考中」 */
-        const r=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}}))||{};
+        const baseCtx=buildCtx(c,tidePrompt);
+        const loopBase={signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}};
+        let r=(await toolLoop(c,baseCtx,Object.assign({},loopBase,{forceTool:tideReq?'control_tide':''})))||{};
+        let usedTools=(r.usedTools||[]).slice();
         reasoning=r.reasoning||'';usage=r.usage||null;out=r.finalText||'';
         if(!out){
           /* 【修复·重要】以前这里什么情况都说「不要调用工具，直接说话」。可只要第一轮没吐字
@@ -16927,20 +17168,42 @@ askAndAppend=async function(freeCid){
                      ② 实在还是空 → 才退到「不要用工具，直接说话」。 */
           if(!(r&&r.didTool)){
             try{
-              const r2=(await toolLoop(c,buildCtx(c),{signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}}))||{};
+              const r2=(await toolLoop(c,baseCtx,Object.assign({},loopBase,{forceTool:tideReq?'control_tide':''})))||{};
               reasoning=r2.reasoning||reasoning;usage=r2.usage||usage;out=r2.finalText||'';
+              usedTools=usedTools.concat(r2.usedTools||[]);r=r2;
             }catch(e){if(e&&e.name==='AbortError')throw e}   /* 这一遍再失败就算了，继续往下走兜底 */
           }
-          if(!out){
+          if(!out&&!tideReq){
             const ctx2=((r&&r.messages)||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
             await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u,onModel:m=>{usedModel=m}});
           }
         }
+        const tideDone=function(){
+          if(!tideReq)return true;
+          return usedTools.some(function(x){return x&&x.name==='control_tide'&&x.args&&String(x.args.action||'')===tideReq.action&&x.result&&x.result.ok===true});
+        };
+        if(tideReq&&!tideDone()){
+          const retryCtx=((r&&r.messages)||baseCtx).concat([{role:'system',content:'（系统核验：你刚才没有成功执行用户要求的潮汐动作 '+tideReq.action+'，不能只口头答应。现在只调用 control_tide，action 必须是 '+tideReq.action+'；相对时间用 after_minutes。等工具成功返回后，再简短告诉她结果。）'}]);
+          try{
+            const r3=(await toolLoop(c,retryCtx,Object.assign({},loopBase,{forceTool:'control_tide'})))||{};
+            reasoning=r3.reasoning||reasoning;usage=r3.usage||usage;
+            if(r3.finalText)out=r3.finalText;
+            usedTools=usedTools.concat(r3.usedTools||[]);
+          }catch(e){if(e&&e.name==='AbortError')throw e}
+        }
+        if(tideReq&&!tideDone()){
+          out='（这次没有实际创建潮汐排期。我刚才只生成了文字，不能算作已经安排好了。请再让我试一次，或检查潮汐控制权限和接口。）';
+          try{toast('潮汐工具这次没有执行成功')}catch(e){}
+        }else if(tideReq&&tideDone()&&!out){
+          out=({add_message:'已经按你说的把这条主动消息加进潮汐了。',add_reminder:'已经把这条提醒加进潮汐了。',add_branch_summary:'已经把分身总结安排加进潮汐了。',add_roam_review:'已经把洄游处理安排加进潮汐了。',reschedule:'已经把潮汐里的时间改好了。',cancel:'已经取消了对应的潮汐安排。',pause:'已经暂停了对应的潮汐安排。',resume:'已经恢复了对应的潮汐安排。',list:'已经查看了你的潮汐排期。'}[tideReq.action]||'潮汐操作已经完成。');
+        }
         if(out){
           a.classList.remove('typing');sayOut(a,out);scrollDown();
         }
-      }else{
+      }else if(!tideReq){
         await callAPI(buildCtx(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:r=>{reasoning+=r;thinkOn()},onUsage:u=>usage=u,onModel:m=>{usedModel=m}});
+      }else{
+        out='（这次没有实际创建潮汐排期，因为潮汐工具当前不可用。请检查角色潮汐控制权限和全局自动发消息开关。）';
       }
       if(!out)throw new Error('模型没返回内容');
       const m=makeAssistantMsg(out,reasoning,usage,answerMeta());
@@ -16950,7 +17213,7 @@ askAndAppend=async function(freeCid){
       var liteOK=false;
       try{
         var aborted0=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
-        if(!aborted0&&!out){
+        if(!aborted0&&!out&&!tideReq){
           out='';reasoning='';usage=null;
           await callAPI(buildCtxLite(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,
             onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},
@@ -17285,6 +17548,7 @@ function toolStatText(name){
   return '正在用工具…';
 }
 async function pushToolResults(msgs2,resp,c){
+  var used=[];
   msgs2.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
   for(var i=0;i<resp.tool_calls.length;i++){
     var tc=resp.tool_calls[i];
@@ -17296,18 +17560,20 @@ async function pushToolResults(msgs2,resp,c){
     try{r=await Promise.resolve(execCharTool(tc.function.name,args,c.id))}
     catch(e){r={ok:false,msg:'工具执行出错：'+((e&&e.message)||e)}}
     if(r==null)r={ok:false,msg:'没有返回'};
+    used.push({name:String(tc.function&&tc.function.name||''),args:args,result:r});
     msgs2.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
     /* 【改】工具干完以后**不要**马上把字改回「思考中…」。
        真正花时间的是它「想代码」那一段，等工具真正跑起来只是一瞬间——
        立刻改回去的话，你就什么都看不见了。所以留到最后，等这一轮结束再一起收掉。 */
   }
+  return used;
 }
 toolLoop=async function(c,ctx,opt){
   try{
     opt=opt||{};
     var tools=opt.tools||toolsFor(c);
     var msgs2=ctx.slice();
-    if(!tools.length)return {finalText:'',reasoning:'',usage:null,messages:msgs2,didTool:false};
+    if(!tools.length)return {finalText:'',reasoning:'',usage:null,messages:msgs2,didTool:false,usedTools:[]};
     /* 「做一个网页」要写一大段代码，给它多一点输出空间，免得网页写到一半被截断。
        其它情况一点都不变（这只是「最多能写多长」的上限，不是必须写满）。 */
     var mtLoop=opt.maxtok;
@@ -17315,12 +17581,16 @@ toolLoop=async function(c,ctx,opt){
       if(tools.some(function(t){return t&&t.function&&(t.function.name==='create_page'||t.function.name==='update_page')}))
         mtLoop=Math.max(Number(opt.maxtok)||0,(typeof ideaMaxTok==='function')?ideaMaxTok(c):4000);
     }catch(e){}
-    var reasoning='',usage=null,rounds=0,didTool=false;
+    var reasoning='',usage=null,rounds=0,didTool=false,usedTools=[],forcePending=!!opt.forceTool;
     var preText='';    /* 【新】它「一边说话、一边调工具」时说的那半句话，攒在这里一起显示 */
-    var mkOpt=function(mt){return {stream:false,model:modelOf(c),tools:tools,tool_choice:'auto',
+    var mkOpt=function(mt){
+      var forceNow=forcePending&&tools.some(function(t){return t&&t.function&&t.function.name===opt.forceTool});
+      var choice=forceNow?{type:'function',function:{name:opt.forceTool}}:'auto';
+      return {stream:false,model:modelOf(c),tools:tools,tool_choice:choice,
       signal:opt.signal,temp:opt.temp,maxtok:mt,
       onReasoning:function(r){reasoning+=r},onUsage:function(u){usage=u},
-      onModel:function(m){if(typeof opt.onModel==='function')try{opt.onModel(m)}catch(e){}}}};
+      onModel:function(m){if(typeof opt.onModel==='function')try{opt.onModel(m)}catch(e){}}}
+    };
     while(rounds<6){
       rounds++;
       var resp=null;
@@ -17328,11 +17598,16 @@ toolLoop=async function(c,ctx,opt){
         resp=await callAPI(msgs2,mkOpt(mtLoop));
       }catch(e){
         if(e&&e.name==='AbortError')throw e;
-        /* 【兜底】有的接口不接受太大的输出上限：降回原来的 4000 再试一次，别让整条回复失败 */
-        if(mtLoop>4000)resp=await callAPI(msgs2,mkOpt(4000));
+        /* 【兜底】有的接口不支持“强制指定工具”，退回 auto；有的接口也不接受太大的输出上限。 */
+        if(forcePending){
+          forcePending=false;
+          try{resp=await callAPI(msgs2,mkOpt(mtLoop))}
+          catch(e2){if(mtLoop>4000)resp=await callAPI(msgs2,mkOpt(4000));else throw e2}
+        }else if(mtLoop>4000)resp=await callAPI(msgs2,mkOpt(4000));
         else throw e;
       }
-      if(!resp)return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+      if(forcePending)forcePending=false;
+      if(!resp)return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool,usedTools:usedTools};
       if(!resp.tool_calls||!resp.tool_calls.length){
         /* 【新】它这一轮一个字都没说、也没去干活（推理模型偶尔会这样）：
            别就这么结束，提醒一句再来一次，免得你那边「什么都没发生」。 */
@@ -17342,7 +17617,7 @@ toolLoop=async function(c,ctx,opt){
         }
         var tail=String(resp.content||'');
         var merged=preText?(tail?(preText.replace(/[\s\u3000]+$/,'')+'\n'+tail):preText):tail;
-        return {finalText:merged,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool};
+        return {finalText:merged,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool,usedTools:usedTools};
       }
       didTool=true;
       /* 【重要修复】它有时候会在同一条回复里「一边说话、一边调工具」——
@@ -17351,10 +17626,11 @@ toolLoop=async function(c,ctx,opt){
          而它自己以为已经说过了，后面就不会再说一遍——结果你只看到卡片或表情包，那半句话没了。
          现在把这段文字留下来，和后面的回复一起发出去。 */
       if(String(resp.content||'').trim())preText+=(preText?'\n':'')+String(resp.content).trim();
-      await pushToolResults(msgs2,resp,c);
+      var justUsed=await pushToolResults(msgs2,resp,c);
+      usedTools=usedTools.concat(justUsed||[]);
       if(view==='tools'&&toolTab==='todo')safeL(function(){renderTodo()});
     }
-    return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:true};
+    return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:true,usedTools:usedTools};
   }catch(e){
     /* ↓ 补丁13-A：模型不支持「发表情」工具时，退回到不用表情的正常聊天 */
     var t=(opt&&opt.tools)||null;
@@ -17504,6 +17780,7 @@ function normalizeImportedChar(c,nid){
   if(!c.listenPerm)c.listenPerm={on:false};
   if(!c.musicPerm)c.musicPerm={on:false};
   if(!c.mcpPerm)c.mcpPerm={on:false};
+  c.tidePerm={on:false};               /* 导入角色也默认关闭潮汐控制，避免带着高风险权限进来 */
   if(!c.gamePerm)c.gamePerm={on:false};
   return c;
 }
@@ -21336,6 +21613,32 @@ window.mcpAdd=mcpAdd;window.mcpSaveServer=mcpSaveServer;window.mcpDelServer=mcpD
 window.mcpTestServer=mcpTestServer;window.mcpRefresh=mcpRefresh;
 window.mcpToggleServer=mcpToggleServer;window.mcpToggleTool=mcpToggleTool;window.mcpSetGlobal=mcpSetGlobal;
 window.mcpToolsAll=mcpToolsAll;window.mcpToolsOnlyQuery=mcpToolsOnlyQuery;
+/* 角色控制自己的潮汐排期：一个工具统管查看、修改、取消和新增，省 token 也减少误调用。 */
+var TIDE_TOOL={type:'function',function:{
+  name:'control_tide',
+  description:'查看或管理我自己尚未执行的潮汐排期。只能操作当前角色自己的任务，不能碰别的角色。可以新增待办提醒、一次性私聊/群聊消息、分身 MCP 总结、洄游处理，也可以修改时间、文案、暂停或取消。安排消息时可以选 exact（现在就写好文案）或 generate（只写到时候想做什么，到点结合聊天上下文再决定具体说什么）。用户说“几分钟后、一小时后”时，必须用 after_minutes 让程序计算，不要自己手算钟点；只有用户明确说“明天 9 点”这类钟点时再用 at。列表里的 delay 是回复当前聊天消息的延迟回复，不是主动排期；不能暂停，也不能拿它代替新安排。要安排以后主动发消息必须用 add_message。对私聊/群聊循环自动消息，cancel 表示跳过下一次，pause 才是暂停整个来源。不要暂停刚创建的新安排。最早 2 分钟后，最晚 30 天内。',
+  parameters:{type:'object',properties:{
+    action:{type:'string',enum:['list','add_reminder','add_message','add_branch_summary','add_roam_review','reschedule','edit_text','cancel','pause','resume'],description:'要做的事。第一次通常先用 list 拿任务 id。cancel 对循环自动消息只跳过一次，pause 才暂停来源。'},
+    id:{type:'string',description:'list 返回的任务 id，修改/取消/暂停时必填。'},
+    at:{type:'string',description:'明确的本地钟点，格式 YYYY-MM-DDTHH:mm。只有用户明确说了具体日期或钟点时才用。'},
+    after_minutes:{type:'integer',minimum:2,maximum:43200,description:'从现在起多少分钟后执行。用户说“半小时后、一小时后、明天再看看”时优先用它，由程序计算，避免模型手算错误。'},
+    mode:{type:'string',enum:['exact','generate'],description:'exact=现在写死要发的文案；generate=只留下目的，到点由角色自己决定具体说什么。'},
+    text:{type:'string',maxLength:500,description:'exact 模式的完整文案，或 edit_text 时要改成的新文案/新提醒文字。'},
+    intent:{type:'string',maxLength:500,description:'generate 模式留给到时自己的目的，例如「一小时后再看看用户，聊什么到时候再说」。'},
+    channel:{type:'string',enum:['private','group'],description:'add_message 时发到私聊还是群聊。'},
+    group:{type:'string',description:'群聊安排时的群名或群 id。'},
+    branch:{type:'string',description:'分身总结时选择自己的哪个分身；只有一个时可以留空。'}
+  },required:['action']}
+}};
+window.TIDE_TOOL=TIDE_TOOL;
+function execTideTool(args,cid){
+  var c=null;try{c=charOf(cid)}catch(e){}
+  if(!c)return {ok:false,msg:'角色找不到了'};
+  if(!(c.tidePerm&&c.tidePerm.on))return {ok:false,msg:'这个角色没有开启潮汐控制权限'};
+  if(!window.TIDE||!window.TIDE.control)return {ok:false,msg:'潮汐模块还没加载'};
+  return window.TIDE.control(c,args||{});
+}
+window.execTideTool=execTideTool;
 /* ↓ 这个函数是四层补丁合并后的样子：基础工具 → 互动玩具 → 画图 → 表情包 */
 toolsFor=function(c){
   var t=[];
@@ -21377,6 +21680,8 @@ toolsFor=function(c){
       }
     }
   }catch(e){}
+  /* ↓ 潮汐控制：默认关；关着时模型完全看不到这个工具 */
+  try{if(permOn(c,'tidePerm')&&cfg&&cfg.autoOn&&window.TIDE_TOOL)t.push(window.TIDE_TOOL)}catch(e){}
   /* ↓ MCP：外面工具服务器给的工具（在桌面的「MCP」应用里添加、连上后自动出现在这里） */
   try{
     if(permOn(c,'mcpPerm'))mcpToolDefs(c).forEach(function(x){t.push(x)});
@@ -21915,11 +22220,12 @@ function branchSystemText(c){
   return out;
 }
 
-async function runBranchSummary(branch){
+async function runBranchSummary(branch,force){
   if(!branch||!isBranch(branch)||busy||R.runBusy[branch.id])return false;
   if(!cfg||!cfg.key)return false;
   var main=chOf(branch.branchOf);if(!main||!roamActive(main))return false;
-  var daily=dailyOf(branch);if(!daily.on)return false;
+  if(!sourceAllowed(main,'branch'))return false;
+  var daily=dailyOf(branch);if(!daily.on&&!force)return false;
   var acts=await loadActivity(branch.id);
   if(!acts.length)return false;
   R.runBusy[branch.id]=true;
@@ -21944,21 +22250,39 @@ async function runBranchSummary(branch){
       {stream:false,model:modelOf(branch),temp:.5,maxtok:900})||'').trim();
     if(!out||/^EMPTY$/i.test(out)){
       daily.lastDay=todayKey();
+      daily.lastAt=Date.now();
+      daily.lastResult='empty';
+      daily.lastError='';
       await saveActivity(branch.id,[]);
       save(LS.chars,chars);scheduleBackup();
+      try{branchActivityStatus(branch)}catch(e2){}
       return true;
     }
     var one=safeText(out.replace(/\s+/g,' ').trim(),90);
-    await addEvent(main.id,{
+    var saved=await addEvent(main.id,{
       sourceKey:'branch:'+branch.id+':'+todayKey(),source:'branch',t:Date.now(),branchId:branch.id,
       title:'分身日记',summary:'我在「'+branch.name+'」这个分身窗口里忙了一天：'+one,
       detail:'【这是我在分身窗口里亲身经历的一天，以“我”为第一人称。】\n\n'+out
     });
+    if(!saved){
+      daily.lastAttemptAt=Date.now();
+      daily.lastError='总结已经生成，但写进洄游失败；活动记录仍然保留，下次会重试。';
+      save(LS.chars,chars);scheduleBackup();
+      return false;
+    }
     daily.lastDay=todayKey();
+    daily.lastAt=Date.now();
+    daily.lastResult='ok';
+    daily.lastError='';
     await saveActivity(branch.id,[]);
     save(LS.chars,chars);scheduleBackup();
+    try{branchActivityStatus(branch)}catch(e2){}
     return true;
   }catch(e){
+    daily.lastAttemptAt=Date.now();
+    daily.lastError=String((e&&e.message)||e||'总结失败').slice(0,180);
+    try{save(LS.chars,chars);scheduleBackup()}catch(e2){}
+    try{branchActivityStatus(branch)}catch(e2){}
     return false;
   }finally{
     R.runBusy[branch.id]=false;
@@ -21975,6 +22299,7 @@ function branchDue(branch){
 }
 async function branchReady(branch){
   if(!branchDue(branch))return false;
+  if(tidePaused('branch',branch.id))return false;
   var arr=await loadActivity(branch.id);
   if(!arr.length)return false;
   var now=minuteNow();
@@ -21982,7 +22307,7 @@ async function branchReady(branch){
   return now>=hmMinute(dailyOf(branch).time)||arr.some(function(a){return a&&a.t<start.getTime()});
 }
 async function dailyTick(){
-  if(busy||R.ticking)return;
+  if(busy)return;
   var bs=branchChars();
   for(var i=0;i<bs.length;i++){
     if(R.branchRetryAt[bs[i].id]&&R.branchRetryAt[bs[i].id]>Date.now())continue;
@@ -22161,6 +22486,7 @@ async function runCharacter(c,events,manual){
     var m=makeAssistantMsg(out,reasoning,usage,{model:modelOf(c)});
     m.roam=true;
     pushMsgTo(c.id,m);
+    tideLogAdd({kind:'roam',cid:c.id,title:c.name,where:'洄游',text:out,manual:!!manual});
     var looking=(curId===c.id&&view==='chat'&&!document.hidden);
     if(looking){try{renderChat()}catch(e){}}
     else{
@@ -22176,6 +22502,7 @@ async function runCharacter(c,events,manual){
 
 function dueNow(c,events){
   if(!c||!events.length)return false;
+  if(tidePaused('roam',c.id))return false;
   var r=cfgOf(c);
   if(r.mode==='off')return false;
   if(r.mode==='instant')return true;
@@ -22231,9 +22558,11 @@ function createBranch(parentId,form){
   nb.branchSeeMain=!!form.seeMain;
   nb.branchCreatedAt=Date.now();
   nb.branchSyncedAt=0;
-  nb.branchDaily={on:!!form.daily,time:form.time||'22:30',focus:String(form.focus||'').trim(),lastDay:''};
+  nb.branchDaily={on:!!form.daily,time:form.time||'22:30',focus:String(form.focus||'').trim(),
+    lastDay:'',lastAt:0,lastResult:'',lastError:'',lastAttemptAt:0};
   nb.priv=false;
   nb.guide=false;
+  nb.tidePerm={on:false};
   if(nb.auto)nb.auto.on=false;
   nb.freeTiming=false;
   nb.selfMode=!!p.selfMode;
@@ -22247,13 +22576,15 @@ function createBranch(parentId,form){
 function updateBranch(branch,form){
   if(!branch||!isBranch(branch))return;
   var p=chOf(branch.branchOf)||{};
+  var oldDaily=(branch.branchDaily&&typeof branch.branchDaily==='object')?branch.branchDaily:{};
   var label=String(form.label||'').trim().slice(0,30)||branch.branchLabel||'分身';
   branch.branchLabel=label;
   branch.name=(p.name||'角色')+'·'+label;
   branch.branchPurpose=String(form.purpose||'').trim();
   branch.branchSeeMain=!!form.seeMain;
   branch.branchDaily={on:!!form.daily,time:form.time||'22:30',focus:String(form.focus||'').trim(),
-    lastDay:(branch.branchDaily&&branch.branchDaily.lastDay)||''};
+    lastDay:oldDaily.lastDay||'',lastAt:Number(oldDaily.lastAt)||0,lastResult:String(oldDaily.lastResult||''),
+    lastError:String(oldDaily.lastError||''),lastAttemptAt:Number(oldDaily.lastAttemptAt)||0};
   branch.mcpPerm={on:!!form.mcp};
   save(LS.chars,chars);scheduleBackup();
 }
@@ -22481,10 +22812,13 @@ function branchForm(branch,parentId){
     '<label>每日总结时间</label><input id="ra_btime" type="time" value="'+esc(d.time||'22:30')+'">'+
     '<label>总结时特别留意什么</label><textarea id="ra_bfocus" placeholder="例如：记住值得收藏的帖子、地点、穿搭配色">'+esc(d.focus||'')+'</textarea>'+
     '<p class="roam-tip">只有分身窗口里的 MCP 活动会进入总结；主角色自己使用 MCP 不会被重复记录。</p>'+
+    (branch?('<div id="ra_bact" class="roam-tip">正在读取今天的活动记录…</div>'+
+      '<div class="roam-row"><button class="ghost" onclick="ROAM.branchSummaryNow(\''+branch.id+'\')">现在总结一次</button></div>'):'')+
     '<div class="roam-row"><button class="pri" onclick="ROAM.saveBranch(\''+(branch?branch.id:'')+'\',\''+p.id+'\')">保存</button></div>'+
     (branch?'<div class="roam-row"><button class="ghost" onclick="ROAM.editBase(\''+branch.id+'\')">打开完整角色设定与记忆</button>'+
       '<button class="ghost" onclick="ROAM.openBranch(\''+branch.id+'\')">进入分身聊天</button></div>':'')+
     '</div></div>');
+  if(branch)setTimeout(function(){branchActivityStatus(branch)},20);
 }
 function readBranchForm(){
   return {
@@ -22506,6 +22840,78 @@ function saveBranch(id,pid){
   if(b)updateBranch(b,form);else b=createBranch(pid,form);
   if(!b)return toast('分身没有保存成功');
   back();toast(id?'分身设置已保存':'分身窗口已创建');
+}
+async function branchActivityStatus(branch){
+  var el=D.getElementById('ra_bact');if(!el||!branch)return;
+  var acts=[];try{acts=await loadActivity(branch.id)}catch(e){acts=[]}
+  var start=new Date();start.setHours(0,0,0,0);
+  var today=acts.filter(function(a){return a&&Number(a.t)>=start.getTime()}).length;
+  var d=dailyOf(branch);
+  var last='还没总结过';
+  if(d.lastAt)last=when(d.lastAt);
+  else if(d.lastDay)last=d.lastDay===todayKey()?'今天（旧版本没记具体时间）':String(d.lastDay);
+  var result='';
+  if(d.lastResult==='ok')result='，已写入洄游';
+  else if(d.lastResult==='empty')result='，没有值得记录的内容';
+  var retry='';
+  if(R.branchRetryAt[branch.id]&&R.branchRetryAt[branch.id]>Date.now()){
+    retry='<br>上次没成功，约 '+Math.max(1,Math.ceil((R.branchRetryAt[branch.id]-Date.now())/60000))+' 分钟后自动重试。';
+  }
+  el.innerHTML='今天已记录 <b>'+today+'</b> 条 MCP 活动；当前待总结共 <b>'+acts.length+'</b> 条。<br>'+
+    '上次总结：'+esc(last)+esc(result)+'。'+retry+
+    (d.on?'':'<br>每日总结当前是关闭状态。')+
+    (d.lastError?('<br><span style="color:var(--warn)">上次错误：'+esc(d.lastError)+'</span>'):'');
+}
+async function branchSummaryNow(id){
+  var branch=chOf(id);
+  if(!branch||!isBranch(branch))return toast('这个分身找不到了');
+  var lock='manual:'+branch.id;
+  if(busy||R.runBusy[branch.id]||R.runBusy[lock])return toast('现在正有内容在生成，稍后再试');
+  R.runBusy[lock]=true;
+  try{
+    if(!cfg||!cfg.key)return toast('先在「设置」里填好接口');
+    var main=chOf(branch.branchOf);
+    if(!main||!roamActive(main))return toast('请先在本体的洄游设置里开启洄游');
+    if(!sourceAllowed(main,'branch'))return toast('本体没有允许查看“分身”类记录');
+    if(!dailyOf(branch).on)return toast('先打开“每天把 MCP 等活动总结一条放进洄游”并保存');
+    var acts=await loadActivity(branch.id);
+    if(!acts.length){
+      await branchActivityStatus(branch);
+      return toast('今天还没有可总结的 MCP 活动');
+    }
+    var el=D.getElementById('ra_bact');
+    if(el)el.innerHTML='正在总结 '+acts.length+' 条活动并写入洄游，请稍等…';
+    var ok=await runBranchSummary(branch);
+    await branchActivityStatus(branch);
+    if(!ok)return toast('这次总结没成功，活动记录还留着，可以稍后再点一次');
+    var d=dailyOf(branch);
+    toast(d.lastResult==='empty'?'总结完成：这些活动没有值得记录的内容':'总结完成，洄游已经更新');
+  }finally{
+    delete R.runBusy[lock];
+  }
+}
+async function branchSummaryForQueue(id){
+  var branch=chOf(id);
+  if(!branch||!isBranch(branch))return {ok:false,msg:'分身找不到了'};
+  if(busy||R.runBusy[branch.id])return {ok:false,busy:true,msg:'现在正有内容在生成'};
+  if(!cfg||!cfg.key)return {ok:false,msg:'还没有可用接口'};
+  var main=chOf(branch.branchOf);
+  if(!main||!roamActive(main))return {ok:false,msg:'本体的洄游没有开启'};
+  if(!sourceAllowed(main,'branch'))return {ok:false,msg:'本体没有允许查看分身记录'};
+  var acts=await loadActivity(branch.id);
+  if(!acts.length)return {ok:true,noop:true,result:'empty',msg:'今天没有可总结的 MCP 活动'};
+  var ok=await runBranchSummary(branch,true);
+  var d=dailyOf(branch);
+  return {ok:ok,noop:ok&&d.lastResult==='empty',result:d.lastResult||'',error:d.lastError||'',msg:ok?(d.lastResult==='empty'?'没有值得记录的内容':'已写入洄游'):'总结失败'};
+}
+async function processForQueue(cid){
+  var c=chOf(cid);
+  if(!c||c.branchOf)return {ok:false,msg:'只能安排主角色的洄游处理'};
+  if(busy||R.runBusy[c.id])return {ok:false,busy:true,msg:'现在正有内容在生成'};
+  var arr=await loadRecords(c.id),pending=visiblePending(c,arr);
+  if(!pending.length)return {ok:true,noop:true,msg:'现在没有待处理的洄游记录'};
+  var ok=await runCharacter(c,pending,true);
+  return {ok:ok,msg:ok?'洄游处理完成':'洄游处理失败'};
 }
 function manual(cid){
   var c=chOf(cid);if(!c)return;
@@ -22570,7 +22976,8 @@ W.ROAM={
   userName:roamUserName,
   open:open,close:close,back:back,render:render,tabGo:tabGo,feedChar:feedChar,detail:detail,
   charEdit:charEdit,saveChar:saveChar,manual:manual,clearRecords:clearRecords,backfillFic:backfillFic,backfillGame:backfillGame,
-  branchNew:branchNew,branchEdit:branchEdit,saveBranch:saveBranch,openBranch:openBranch,editBase:editBase,
+  branchNew:branchNew,branchEdit:branchEdit,saveBranch:saveBranch,branchSummaryNow:branchSummaryNow,
+  branchSummaryForQueue:branchSummaryForQueue,processForQueue:processForQueue,openBranch:openBranch,editBase:editBase,
   addTarot:addTarot,addFic:addFic,syncGameRecords:syncGameRecords,trackMcp:trackMcp,
   mainContextText:mainContextText,branchBanner:branchBanner,
   tick:tick
@@ -22715,6 +23122,7 @@ var G={
   game:'<rect x="2.6" y="7.6" width="18.8" height="9" rx="4.5"/><path d="M7.4 10.6v2.8M6 12h2.8"/><circle cx="16" cy="11.2" r="1"/><circle cx="18" cy="13" r="1"/>'
   ,mcp:'<path d="M9 3.4v4.2M15 3.4v4.2"/><path d="M6.4 7.6h11.2v3.6a5.6 5.6 0 0 1-11.2 0Z"/><path d="M12 16.8v3.8"/>'
 ,'idea':'<path d="M9.3 16.9h5.4"/><path d="M10 19.6h4"/><path d="M12 3.5a5.5 5.5 0 0 0-3.3 9.9c.4.3.6.7.6 1.1v.6h5.4v-.6c0-.4.2-.8.6-1.1A5.5 5.5 0 0 0 12 3.5Z"/>'
+  ,tide:'<path d="M3.7 9.2c2.1 0 2.1 1.8 4.2 1.8s2.1-1.8 4.2-1.8 2.1 1.8 4.2 1.8 2.1-1.8 4.2-1.8"/><path d="M3.7 14.2c2.1 0 2.1 1.8 4.2 1.8s2.1-1.8 4.2-1.8 2.1 1.8 4.2 1.8 2.1-1.8 4.2-1.8"/><path d="M6.2 4.8c1.9-1.5 4.2-2.1 6.3-1.7"/>'
 };
 /* 状态栏右边的小图标（纯装饰） */
 var SIG='<svg class="f" viewBox="0 0 24 24"><rect x="3.2" y="13.4" width="3.2" height="6" rx="1"/><rect x="8.4" y="10.2" width="3.2" height="9.2" rx="1"/><rect x="13.6" y="7" width="3.2" height="12.4" rx="1"/><rect x="18.8" y="3.8" width="3.2" height="15.6" rx="1"/></svg>';
@@ -22742,6 +23150,9 @@ var GRID=[
   {k:'roam',  n:'洄游',     g:'roam',   c:'#1D8A99'},
   {k:'thm',   n:'主题',     g:'thm',    c:'#A2845E'},
   {k:'palace',n:'记忆宫殿', g:'palace', c:'#64D2FF'}
+];
+var GRID2=[
+  {k:'tide',  n:'潮汐',     g:'tide',   c:'#0E7490'}
 ];
 var DOCK=[
   {k:'chat',  n:'聊天', g:'chat', c:'#34C759'},
@@ -22823,6 +23234,15 @@ header.p8chat .hback{align-self:center;margin-top:0}
 .hnm{font-size:11px;color:var(--txt);opacity:.92;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hdot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;border-radius:50%;background:#ff4d5e;box-shadow:0 0 0 2px var(--panel),0 0 8px rgba(255,77,94,.7);display:none}
 .hdot.on{display:block;animation:pulse 1.6s infinite}
+
+/* 手机桌面第二页：左右滑动，页面本身随手指走，状态栏和 Dock 保持不动 */
+.hpager{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x pan-y}
+.hpager::-webkit-scrollbar{display:none}
+.hpage{flex:0 0 100%;min-width:100%;box-sizing:border-box;scroll-snap-align:start;scroll-snap-stop:always;padding:0 1px}
+.hpage:nth-child(2) .hgrid{padding-top:10px}
+.hpagedots{display:flex;align-items:center;justify-content:center;gap:7px;padding:6px 0 2px}
+.hpagedot{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:var(--dim);opacity:.38;box-shadow:none;transition:width .18s ease,opacity .18s ease,background .18s ease}
+.hpagedot.on{width:18px;border-radius:99px;background:var(--acc);opacity:.95}
 
 #homedock{display:none;flex:0 0 auto;padding:4px 14px calc(env(safe-area-inset-bottom) + 12px)}
 body.home #homedock{display:flex}
@@ -22926,7 +23346,56 @@ html[data-home="glass"] .is-mb:active{background:rgba(255,255,255,.4)}
 /* 创意打开时，把弹层四周的留白收紧一点，预览的画框就能更高
    （:has 是较新浏览器才认的写法；不认就退回到原来的留白，不会出错） */
 #sheet:has(#isRoot){padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 8px)}
-html[data-home="glass"] .is-ic{background:linear-gradient(150deg,rgba(255,255,255,.32),rgba(255,255,255,.14))}`;
+html[data-home="glass"] .is-ic{background:linear-gradient(150deg,rgba(255,255,255,.32),rgba(255,255,255,.14))}
+
+/* ---------- 潮汐：自动消息总览 ---------- */
+#tideRoot{min-height:100%;padding-bottom:calc(env(safe-area-inset-bottom) + 20px)}
+.tide-shell{display:flex;flex-direction:column;gap:12px;max-width:640px;margin:0 auto}
+.tide-head{display:flex;align-items:flex-start;gap:10px;padding:2px 2px 0}
+.tide-head .tide-close{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid var(--line);background:var(--bg2);color:var(--txt);font-size:22px;line-height:1;padding:0;box-shadow:none}
+.tide-head .tide-close,.tide-refresh{margin-top:1px}
+.tide-head .tide-title{flex:1;min-width:0}
+.tide-head h2{margin:0;font-size:24px;letter-spacing:1px}
+.tide-head p{margin:4px 0 0;font-size:11.5px;color:var(--dim);line-height:1.55}
+.tide-refresh{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid var(--line);background:var(--bg2);color:var(--acc);font-size:19px;padding:0;box-shadow:none}
+.tide-summary{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:7px}
+.tide-sum-main,.tide-sum-mini{padding:13px 12px;border-radius:17px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);min-width:0}
+.tide-sum-main{background:linear-gradient(145deg,var(--accdim),var(--panel))}
+.tide-sum-main small,.tide-sum-mini small{display:block;font-size:10.5px;color:var(--dim);margin-bottom:5px}
+.tide-sum-main b,.tide-sum-mini b{display:block;font-size:14px;line-height:1.35;overflow:hidden;text-overflow:ellipsis}
+.tide-sum-main span{display:block;font-size:11.5px;color:var(--dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tide-alert{padding:10px 12px;border-radius:14px;border:1px solid var(--warn);background:rgba(255,159,10,.1);font-size:12px;line-height:1.7;color:var(--warn)}
+.tide-filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tide-filters select{width:100%;min-width:0;margin:0;background:var(--bg2);border:1px solid var(--line);border-radius:13px;color:var(--txt);padding:9px 10px;font:inherit;font-size:12.5px}
+.tide-section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:3px 2px -3px;font-size:12px;font-weight:700;color:var(--dim);letter-spacing:.5px}
+.tide-section-title .tide-mini-btn{border:1px solid var(--line);background:transparent;color:var(--dim);border-radius:999px;padding:5px 10px;font-size:11px;box-shadow:none}
+.tide-list{display:flex;flex-direction:column;gap:9px}
+.tide-card{display:flex;gap:11px;padding:13px;border-radius:18px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}
+.tide-card.paused,.tide-card.blocked{opacity:.72}
+.tide-card.due{border-color:var(--acc);box-shadow:0 0 0 2px var(--accdim),var(--shadow)}
+.tide-card-ico{width:42px;height:42px;flex:0 0 42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--accdim);font-size:21px}
+.tide-card-main{flex:1;min-width:0}
+.tide-card-top{display:flex;align-items:flex-start;gap:7px}
+.tide-card-name{flex:1;min-width:0;font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tide-time{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--acc);background:var(--accdim);border-radius:999px;padding:3px 8px;white-space:nowrap}
+.tide-card-meta{font-size:11.5px;color:var(--dim);line-height:1.6;margin-top:4px}
+.tide-card-note{font-size:12px;line-height:1.6;margin-top:5px;color:var(--txt);overflow-wrap:anywhere}
+.tide-card-state{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;margin-top:6px;font-size:10.5px;color:var(--dim);background:var(--bg2);border:1px solid var(--line)}
+.tide-card-state.due{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
+.tide-card-state.paused{color:var(--warn);border-color:var(--warn)}
+.tide-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.tide-actions button{border:1px solid var(--line);background:var(--bg2);color:var(--txt);border-radius:10px;padding:6px 9px;font-size:11.5px;line-height:1.2;box-shadow:none}
+.tide-actions button.primary{color:var(--acc);border-color:var(--acc);background:var(--accdim)}
+.tide-actions button.warn{color:var(--warn);border-color:var(--warn)}
+.tide-empty{padding:30px 16px;text-align:center;border:1px dashed var(--line);border-radius:18px;color:var(--dim);font-size:12.5px;line-height:1.9;background:var(--bg2)}
+.tide-log-card{padding:12px 13px;border-radius:16px;background:var(--bg2);border:1px solid var(--line)}
+.tide-log-head{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--dim)}
+.tide-log-head b{color:var(--txt);font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tide-log-text{font-size:12px;line-height:1.65;margin-top:6px;color:var(--txt);overflow-wrap:anywhere}
+.tide-help{border:1px solid var(--line);border-radius:16px;background:var(--bg2);padding:10px 12px;font-size:12px;line-height:1.75;color:var(--dim)}
+.tide-help summary{cursor:pointer;color:var(--txt);font-weight:600}
+.tide-help p{margin:8px 0 0}
+html[data-home="glass"] .tide-sum-main,html[data-home="glass"] .tide-sum-mini,html[data-home="glass"] .tide-card{background:linear-gradient(150deg,rgba(255,255,255,.24),rgba(255,255,255,.09));border:0;box-shadow:0 8px 24px rgba(0,0,0,.12),inset 0 .8px 0 rgba(255,255,255,.35)}`;
 (function(){var s=D.createElement('style');s.id='p14css';s.textContent=CSS;var h=D.head||D.documentElement;h.appendChild(s)})();
 
 /* ---------- ④ 主题色换算（毛玻璃用） ---------- */
@@ -22996,11 +23465,13 @@ function mwStop(e){try{e.stopPropagation()}catch(x){}}
 function mwPrev(e){mwStop(e);try{musicPrev()}catch(x){}}
 function mwPlay(e){mwStop(e);try{musicToggle()}catch(x){}}
 function mwNext(e){mwStop(e);try{musicNext()}catch(x){}}
+var homePage=0;
 function tile(a,dock){
   var dot='';
   if(dock&&a.k==='chat')dot='<i class="hdot" id="homeDot"></i>';
   if(!dock&&a.k==='moments')dot='<i class="hdot" id="homeDotM"></i>';
   if(!dock&&a.k==='idea')dot='<i class="hdot" id="homeDotI"></i>';
+  if(!dock&&a.k==='tide')dot='<i class="hdot" id="homeDotT"></i>';
   var st=a.c?(' style="--ic1:'+mixc(a.c,[255,255,255],.3)+';--ic2:'+mixc(a.c,[0,0,0],.16)+'"'):'';
   return '<button class="happ" type="button" onclick="P14.open(\''+a.k+'\')" aria-label="'+a.n+'">'+
     '<span class="hico"'+st+'>'+svgOf(a.g)+dot+'</span>'+
@@ -23010,18 +23481,41 @@ function renderHome(){
   var m=D.getElementById('main');if(!m)return;
   applyHomeStyle();                /* 【新】按当前选择切换桌面风格（复古 / 玻璃） */
   m.innerHTML=
-    '<div class="hw">'+
-      '<div class="hcard">'+
-        '<div class="hc-l"><div class="hc-t" id="homeClock">--:--</div><div class="hc-d" id="homeDate"></div></div>'+
-        '<button class="hc-av" type="button" id="homeAv" aria-label="继续聊天"><span class="hc-avbox" id="homeAvBox"></span><span class="hc-avnm" id="homeAvNm"></span></button>'+
-      '</div>'+
-      '<div class="musw" id="musW" role="button" tabindex="0" aria-label="音乐">'+musicWidHTML()+'</div>'+
+    '<div class="hpager" id="homePager">'+
+      '<section class="hpage">'+
+        '<div class="hw">'+
+          '<div class="hcard">'+
+            '<div class="hc-l"><div class="hc-t" id="homeClock">--:--</div><div class="hc-d" id="homeDate"></div></div>'+
+            '<button class="hc-av" type="button" id="homeAv" aria-label="继续聊天"><span class="hc-avbox" id="homeAvBox"></span><span class="hc-avnm" id="homeAvNm"></span></button>'+
+          '</div>'+
+          '<div class="musw" id="musW" role="button" tabindex="0" aria-label="音乐">'+musicWidHTML()+'</div>'+
+        '</div>'+
+        '<div class="hgrid">'+GRID.map(function(a){return tile(a,false)}).join('')+'</div>'+
+      '</section>'+
+      '<section class="hpage"><div class="hgrid">'+GRID2.map(function(a){return tile(a,false)}).join('')+'</div></section>'+
     '</div>'+
-    '<div class="hgrid">'+GRID.map(function(a){return tile(a,false)}).join('')+'</div>';
+    '<div class="hpagedots" aria-label="桌面页码">'+
+      '<button class="hpagedot'+(homePage===0?' on':'')+'" type="button" aria-label="第一页" onclick="P14.homePage(0)"></button>'+
+      '<button class="hpagedot'+(homePage===1?' on':'')+'" type="button" aria-label="第二页" onclick="P14.homePage(1)"></button>'+
+    '</div>';
   var av=D.getElementById('homeAv');
   if(av)av.onclick=function(){open2('chat')};
   var mw=D.getElementById('musW');
   if(mw)mw.onclick=function(){open2('music')};
+  var pager=D.getElementById('homePager');
+  if(pager){
+    var putPage=function(){pager.scrollLeft=homePage*pager.clientWidth};
+    putPage();
+    setTimeout(putPage,30);
+    pager.onscroll=function(){
+      if(!pager.clientWidth)return;
+      var pg=Math.max(0,Math.min(1,Math.round(pager.scrollLeft/pager.clientWidth)));
+      if(pg===homePage)return;
+      homePage=pg;
+      var ds=D.querySelectorAll('.hpagedot');
+      for(var i=0;i<ds.length;i++)ds[i].classList.toggle('on',i===pg);
+    };
+  }
   _mwKey='';                       /* 重画了，让组件把内容重新写一遍 */
   tick();dots();musicWidPaint();
 }
@@ -23052,6 +23546,8 @@ function dots(){
   if(m){var k=0;try{k=momentsUnseen()}catch(e){};m.classList.toggle('on',k>0)}
   var i=D.getElementById('homeDotI');
   if(i){var k2=0;try{k2=ideaUnseen()}catch(e){};i.classList.toggle('on',k2>0)}
+  var t=D.getElementById('homeDotT');
+  if(t){var n2=0;try{n2=tideBadgeCount()}catch(e){};t.classList.toggle('on',n2>0)}
 }
 
 /* ---------- ⑥ 页面外壳：状态栏 / 顶栏返回键 / Dock ---------- */
@@ -23119,11 +23615,905 @@ function open2(k){
     catch(e){try{alert('打不开创意：'+((e&&e.message)||e))}catch(e2){}}
     return;
   }
+  /* 潮汐：集中查看并管理所有会主动发消息的时机 */
+  if(k==='tide'){
+    try{tideOpen()}
+    catch(e){try{alert('打不开潮汐：'+((e&&e.message)||e))}catch(e2){}}
+    return;
+  }
   try{if(W.openApp)W.openApp(k)}catch(e){}
   go('tools');
 }
-W.P14={open:open2,home:function(){go('home')},mprev:mwPrev,mplay:mwPlay,mnext:mwNext};
+W.P14={open:open2,home:function(){go('home')},mprev:mwPrev,mplay:mwPlay,mnext:mwNext,
+  homePage:function(n){
+    var p=D.getElementById('homePager');if(!p)return;
+    homePage=n?1:0;p.scrollTo({left:p.clientWidth*homePage,behavior:'smooth'});
+  }};
 window.syncGlass=syncGlass; window.renderHome=renderHome;   /* 挂到全局：主程序里的 applyTheme 要用 */
+
+/* ---------- 潮汐：自动消息总览 ---------- */
+var tideCharFilter='all',tideKindFilter='all';
+function tideChar(id){try{return (chars||[]).find(function(c){return c&&c.id===id})||null}catch(e){return null}}
+function tideGroup(id){try{return (groupsAll()||[]).find(function(g){return g&&g.id===id})||null}catch(e){return null}}
+function tidePad(n){return (n<10?'0':'')+n}
+function tideClock(t){
+  var d=new Date(Number(t)||Date.now());
+  return tidePad(d.getHours())+':'+tidePad(d.getMinutes());
+}
+function tideWhen(t){
+  var d=new Date(Number(t)||0),now=new Date();
+  if(!t)return '等条件满足';
+  if(d.toDateString()===now.toDateString())return tideClock(t);
+  var n=new Date(now);n.setDate(n.getDate()+1);
+  if(d.toDateString()===n.toDateString())return '明天 '+tideClock(t);
+  return (d.getMonth()+1)+'月'+d.getDate()+'日 '+tideClock(t);
+}
+function tideRel(t){
+  if(!t)return '';
+  var d=Number(t)-Date.now();
+  if(d<=0)return '已到点';
+  var mi=Math.ceil(d/60000);
+  if(mi<60)return '约 '+mi+' 分钟后';
+  var h=Math.floor(mi/60),m=mi%60;
+  if(h<24)return '约 '+h+' 小时'+(m?(' '+m+' 分'):'')+'后';
+  return '约 '+Math.floor(h/24)+' 天后';
+}
+function tideAtToday(hhmm,dayOffset){
+  var m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));
+  var d=new Date();
+  d.setDate(d.getDate()+(dayOffset||0));
+  d.setHours(m?Math.max(0,Math.min(23,parseInt(m[1],10))):22,m?Math.max(0,Math.min(59,parseInt(m[2],10))):30,0,0);
+  return d.getTime();
+}
+function tideDayKey(t){
+  var d=new Date(Number(t)||Date.now());
+  return d.getFullYear()+'-'+tidePad(d.getMonth()+1)+'-'+tidePad(d.getDate());
+}
+function tideRoamPending(c){
+  try{
+    var arr=load('wh_roamcache_'+c.id,[]);
+    if(!Array.isArray(arr))return [];
+    var allowed=(c.roam&&Array.isArray(c.roam.sources))?c.roam.sources:['game','fic','tarot','branch'];
+    return arr.filter(function(e){return e&&e.status==='pending'&&allowed.indexOf(e.source)>=0});
+  }catch(e){return[]}
+}
+function tideKindName(k){
+  return ({auto:'私聊主动消息',group:'群聊自动冒泡',reminder:'到点提醒',delay:'延迟回复',roam:'洄游处理',branch:'分身活动总结',
+    role_message:'角色安排·私聊消息',role_group:'角色安排·群消息',role_branch:'角色安排·分身总结',role_roam:'角色安排·洄游处理'})[k]||'自动消息';
+}
+function tideKindIcon(k){
+  return ({auto:'🌊',group:'💬',reminder:'⏰',delay:'⏳',roam:'🐋',branch:'🪞',
+    role_message:'✍️',role_group:'🗣️',role_branch:'📝',role_roam:'🌀'})[k]||'🔔';
+}
+function tideLastUserText(cid){
+  try{
+    var a=msgsOf(cid),m=null;
+    for(var i=a.length-1;i>=0;i--){if(a[i]&&a[i].role==='user'&&String(a[i].content||'').trim()){m=a[i];break}}
+    return m?String(m.content||'').replace(/\s+/g,' ').slice(0,90):'';
+  }catch(e){return ''}
+}
+function tideAllEvents(){
+  autoMapLoadOnce();groupAutoMapLoadOnce();
+  var out=[],now=Date.now();
+  var list=(chars||[]).filter(function(c){return c&&(!c.priv||c.id===curId)});
+  list.forEach(function(c){
+    if(!c||!c.auto||!c.auto.on)return;
+    var rec=autoMap&&autoMap[c.id];
+    var quiet=(typeof isQuiet==='function')&&isQuiet(c.auto||{});
+    out.push({
+      kind:'auto',key:c.id,uid:'auto:'+c.id,cid:c.id,title:c.name||'角色',
+      at:rec&&rec.at?rec.at:0,
+      paused:tidePaused('auto',c.id),
+      pauseReason:tidePauseReason('auto',c.id),
+      blocked:!(cfg&&cfg.autoOn&&cfg.key),
+      meta:'私聊 · 随机间隔 '+(Math.max(1,+c.auto.min||30))+'～'+(Math.max(2,+c.auto.max||90))+' 分钟'+
+        (quiet?(' · 免打扰 '+tidePad(+c.auto.quietStart||0)+':00～'+tidePad(+c.auto.quietEnd||0)+':00'):''),
+      note:'内容到点才会生成；如果你正看着它的聊天，会直接出现在聊天里。'
+    });
+  });
+  try{
+    (groupsAll()||[]).forEach(function(g){
+      if(g.priv&&!gOpen[g.id])return;
+      (g.members||[]).forEach(function(m){
+        if(!m||!m.auto)return;
+        var c=tideChar(m.cid);if(!c)return;
+        var k=g.id+'|'+m.cid,rec=gAutoMap[k];
+        out.push({
+          kind:'group',key:k,uid:'group:'+k,cid:c.id,gid:g.id,title:c.name||'角色',
+          at:rec&&rec.at?rec.at:0,
+          paused:tidePaused('group',k),
+          pauseReason:tidePauseReason('group',k),
+          blocked:!(cfg&&cfg.autoOn&&cfg.key),
+          meta:'《'+g.name+'》 · 群聊自动冒泡 · 间隔 '+(Number(g.autoMin)||15)+'～'+(Number(g.autoMax)||60)+' 分钟',
+          note:'群里会自动开个话头或顺着气氛接一句。'
+        });
+      });
+    });
+  }catch(e){}
+  list.forEach(function(c){
+    if(!c)return;
+    let arr=[];try{arr=todosOf(c.id)}catch(e){arr=[]}
+    arr.forEach(function(t){
+      if(!t||!t.remindAt||t.done||t.remindSent)return;
+      var k=c.id+'|'+t.id;
+      out.push({
+        kind:'reminder',key:k,uid:'reminder:'+k,cid:c.id,rid:t.id,title:c.name||'角色',
+        at:t.remindAt,paused:tidePaused('reminder',k),pauseReason:tidePauseReason('reminder',k),blocked:false,
+        meta:'待办到点提醒'+(t.remindCreatedByRole?'（角色安排）':'')+' · '+(t.type||'提醒'),
+        note:'「'+String(t.text||'')+'」'
+      });
+    });
+  });
+  try{
+    var pend=freePendAll();
+    Object.keys(pend).forEach(function(cid){
+      var c=tideChar(cid),at=Number(pend[cid]);
+      if(!c||!isFinite(at))return;
+      out.push({
+        kind:'delay',key:cid,uid:'delay:'+cid,cid:cid,title:c.name||'角色',
+        at:at,paused:false,pauseReason:'',blocked:!(cfg&&cfg.key),
+        meta:'延迟回复（是在回复你当前聊天里的那条消息，不是新的主动排期）',
+        note:tideLastUserText(cid)?('准备回复你：「'+tideLastUserText(cid)+'」'):'准备回复你刚才那条消息。'
+      });
+    });
+  }catch(e){}
+  list.forEach(function(c){
+    if(!c||c.branchOf||!c.roam||c.roam.mode==='off')return;
+    var r=c.roam,mode=r.mode||'off',p=tideRoamPending(c),at=0,meta='洄游 · ';
+    if(mode==='instant'){
+      at=p.length?now:0;meta+='每有新记录就看一次'; 
+    }else if(mode==='count'){
+      var need=Math.max(2,parseInt(r.count,10)||3);
+      at=p.length>=need?now:0;meta+='累积 '+need+' 条再看 · 现在 '+p.length+' 条';
+    }else if(mode==='scheduled'){
+      var tm=r.time||'22:30',next=tideAtToday(tm,0);
+      if(!p.length){at=0;meta+='每天 '+tm+' 看一次 · 等有新记录';}
+      else{
+        if(r.lastRunDay===tideDayKey(now))next=tideAtToday(tm,1);
+        else if(next<now)next=now;
+        at=next;meta+='每天 '+tm+' 看一次';
+      }
+    }
+    if(p.length)meta+=' · '+p.length+' 条待查看';
+    out.push({
+      kind:'roam',key:c.id,uid:'roam:'+c.id,cid:c.id,title:c.name||'角色',at:at,
+      paused:tidePaused('roam',c.id),pauseReason:tidePauseReason('roam',c.id),blocked:!(cfg&&cfg.key),meta:meta,
+      note:'角色会看摘要，可选择查看详情，也可以看完不回复。'
+    });
+  });
+  list.forEach(function(c){
+    if(!c||!c.branchOf||!c.branchDaily||!c.branchDaily.on)return;
+    var tm=c.branchDaily.time||'22:30',at=tideAtToday(tm,0);
+    if(c.branchDaily.lastDay===tideDayKey(now)||at<now)at=tideAtToday(tm,1);
+    out.push({
+      kind:'branch',key:c.id,uid:'branch:'+c.id,cid:c.id,title:c.name||'分身',
+      at:at,paused:tidePaused('branch',c.id),pauseReason:tidePauseReason('branch',c.id),blocked:!(cfg&&cfg.key),
+      badge:false,
+      meta:'分身每日 MCP 活动总结 · 每天 '+tm,
+      note:'当天有分身 MCP 活动才会处理；总结进入洄游后，主角色可能收到并回复。'
+    });
+  });
+  var visIds={};list.forEach(function(c){if(c&&c.id)visIds[c.id]=1});
+  tideQueueAll().forEach(function(q){
+    if(!q||!visIds[q.cid]||(q.status!=='pending'&&q.status!=='paused'))return;
+    var c=tideChar(q.cid);if(!c)return;
+    var kind=q.kind==='group_message'?'role_group':(q.kind==='branch_summary'?'role_branch':(q.kind==='roam_review'?'role_roam':'role_message'));
+    var where='';
+    if(q.kind==='group_message'){var g=tideGroup(q.gid);if(!g||(g.priv&&!gOpen[g.id]))return;where='《'+g.name+'》 · ';}
+    if(q.kind==='branch_summary'){
+      var b=tideChar(q.branchId);if(!b||!b.branchOf)return;
+      where='分身「'+b.name+'」 · ';
+    }
+    var modeText=q.kind==='branch_summary'?'到点总结分身活动':(q.kind==='roam_review'?'到点处理洄游':(q.mode==='exact'?'精确文案':'到点再想说什么'));
+    var note=q.kind==='branch_summary'?('到点总结你指定的分身 MCP 活动。'):(q.kind==='roam_review'?('到点处理待查看的洄游记录。'):(q.mode==='exact'?('准备发送：「'+String(q.text||'').slice(0,180)+'」'):('到时再决定说什么。想法：「'+String(q.intent||'去看看用户').slice(0,180)+'」')));
+    var roleOff=!(c.tidePerm&&c.tidePerm.on),globalOff=!cfg||!cfg.autoOn;
+    var keyOff=((q.mode==='generate'||q.kind==='branch_summary'||q.kind==='roam_review')&&!(cfg&&cfg.key));
+    out.push({
+      kind:kind,key:q.id,uid:'queue:'+q.id,queueId:q.id,cid:c.id,gid:q.gid||'',branchId:q.branchId||'',
+      title:c.name||'角色',at:q.at,
+      paused:q.status==='paused',
+      pauseReason:q.pauseReason||q.lastError||'',
+      blocked:roleOff||globalOff||keyOff,
+      blockReason:roleOff?'角色潮汐控制权限已关闭':(globalOff?'全局自动消息已关闭':(keyOff?'没有可用接口':'')),
+      meta:where+'角色安排 · '+modeText,
+      note:note
+    });
+  });
+  out.sort(function(a,b){
+    if(!a.at&&!b.at)return String(a.title).localeCompare(String(b.title));
+    if(!a.at)return 1;
+    if(!b.at)return-1;
+    return a.at-b.at;
+  });
+  return out;
+}
+function tideLocalInput(ms){
+  var d=new Date(Number(ms)||0);
+  if(!ms||isNaN(d.getTime()))return '';
+  return d.getFullYear()+'-'+tidePad(d.getMonth()+1)+'-'+tidePad(d.getDate())+'T'+tidePad(d.getHours())+':'+tidePad(d.getMinutes());
+}
+function tideParseSchedule(s){
+  var at=new Date(String(s||'')).getTime();
+  var now=Date.now();
+  if(!isFinite(at))return {err:'时间格式不对，请用 YYYY-MM-DDTHH:mm'};
+  if(at<now+2*60000)return {err:'最早只能安排到 2 分钟后'};
+  if(at>now+30*86400000)return {err:'最晚只能安排到 30 天内'};
+  return {at:at};
+}
+function tideScheduleArg(args){
+  var raw=args&&args.after_minutes;
+  if(raw!=null&&raw!==''){
+    var mi=Number(raw);
+    if(!isFinite(mi)||mi<2)return {err:'after_minutes 至少是 2 分钟'};
+    if(mi>43200)return {err:'after_minutes 最多是 30 天（43200 分钟）'};
+    return {at:Date.now()+Math.round(mi*60000),source:'relative',after_minutes:mi};
+  }
+  var t=tideParseSchedule(args&&args.at);
+  if(!t.err)t.source='absolute';
+  return t;
+}
+function tideQueueFuture(cid){
+  return tideQueueAll().filter(function(q){return q.cid===cid&&(q.status==='pending'||q.status==='paused')});
+}
+function tideRolePendingCount(cid){
+  var n=tideQueueFuture(cid).length;
+  try{n+=todosOf(cid).filter(function(x){return x&&x.remindCreatedByRole&&x.remindAt&&!x.done&&!x.remindSent}).length}catch(e){}
+  return n;
+}
+function tideQueueCreatedToday(cid){
+  return tideCreatedToday(cid);
+}
+function tideQueueFind(id){return tideQueueAll().find(function(q){return q.id===id})||null}
+function tideQueuePatch(id,fn){
+  var list=tideQueueAll(),q=list.find(function(x){return x.id===id});
+  if(!q)return null;fn(q);q.updatedAt=Date.now();tideQueueSave(list);return q;
+}
+function tideOwnBranch(c,ref){
+  if(!c)return null;
+  if(c.branchOf)return (!ref||ref===c.id||ref===c.name||ref===c.branchLabel)?c:null;
+  var bs=(chars||[]).filter(function(x){return x&&x.branchOf===c.id});
+  if(!ref)return bs.length===1?bs[0]:null;
+  return bs.find(function(x){return x.id===ref||x.name===ref||x.branchLabel===ref})||null;
+}
+function tideOwnGroup(c,ref){
+  if(!c)return null;
+  return (groupsAll()||[]).find(function(g){
+    if(g.id!==ref&&g.name!==ref)return false;
+    return (g.members||[]).some(function(m){return m&&m.cid===c.id});
+  })||null;
+}
+function tideQueueNudge(q){
+  var intent=String(q.intent||'').trim();
+  var up=(typeof userPron==='function')?userPron():'TA';
+  return '（系统提示：这是你之前给自己留的一次主动安排，现在时间到了。你当时没有写死要说什么，只留下这个想法：'+
+    (intent||('去'+up+'那边看看，想说什么到时候再决定'))+'。'+
+    '请结合你们现在的聊天、你自己的记忆、当前时间和'+up+'的状态，自己决定具体说什么，主动给'+up+'发 1-2 句自然的话。'+
+    '不要提到系统、排期、提醒或这条说明本身，不要重复你上一条说过的话。）';
+}
+function tideQueueGroupNudge(q){
+  var intent=String(q.intent||'').trim();
+  return '（系统提示：这是你之前给自己留的一次群聊安排，现在时间到了。你当时没有写死要说什么，只留下这个想法：'+
+    (intent||'回群里看看，想说什么到时候再决定')+'。'+
+    '请结合群里的聊天、你自己的记忆和当前时间，用你的身份主动发一条自然的群消息。'+
+    '不要提到系统、排期、提醒或这条说明本身，不要重复你上一条说过的话。）';
+}
+function tideQueueBase(c,args,kind){
+  var t=tideScheduleArg(args);if(t.err)return {err:t.err};
+  var list=tideQueueAll();
+  if(tideRolePendingCount(c.id)>=10)return {err:'这个角色已经有 10 个未执行的安排，先取消或等执行完'};
+  if(tideQueueCreatedToday(c.id)>=20)return {err:'这个角色今天新建的安排已经达到 20 个上限'};
+  var q={
+    id:'q'+uid(),cid:c.id,kind:kind,at:t.at,atSource:t.source||'absolute',afterMinutes:t.after_minutes||0,
+    status:'pending',pauseReason:'',createdByRole:true,
+    createdAt:Date.now(),updatedAt:Date.now(),attempts:0,lastError:''
+  };
+  return {q:q,list:list};
+}
+function tideRoleEvent(c,id){
+  return tideAllEvents().find(function(e){return e.cid===c.id&&e.uid===id&&tideRoleCanSeeEvent(c,e)})||null;
+}
+function tideRoleCanSeeEvent(c,e){
+  if(!c||!e)return false;
+  if(e.kind==='reminder'&&!(c.todoPerm&&c.todoPerm.on))return false;
+  if((e.kind==='group'||e.kind==='role_group')&&!(c.groupPerm&&c.groupPerm.on))return false;
+  return true;
+}
+function tideRoleEventView(e){
+  var q=e.queueId?tideQueueFind(e.queueId):null;
+  return {
+    id:e.uid,kind:e.kind,title:e.title,at:e.at?tideLocalInput(e.at):'',
+    when:e.at?tideWhen(e.at):'等条件满足',
+    state:e.paused?'paused':(e.blocked?'blocked':(e.at&&e.at<=Date.now()?'due':'scheduled')),
+    can_pause:e.kind!=='delay',
+    purpose:e.kind==='delay'?'回复当前聊天里的消息，不是主动排期':'',
+    pause_reason:String(e.pauseReason||''),
+    block_reason:String(e.blockReason||''),
+    description:(e.meta||'')+(e.note?(' · '+e.note):''),
+    mode:q?String(q.mode||''):'',
+    time_source:q?String(q.atSource||''):'',
+    text:q&&q.mode==='exact'?String(q.text||''):'',
+    intent:q&&q.mode==='generate'?String(q.intent||''):'',
+    error:q?String(q.lastError||''):''
+  };
+}
+function tideCancelDelay(cid){
+  if(freeTimers[cid])clearTimeout(freeTimers[cid]);
+  freeTimers[cid]=null;freePendDel(cid);
+}
+function tideControl(c,args){
+  if(!c)return {ok:false,msg:'角色找不到了'};
+  if(!tideRoleCanControl(c))return {ok:false,msg:'没有开启潮汐控制权限，或全局自动消息已关闭'};
+  var a=args||{},action=String(a.action||'list');
+  if(action==='list'){
+    var events=tideAllEvents().filter(function(e){return e.cid===c.id&&tideRoleCanSeeEvent(c,e)}).map(tideRoleEventView);
+    var hasDelay=events.some(function(e){return e.kind==='delay'});
+    return {ok:true,now:tideLocalInput(Date.now()),items:events.slice(0,80),
+      msg:(events.length?('你有 '+events.length+' 个未完成排期'):'现在没有未完成排期')+
+        (hasDelay?'。其中 delay 只是对当前聊天消息的延迟回复，不是主动排期；不要暂停它，也不要拿它代替新安排。':'')};
+  }
+  if(action==='add_reminder'){
+    if(!(c.todoPerm&&c.todoPerm.on))return {ok:false,msg:'这个角色没有待办权限'};
+    if(tideCreatedToday(c.id)>=20)return {ok:false,msg:'这个角色今天新建的安排已经达到 20 个上限'};
+    var rt=tideScheduleArg(a);if(rt.err)return {ok:false,msg:rt.err};
+    var remindText=String(a.text||'').trim().slice(0,500);
+    if(!remindText)return {ok:false,msg:'要提醒什么事情不能为空'};
+    var tarr=todosOf(c.id);
+    if(tideRolePendingCount(c.id)>=10)return {ok:false,msg:'这个角色已经有 10 个未执行的安排，先取消或等执行完'};
+    tarr.push({id:uid(),text:remindText,type:'提醒',done:false,t:Date.now(),remindAt:rt.at,remindSent:false,remindCreatedByRole:true});
+    saveTodos(c.id,tarr);startRemindTick();tideCreateNote(c.id);
+    try{updateDots()}catch(e){}
+    return {ok:true,at:tideLocalInput(rt.at),status:'pending',msg:'已安排 '+tideWhen(rt.at)+' 提醒你「'+remindText+'」。状态是待执行，不要紧接着暂停它。'};
+  }
+  if(action==='add_message'){
+    var mode=(a.mode==='generate'||(!a.text&&a.intent))?'generate':'exact';
+    var b=tideQueueBase(c,a,'message');if(b.err)return {ok:false,msg:b.err};
+    if(mode==='exact'){
+      var text=String(a.text||'').trim().slice(0,500);
+      if(!text)return {ok:false,msg:'精确文案模式必须填写要发的话'};
+      b.q.text=text;
+    }else{
+      b.q.intent=String(a.intent||a.text||'').trim().slice(0,500)||'到点看看用户，再决定说什么';
+    }
+    b.q.mode=mode;
+    if(a.channel==='group'){
+      var g=tideOwnGroup(c,a.group);
+      if(!g)return {ok:false,msg:'没找到你所在的这个群'};
+      if(!(c.groupPerm&&c.groupPerm.on))return {ok:false,msg:'这个角色没有群聊权限'};
+      b.q.kind='group_message';b.q.gid=g.id;b.q.where=g.name;
+    }else b.q.kind='message';
+    b.list.push(b.q);tideQueueSave(b.list);tideCreateNote(c.id);
+    return {ok:true,id:'queue:'+b.q.id,at:tideLocalInput(b.q.at),status:'pending',msg:'已安排 '+tideWhen(b.q.at)+' '+(b.q.kind==='group_message'?'在群里':'给你')+'发消息。状态是待执行，不要紧接着暂停它。'};
+  }
+  if(action==='add_branch_summary'){
+    var br=tideOwnBranch(c,a.branch);
+    if(!br){
+      var availB=c.branchOf?[]:(chars||[]).filter(function(x){return x&&x.branchOf===c.id}).map(function(x){return x.name||x.id});
+      return {ok:false,msg:availB.length?('你有这些分身，请选一个：'+availB.join('、')):'没找到属于你的分身'};
+    }
+    var bb=tideQueueBase(c,a,'branch_summary');if(bb.err)return {ok:false,msg:bb.err};
+    bb.q.branchId=br.id;bb.list.push(bb.q);tideQueueSave(bb.list);tideCreateNote(c.id);
+    return {ok:true,id:'queue:'+bb.q.id,at:tideLocalInput(bb.q.at),status:'pending',msg:'已安排 '+tideWhen(bb.q.at)+' 总结分身「'+br.name+'」的 MCP 活动。状态是待执行，不要紧接着暂停它。'};
+  }
+  if(action==='add_roam_review'){
+    if(c.branchOf)return {ok:false,msg:'洄游处理要由主角色安排'};
+    var rb=tideQueueBase(c,a,'roam_review');if(rb.err)return {ok:false,msg:rb.err};
+    rb.list.push(rb.q);tideQueueSave(rb.list);tideCreateNote(c.id);
+    return {ok:true,id:'queue:'+rb.q.id,at:tideLocalInput(rb.q.at),status:'pending',msg:'已安排 '+tideWhen(rb.q.at)+' 处理你的洄游记录。状态是待执行，不要紧接着暂停它。'};
+  }
+  var ev=tideRoleEvent(c,String(a.id||''));
+  if(!ev)return {ok:false,msg:'没找到这个排期编号，请先调用 list'};
+  if(ev.queueId){
+    var q0=tideQueueFind(ev.queueId);
+    if(!q0)return {ok:false,msg:'这个安排已经不在了'};
+    if(action==='reschedule'){
+      var t0=tideScheduleArg(a);if(t0.err)return {ok:false,msg:t0.err};
+      var q1=tideQueuePatch(q0.id,function(x){x.at=t0.at;x.atSource=t0.source||'absolute';x.afterMinutes=t0.after_minutes||0;x.status='pending';x.pauseReason='';x.lastError=''});
+      return {ok:true,id:'queue:'+q1.id,at:tideLocalInput(q1.at),msg:'已改到 '+tideWhen(q1.at)};
+    }
+    if(action==='cancel'){
+      tideQueueSave(tideQueueAll().filter(function(x){return x.id!==q0.id}));
+      return {ok:true,msg:'已取消这个安排'};
+    }
+    if(action==='pause'||action==='resume'){
+      if(action==='pause'&&Date.now()-Number(q0.createdAt||0)<30000)return {ok:false,msg:'这条安排刚创建，不能立刻暂停；如果是时间不对，请用 reschedule 按 after_minutes 改时间'};
+      tideQueuePatch(q0.id,function(x){x.status=action==='pause'?'paused':'pending';x.pauseReason=action==='pause'?'角色主动暂停':''});
+      return {ok:true,msg:action==='pause'?'已暂停这个安排':'已恢复这个安排'};
+    }
+    if(action==='edit_text'){
+      if(q0.mode==='exact'){
+        var nt=String(a.text||'').trim().slice(0,500);
+        if(!nt)return {ok:false,msg:'新文案不能为空'};
+        tideQueuePatch(q0.id,function(x){x.text=nt});
+      }else{
+        var ni=String(a.intent||a.text||'').trim().slice(0,500);
+        if(!ni)return {ok:false,msg:'新的想法不能为空'};
+        tideQueuePatch(q0.id,function(x){x.intent=ni});
+      }
+      return {ok:true,msg:'文案或想法已经更新'};
+    }
+  }
+  if(action==='reschedule'){
+    if(ev.kind==='auto'||ev.kind==='group'||ev.kind==='reminder'||ev.kind==='delay'){
+      var t=tideScheduleArg(a);if(t.err)return {ok:false,msg:t.err};
+      if(ev.kind==='auto'){
+        autoMapLoadOnce();var ar=autoMap[c.id]||{mi:Math.max(1,+c.auto.min||30),ma:Math.max(2,+c.auto.max||90)};
+        ar.at=t.at;autoMap[c.id]=ar;autoMapSave();
+      }else if(ev.kind==='group'){
+        var gp=ev.key.split('|'),g2=tideGroup(gp[0]);if(!g2)return {ok:false,msg:'群找不到了'};
+        var gr=gAutoMap[ev.key]||{};var rr=groupAutoRange(g2);gr.at=t.at;gr.mi=rr.mi;gr.ma=rr.ma;gAutoMap[ev.key]=gr;groupAutoMapSave();
+      }else if(ev.kind==='reminder'){
+        var rp=ev.key.split('|'),arr=todosOf(c.id),td=arr.find(function(x){return x.id===rp[1]});if(!td)return {ok:false,msg:'提醒找不到了'};
+        td.remindAt=t.at;td.remindSent=false;td.remindMissed=false;td.remindSkipped=false;saveTodos(c.id,arr);if(startRemindTick)startRemindTick();
+      }else if(ev.kind==='delay'){
+        if(freeTimers[c.id])clearTimeout(freeTimers[c.id]);freeTimers[c.id]=null;freePendSet(c.id,t.at);
+        freeTimers[c.id]=setTimeout(function(){freeReplyFire(c.id,0)},Math.max(0,t.at-Date.now()));
+      }
+      try{updateDots()}catch(e){}
+      return {ok:true,at:tideLocalInput(t.at),msg:'已改到 '+tideWhen(t.at)};
+    }
+    if(ev.kind==='branch'||ev.kind==='roam'){
+      var retime=tideScheduleArg(a);if(retime.err)return {ok:false,msg:retime.err};
+      var tt=retime.at;
+      var hh=tidePad(new Date(tt).getHours())+':'+tidePad(new Date(tt).getMinutes());
+      if(ev.kind==='branch'){var bb=tideChar(c.id);if(!bb||!bb.branchDaily)return {ok:false,msg:'分身设置找不到了'};bb.branchDaily.time=hh;}
+      else{if(c.roam.mode!=='scheduled')return {ok:false,msg:'洄游不是固定时间模式；可以改为 30 天内的单次安排'};c.roam.time=hh;}
+      save(LS.chars,chars);scheduleBackup();return {ok:true,msg:'每日时间已改成 '+hh};
+    }
+  }
+  if(action==='edit_text'&&ev.kind==='reminder'){
+    var ep=ev.key.split('|'),ea=todosOf(c.id),et=ea.find(function(x){return x.id===ep[1]});if(!et)return {ok:false,msg:'提醒找不到了'};
+    var newText=String(a.text||'').trim().slice(0,500);if(!newText)return {ok:false,msg:'提醒文字不能为空'};et.text=newText;saveTodos(c.id,ea);return {ok:true,msg:'提醒文字已更新'};
+  }
+  if(action==='cancel'){
+    if(ev.kind==='reminder'){
+      var cp=ev.key.split('|'),ca=todosOf(c.id),ct=ca.find(function(x){return x.id===cp[1]});
+      if(ct){ct.remindSent=true;ct.remindSkipped=true;saveTodos(c.id,ca)}
+      return {ok:true,msg:'已取消这次提醒'};
+    }
+    if(ev.kind==='delay'){tideCancelDelay(c.id);return {ok:true,msg:'已取消这次延迟回复'};}
+    if(ev.kind==='auto'||ev.kind==='group'){tideSkipAdd(ev.kind,ev.key);return {ok:true,msg:'已跳过下一次'};}
+    if(ev.kind==='branch'){
+      var bc=tideChar(c.id);if(bc&&bc.branchDaily)bc.branchDaily.on=false;save(LS.chars,chars);scheduleBackup();return {ok:true,msg:'已关闭分身每日总结'};
+    }
+    if(ev.kind==='roam'){c.roam=c.roam||{};c.roam.mode='off';save(LS.chars,chars);scheduleBackup();return {ok:true,msg:'已关闭这个角色的洄游处理'};}
+  }
+  if(action==='pause'||action==='resume'){
+    if(action==='pause'&&ev.kind==='delay'){
+      return {ok:false,msg:'不能暂停延迟回复。它是在回复你当前聊天里的那条消息，不是主动排期；如果要安排以后主动说一句，请用 add_message。要取消当前回复就用 cancel，要改时间就用 reschedule。'};
+    }
+    tideSetPaused(ev.kind,ev.key,action==='pause',action==='pause'?'角色主动暂停':'');
+    if(action==='resume'){
+      if(ev.kind==='auto')scheduleAuto(false);if(ev.kind==='group')scheduleGroupAuto(false);
+      if(ev.kind==='reminder')setTimeout(checkReminders,20);
+      if((ev.kind==='roam'||ev.kind==='branch')&&window.ROAM&&ROAM.tick)setTimeout(ROAM.tick,20);
+    }
+    return {ok:true,msg:action==='pause'?'已暂停这类排期':'已恢复这类排期'};
+  }
+  return {ok:false,msg:'不支持这个操作'};
+}
+function tideDeliverExactPrivate(c,q,manual){
+  var text=String(q.text||'').trim().slice(0,500);
+  if(!text)return {ok:false,drop:true,msg:'精确文案是空的'};
+  var looking=(curId===c.id&&view==='chat'&&!document.hidden);
+  var saved=pushMsgTo(c.id,{role:'assistant',content:text,t:Date.now(),tok:0});
+  if(!saved)return {ok:false,retry:true,msg:'消息保存失败'};
+  tideLogAdd({kind:'role_message',cid:c.id,title:c.name,text:text,manual:!!manual,where:'角色安排'});
+  if(looking)try{renderChat()}catch(e){}
+  else{try{markUnread(c.id)}catch(e){};try{toast((c.emoji||'')+' '+c.name+' 发来一条计划好的消息')}catch(e){}}
+  try{notify(c.name,(c.emoji||'')+text.slice(0,80))}catch(e){}
+  try{window.P5&&P5.maybeNotify({kind:'char',cid:c.id,name:(c.emoji||'')+' '+c.name,emoji:c.emoji,avatar:c.avatar,text:text})}catch(e){}
+  return {ok:true,sent:true};
+}
+function tideDeliverExactGroup(c,q,manual,g){
+  var text=String(q.text||'').trim().slice(0,500);
+  if(!text)return {ok:false,drop:true,msg:'精确文案是空的'};
+  var arr=gmsgsOf(g.id);
+  arr.push({id:uid(),role:'char',cid:c.id,content:text,t:Date.now(),tok:0});
+  saveGmsgs(g.id,arr);
+  gmemAdd(c.id,g.id,g.name,text,true);
+  tideLogAdd({kind:'role_group',cid:c.id,gid:g.id,title:c.name,where:g.name,text:text,manual:!!manual});
+  var watching=(groupOpenId===g.id&&view==='tools'&&toolTab==='group'&&!document.hidden);
+  if(watching){try{renderToolPane();scrollGroupDown()}catch(e){}}
+  else{try{markUnread(c.id)}catch(e){};try{toast((c.emoji||'')+' '+c.name+' 在《'+g.name+'》里发了一条计划消息')}catch(e){}}
+  try{window.P5&&P5.maybeNotify({kind:'group',gid:g.id,name:(c.emoji||'')+' '+c.name,emoji:c.emoji,avatar:c.avatar,text:text,where:g.name})}catch(e){}
+  return {ok:true,sent:true};
+}
+async function tideFireQueueItem(q,manual){
+  var c=tideChar(q.cid);
+  if(!c)return {ok:false,drop:true,msg:'角色找不到了'};
+  if(!c.tidePerm||!c.tidePerm.on)return {ok:false,pause:true,msg:'潮汐控制权限已关闭'};
+  if(q.kind==='message'||q.kind==='group_message'){
+    if(q.kind==='group_message'){
+      if(!(c.groupPerm&&c.groupPerm.on))return {ok:false,pause:true,msg:'群聊权限已经关闭'};
+      var g=tideGroup(q.gid);if(!g)return {ok:false,drop:true,msg:'群找不到了'};
+      var member=(g.members||[]).find(function(m){return m&&m.cid===c.id});if(!member)return {ok:false,drop:true,msg:'角色已经不在这个群里'};
+      if(q.mode==='exact')return tideDeliverExactGroup(c,q,manual,g);
+      if(!cfg||!cfg.key)return {ok:false,retry:true,msg:'还没有可用接口'};
+      var okG=await groupAutoSpeak(g,member,!!manual,tideQueueGroupNudge(q),{kind:'role_group',where:g.name,manual:!!manual});
+      return okG?{ok:true,sent:true}:{ok:false,retry:true,msg:'群消息生成失败'};
+    }
+    if(q.mode==='exact')return tideDeliverExactPrivate(c,q,manual);
+    if(!cfg||!cfg.key)return {ok:false,retry:true,msg:'还没有可用接口'};
+    var ok=await runAutoNow(c,tideQueueNudge(q),{kind:'role_message',cid:c.id,title:c.name,where:'角色安排',manual:!!manual});
+    return ok?{ok:true,sent:true}:{ok:false,retry:true,msg:'自由发挥消息生成失败'};
+  }
+  if(q.kind==='branch_summary'){
+    if(!cfg||!cfg.key)return {ok:false,retry:true,msg:'还没有可用接口'};
+    if(!window.ROAM||!ROAM.branchSummaryForQueue)return {ok:false,retry:true,msg:'洄游模块没加载'};
+    var br=await ROAM.branchSummaryForQueue(q.branchId||c.id);
+    return {ok:!!br.ok,noop:!!br.noop,retry:!br.ok,drop:/找不到|没有允许|没有开启/.test(String(br.msg||'')),msg:br.msg||''};
+  }
+  if(q.kind==='roam_review'){
+    if(!cfg||!cfg.key)return {ok:false,retry:true,msg:'还没有可用接口'};
+    if(!window.ROAM||!ROAM.processForQueue)return {ok:false,retry:true,msg:'洄游模块没加载'};
+    var rr=await ROAM.processForQueue(q.cid);
+    return {ok:!!rr.ok,noop:!!rr.noop,retry:!rr.ok,msg:rr.msg||''};
+  }
+  return {ok:false,drop:true,msg:'未知安排类型'};
+}
+var tideQueueTicking=false;
+async function tideQueueTick(){
+  if(tideQueueTicking||busy||groupBusy||!cfg||!cfg.autoOn||isLocked())return;
+  var list=tideQueueAll();
+  var q=list.filter(function(x){return x.status==='pending'&&Number(x.at)<=Date.now()}).sort(function(a,b){return a.at-b.at})[0];
+  if(!q)return;
+  var c=tideChar(q.cid);
+  if(!c){tideQueueSave(list.filter(function(x){return x.id!==q.id}));return}
+  if(!c.tidePerm||!c.tidePerm.on){
+    q.status='paused';q.pauseReason='潮汐控制权限已关闭';q.updatedAt=Date.now();tideQueueSave(list);return;
+  }
+  tideQueueTicking=true;
+  var res=null;
+  try{res=await tideFireQueueItem(q,false)}catch(e){res={ok:false,retry:true,msg:String((e&&e.message)||e)}}
+  finally{tideQueueTicking=false}
+  list=tideQueueAll();
+  for(var i=0;i<list.length;i++){
+    if(list[i].id!==q.id)continue;
+    if(res&&(res.ok||res.drop)){list.splice(i,1);break}
+    if(res&&res.pause){list[i].status='paused';list[i].pauseReason=String(res.msg||'执行条件不满足').slice(0,180);list[i].lastError=String(res.msg||'').slice(0,180);list[i].updatedAt=Date.now();break}
+    list[i].at=Date.now()+5*60000;
+    list[i].attempts=Number(list[i].attempts||0)+1;
+    list[i].lastError=String((res&&res.msg)||'执行失败').slice(0,180);
+    list[i].updatedAt=Date.now();
+    break;
+  }
+  tideQueueSave(list);
+  try{updateDots()}catch(e){}
+  if(res&&res.ok&&!res.sent&&res.noop)try{toast((c.emoji||'')+' '+c.name+'：'+res.msg)}catch(e){}
+}
+async function tideQueueFireNow(id){
+  var q=tideQueueFind(id);if(!q)return {ok:false,msg:'这条安排已经不在了'};
+  var c=tideChar(q.cid);if(!c)return {ok:false,msg:'角色找不到了'};
+  if(!c.tidePerm||!c.tidePerm.on)return {ok:false,msg:'潮汐控制权限已经关闭'};
+  if(busy||groupBusy||tideQueueTicking)return {ok:false,msg:'现在正有内容在生成'};
+  tideQueueTicking=true;
+  var res=null;
+  try{res=await tideFireQueueItem(q,true)}catch(e){res={ok:false,msg:String((e&&e.message)||e)}}finally{tideQueueTicking=false}
+  if(res&&(res.ok||res.drop))tideQueueSave(tideQueueAll().filter(function(x){return x.id!==id}));
+  else if(res&&res.pause)tideQueuePatch(id,function(x){x.status='paused';x.pauseReason=String(res.msg||'执行条件不满足').slice(0,180);x.lastError=String(res.msg||'').slice(0,180)});
+  else tideQueuePatch(id,function(x){x.at=Date.now()+5*60000;x.attempts=Number(x.attempts||0)+1;x.lastError=String((res&&res.msg)||'执行失败').slice(0,180)});
+  try{updateDots()}catch(e){}
+  return res||{ok:false,msg:'执行失败'};
+}
+function tideQueuePauseRole(cid){
+  var list=tideQueueAll(),changed=false;
+  list.forEach(function(q){if(q.cid===cid&&q.status==='pending'){q.status='paused';q.pauseReason='潮汐控制权限已关闭';q.updatedAt=Date.now();changed=true}});
+  if(changed)tideQueueSave(list);
+}
+W.TIDE={
+  control:tideControl,
+  queue:function(){return tideQueueAll().slice()},
+  fireNow:tideQueueFireNow,
+  pauseRoleQueue:tideQueuePauseRole
+};
+setInterval(function(){try{tideQueueTick()}catch(e){}},15000);
+setTimeout(function(){try{tideQueueTick()}catch(e){}},4500);
+W.addEventListener('focus',function(){try{tideQueueTick()}catch(e){}});
+D.addEventListener('visibilitychange',function(){if(!D.hidden)try{tideQueueTick()}catch(e){}});
+function tideEventState(e,now){
+  if(e.paused)return {cls:'paused',text:e.pauseReason?('已暂停：'+e.pauseReason):'已暂停'};
+  if(e.blocked)return {cls:'blocked',text:e.blockReason||'等待配置'};
+  if(!e.at)return {cls:'',text:'等条件满足'};
+  if(e.at<=now)return {cls:'due',text:'已到点，等待执行'};
+  return {cls:'',text:'已排期'};
+}
+function tideFilteredEvents(events){
+  return (events||[]).filter(function(e){
+    return (tideCharFilter==='all'||e.cid===tideCharFilter)&&(tideKindFilter==='all'||e.kind===tideKindFilter);
+  });
+}
+function tideEventActions(e){
+  var k=encodeURIComponent(e.key),a=[];
+  if(e.kind.indexOf('role_')===0){
+    a.push('<button class="primary" onclick="P14.tideAct(\'now\',\''+e.kind+'\',\''+k+'\')">现在执行</button>');
+    a.push('<button class="warn" onclick="P14.tideAct(\'cancel\',\''+e.kind+'\',\''+k+'\')">取消安排</button>');
+    a.push('<button onclick="P14.tideAct(\''+(e.paused?'resume':'pause')+'\',\''+e.kind+'\',\''+k+'\')">'+(e.paused?'恢复':'暂停')+'</button>');
+    a.push('<button onclick="P14.tideAct(\'open\',\''+e.kind+'\',\''+k+'\')">原聊天</button>');
+    return a.join('');
+  }
+  if(e.kind==='auto'||e.kind==='group'){
+    a.push('<button onclick="P14.tideAct(\'skip\',\''+e.kind+'\',\''+k+'\')">跳过这次</button>');
+  }
+  if(e.kind==='reminder'){
+    a.push('<button class="primary" onclick="P14.tideAct(\'now\',\'reminder\',\''+k+'\')">现在提醒</button>');
+    a.push('<button class="warn" onclick="P14.tideAct(\'cancel\',\'reminder\',\''+k+'\')">取消提醒</button>');
+  }else if(e.kind==='delay'){
+    a.push('<button class="primary" onclick="P14.tideAct(\'now\',\'delay\',\''+k+'\')">现在回复</button>');
+    a.push('<button class="warn" onclick="P14.tideAct(\'cancel\',\'delay\',\''+k+'\')">取消这次</button>');
+  }else if(e.kind==='roam'){
+    a.push('<button class="primary" onclick="P14.tideAct(\'now\',\'roam\',\''+k+'\')">现在处理</button>');
+  }else if(e.kind!=='branch'){
+    a.push('<button class="primary" onclick="P14.tideAct(\'now\',\''+e.kind+'\',\''+k+'\')">现在发一条</button>');
+  }
+  if(e.paused)a.push('<button onclick="P14.tideAct(\'resume\',\''+e.kind+'\',\''+k+'\')">恢复</button>');
+  else if(e.kind!=='delay')a.push('<button onclick="P14.tideAct(\'pause\',\''+e.kind+'\',\''+k+'\')">暂停这类</button>');
+  a.push('<button onclick="P14.tideAct(\'open\',\''+e.kind+'\',\''+k+'\')">原设置</button>');
+  return a.join('');
+}
+function tideEventCard(e,now){
+  var st=tideEventState(e,now);
+  return '<div class="tide-card '+st.cls+'">'+
+    '<div class="tide-card-ico">'+tideKindIcon(e.kind)+'</div>'+
+    '<div class="tide-card-main">'+
+      '<div class="tide-card-top"><div class="tide-card-name">'+esc(e.title)+' · '+tideKindName(e.kind)+'</div>'+
+      '<span class="tide-time">'+esc(e.at?tideWhen(e.at):'待条件')+'</span></div>'+
+      '<div class="tide-card-meta">'+esc(e.meta||'')+(e.at?(' · '+tideRel(e.at)):'')+'</div>'+
+      (e.note?('<div class="tide-card-note">'+esc(e.note)+'</div>'):'')+
+      '<span class="tide-card-state '+st.cls+'">'+esc(st.text)+'</span>'+
+      '<div class="tide-actions">'+tideEventActions(e)+'</div>'+
+    '</div></div>';
+}
+function tideLogCard(x){
+  var e=tideChar(x.cid),who=e?e.name:(x.title||'角色');
+  return '<div class="tide-log-card">'+
+    '<div class="tide-log-head"><span>'+tideKindIcon(x.kind)+'</span><b>'+esc(who)+' · '+tideKindName(x.kind)+((x.kind==='group'||x.kind==='role_group')&&x.where?(' · '+esc(x.where)):'')+(x.manual?' · 手动':'')+'</b><span>'+esc(tideWhen(x.t))+'</span></div>'+
+    '<div class="tide-log-text">'+esc(x.text||'')+'</div>'+
+  '</div>';
+}
+function tideRender(){
+  var root=D.getElementById('tideRoot');if(!root)return;
+  var events=tideAllEvents(),now=Date.now();
+  var active=events.filter(function(e){return !e.paused&&!e.blocked});
+  var timed=active.filter(function(e){return e.at>0}).sort(function(a,b){return a.at-b.at});
+  var next=timed.find(function(e){return e.at>=now})||timed[0]||null;
+  var due=active.filter(function(e){return e.at>0&&e.at<=now}).length;
+  var soon=active.filter(function(e){return e.at>now&&e.at<=now+60*60000}).length;
+  var warns=[];
+  if(!cfg||!cfg.key)warns.push('还没有可用接口，私聊、群聊、延迟回复和洄游暂时无法真正生成内容；到点提醒仍会尽量用固定文字送达。');
+  if(!cfg||!cfg.autoOn)warns.push('设置里的“全局自动发消息”已关，私聊和群聊不会按计划冒泡。');
+  if(document.hidden)warns.push('页面在后台时，浏览器可能暂停定时器。');
+  var charsInEvents=[],seen={};
+  events.forEach(function(e){
+    if(!e.cid||seen[e.cid])return;seen[e.cid]=1;
+    charsInEvents.push({id:e.cid,name:e.title});
+  });
+  var kindSeen={},kindOpts=[];
+  events.forEach(function(e){if(!kindSeen[e.kind]){kindSeen[e.kind]=1;kindOpts.push(e.kind)}});
+  var filtered=tideFilteredEvents(events);
+  var logs=tideLogAll().filter(function(x){
+    var lc=tideChar(x.cid);
+    if(!lc)return false;
+    if(lc&&lc.priv&&lc.id!==curId)return false;
+    if((x.kind==='group'||x.kind==='role_group')&&x.gid){
+      var lg=tideGroup(x.gid);
+      if(!lg)return false;
+      if(lg&&lg.priv&&!gOpen[lg.id])return false;
+    }
+    return (tideCharFilter==='all'||x.cid===tideCharFilter)&&(tideKindFilter==='all'||x.kind===tideKindFilter);
+  }).slice(0,10);
+  root.innerHTML='<div class="tide-shell">'+
+    '<div class="tide-head"><button class="tide-close" type="button" onclick="closeSheet()" aria-label="关闭">‹</button>'+
+      '<div class="tide-title"><h2>潮汐</h2><p>看清每个角色会在什么时候主动发消息，也可以直接暂停、跳过或现在处理。</p></div>'+
+      '<button class="tide-refresh" type="button" onclick="P14.tideRefresh()" aria-label="刷新">↻</button></div>'+
+    '<div class="tide-summary">'+
+      '<div class="tide-sum-main"><small>下一次</small><b>'+esc(next?next.title:'暂无排期')+'</b><span>'+esc(next?((next.at?tideWhen(next.at)+' · '+tideRel(next.at):'等条件满足')+' · '+tideKindName(next.kind)):'去角色设置里打开自动消息')+'</span></div>'+
+      '<div class="tide-sum-mini"><small>已到点</small><b>'+due+' 条</b></div>'+
+      '<div class="tide-sum-mini"><small>一小时内</small><b>'+soon+' 条</b></div>'+
+    '</div>'+
+    (warns.length?('<div class="tide-alert">'+warns.map(esc).join('<br>')+'</div>'):'')+
+    '<div class="tide-filters">'+
+      '<select aria-label="按角色筛选" onchange="P14.tideCharFilter(this.value)"><option value="all">全部角色</option>'+
+        charsInEvents.map(function(c){return '<option value="'+esc(c.id)+'"'+(tideCharFilter===c.id?' selected':'')+'>'+esc(c.name)+'</option>'}).join('')+'</select>'+
+      '<select aria-label="按类型筛选" onchange="P14.tideKindFilter(this.value)"><option value="all">全部触发方式</option>'+
+        kindOpts.map(function(k){return '<option value="'+k+'"'+(tideKindFilter===k?' selected':'')+'>'+tideKindName(k)+'</option>'}).join('')+'</select>'+
+    '</div>'+
+    '<div class="tide-section-title"><span>接下来会发生的</span><span>'+filtered.length+' 项</span></div>'+
+    '<div class="tide-list">'+(filtered.length?filtered.map(function(e){return tideEventCard(e,now)}).join(''):'<div class="tide-empty">这个筛选下没有自动消息。<br>可以去角色设置、群设置、待办或洄游里打开。</div>')+'</div>'+
+    '<div class="tide-section-title"><span>最近自动发送</span>'+(logs.length?'<button class="tide-mini-btn" onclick="P14.tideClearLog()">清空</button>':'')+'</div>'+
+    '<div class="tide-list">'+(logs.length?logs.map(tideLogCard).join(''):'<div class="tide-empty">还没有记录。<br>自动消息、提醒、延迟回复或洄游回复真正发出后，会在这里留下最近 10 条。</div>')+'</div>'+
+    '<details class="tide-help"><summary>这些时间和“等条件满足”是什么意思？</summary>'+
+      '<p>私聊、群聊、待办提醒和延迟回复有明确的预计时间；如果页面关着，浏览器不会后台发送，下次打开后会补做到点的任务。</p>'+
+      '<p>洄游的“每条记录”和“累积条数”没有固定时钟，要等新的经历记录出现；固定时间也会结合记录是否达到处理条件。</p>'+
+      '<p>“暂停这类”只影响潮汐管理的这个来源，不会删除角色、群聊或待办。</p></details>'+
+  '</div>';
+  tideMarkSeen(events);
+  try{dots()}catch(e){}
+}
+function tideBadgeEvents(events){
+  var now=Date.now();
+  return (events||tideAllEvents()).filter(function(e){
+    return e.badge!==false&&!e.paused&&!e.blocked&&e.at>0&&e.at<=now+10*60000;
+  });
+}
+function tideBadgeSignature(events){
+  return (events||[]).map(function(e){return e.kind+'|'+e.key+'|'+e.at}).sort().join('~');
+}
+function tideMarkSeen(events){
+  try{
+    var sig=tideBadgeSignature(tideBadgeEvents(events));
+    if(String(load(TIDE_SEEN_KEY,'')||'')===sig)return;
+    save(TIDE_SEEN_KEY,sig);
+    try{scheduleBackup()}catch(e2){}
+  }catch(e){}
+}
+function tideBadgeCount(){
+  var events=tideBadgeEvents(tideAllEvents());
+  if(!events.length)return 0;
+  var seen='';try{seen=String(load(TIDE_SEEN_KEY,'')||'')}catch(e){}
+  return tideBadgeSignature(events)===seen?0:events.length;
+}
+function tideOpen(){
+  autoMapLoadOnce();groupAutoMapLoadOnce();
+  showSheet('<div id="tideRoot"></div>',true);
+  try{var md=D.getElementById('modal');if(md)md.classList.add('nox')}catch(e){}
+  sheetFull(true);
+  tideRender();
+}
+function tideRefresh(){
+  autoMapLoadOnce();groupAutoMapLoadOnce();
+  tideRender();
+}
+function tideClearLog(){
+  if(!confirm('清空潮汐里的最近自动发送记录？聊天记录和待办不会受影响。'))return;
+  save(TIDE_LOG_KEY,[]);try{scheduleBackup()}catch(e){}tideRender();
+}
+function tideOpenSource(kind,key){
+  try{closeAllSheets()}catch(e){try{closeSheet()}catch(e2){}}
+  setTimeout(function(){
+    try{
+      if(kind.indexOf('role_')===0){
+        var q=tideQueueFind(key),rc=q?tideChar(q.cid):null;
+        if(!q||!rc)return alert('这个安排已经找不到了');
+        if(kind==='role_group'){
+          if(q.gid&&typeof openGroup==='function'){openGroup(q.gid);return}
+        }else if(kind==='role_branch'){
+          if(q.branchId&&window.ROAM&&ROAM.openBranch){ROAM.openBranch(q.branchId);return}
+        }
+        loadChar(rc.id);go('chat');
+      }else if(kind==='auto'){
+        if(typeof editChar==='function')editChar(key);else{alert('这个角色找不到了');}
+      }else if(kind==='group'){
+        var p=key.split('|');
+        if(p[0]&&typeof groupSetSheet==='function')groupSetSheet(p[0]);else alert('这个群找不到了');
+      }else if(kind==='reminder'){
+        var q=key.split('|');
+        todoCharId=q[0];
+        go('tools');
+        setTimeout(function(){try{renderTodo()}catch(e){}},30);
+      }else if(kind==='delay'){
+        if(tideChar(key)){
+          loadChar(key);go('chat');
+        }else alert('这个角色找不到了');
+      }else if(kind==='roam'){
+        if(window.ROAM&&ROAM.charEdit)ROAM.charEdit(key);else alert('洄游模块没加载');
+      }else if(kind==='branch'){
+        if(window.ROAM&&ROAM.branchEdit)ROAM.branchEdit(key);else alert('洄游模块没加载');
+      }
+    }catch(e){alert('打不开原设置：'+((e&&e.message)||e))}
+  },30);
+}
+function tideRunNow(kind,key){
+  var ev=tideAllEvents().find(function(e){return e.kind===kind&&e.key===key});
+  if(!ev)return toast('这条任务已经不在列表里了');
+  if(kind.indexOf('role_')!==0&&kind!=='reminder'&&(!cfg||!cfg.key))return toast('先在「设置」里填好接口');
+  if(busy||groupBusy||remindBusy)return toast('现在正有自动消息在处理，稍等一下');
+  var msg='现在就让「'+ev.title+'」'+({auto:'主动发一条消息',group:'在群里冒泡',reminder:'发送提醒',delay:'回复你',roam:'处理洄游记录',
+    role_message:'执行这条角色安排',role_group:'执行这条群聊安排',role_branch:'现在总结这个分身',role_roam:'现在处理洄游记录'}[kind]||'执行')+'？\n自由生成或处理洄游会立即调用接口，可能产生费用。';
+  if(!confirm(msg))return;
+  try{closeAllSheets()}catch(e){try{closeSheet()}catch(e2){}}
+  setTimeout(async function(){
+    try{
+      if(kind.indexOf('role_')===0){
+        var rr=await W.TIDE.fireNow(key);
+        if(!rr.ok)toast(rr.msg||'执行失败');
+      }else if(kind==='auto'){
+        var c=tideChar(key);
+        if(c){
+          autoArm(c,true);
+          await runAutoNow(c,null,{kind:'auto',title:c.name,manual:true});
+        }
+      }else if(kind==='group'){
+        var p=key.split('|'),g=tideGroup(p[0]),m=g&&(g.members||[]).find(function(x){return x&&x.cid===p[1]});
+        if(g&&m){
+          var gr=gAutoMap[key];
+          if(gr){
+            var range=groupAutoRange(g);
+            gr.at=Date.now()+(range.mi+Math.random()*(range.ma-range.mi))*60000;
+            groupAutoMapSave();
+          }
+          await groupAutoSpeak(g,m,true);
+        }else toast('这个群成员找不到了');
+      }else if(kind==='reminder'){
+        var q=key.split('|'),c2=tideChar(q[0]),arr=c2?todosOf(c2.id):[],t=arr.find(function(x){return x&&x.id===q[1]});
+        if(c2&&t)await fireReminder(c2.id,t,true);else toast('这条提醒找不到了');
+      }else if(kind==='delay'){
+        var c3=tideChar(key);
+        if(c3){
+          var wasPaused=tidePaused('delay',key);
+          var oldPauseReason=tidePauseReason('delay',key);
+          if(wasPaused)tideSetPaused('delay',key,false);
+          if(freeTimers[key])clearTimeout(freeTimers[key]);
+          freeTimers[key]=null;
+          await freeReplyFire(key,0,true);
+          if(wasPaused)tideSetPaused('delay',key,true,oldPauseReason||'手动暂停');
+        }
+      }else if(kind==='roam'){
+        if(window.ROAM&&ROAM.manual)ROAM.manual(key);else toast('洄游模块没加载');
+      }
+    }catch(e){toast('执行失败：'+((e&&e.message)||e))}
+  },30);
+}
+async function tideAct(action,kind,keyEnc){
+  var key='';try{key=decodeURIComponent(keyEnc)}catch(e){key=String(keyEnc||'')}
+  if(action==='open'){tideOpenSource(kind,key);return}
+  if(action==='now'){tideRunNow(kind,key);return}
+  if(action==='pause'||action==='resume'){
+    var on=action==='pause';
+    if(kind.indexOf('role_')===0){
+      var rq=tideQueuePatch(key,function(x){x.status=on?'paused':'pending';x.pauseReason=on?'用户暂停':''});
+      if(!rq)return toast('这个安排已经找不到了');
+      toast(on?'已暂停这个角色安排':'已恢复这个角色安排');
+      tideRender();return;
+    }
+    if(kind==='delay'&&on)return toast('延迟回复不能用暂停；要取消就点“取消这次”');
+    tideSetPaused(kind,key,on,on?'用户暂停':'');
+    if(!on){
+      if(kind==='auto'&&typeof scheduleAuto==='function')scheduleAuto(false);
+      if(kind==='group'&&typeof scheduleGroupAuto==='function')scheduleGroupAuto(false);
+      if(kind==='reminder'&&typeof checkReminders==='function')setTimeout(checkReminders,30);
+      if(kind==='delay'){
+        var due=freePendAll()[key];
+        if(typeof due==='number'){
+          var wait=Math.max(0,due-Date.now());
+          if(!freeTimers[key])freeTimers[key]=setTimeout(function(){freeReplyFire(key,0)},wait);
+        }
+      }
+      if((kind==='roam'||kind==='branch')&&window.ROAM&&ROAM.tick)setTimeout(ROAM.tick,30);
+    }
+    toast(on?'已暂停这条来源':'已恢复这条来源');
+    tideRender();return;
+  }
+  if(action==='skip'){
+    if(kind==='auto'||kind==='group'){
+      tideSkipAdd(kind,key);
+      toast('已跳过下一次，之后仍会按设置继续');
+      tideRender();return;
+    }
+  }
+  if(action==='cancel'){
+    if(kind.indexOf('role_')===0){
+      if(!confirm('取消这个角色安排？'))return;
+      tideQueueSave(tideQueueAll().filter(function(x){return x.id!==key}));
+      toast('角色安排已取消');
+    }else if(kind==='reminder'){
+      if(!confirm('取消这次提醒？待办本身会保留。'))return;
+      var p=key.split('|'),c=tideChar(p[0]),arr=c?todosOf(c.id):[],t=arr.find(function(x){return x&&x.id===p[1]});
+      if(t){t.remindSent=true;t.remindSkipped=true;saveTodos(c.id,arr)}
+      toast('提醒已取消，待办还在');
+    }else if(kind==='delay'){
+      if(!confirm('取消这次延迟回复？'))return;
+      if(freeTimers[key])clearTimeout(freeTimers[key]);
+      freeTimers[key]=null;freePendDel(key);
+      toast('这次延迟回复已取消');
+    }
+    tideRender();return;
+  }
+}
+P14.tideCharFilter=function(v){tideCharFilter=String(v||'all');tideRender()};
+P14.tideKindFilter=function(v){tideKindFilter=String(v||'all');tideRender()};
+P14.tideAct=tideAct;
+P14.tideRefresh=tideRefresh;
+P14.tideClearLog=tideClearLog;
 
 /* ---------- ⑦-b 创意：角色给你做的小网页，都收在这个应用里 ----------
    角色在聊天里调用「做一个网页」时，网页正文存进本地数据库（容量大），
