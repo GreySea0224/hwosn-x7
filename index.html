@@ -5322,11 +5322,21 @@ function setThink(v){
   c.think=v;save(LS.chars,chars);scheduleBackup();
   if(!busy)renderChat();
 }
+function summaryInjectCount(){
+  const n=parseInt(cfg&&cfg.summaryInject,10);
+  return Number.isFinite(n)?Math.max(0,Math.min(100,n)):10;
+}
 function memBlock(m,self){
   const L=[],pk=(arr,n)=>arr.slice(-n).map(x=>'- '+x.text).join('\n');
   if(m.core)L.push((self?'【我是谁】':'【角色核心设定】')+'\n'+m.core);
   if(m.timeline&&m.timeline.length)L.push((self?'【我的时间线】':'【时间线】')+'\n'+pk(m.timeline,15));
-  if(m.summaries&&m.summaries.length)L.push((self?'【我记住的聊天总结】':'【长期聊天记录总结】')+'\n'+pk(m.summaries,10));
+  const sn=summaryInjectCount();
+  if(sn>0&&m.summaries&&m.summaries.length){
+    const shown=Math.min(sn,m.summaries.length);
+    L.push((self?'【我记住的聊天总结 · 已加载】':'【长期聊天记录总结 · 已加载】')+
+      '\n下面是已经放进你眼前记忆的最近 '+shown+' 段（一共有 '+m.summaries.length+' 段；这些不是需要你另外搜索的外部资料）：\n'+
+      pk(m.summaries,sn));
+  }
   if(m.prefs&&m.prefs.length)L.push((self?'【我的偏好和想法】':'【偏好与认知】')+'\n'+pk(m.prefs,20));
   if(m.habits&&m.habits.length)L.push((self?'【我的性格和习惯】':'【性格与习惯】')+'\n'+pk(m.habits,15));
   return L.join('\n\n');
@@ -7912,6 +7922,11 @@ function memModeCard(M){
     '<span class="lbl">完整记录的字数上限（0 = 不限）</span>'+
     '<input id="c_fullLimit" type="number" value="'+((cfg.fullLimit==null)?20000:cfg.fullLimit)+'">'+
     '<span class="unit">字</span><button class="ghost" onclick="saveFullLimit()">保存</button></div>'+
+    '<div class="setrow" style="margin-top:10px">'+
+    '<span class="lbl">每轮带入长期总结（现有 '+((M.summaries||[]).length)+' 段）</span>'+
+    '<input id="c_injectSummaries" type="number" min="0" max="100" value="'+summaryInjectCount()+'">'+
+    '<span class="unit">段</span><button class="ghost" onclick="saveSummaryInject()">保存</button></div>'+
+    '<p class="dim" style="font-size:11.5px;margin:5px 0 0">0 = 不自动带；超过现有段数就带上全部。搜索旧总结和自动带入是两套机制，搜索的结果仍可能少于这个数量。</p>'+
     '<p class="dim" style="font-size:12px;margin:10px 0 0">'+autoLine+'</p>'+
     '<div class="row" style="margin-top:12px"><button class="pri col" onclick="summarizeNow()">总结最近 '+SUM_N+' 条，写进记忆</button></div>'+
     '<p class="dim" style="font-size:12px;margin:10px 0 0">总结写进「长期聊天记录总结」的方式：</p>'+
@@ -8006,6 +8021,20 @@ function saveHotRounds(){
   cfg.hotRounds=Math.max(1,Math.min(200,Math.round(n)));
   save(LS.cfg,cfg);
   refreshMem();
+}
+function saveSummaryInject(){
+  const ids=['c_injectSummaries','c_injectSummaries2','c_injectSummaries3'];
+  let el=null;
+  for(const id of ids){const x=document.getElementById(id);if(x){el=x;break}}
+  if(!el)return alert('没有找到这个设置输入框，请刷新页面后再试。');
+  const raw=String(el.value||'').trim();
+  const n=orgCfgNum(raw,0,100,summaryInjectCount());
+  cfg.summaryInject=n;
+  save(LS.cfg,cfg);
+  try{scheduleBackup()}catch(e){}
+  try{refreshMem()}catch(e){}
+  if(view==='cfg')try{renderCfg()}catch(e){}
+  toast('每轮带入长期总结：'+(n?n+' 段':'关闭'));
 }
 function savePalace(){
   const cb=document.getElementById('c_palace');
@@ -11578,6 +11607,8 @@ function cfgApiCardHTML(){
 }
 /* 设置页：记忆注入卡片。 */
 function cfgMemInjCardHTML(hm,hbtn){
+  const mc=curChar();
+  const sm=mc?(((load(LS.mem(mc.id),null)||{}).summaries)||[]).length:0;
   return '<div class="card"><div class="ttl">记忆注入</div>'+
   '<p class="dim" style="font-size:12px;margin:0 0 8px">决定发消息时给角色看多少聊天记录。这里和角色页的「记忆」标签是同一套设置。</p>'+
   '<div class="seg">'+hbtn('auto','自动：近期+总结')+hbtn('full','完整记录')+hbtn('sum','只看总结')+'</div>'+
@@ -11586,6 +11617,10 @@ function cfgMemInjCardHTML(hm,hbtn){
   '<span class="lbl">最近几轮原文（1 轮＝你一句＋它一句）</span>'+
   '<input id="c_hotRounds2" type="number" value="'+hotRoundCount()+'">'+
   '<span class="unit">轮</span></div>'+
+  '<div class="setrow" style="margin-top:8px">'+
+  '<span class="lbl">每轮带入长期聊天总结（现有 '+sm+' 段）</span>'+
+  '<input id="c_injectSummaries2" type="number" min="0" max="100" value="'+summaryInjectCount()+'">'+
+  '<span class="unit">段</span></div>'+
   '<div class="setrow" style="margin-top:8px">'+
   '<span class="lbl">宫殿没翻到时的备用摘录</span>'+
   '<input id="c_arcTop" type="number" value="'+((cfg.arcTop==null)?5:cfg.arcTop)+'">'+
@@ -13619,6 +13654,8 @@ function fixCfg(){
   if(cfg.deskText!=='white'&&cfg.deskText!=='dark')cfg.deskText='auto';   /* 【新】桌面文字颜色：'auto' 自动（默认）/ 'white' 白 / 'dark' 深 */
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
   if(cfg.autoSum==null)cfg.autoSum=false;
+  if(cfg.summaryInject==null)cfg.summaryInject=10;
+  cfg.summaryInject=Math.max(0,Math.min(100,Math.round(Number(cfg.summaryInject)||0)));
   if(cfg.ctx==null)cfg.ctx=30;
   /* ↓ 记忆宫殿（冷层记忆）：旧记忆不再整份注入，改成按需检索 */
   if(cfg.palace==null)cfg.palace=true;      /* 总开关：关掉＝回到以前整份注入的老样子 */
@@ -13771,6 +13808,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 撤回和清空只恢复“总结 / 时间线 / 偏好 / 习惯 / 核心设定”，任何聊天原文都不会删除。现在提炼后的总结、时间线、偏好和习惯也会进入记忆宫殿搜索，不会只看最近十条。
 自动总结现在会做近似去重，并且只有保存成功后才把进度记号向前移；整理失败时原始聊天仍然完整保留。
 「记忆整理」里的聊天和历史档案按来源分组显示，可以切换最新在前 / 最早在前；✓ 表示整理过，◐ 表示整理过一部分。选中一段后，可以填写额外的整理要求，并细调角色整理时是否能看见人设、情境、说话风格、原本记忆区域（核心、总结、时间线、偏好、习惯）和额外近期聊天；数量都可以单独设置。可见范围设置会跟角色一起保存并进入备份。
+普通聊天每轮自动带入多少段「长期聊天记录总结」现在可以调。入口在角色编辑 → 记忆 →「聊天记录与总结」，或设置 →「记忆注入」；范围 0～100，默认 10，0 表示暂不自动带，设置超过现有段数时会把现有的全部带上。search_memory 是相关性搜索，不会保证把全部总结一次列出；自动带入和搜索是两套机制。
 
 【我的状态（在「我的资料」里）】
 打开桌面 Dock 上的「我的资料」，最下面有一块「我的状态」：
@@ -13802,7 +13840,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=33;  /* 33：整理分组排序、已整理标记、额外要求与可见范围；32：狼人杀固定身份/匿名与塑形名字后缀 */
+const GUIDE_VER=34;  /* 34：可调每轮长期总结段数；33：整理分组排序、已整理标记、额外要求与可见范围 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -13846,7 +13884,7 @@ function ensureGuideRole(){
 /* 启动：读取配置和角色，补默认字段，载入上次角色。 */
 function loadInitialState(){
   cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'light',deskStyle:'glass',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
-    histMode:'auto',fullLimit:20000,sumWrite:'append',userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:'',
+    histMode:'auto',fullLimit:20000,sumWrite:'append',summaryInject:10,userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:'',
     userIcon:'',userFrame:'',userStatus:'',statusAuto:true});
   fixCfg();
   chars=load(LS.chars,[]);
@@ -14075,6 +14113,8 @@ saveMemInj=function(){
   const nf=f?Number(f.value):NaN;
   const hr=document.getElementById('c_hotRounds2');
   const nh=hr?Number(hr.value):NaN;
+  const si=document.getElementById('c_injectSummaries2');
+  if(si)cfg.summaryInject=orgCfgNum(si.value,0,100,summaryInjectCount());
   if(Number.isFinite(nh))cfg.hotRounds=Math.max(1,Math.min(200,Math.round(nh)));
   cfg.arcTop=Number.isFinite(na)?Math.max(0,Math.round(na)):5;
   cfg.wholeLimit=Number.isFinite(nw)?Math.max(0,Math.round(nw)):20000;
@@ -14082,7 +14122,7 @@ saveMemInj=function(){
   if(se){const n=parseInt(se.value,10);if(Number.isFinite(n))cfg.autoSumEvery=Math.max(2,Math.min(2000,Math.round(n)));}
   if(sa)cfg.autoSum=!!sa.checked;
   save(LS.cfg,cfg);
-  alert('✅ 已保存\n· 最近几轮原文 '+hotRoundCount()+' 轮\n· 备用摘录 '+(cfg.arcTop||'关')+' 条\n· 整份注入上限 '+(cfg.wholeLimit||'不限')+' 字\n· 完整记录上限 '+(cfg.fullLimit||'不限')+' 字\n· 自动总结：'+(cfg.autoSum?('开，每 '+cfg.autoSumEvery+' 条'):'关'));
+  alert('✅ 已保存\n· 最近几轮原文 '+hotRoundCount()+' 轮\n· 每轮长期总结 '+summaryInjectCount()+' 段\n· 备用摘录 '+(cfg.arcTop||'关')+' 条\n· 整份注入上限 '+(cfg.wholeLimit||'不限')+' 字\n· 完整记录上限 '+(cfg.fullLimit||'不限')+' 字\n· 自动总结：'+(cfg.autoSum?('开，每 '+cfg.autoSumEvery+' 条'):'关'));
   renderCfg();
 };
 /* ================= 补丁2：修「条数改了没用」+ 让总结更精炼 ================= */
