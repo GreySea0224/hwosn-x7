@@ -1577,6 +1577,13 @@ function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o,k)}
 const MSG_PREFIX='wh_msg_';
 const MSG_STORE='msglog';               /* 复用已有的仓库：原来存安全副本的那个 */
 const MSG_FLAG='wh_msgs_idb';           /* 只记一个小标记：聊天记录是否已经搬进数据库 */
+const BULK_STORE='bulk';                 /* 大型附属数据：角色设定、设置、游戏记录等 */
+const bulkMem=Object.create(null);       /* 与 localStorage 一样，给同步 load/save 用 */
+const bulkKeys=Object.create(null);      /* 已经在 IndexedDB bulk 仓库里的键 */
+const bulkFallback=Object.create(null);  /* 个别键这次没搬成，暂时继续用 localStorage */
+const _bulkWrites={};
+let _bulkPending=0;
+let bulkRouting=false;                   /* IndexedDB 可用后，新的符合条件的数据也直接进 bulk */
 let msgIdbOk=false;                     /* IndexedDB 是否已确认可以当正本 */
 let msgPreloadMissed=0;                 /* 开机时读不出来的记录条数（用来提醒用户，不静默） */
 const msgLocked=Object.create(null);    /* 读不出来的角色：先锁住，不允许覆盖它的旧记录 */
@@ -1589,6 +1596,30 @@ function msgRecKey(id){return 'msg:'+id}
 function msgMemHas(id){return Object.prototype.hasOwnProperty.call(msgMem,id)}
 try{if(typeof BroadcastChannel!=='undefined')_msgChan=new BroadcastChannel('wh_msg_sync')}catch(e){_msgChan=null}
 function msgBroadcast(id){try{if(_msgChan)_msgChan.postMessage({id:String(id),at:Date.now()})}catch(e){}}
+/* 哪些键允许搬进 IndexedDB。
+   密码、锁屏影子、聊天标记和尚未迁入 arc 的档案正文必须留在 localStorage。 */
+function bulkEligible(k){
+  if(typeof k!=='string'||k.indexOf('wh_')!==0)return false;
+  if(k===LS.pw||k===LS.priv||k==='wh_lockskin'||k===MSG_FLAG)return false;
+  if(k.indexOf(MSG_PREFIX)===0||k.indexOf('wh_arc_')===0)return false;
+  return true;
+}
+function bulkHas(k){return Object.prototype.hasOwnProperty.call(bulkKeys,k)}
+function bulkShouldRoute(k){return bulkRouting&&bulkEligible(k)&&!bulkFallback[k]}
+function bulkWrite(k,v){
+  _bulkPending++;
+  const prev=_bulkWrites[k]||Promise.resolve();
+  const run=prev.catch(function(){}).then(function(){return idbPut(k,v,BULK_STORE)});
+  _bulkWrites[k]=run.catch(function(){});
+  run.then(function(){_bulkPending--},function(e){_bulkPending--;saveFailNotice(k,e)});
+  return run;
+}
+async function bulkFlush(){
+  for(let i=0;i<200&&_bulkPending>0;i++){
+    try{await Promise.all(Object.keys(_bulkWrites).map(function(k){return _bulkWrites[k]}))}catch(e){}
+  }
+  return _bulkPending===0;
+}
 /* 写进 IndexedDB（开着应用锁密码时由 idbPut 自动加密，和以前存安全副本时一致） */
 function msgWrite(id,arr){
   const snap=Array.isArray(arr)?arr.slice():[];
@@ -1728,21 +1759,71 @@ async function preloadMsgs(){
   try{if(moved||Object.keys(msgMem).length)localStorage.setItem(MSG_FLAG,'1')}catch(e){}
   return {ok:true,moved:moved,failed:failed,missed:msgPreloadMissed};
 }
-/* 兜底用：从角色列表（wh_chars）里取出所有角色 id。列表本身也可能被加密，所以要能解密。 */
+/* 兜底用：从角色列表（wh_chars）里取出所有角色 id。统一走 load，
+   这样列表无论是还在 localStorage，还是已经搬到 bulk，都能读到。 */
 async function charIdsFromStore(){
   try{
-    let raw=localStorage.getItem(LS.chars);
-    if(!raw)return [];
-    if(raw.indexOf('enc:')===0){
-      if(!cryptKey)return [];
-      raw=await decVal(cryptKey,raw);
-    }
-    const arr=JSON.parse(raw);
+    const arr=load(LS.chars,[]);
     if(!Array.isArray(arr))return [];
     const out=[];
     for(const c of arr){if(c&&c.id)out.push(String(c.id))}
     return out;
   }catch(e){return []}
+}
+/* 开机：把大型附属数据从 localStorage 搬到 IndexedDB。
+   每个键只有在「写进去 + 读回来内容一致」之后才会删本地副本；
+   任何一步失败都保留原数据，下次开机重试。 */
+async function preloadBulkStore(){
+  bulkRouting=false;
+  Object.keys(bulkFallback).forEach(function(k){delete bulkFallback[k]});
+  let keys=[];
+  try{keys=await idbKeys(BULK_STORE)}catch(e){
+    try{console.warn('大型数据暂时仍在 localStorage（IndexedDB bulk 打不开）',e)}catch(_){}
+    return {ok:false,loaded:0,moved:0,failed:0};
+  }
+  let loaded=0;
+  for(const rawKey of keys){
+    const k=String(rawKey);
+    try{
+      const v=await idbGet(k,BULK_STORE);
+      if(v!==undefined){bulkMem[k]=v;bulkKeys[k]=1;loaded++}
+    }catch(e){try{console.warn('读取 IndexedDB 大型数据失败：'+k,e)}catch(_){}}
+  }
+  let localKeys=[];
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&bulkEligible(k))localKeys.push(k);
+    }
+  }catch(e){}
+  let moved=0,failed=0,bytes=0;
+  for(const k of localKeys){
+    let raw=null;try{raw=localStorage.getItem(k)}catch(e){}
+    if(raw==null)continue;
+    let val;
+    try{
+      if(raw.indexOf('enc:')===0){
+        if(!cryptKey){bulkFallback[k]=1;failed++;continue}
+        val=JSON.parse(await decVal(cryptKey,raw));
+      }else val=JSON.parse(raw);
+    }catch(e){bulkFallback[k]=1;failed++;continue}
+    try{
+      await idbPut(k,val,BULK_STORE);
+      const back=await idbGet(k,BULK_STORE);
+      if(JSON.stringify(back)!==JSON.stringify(val))throw new Error('写回校验没过');
+      bulkMem[k]=val;bulkKeys[k]=1;
+      delete bulkFallback[k];
+      localStorage.removeItem(k);
+      if(store)delete store[k];
+      moved++;bytes+=raw.length;
+    }catch(e){
+      bulkFallback[k]=1;
+      failed++;
+      try{console.warn('这条大型数据这次没搬成，已保留原副本：'+k,e)}catch(_){}
+    }
+  }
+  bulkRouting=true;
+  return {ok:true,loaded:loaded,moved:moved,failed:failed,bytes:bytes};
 }
 /* 申请「长期保存」：免得系统在空间紧张时自动清理掉本地数据库 */
 async function askPersist(){
@@ -1758,6 +1839,7 @@ async function askPersist(){
 function load(k,d){
   const mid=msgKeyId(k);
   if(mid!==null&&msgIdbOk)return msgMemHas(mid)?msgMem[mid]:d;
+  if(bulkShouldRoute(k))return Object.prototype.hasOwnProperty.call(bulkMem,k)?bulkMem[k]:d;
   if(cryptKey)return (store&&hasOwn(store,k))?store[k]:d;
   try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}
 }
@@ -1785,6 +1867,13 @@ function save(k,v){
     if(msgLocked[mid]){msgLockWarn(mid);return}   /* 旧记录没读出来：宁可不写，也不能覆盖掉它 */
     msgWrite(mid,v);return;
   }
+  if(bulkShouldRoute(k)){
+    bulkMem[k]=v;
+    bulkKeys[k]=1;
+    delete bulkFallback[k];
+    bulkWrite(k,v);
+    return;
+  }
   if(cryptKey){store[k]=v;encWrite(k,v)}
   else{
     /* 【修】还没解锁时，绝不能用明文盖掉加密数据。
@@ -1800,6 +1889,12 @@ function removeKey(k){
   if(mid!==null&&msgIdbOk){                 /* 聊天记录：删内存和 IndexedDB 里那份 */
     try{delete msgMem[mid]}catch(e){}
     try{idbDel(msgRecKey(mid),MSG_STORE).catch(function(){})}catch(e){}
+    return;
+  }
+  if(bulkShouldRoute(k)){
+    try{delete bulkMem[k]}catch(e){}
+    try{delete bulkKeys[k]}catch(e){}
+    try{idbDel(k,BULK_STORE).catch(function(){})}catch(e){}
     return;
   }
   localStorage.removeItem(k);if(store)delete store[k];
@@ -2345,7 +2440,7 @@ function idbOpen(){
   return new Promise((res,rej)=>{
     if(_db)return res(_db);
     if(!window.indexedDB)return rej(new Error('这个浏览器不支持 IndexedDB'));
-    const r=indexedDB.open('wh_db',9);
+    const r=indexedDB.open('wh_db',10);
     r.onupgradeneeded=e=>{
       const d=e.target.result;
       if(!d.objectStoreNames.contains('arc'))d.createObjectStore('arc');
@@ -2357,6 +2452,7 @@ function idbOpen(){
       if(!d.objectStoreNames.contains('oceanphotos'))d.createObjectStore('oceanphotos'); /* 海底陪伴：游戏照片 */
       if(!d.objectStoreNames.contains('roam'))d.createObjectStore('roam'); /* 洄游：角色在别处经历过的事 + 分身活动摘要 */
       if(!d.objectStoreNames.contains('shape'))d.createObjectStore('shape'); /* 塑形：角色修改自己文字资料的版本记录 */
+      if(!d.objectStoreNames.contains('bulk'))d.createObjectStore('bulk'); /* 大型附属数据：角色设定、设置、战绩等 */
     };
     r.onsuccess=e=>{_db=e.target.result;res(_db)};
     r.onerror=()=>rej(r.error||new Error('IndexedDB 打不开'));
@@ -12028,7 +12124,7 @@ async function encryptStoreToLocal(key){
 }
 /* 把 IndexedDB 里的数据加密后写回。 */
 async function reencryptIndexedDb(key,oldKey){
-  for(const st of ['arc','rawlog','msglog','roam','shape']){
+  for(const st of ['arc','rawlog','msglog','roam','shape','bulk']){
     let ks=[];try{ks=await idbKeys(st)}catch(e){}
     for(const k of ks){
       let raw;try{raw=await idbGetRaw(k,st)}catch(e){continue}
@@ -12063,7 +12159,7 @@ async function removePassword(){
   if(!confirm('移除密码？聊天和记忆会变回明文存储（任何拿到设备的人都能看到）'))return;
   try{
     for(const k of Object.keys(store)){localStorage.setItem(k,JSON.stringify(store[k]))}
-    for(const st of ['arc','rawlog','msglog','roam','shape']){
+    for(const st of ['arc','rawlog','msglog','roam','shape','bulk']){
       let ks=[];try{ks=await idbKeys(st)}catch(e){}
       for(const k of ks){
         let raw;try{raw=await idbGetRaw(k,st)}catch(e){continue}
@@ -12449,6 +12545,12 @@ function storageNameOf(k){
   if(k==='wh_moments')return '朋友圈';
   if(k==='wh_arcs')return '档案列表';
   if(k.indexOf('wh_p5_art_')===0)return '画册';
+  if(k==='wh_gamerec')return '游戏对局记录';
+  if(k==='wh_fic')return '番外';
+  if(k==='wh_mtag_ai'||k==='wh_mtag_ai_last')return 'AI 标签';
+  if(k==='wh_stickers'||k==='wh_sticker_cats')return '表情包';
+  if(k==='wh_ideas')return '创意清单';
+  if(k==='wh_world')return '世界书';
   return k;
 }
 const kbTxt=n=>n<1024?(n+' 字节'):(n<1048576?(Math.round(n/102.4)/10)+' KB':(Math.round(n/104857.6)/10)+' MB');
@@ -12481,6 +12583,18 @@ async function showStorageUse(){
         }
       }catch(e){}
     }
+    let bulkBytes=0,bulkCount=0;
+    const bulkAgg={};
+    try{
+      for(const k of await idbKeys(BULK_STORE)){
+        let raw=null;try{raw=await idbGetRaw(k,BULK_STORE)}catch(e){continue}
+        let n=k.length;
+        try{n+=(typeof raw==='string'?raw.length:JSON.stringify(raw).length)}catch(e){}
+        bulkBytes+=n;bulkCount++;
+        const nm=storageNameOf(String(k));bulkAgg[nm]=(bulkAgg[nm]||0)+n;
+      }
+    }catch(e){}
+    const bulkList=Object.keys(bulkAgg).map(nm=>({nm:nm,n:bulkAgg[nm]})).sort((a,b)=>b.n-a.n);
     let quotaTxt='';
     try{
       if(navigator.storage&&navigator.storage.estimate){
@@ -12499,6 +12613,11 @@ async function showStorageUse(){
         '\n存在本地数据库（IndexedDB）里，不受下面这条 5MB 线的限制。\n\n';
     }else{
       txt+='⚠️ 这次聊天记录没能用上本地数据库，暂时还是存在「本地存储」里的老办法（功能正常，但 5MB 满了会存不下）。可以刷新一次页面再试试。\n\n';
+    }
+    if(bulkCount){
+      txt+='大型附属数据：'+bulkCount+' 项，约 '+kbTxt(bulkBytes)+
+        '\n已经搬到 IndexedDB，不占下面这条 5MB 线。\n'+
+        bulkList.slice(0,10).map(o=>'· '+o.nm+'：'+kbTxt(o.n)).join('\n')+'\n\n';
     }
     txt+='「本地存储」用量：'+kbTxt(total)+'（浏览器一般只给 5 MB 左右，聊天记录已经不算在这里了）\n\n占地方最多的几项：\n'+
       (list.length?list.slice(0,10).map(o=>'· '+o.nm+'：'+kbTxt(o.n)).join('\n'):'（空的）')+quotaTxt;
@@ -13908,6 +14027,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 「记忆整理」里的聊天和历史档案按来源分组显示，可以切换最新在前 / 最早在前；✓ 表示整理过，◐ 表示整理过一部分。选中一段后，可以填写额外的整理要求，并细调角色整理时是否能看见人设、情境、说话风格、原本记忆区域（核心、总结、时间线、偏好、习惯）和额外近期聊天；数量都可以单独设置。可见范围设置会跟角色一起保存并进入备份。
 普通聊天每轮自动带入多少段「长期聊天记录总结」现在可以调。入口在角色编辑 → 记忆 →「聊天记录与总结」，或设置 →「记忆注入」；范围 0～100，默认 10，0 表示暂不自动带，设置超过现有段数时会把现有的全部带上。search_memory 是相关性搜索，不会保证把全部总结一次列出；自动带入和搜索是两套机制。
 角色还有一个只读工具 list_long_summaries，专门直接列出长期聊天记录总结的段数、顺序和来源，不做相似度搜索。用户要求核对「一共有几段」「逐段列出来」「你到底能不能看见总结」时，应该用它，不要拿 search_memory 搜到的原始对话冒充总结。
+为了避开 localStorage 约 5 MB 的限制，角色设定、设置、游戏战绩、朋友圈、表情、AI 标签、番外、删除标记和记忆撤回记录等大型附属数据会迁移到 IndexedDB 的 bulk 仓库；聊天原文、长期总结、历史档案和附件都不会因此删除。迁移会先写入并读回核对，成功后才删掉 localStorage 里的重复副本；失败就保留原数据下次重试。锁屏外观影子、应用锁密码和聊天迁移标记仍留在 localStorage，因为锁屏在解锁前就要读它们。「设置 → 数据与备份 → 本地存储用量」会分别显示聊天、大型附属数据和剩余本地存储。
 
 【我的状态（在「我的资料」里）】
 打开桌面 Dock 上的「我的资料」，最下面有一块「我的状态」：
@@ -13941,7 +14061,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=37;  /* 37：长期总结可直接逐段列出；36：面具改在面具管理里分配角色 */
+const GUIDE_VER=38;  /* 38：大型附属数据迁入 IndexedDB；37：长期总结可直接逐段列出 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -14057,9 +14177,14 @@ async function boot(){
   let _bootHint=null;
   try{
     /* 记录多的时候要读一会儿，超过 0.4 秒就提示一下，别让她以为卡住了 */
-    _bootHint=setTimeout(function(){try{toast('正在读取聊天记录…')}catch(e){}},400);
+    _bootHint=setTimeout(function(){try{toast('正在读取本地数据…')}catch(e){}},400);
+    const b=await preloadBulkStore();
     const r=await preloadMsgs();
     try{clearTimeout(_bootHint)}catch(e){}
+    if(b&&b.moved){
+      try{toast('已把 '+b.moved+' 项大型数据搬到本地数据库，释放约 '+kbTxt(b.bytes))}catch(e){}
+      try{console.log('大型数据已搬到 IndexedDB bulk：',b)}catch(e){}
+    }
     if(r&&r.ok&&(r.moved||r.failed)){
       if(r.failed)try{console.warn('有 '+r.failed+' 个角色的聊天记录这次没搬到数据库，已原样保留')}catch(e){}
       if(r.moved&&!r.failed)try{console.log('聊天记录已搬到 IndexedDB，共 '+r.moved+' 个角色')}catch(e){}
