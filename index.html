@@ -1000,7 +1000,7 @@ header{align-items:flex-start;gap:8px;padding:calc(env(safe-area-inset-top) + 12
 header .hcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 header h1{font-size:19px;font-weight:700;color:var(--txt);letter-spacing:.2px;margin:0;line-height:1.25}
 header .who{font-size:11.5px;color:var(--meta);text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-header .hact{width:32px;height:32px;flex:0 0 auto;border-radius:50%;background:transparent;border:0;color:var(--meta);font-size:20px;line-height:1;padding:0;box-shadow:none}
+header .hact{width:32px;height:32px;flex:0 0 auto;border-radius:50%;background:transparent;border:0;color:var(--meta);font-size:20px;line-height:1;padding:0;box-shadow:none;display:flex;align-items:center;justify-content:center}
 header .hact:active{background:var(--bg2)}
 
 /* 气泡：白底 + 1px 描边 + 极淡阴影 */
@@ -1092,7 +1092,7 @@ nav button.on .ind{width:16px}
 .toychev{order:9;margin-left:auto;flex:0 0 auto;font-size:13px;line-height:1;color:var(--dim);opacity:.6}
 
 /* ---------- 查找聊天记录（新增） ---------- */
-header .hact svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+header .hact svg{display:block;width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #hsearch{display:flex;align-items:center;justify-content:center}
 .findres{max-height:52vh;overflow-y:auto;margin-top:10px}
 .sresrow{padding:9px 10px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg2);cursor:pointer}
@@ -1356,6 +1356,7 @@ const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const LS={cfg:'wh_cfg',chars:'wh_chars',cur:'wh_cur',arcs:'wh_arcs',pw:'wh_pw',priv:'wh_priv',unread:'wh_unread',
   groups:'wh_groups',gauto:'wh_gauto',music:'wh_music',moments:'wh_moments',momSeen:'wh_momseen',
+  masks:'wh_masks',
   msg:id=>'wh_msg_'+id,mem:id=>'wh_mem_'+id,arc:id=>'wh_arc_'+id,todo:id=>'wh_todo_'+id,rawMark:id=>'wh_rawmark_'+id,
   summark:id=>'wh_summark_'+id,memhist:id=>'wh_memhist_'+id,memsumbase:id=>'wh_memsumbase_'+id,memorgcfg:id=>'wh_memorgcfg_'+id,
   gmsg:id=>'wh_gmsg_'+id,gmem:id=>'wh_gmem_'+id,delmsg:id=>'wh_delmsg_'+id,
@@ -2849,7 +2850,8 @@ function go(v){
 function topStatus(c){
   const a=(c&&c.auto)||{};
   const auto=a.on?('自动发消息 开'):'自动发消息 已关';
-  return [c&&c.name,auto].filter(Boolean).join(' · ');
+  let mk=null;try{mk=maskForChar(c)}catch(e){}
+  return [c&&c.name,mk?('面具 · '+mk.name):'',auto].filter(Boolean).join(' · ');
 }
 /* 非聊天页显示的一行说明 */
 function viewHint(v){
@@ -3824,14 +3826,15 @@ function palaceBlock(query,c){
   const hits=(r&&r.picked)||[];
   if(!hits.length&&!pin.list.length)return '';
   const out=[];
+  const UP=userPron(c);
   if(pin.list.length){
-    out.push('【你一直记得的事】下面这些是'+userPron()+'亲手标成「一直记得」的，每轮都给你：\n'+pin.list.join('\n\n'));
+    out.push('【你一直记得的事】下面这些是'+UP+'亲手标成「一直记得」的，每轮都给你：\n'+pin.list.join('\n\n'));
   }
   if(hits.length){
-    out.push('【记忆宫殿 · 系统按'+userPron()+'这句话翻出来的旧记忆】\n'+
-      '下面几段是你和'+userPron()+'过去真实发生过的事（从很久以前的记录里翻出来的）。这些你都记得，可以自然地想起来、接着聊；没翻到的就是这会儿没想起来，别硬编。\n'+
+    out.push('【记忆宫殿 · 系统按'+UP+'这句话翻出来的旧记忆】\n'+
+      '下面几段是你和'+UP+'过去真实发生过的事（从很久以前的记录里翻出来的）。这些你都记得，可以自然地想起来、接着聊；没翻到的就是这会儿没想起来，别硬编。\n'+
       '（现在的时间是 '+window.P4.now()+'；下面记录里的日期都是过去，不是现在。）');
-    hits.forEach(p=>out.push(p.seg+(p.tag?'（这条是'+userPron()+'打过标签的记忆）':'')));
+    hits.forEach(p=>out.push(p.seg+(p.tag?'（这条是'+UP+'打过标签的记忆）':'')));
     out.push(palaceToolOn()
       ? '（如果想不起某个细节，你可以调用 search_memory 再去翻一次；想「某一类事」都有什么，就用 read_tag 按标签整批翻。）'
       : '（如果这些还不够，就自然地说想不太起来了、让她提醒你，不要编。）');
@@ -3976,7 +3979,7 @@ function archiveWholeBlocks(list,c,lim){
     if(a.off||!archiveAllowed(a,c.id))return;
     if(a.whole){
       const ms=getArc(a.id);
-      let t=ms.map(m=>(arcRole(m)==='user'?'她':c.name)+'：'+arcMsgText(m)).join('\n');
+      let t=ms.map(m=>(arcRole(m)==='user'?userPron(c):c.name)+'：'+arcMsgText(m)).join('\n');
       if(lim>0&&t.length>lim)t=t.slice(0,lim)+'……';
       if(t)out.push('【《'+a.name+'》全文·这是你们真实发生过的过去】\n'+t);
     }else if(a.summOn&&a.sum&&!sumRefusal(a.sum)){
@@ -4005,9 +4008,10 @@ function archiveQueryBlocks(list,query,c,top){
   hits.sort((x,y)=>y.s-x.s);
   const cut=hits.slice(0,top);
   if(!cut.length)return [];
-  return ['【旧日对话摘录】这是你和'+userPron()+'过去真实聊过的片段，你记得这些事，可以自然地想起来、接着聊：\n'+
+  const UP=userPron(c);
+  return ['【旧日对话摘录】这是你和'+UP+'过去真实聊过的片段，你记得这些事，可以自然地想起来、接着聊：\n'+
     cut.map(h=>{
-      const seg=h.ms.slice(Math.max(0,h.i-1),h.i+2).map(m=>(arcRole(m)==='user'?userPron():c.name)+'：'+arcMsgText(m)).join('\n');
+      const seg=h.ms.slice(Math.max(0,h.i-1),h.i+2).map(m=>(arcRole(m)==='user'?UP:c.name)+'：'+arcMsgText(m)).join('\n');
       return '——摘自《'+h.a.name+'》\n'+seg;
     }).join('\n\n')];
 }
@@ -5341,16 +5345,65 @@ function memBlock(m,self){
   if(m.habits&&m.habits.length)L.push((self?'【我的性格和习惯】':'【性格与习惯】')+'\n'+pk(m.habits,15));
   return L.join('\n\n');
 }
-/* 「我的主页」里填的资料，注入给角色 */
-function userBlock(self){
+/* 面具：同一个用户在不同角色面前可以呈现不同身份。
+   面具单独存在 wh_masks；每个角色只记一个 maskId，空字符串＝不用面具。 */
+function masksAll(){
+  let list=[];
+  try{list=load(LS.masks,[])}catch(e){}
+  if(!Array.isArray(list))return [];
+  const txt=(v,n)=>String(v==null?'':v).trim().slice(0,n);
+  const seen={};
+  return list.map(x=>{
+    if(!x||typeof x!=='object')return null;
+    const id=txt(x.id,80).replace(/[^A-Za-z0-9_-]/g,'');
+    if(!id||seen[id])return null;
+    seen[id]=1;
+    return {
+      id:id,
+      name:txt(x.name,80),
+      gender:['女','男','其他'].includes(String(x.gender||''))?String(x.gender):'',
+      persona:txt(x.persona,8000),
+      speech:txt(x.speech,4000),
+      appearance:txt(x.appearance,4000),
+      createdAt:Number(x.createdAt)||0,
+      updatedAt:Number(x.updatedAt)||0
+    };
+  }).filter(Boolean);
+}
+function maskForChar(c){
+  if(!c||!c.maskId)return null;
+  return masksAll().find(x=>x.id===c.maskId)||null;
+}
+/* 「我的主页」里填的资料，注入给角色；当前角色选了面具时，改注入面具身份。 */
+function userBlock(self,c){
+  const mk=maskForChar(c);
+  if(mk){
+    const L=[];
+    if(mk.name)L.push('名字：'+mk.name);
+    if(mk.gender)L.push('性别：'+mk.gender);
+    if(mk.persona)L.push('人设：'+mk.persona);
+    if(mk.speech)L.push('说话方式：'+mk.speech);
+    if(mk.appearance)L.push('外貌：'+mk.appearance);
+    const up=userPron(c);
+    const gl=genderLine(c);
+    const body=(gl?(gl+'\n'):'')+L.join('\n');
+    return (self?
+      ('【正在和我聊天的这个人 · 当前身份】下面是我现在认识的'+up+'，这是我此刻主动呈现给你的身份：\n'+body)
+      :
+      ('【用户信息 · 当前身份】下面是正在和你聊天的「'+up+'」此刻使用的身份设定，聊天时要记住：\n'+body))+
+      '\n\n【当前身份使用说明】以上名字、性别、人设、说话方式和外貌，都是'+up+'在这个角色面前主动呈现的身份。'+
+      '把它们当成'+up+'现在真实呈现的自己来理解和回应；不要拆穿，也不要主动提“面具、扮演、设定”这类词。'+
+      '这些“说话方式”描述的是'+up+'的表达习惯，不是让你替'+up+'说话或模仿'+up+'。'+
+      '聊天记录里如果出现切换身份以前的名字或性别，只把它当作你们共同经历过的事，不要反过来套到'+up+'现在身上；有冲突时，以这份当前身份为准。';
+  }
   const L=[];
   if(cfg.userName)L.push('名字：'+cfg.userName);
   if(cfg.userGender)L.push('性别：'+cfg.userGender);
   if(cfg.userNote)L.push('其他：'+cfg.userNote);
   /* 【称呼】不管资料填没填，都把「对方是谁、该用什么称呼」写清楚，
      免得模型自己猜（以前经常把用户默认成男性，叫「兄弟」之类）。 */
-  const up=(typeof userPron==='function')?userPron():'TA';
-  const gl=(typeof genderLine==='function')?genderLine():'';
+  const up=(typeof userPron==='function')?userPron(c):'TA';
+  const gl=(typeof genderLine==='function')?genderLine(c):'';
   const body=(gl?(gl+'\n'):'')+L.join('\n');
   if(self)return '【正在和我聊天的这个人】下面是我记着的、关于'+up+'的情况：\n'+body;
   return '【用户信息】下面是「'+up+'」（也就是正在和你聊天的这个人）本人的设定，聊天时要记住：\n'+body;
@@ -5386,14 +5439,16 @@ function permOn(c,k){const p=c&&c[k];return !!(p&&p.on!==false)}
 function selfOn(c){return !!(c&&c.selfMode)}
 /* 【称呼】正在聊天的那个人（用户）该用什么代词：按「我的主页 → 性别」来。
    以前提示词里写死了「她」，等于默认所有用户都是女性；现在没人填就不猜，用中性的「TA」。 */
-function userPron(){
-  const g=String((cfg&&cfg.userGender)||'');
+function userPron(c){
+  const mk=maskForChar(c);
+  const g=String((mk&&mk.gender)||(cfg&&cfg.userGender)||'');
   return g==='女'?'她':(g==='男'?'他':'TA');
 }
 /* 【称呼】给模型的一句说明：对面的人是什么性别、该怎么称呼。
    私聊、群聊、各个小游戏都带上它，免得模型自己瞎猜（以前它经常把用户当成男的）。 */
-function genderLine(){
-  const g=String((cfg&&cfg.userGender)||'');
+function genderLine(c){
+  const mk=maskForChar(c);
+  const g=String((mk&&mk.gender)||(cfg&&cfg.userGender)||'');
   const who=(g==='女')?'是女生，用「她」称呼'
            :(g==='男')?'是男生，用「他」称呼'
            :(g==='其他')?'性别填的是「其他」，用「TA」称呼'
@@ -5441,8 +5496,8 @@ function palaceWorthTelling(c){
 let CTX_DYN=[];
 /* 【新】「一起玩游戏」的提示词：只有角色开了「能邀请我玩游戏」才会加上这一段
    （关着的时候这段一个字都不会发给模型，不占 token）。 */
-function gameInvitePrompt(){
-  const UP=userPron();
+function gameInvitePrompt(c){
+  const UP=userPron(c);
   return '【一起玩游戏】'+UP+'随时可能想拉着你玩一局游戏（现在能拉的是「狼人杀」）。'
     +UP+'说「想和你玩狼人杀」「陪我玩一局」这类话时，用 invite_game 工具拉'+UP+'进房间：'
     +'人数用 count 填（6~12；6~8 人局结束快，9~12 人更热闹），12 人局再用 board 挑板子'
@@ -5455,7 +5510,7 @@ function gameInvitePrompt(){
 }
 function buildCtxSystem(c,extra){
   const self=selfOn(c);      /* 【自我认知模式】开着：名字、性格、记忆都当成「我自己」来讲 */
-  const UP=userPron();       /* 【称呼】按「我的主页」里填的性别，决定用「她」「他」还是中性的「TA」 */
+  const UP=userPron(c);      /* 【称呼】角色选了面具时，以面具里的性别决定「她／他／TA」 */
   const sys=[];
   /* 开了「自我认知」：先说明「下面这些就是我自己」，再用第一人称补上名字 */
   if(self)sys.push('【这就是我自己】下面写下来的不是「设定」，是我自己：我的名字、我的性格、我平时怎么说话、我记得的事、我认下的规矩。我按我自己的性格说话就行，不是在演谁。');
@@ -5465,7 +5520,7 @@ function buildCtxSystem(c,extra){
   /* 【自我认知】想事情的时候直接按自己的性格想，不用去想「我在演谁」 */
   if(self)sys.push('【怎么想】想事情的时候就按我自己的性格想，别去想「我在演谁」「这算不算我的人设」这类问题。');
   /* 【称呼】这个人是谁、该叫什么，每轮都说清楚 */
-  sys.push(genderLine());
+  sys.push(genderLine(c));
   /* 角色以前只知道自己的人设，不知道用户在设置里给它起的名字 */
   if(c.name)sys.push(self?('「'+c.name+'」就是我的名字。别人这么叫我、或者提到这个名字，说的就是我。')
                        :('别人叫你「'+c.name+'」——这是用户给你起的名字，别人提到这个名字时，说的就是你。'));
@@ -5477,10 +5532,10 @@ function buildCtxSystem(c,extra){
       '这里产生的聊天记录只属于这个分身窗口。');
     if(c.branchPurpose)sys.push('【这个分身窗口的职责】'+c.branchPurpose);
     if(c.branchSeeMain)sys.push('【这个分身能看到的范围】我已经同步了主窗口当前的人设、记忆、记忆宫殿检索结果和聊天上下文，'+
-      '它们会以【主窗口完整上下文同步】为标题交给我。'+userPron()+'问主窗口聊过什么、记得什么时，我要根据那段同步内容回答，'+
+      '它们会以【主窗口完整上下文同步】为标题交给我。'+userPron(c)+'问主窗口聊过什么、记得什么时，我要根据那段同步内容回答，'+
       '不能说“小窗口看不见主窗口”或“我没有主窗口记录”。如果同步内容里确实没有某件细节，才说我不记得。');
   }
-  const ub=userBlock(self);if(ub)sys.push(ub);
+  const ub=userBlock(self,c);if(ub)sys.push(ub);
   /* 【记忆怎么念给它听】自我认知模式下，记忆是第三人称写的（里面的「她 / 他」指的就是它自己），
      所以先加一句说明再贴记忆，免得它以为在说别人。 */
   const mb=memBlock(ctxMem(),self);
@@ -5665,7 +5720,7 @@ function buildCtxSystem(c,extra){
   /* 世界书压轴：放在「即时信息」这一块的最后，离对话最近，角色更容易照它来 */
   if(wbLine)dyn.push(wbLine);
   /* ↓ 【新】一起玩游戏：只有开了「能邀请我玩游戏」才写这段（关着就一个字都不发，不花 token） */
-  if(permOn(c,'gamePerm')){try{const gp=gameInvitePrompt();if(gp)dyn.push(gp)}catch(e){}}
+  if(permOn(c,'gamePerm')){try{const gp=gameInvitePrompt(c);if(gp)dyn.push(gp)}catch(e){}}
   CTX_DYN=dyn;       /* 交给 buildCtx，附到最新那条用户消息前面 */
   return sys;
 }
@@ -5718,13 +5773,13 @@ function buildCtx(c,extra,tailUser){
      照样只放进每轮临时信息（附在最新一条消息前面），系统提示不变，前缀缓存不受影响。 */
   if(tailUser!=null){
     try{
-      const st=myStatusText(),up=userPron();
+      const st=myStatusText(),up=userPron(c);
       if(st)dyn.push('【'+up+'现在的状态】'+up+'现在：'+st+
         '。（这是'+up+'自己的状态栏，可能是她自己写的，也可能是系统按她正在干什么自动记的。她不是在跟你聊这件事，你只是刚好知道；可以自然提一句，但别每句都提，也别装作看得见她本人。）');
     }catch(e){}
   }
   if(dyn.length){
-    const body='【我这轮知道的情况】下面这些是背景，不是'+userPron()+'说的话：\n'+dyn.join('\n\n')+'\n\n';
+    const body='【我这轮知道的情况】下面这些是背景，不是'+userPron(c)+'说的话：\n'+dyn.join('\n\n')+'\n\n';
     const last=(res.length>1)?res[res.length-1]:null;
     if(last&&last.role==='user'){
       if(Array.isArray(last.content))last.content.unshift({type:'text',text:body});
@@ -5749,13 +5804,14 @@ function buildCtx(c,extra,tailUser){
    不带图片、不带旧档案，体积小很多，老角色也能重新说上话。 */
 function buildCtxLite(c){
   const self=selfOn(c);
-  const UP=userPron();
+  const UP=userPron(c);
   const sys=[];
   if(self)sys.push('【这就是我自己】下面写下来的不是「设定」，是我自己。我按我自己的性格说话，不是在演谁。');
-  sys.push(genderLine());
+  sys.push(genderLine(c));
   sys.push(String((c&&c.persona)||((self?'我叫':'你是')+(c&&c.name||'角色')+'。')).slice(0,4000));
   if(c&&c.scenario)sys.push('【当前情境】'+String(c.scenario).slice(0,1500));
   if(c&&c.style)sys.push('【说话风格】'+String(c.style).slice(0,1500));
+  try{const ub=userBlock(self,c);if(ub)sys.push(ub)}catch(e){}
   try{
     const mb=String(memBlock(ctxMem(),self)||'');
     if(mb)sys.push('【你记得的事（节选）】\n'+mb.slice(-6000));
@@ -6696,7 +6752,7 @@ function orgGlobalContext(c,M,opt,id,selected){
     if(arr(M.prefs,opt.prefs))bits.push('我已有的偏好与认知：\n'+arr(M.prefs,opt.prefs));
     if(arr(M.habits,opt.habits))bits.push('我已有的性格与习惯：\n'+arr(M.habits,opt.habits));
   }
-  if(opt.user)try{const u=userBlock(false);if(u)bits.push(u)}catch(e){}
+  if(opt.user)try{const u=userBlock(false,c);if(u)bits.push(u)}catch(e){}
   const recent=orgRecentGlobalMsgs(id,selected,opt.recentChats);
   if(recent.length){
     bits.push('最近 '+recent.length+' 条聊天（只用于理解关系，不含这次选中的区间）：\n'+
@@ -6854,9 +6910,9 @@ function autoAgoText(t){
   return Math.floor(h/24)+' 天前';
 }
 /* 主动发消息时，放在最末尾那段话：让角色明白「是系统戳了它一下」 */
-function autoProactiveNudge(lastMsg){
+function autoProactiveNudge(c,lastMsg){
   const ago=autoAgoText(lastMsg&&lastMsg.t);
-  const UP=userPron();
+  const UP=userPron(c);
   let s='（系统提示：这不是'+UP+'发来的新消息，上面聊天记录里的那些话也都已经聊过了，不用再回应。\n'+
     '是'+UP+'给你开了「自动发消息」，现在时间到了，系统在旁边戳了你一下——这一轮由你主动，给'+UP+'发一条新的消息。\n';
   if(ago)s+='距你们上一条消息：'+ago+'。你可以自己判断这个时间合不合适开口。\n';
@@ -6890,13 +6946,13 @@ async function autoGenerate(c,forceNudge,tideMeta){
   try{if(window.P13)window.P13.armed=true}catch(e){}   /* 【缓存】和正常聊天那一轮一样临时允许「发表情」：工具清单、系统提示文字才和上一轮对得上 */
   const autoHint=(c.auto&&c.auto.hint)?String(c.auto.hint).trim():'';
   /* 你填的「主动消息提示」在系统提示里也放一份，免得被忽略 */
-  const extra=autoHint?('【主动消息提示（只在你主动发消息时生效）】这是'+userPron()+'写给你的要求，请照做：'+autoHint):'';
+  const extra=autoHint?('【主动消息提示（只在你主动发消息时生效）】这是'+userPron(c)+'写给你的要求，请照做：'+autoHint):'';
   const tp=thinkParams(c);
   const lastAI=tmsgs.slice().reverse().find(x=>x.role==='assistant'&&x.content);
   const lastMsg=tmsgs.length?tmsgs[tmsgs.length-1]:null;
   /* ↓ 关键：这句放在「最后一条消息」的位置，模型最容易看见 */
   /* 到点提醒时会传进来一段专门的提示（forceNudge），平时就是「主动找她聊聊」那段 */
-  const nudge=forceNudge||autoProactiveNudge(lastMsg);
+  const nudge=forceNudge||autoProactiveNudge(c,lastMsg);
   let out='',reasoning='',usage=null;
   const autoCall=async(note)=>{
     out='';reasoning='';usage=null;
@@ -7017,7 +7073,7 @@ function freePendDel(cid){const o=freePendAll();if(o[cid]!=null){delete o[cid];f
 /* 只让它做一个决定：这条要不要回、想等多久。只回一行 JSON，便宜又快。 */
 function freeReplyCtx(c){
   const self=selfOn(c);
-  const UP=userPron();
+  const UP=userPron(c);
   const sys=[];
   sys.push(String(c.persona||((self?'我叫':'你是')+(c.name||'角色')+'。')).slice(0,2400));
   if(c.scenario)sys.push('【当前情境】'+String(c.scenario).slice(0,1000));
@@ -7055,8 +7111,8 @@ async function freeReplyDecide(c){
   let w=parseInt(j.wait,10);if(!isFinite(w)||w<0)w=0;
   return {reply:reply,wait:Math.min(w,FREE_MAX_WAIT)};
 }
-function freeReplyNudge(){
-  const UP=userPron();
+function freeReplyNudge(c){
+  const UP=userPron(c);
   return '（系统提示：上面最后一条是'+UP+'发给你的消息，你已经看过、并且决定现在回。'+
     '请回'+UP+'最后那一条，就像真人隔了一会儿才回消息那样自然。'+
     '不要解释你为什么现在才回、不要提到这条提示本身、也不要重复你已经说过的话。'+
@@ -7089,7 +7145,7 @@ async function freeReplyFire(cid,tries,manual){
       }
     }else{
       /* 你没在看它：后台生成，直接发进它的记录里；切回去能看到小红点 */
-      await runAutoNow(c,freeReplyNudge(),{kind:'delay',title:c.name,manual:!!manual});
+      await runAutoNow(c,freeReplyNudge(c),{kind:'delay',title:c.name,manual:!!manual});
     }
   }catch(e){}
 }
@@ -12037,7 +12093,7 @@ async function backupNow(){
 }
 function cfgSafe(){const c=JSON.parse(JSON.stringify(cfg||{}));delete c.key;if(c.web)delete c.web.key;if(c.img)delete c.img.key;return c}
 async function backupPayload(){
-  const d={v:12,at:Date.now(),cfg:cfgSafe(),chars:chars,messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
+  const d={v:13,at:Date.now(),cfg:cfgSafe(),chars:chars,masks:masksAll(),messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{},stickers:load('wh_stickers',[]),stickerCats:load('wh_sticker_cats',[]),
     notes:{},diary:{},favs:{},arts:{},summarks:{},memHistories:{},memSummaryBases:{},memOrgCfg:{},rawMarks:{},rawLogs:{},shapeHistory:{},world:load('wh_world',[]),
     /* 【新】歌单清单（歌名/歌手/链接；音频文件本身不进备份） */
@@ -12189,6 +12245,8 @@ function importBackupGroupData(d){
    这些字段是后来才加进备份文件的；老备份里没有，就当作不用还原。 */
 function importBackupExtraData(d){
   if(!d)return;
+  /* 【新增】面具。老备份没有这个字段时，保留本机现有面具。 */
+  if(Array.isArray(d.masks))save(LS.masks,d.masks);
   if(d.acts)save('wh_acts',d.acts);
   if(d.actMsgs)Object.keys(d.actMsgs).forEach(k=>{if(d.actMsgs[k])save('wh_actmsg_'+k,d.actMsgs[k])});
   /* 【新增】「谁是卧底」的对局记录（含赛后聊天）。老备份里没有这个字段，就不动本机现有的。 */
@@ -12354,6 +12412,7 @@ function storageNameOf(k){
   if(k==='wh_sticker_cats')return '表情分类';
   if(k==='wh_chars')return '角色设定';
   if(k==='wh_cfg')return '设置';
+  if(k==='wh_masks')return '面具';
   if(k==='wh_moments')return '朋友圈';
   if(k==='wh_arcs')return '档案列表';
   if(k.indexOf('wh_p5_art_')===0)return '画册';
@@ -13731,7 +13790,7 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-20 */
+   最后更新：2026-10-21 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
@@ -13747,6 +13806,11 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 角色设置新增“允许角色自己塑形”，默认关闭。打开后，角色可以修改自己的文字人设、情境/世界观、说话风格、开场白、对话示例，以及记忆页的“我是谁”核心设定、时间线、长期总结、偏好与认知、性格与习惯；可以新增、修改或删除普通记忆条目。塑形还支持给名字添加、替换或清空后缀，例如原名“大白”可以变成“大白_吃骨头”，但不能把名字主体改成“大黑”。emoji、头像、模型、额外系统提示和所有权限/运行开关都不能改。
 每次塑形都会保存修改前和修改后的文字、时间、角色与原因。桌面第二页的「塑形」应用可以按角色查看这些记录并撤销某一次改动；如果同一项之后又被改过，撤销前会明确提醒会覆盖较新的内容。撤销名字后缀时也会恢复原来的完整名字。撤销本身也会留下记录。
 
+【最近更新 · 2026-10-21】
+新增「面具」：她可以为同一个人保存多份不同的身份，每份都可以写面具名字、性别、人设、说话方式、外貌。桌面第二页新增「面具管理」应用，可以新建、编辑和删除面具，并看到每份面具正在被几个角色使用。
+在桌面第二页打开「面具管理」，每张面具下面有「分配角色」。点进去勾选要让这张面具生效的角色，再点保存即可。一个角色同一时间只使用一张面具，改选别张面具会替换原来的；取消勾选会恢复使用「我的资料」。聊天页右上角现在不再显示面具按钮。
+角色选着面具聊天时，会把面具里的名字、性别、人设、说话方式和外貌当成她此刻主动呈现的身份；有冲突时以面具为准。角色不应该主动拆穿，也不应该把“面具、扮演、设定”这些词说出来。聊天记录里如果出现切换面具以前的名字或性别，角色只把它当作共同经历，不会反过来套到她现在的身份上。删除正在使用的面具后，使用它的角色会自动切回原本的我的资料。面具会跟着「数据与备份」一起导出和恢复。
+
 【上次更新 · 2026-10-18】
 新增桌面应用「洄游」：它记录角色在聊天窗口外亲身经历的事，以角色自己为“我”。每个角色可以设置每条新记录都处理、累积到指定条数处理、每天固定时间处理，或默认关闭。主聊天先收到摘要，角色自己决定看哪些详情，也可以不回复。经历记录页可以只看某一个角色；每个角色还能单独选择自己能看见游戏、番外、塔罗、分身中的哪些类型。还新增「角色分身窗口」：每个分身有独立聊天和工具权限，默认复制本体人设与记忆快照，也可选择参考主窗口完整上下文；分身用 MCP 的活动可按日总结进洄游，主角色自己用 MCP 不会重复记录。分身会像普通角色一样显示在「角色」应用里，并标注“分身”和本体。
 
@@ -13761,12 +13825,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 桌面最底下有一条 Dock，只有三个图标：聊天、角色、设置。
 点任意图标就打开对应的应用；进了应用以后，左上角的「‹」是返回桌面。
 第一页图标分别是：我的资料、待办、群聊、朋友圈、小工具、音乐、游戏、MCP、创意、互动、演绎、世界书、番外、洄游、主题、记忆宫殿。
-第二页现在是「潮汐」和「塑形」。潮汐专门查看和管理所有自动消息的时机，图标上可能出现小红点，表示 10 分钟内有任务即将触发或已经到点；塑形用来看角色改过自己的哪些文字，并能撤销。
+第二页现在是「潮汐」「塑形」和「面具管理」。潮汐专门查看和管理所有自动消息的时机，图标上可能出现小红点，表示 10 分钟内有任务即将触发或已经到点；塑形用来看角色改过自己的哪些文字，并能撤销；面具管理用来保存她在不同角色面前使用的身份。
 
 【聊天（点 Dock 上的「聊天」，或点桌面上那个圆形头像）】
 底部输入框打字发送；左下角「＋」可以发图片、发文件。
 如果聊天模型不能直接看图，可以在角色设置的「看图模型」里填一个支持图片的模型（例如 deepseek-v4.1-flash）。发图后，系统先让看图模型把画面和文字读成一段文字说明，再交给原来的聊天模型继续聊。这属于「视觉转述 / 多模态识图」，不只是 OCR；OCR 通常只会抄文字，看图模型还能描述人物、动作、场景和界面。
-顶栏左边「‹」是回桌面；右上角放大镜是查找聊天记录；「⋯」是打开这个角色的设定（人设、权限、记忆都在里面）。
+顶栏左边「‹」是回桌面；右上角放大镜是查找聊天记录；「⋯」是打开这个角色的设定（人设、权限、记忆都在里面）。这个角色使用面具时，标题下方的状态行会显示“面具 · 面具名”；要换面具或取消面具，去桌面第二页的「面具管理 → 分配角色」。
 想改「快答 / 正常 / 深想」，要去角色设定里改——聊天页顶上那排按钮已经取消了，别让她去找。
 生成的时候可以点「停止」；也能让角色重说一遍、换一个版本。
 
@@ -13779,6 +13843,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 待办：角色能帮你加、勾选清单，到点还会主动发消息提醒你。
 · 群聊：把好几个角色拉进一个群一起聊，角色会记得自己在群里说过的话。
 · 潮汐：第二页的自动消息总管。按角色和来源查看私聊自动消息、群聊自动冒泡、待办提醒、延迟回复、洄游处理、分身每日总结，以及“角色安排”的消息和总结；能暂停来源、跳过下一次、取消某次任务、现在执行，并查看最近实际发出去的自动消息。角色设置里单独打开“允许角色自己控制潮汐”后，它才能自己查看和管理自己的排期。
+· 面具管理：第二页的独立应用。可以保存多份面具，每份写名字、性别、人设、说话方式、外貌；点每张面具下面的「分配角色」，勾选想让这张面具生效的角色。删除面具后，正在用它的角色会恢复成读取「我的资料」。
 · 朋友圈：角色自己发动态，你可以点赞、评论。
 · 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
 · 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。
@@ -13818,12 +13883,14 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【设置里还有什么】
 接口（地址、Key、默认模型、温度、最多写多少字）、记忆相关设置、我的资料（名字、性别、备注，还有「我的状态」；角色都能看到，性别会影响角色怎么称呼你）、外观（主题、字体、字号、锁屏、背景图）、待办提醒（提示音、振动）、隐私角色（设密码后列表里藏起来，进去要再输一次密码）、画图、联网搜索、表情包、数据与备份（导出／导入备份，可加密，也能自动备份到文件）、开发者模式、显示思考过程、自动全屏等。
+面具也存在本机，并且包含在导出备份里；换手机导入新备份后，面具和每个角色各自的选择都会一起恢复。
 
 【新手最常问的几件事】
 · 怎么新建角色：点桌面 Dock 上的「角色」→ 最上面「＋ 新建角色」，填人设和开场白，保存。
 · 怎么让它主动找我说话：点角色卡片右上角 ✎ → 自动发消息，打开并设间隔。
 · 怎么让角色自己安排以后的消息：点角色卡片右上角 ✎ → 打开“允许角色自己控制潮汐”，保存。以后可以直接对它说“一小时后按你现在想好的文案发给我”，或者“一小时后去我那边看看，到时候再想说什么”。第二种只保存目的，不写死文案。它还能改时间、改文案、暂停、取消，或安排分身 MCP 总结和洄游处理；这些都会出现在潮汐里，用户可以随时取消。
 · 怎么让角色自己修改人设、记忆或名字后缀：点角色卡片右上角 ✎ → 打开“允许角色自己塑形”并保存。以后明确让它改人设、改说话方式、把重要事情记进记忆，或者说“给名字加个后缀”；它每次修改都会保存旧版本。去桌面第二页的「塑形」可以查看原因和前后内容，并撤销某一次改动。名字主体、权限、头像、模型和额外系统提示不会开放给它改。
+· 怎么给不同角色使用不同面具：去桌面第二页的「面具管理」新建并填写面具；点这张面具下面的「分配角色」，勾选要让面具生效的角色，再保存。想让某个角色恢复成原来的自己，就在同一张面具的分配列表里取消勾选它。聊天页右上角没有面具按钮。
 · 怎么看它什么时候会自动发消息：在桌面空白处向左滑到第二页，点「潮汐」；也可以按角色或触发方式筛选。私聊、群聊、提醒和延迟回复有具体时间，洄游按条件或固定时间处理。
 · 怎么不让某条自动消息发出：去「潮汐」，私聊或群聊可以点「跳过这次」或暂停这类来源；待办提醒和延迟回复可以取消那一次；洄游可以暂停处理。涉及立即调用接口的「现在发一条」会先询问，可能产生费用。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
@@ -13840,16 +13907,16 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=34;  /* 34：可调每轮长期总结段数；33：整理分组排序、已整理标记、额外要求与可见范围 */
+const GUIDE_VER=36;  /* 36：面具改为在面具管理里分配角色，聊天页移除面具按钮；35：新增多面具 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
 function makeGuideChar(){
   return {id:uid(),name:'引导者',emoji:'🧭',avatar:'',
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
-    persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」和「塑形」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。',
+    persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -23859,6 +23926,7 @@ var G={
 ,'idea':'<path d="M9.3 16.9h5.4"/><path d="M10 19.6h4"/><path d="M12 3.5a5.5 5.5 0 0 0-3.3 9.9c.4.3.6.7.6 1.1v.6h5.4v-.6c0-.4.2-.8.6-1.1A5.5 5.5 0 0 0 12 3.5Z"/>'
   ,tide:'<path d="M3.7 9.2c2.1 0 2.1 1.8 4.2 1.8s2.1-1.8 4.2-1.8 2.1 1.8 4.2 1.8 2.1-1.8 4.2-1.8"/><path d="M3.7 14.2c2.1 0 2.1 1.8 4.2 1.8s2.1-1.8 4.2-1.8 2.1 1.8 4.2 1.8 2.1-1.8 4.2-1.8"/><path d="M6.2 4.8c1.9-1.5 4.2-2.1 6.3-1.7"/>'
   ,shape:'<path d="M5.1 16.9c0-3.2 3.1-5.8 6.9-5.8s6.9 2.6 6.9 5.8c0 1.9-3.1 3.2-6.9 3.2s-6.9-1.3-6.9-3.2Z"/><path d="M7.4 10.6c1.2-3.1 3-4.7 5.3-4.7 2.2 0 4.1 1.4 5.6 4"/><path d="m8.9 8.2-1.7-2.7M15.4 7.6l1.8-2.5"/>'
+  ,mask:'<path d="M3.2 9.2C5 7.1 7.5 6.4 10 7.4L12 8.3L14 7.4C16.5 6.4 19 7.1 20.8 9.2C20.5 12 18.4 14.5 15.8 16C14.8 17 13.7 18.3 12 19C10.3 18.3 9.2 17 8.2 16C5.6 14.5 3.5 12 3.2 9.2Z"/><path d="M6.5 9.7C7.6 8.9 8.9 9 10 9.9C8.9 10.6 7.6 10.5 6.5 9.7Z"/><path d="M17.5 9.7C16.4 8.9 15.1 9 14 9.9C15.1 10.6 16.4 10.5 17.5 9.7Z"/><path d="M4.4 2.6L5.1 4.4L6.9 5.1L5.1 5.8L4.4 7.6L3.7 5.8L1.9 5.1L3.7 4.4Z"/><path d="M19 17.6L19.5 18.8L20.7 19.3L19.5 19.8L19 21L18.5 19.8L17.3 19.3L18.5 18.8Z"/>'
 };
 /* 状态栏右边的小图标（纯装饰） */
 var SIG='<svg class="f" viewBox="0 0 24 24"><rect x="3.2" y="13.4" width="3.2" height="6" rx="1"/><rect x="8.4" y="10.2" width="3.2" height="9.2" rx="1"/><rect x="13.6" y="7" width="3.2" height="12.4" rx="1"/><rect x="18.8" y="3.8" width="3.2" height="15.6" rx="1"/></svg>';
@@ -23889,7 +23957,8 @@ var GRID=[
 ];
 var GRID2=[
   {k:'tide',  n:'潮汐',     g:'tide',   c:'#0E7490'},
-  {k:'shape', n:'塑形',     g:'shape',  c:'#C66BFF'}
+  {k:'shape', n:'塑形',     g:'shape',  c:'#C66BFF'},
+  {k:'mask',  n:'面具管理', g:'mask',   c:'#D68A27'}
 ];
 var DOCK=[
   {k:'chat',  n:'聊天', g:'chat', c:'#34C759'},
@@ -24361,6 +24430,11 @@ function open2(k){
   if(k==='shape'){
     try{if(window.SHAPE)SHAPE.open();else throw new Error('塑形模块没加载')}
     catch(e){try{alert('打不开塑形：'+((e&&e.message)||e))}catch(e2){}}
+    return;
+  }
+  if(k==='mask'){
+    try{if(window.MASKAPP)MASKAPP.open();else throw new Error('面具模块没加载')}
+    catch(e){try{alert('打不开面具管理：'+((e&&e.message)||e))}catch(e2){}}
     return;
   }
   try{if(W.openApp)W.openApp(k)}catch(e){}
@@ -25722,6 +25796,204 @@ W.SHAPE={
   refresh:function(){renderShape()},
   filter:function(v){S.filter=String(v||'all');renderShape()},
   undo:undoShape
+};
+})();
+
+/* ---------- ⑦-a2 面具：保存多份身份，并给不同角色分别选用 ---------- */
+(function(){
+var MS={editing:null,assigning:null};
+function maskRoot(){return D.getElementById('maskRoot')}
+function assignableChars(){
+  try{return (chars||[]).filter(function(c){return c&&(!c.priv||c.id===curId)})}catch(e){return []}
+}
+function maskSheetTop(){
+  var put=function(){
+    try{var sh=D.getElementById('sheet');if(sh)sh.scrollTop=0}catch(e){}
+  };
+  put();
+  try{if(typeof requestAnimationFrame==='function')requestAnimationFrame(put)}catch(e){}
+}
+function injectMaskCSS(){
+  if(D.getElementById('maskCSS'))return;
+  var st=D.createElement('style');st.id='maskCSS';
+  st.textContent=[
+    '#maskRoot{min-height:100%;padding-bottom:calc(env(safe-area-inset-bottom) + 20px)}',
+    '.mask-shell{display:flex;flex-direction:column;gap:12px;max-width:680px;margin:0 auto}',
+    '.mask-head{display:flex;align-items:flex-start;gap:10px;padding:2px 2px 0}.mask-head .mask-close,.mask-head .mask-add{width:38px;height:38px;flex:0 0 38px;border-radius:50%;border:1px solid var(--line);background:var(--bg2);color:var(--txt);font-size:22px;line-height:1;padding:0;box-shadow:none}.mask-head .mask-add{color:var(--acc);font-size:24px}.mask-title{flex:1;min-width:0}.mask-title h2{margin:0;font-size:24px;letter-spacing:1px}.mask-title p{margin:4px 0 0;font-size:11.5px;color:var(--dim);line-height:1.6}',
+    '.mask-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mask-sum{padding:13px;border-radius:17px;background:linear-gradient(145deg,var(--accdim),var(--panel));border:1px solid var(--line)}.mask-sum small{display:block;font-size:10.5px;color:var(--dim);margin-bottom:4px}.mask-sum b{font-size:18px}',
+    '.mask-list{display:flex;flex-direction:column;gap:9px}.mask-card{padding:14px;border-radius:18px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}.mask-card-top{display:flex;align-items:flex-start;gap:8px}.mask-card-name{flex:1;min-width:0}.mask-card-name b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mask-gender{display:inline-flex;border:1px solid var(--accline);background:var(--accdim);color:var(--acc);border-radius:999px;padding:2px 7px;font-size:10px;margin-top:5px}.mask-used{flex:0 0 auto;color:var(--dim);font-size:10.5px;line-height:1.6;text-align:right}',
+    '.mask-snippet{margin:9px 0 0;font-size:12.5px;line-height:1.65;color:var(--txt);white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.mask-mini{margin:7px 0 0;font-size:11.5px;line-height:1.6;color:var(--dim);overflow-wrap:anywhere}.mask-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px;margin-top:10px}.mask-actions button,.mask-empty button{border:1px solid var(--line);background:var(--bg2);color:var(--txt);border-radius:11px;padding:7px 11px;font-size:11.5px;box-shadow:none}.mask-actions button.primary{border-color:var(--acc);background:var(--accdim);color:var(--acc)}.mask-actions button.warn{color:var(--warn);border-color:var(--warn)}',
+    '.mask-form{padding:14px;border-radius:18px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}.mask-form label{display:block;font-size:12px;font-weight:600;color:var(--dim);margin:11px 0 5px}.mask-form label:first-child{margin-top:0}.mask-form input,.mask-form select,.mask-form textarea{width:100%;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line);border-radius:13px;color:var(--txt);padding:10px 11px;font:inherit;font-size:13px}.mask-form textarea{min-height:96px;resize:vertical;line-height:1.6}.mask-form-actions{display:flex;gap:8px;margin-top:13px}.mask-form-actions button{flex:1;border-radius:13px;padding:10px;box-shadow:none}.mask-form-actions .save{border:1px solid var(--acc);background:var(--accdim);color:var(--acc);font-weight:700}.mask-form-actions .cancel{border:1px solid var(--line);background:var(--bg2);color:var(--txt)}',
+    '.mask-empty{padding:30px 16px;text-align:center;border:1px dashed var(--line);border-radius:18px;color:var(--dim);font-size:12.5px;line-height:1.9;background:var(--bg2)}',
+    '.mask-tip{padding:10px 12px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);font-size:11.5px;line-height:1.7}',
+    '.mask-assign{padding:14px;border-radius:18px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow)}.mask-role-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}.mask-role{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--line);border-radius:14px;background:var(--bg2);cursor:pointer}.mask-role.on{border-color:var(--acc);background:var(--accdim)}.mask-role input{width:18px;height:18px;flex:0 0 18px;margin:0;accent-color:var(--acc)}.mask-role-av{width:34px;height:34px;flex:0 0 34px;border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--panel);font-size:20px}.mask-role-av img{width:100%;height:100%;object-fit:cover}.mask-role-main{flex:1;min-width:0}.mask-role-main b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mask-role-main small{display:block;margin-top:3px;font-size:10.5px;line-height:1.45;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    'html[data-home="glass"] .mask-card,html[data-home="glass"] .mask-form,html[data-home="glass"] .mask-sum,html[data-home="glass"] .mask-assign{background:linear-gradient(150deg,rgba(255,255,255,.24),rgba(255,255,255,.09));border:0;box-shadow:0 8px 24px rgba(0,0,0,.12),inset 0 .8px 0 rgba(255,255,255,.35)}'
+  ].join('\n');
+  (D.head||D.documentElement).appendChild(st);
+}
+function useCount(id){
+  try{return (chars||[]).filter(function(c){return c&&c.maskId===id}).length}catch(e){return 0}
+}
+function cardHTML(m){
+  var n=useCount(m.id);
+  return '<div class="mask-card"><div class="mask-card-top"><div class="mask-card-name"><b>'+esc(m.name||'未命名面具')+
+    '</b>'+(m.gender?('<span class="mask-gender">'+esc(m.gender)+'</span>'):'')+
+    '</div><span class="mask-used">'+(n?('正在使用<br>'+n+' 个角色'):'没有被角色<br>使用')+'</span></div>'+
+    (m.persona?('<p class="mask-snippet">'+esc(m.persona)+'</p>'):'<p class="mask-snippet" style="color:var(--dim)">还没有写人设</p>')+
+    (m.speech?('<p class="mask-mini">说话方式：'+esc(m.speech)+'</p>'):'')+
+    (m.appearance?('<p class="mask-mini">外貌：'+esc(m.appearance)+'</p>'):'')+
+    '<div class="mask-actions"><button type="button" class="primary" onclick="MASKAPP.assign(\''+esc(m.id)+'\');return false">分配角色</button>'+
+    '<button type="button" onclick="MASKAPP.edit(\''+esc(m.id)+'\');return false">编辑</button>'+
+    '<button type="button" class="warn" onclick="MASKAPP.remove(\''+esc(m.id)+'\');return false">删除</button></div></div>';
+}
+function editorHTML(m){
+  m=m||{name:'',gender:'',persona:'',speech:'',appearance:''};
+  var g=m.gender||'';
+  return '<div class="mask-form"><label for="mask_name">面具名字</label><input id="mask_name" maxlength="80" value="'+esc(m.name||'')+'" placeholder="比如：貌美贤惠的学哥、高冷的女性侦探">'+
+    '<label for="mask_gender">性别</label><select id="mask_gender">'+
+      ['','女','男','其他'].map(function(x){return '<option value="'+x+'"'+(g===x?' selected':'')+'>'+(x||'跟随我的资料')+'</option>'}).join('')+
+    '</select>'+
+    '<label for="mask_persona">人设</label><textarea id="mask_persona" maxlength="8000" placeholder="这个身份是谁、性格怎样、和角色是什么关系">'+esc(m.persona||'')+'</textarea>'+
+    '<label for="mask_speech">说话方式</label><textarea id="mask_speech" maxlength="4000" placeholder="用词、语气、口头禅、标点习惯……">'+esc(m.speech||'')+'</textarea>'+
+    '<label for="mask_appearance">外貌</label><textarea id="mask_appearance" maxlength="4000" placeholder="长相、发型、穿着、气质……角色可以知道这些，但不会自动看见">'+esc(m.appearance||'')+'</textarea>'+
+    '<div class="mask-form-actions"><button class="cancel" type="button" onclick="MASKAPP.cancel()">取消</button><button class="save" type="button" onclick="MASKAPP.save()">保存面具</button></div></div>';
+}
+function assignmentHTML(m){
+  var cs=assignableChars();
+  var rows=cs.map(function(c,i){
+    var cur=maskForChar(c),on=!!(cur&&cur.id===m.id);
+    var state=on?'当前：这张面具':(cur?('当前：'+cur.name+'（勾选会替换）'):'当前：不使用面具');
+    var face=c.avatar?('<img src="'+esc(c.avatar)+'" alt="">'):esc(c.emoji||'🙂');
+    return '<label class="mask-role'+(on?' on':'')+'"><input type="checkbox" id="mask_role_'+i+'" '+(on?'checked':'')+'>'+
+      '<span class="mask-role-av">'+face+'</span><span class="mask-role-main"><b>'+
+      esc((c.name||'角色')+(c.branchOf?' · 分身':''))+'</b><small>'+esc(state)+'</small></span></label>';
+  }).join('');
+  return '<div class="mask-assign"><div class="mask-tip">勾选要让「'+esc(m.name||'这张面具')+'」生效的角色。一个角色同一时间只使用一张面具；改选别张会替换，取消勾选会恢复使用「我的资料」。</div>'+
+    '<div class="mask-role-list">'+(rows||'<div class="mask-empty">现在没有可以分配的角色。</div>')+'</div>'+
+    '<div class="mask-form-actions"><button class="cancel" type="button" onclick="MASKAPP.cancel()">取消</button>'+
+    '<button class="save" type="button" onclick="MASKAPP.assignSave()">保存分配</button></div></div>';
+}
+function renderManager(){
+  var r=maskRoot();if(!r)return;
+  var list=masksAll();
+  var used=0;try{used=(chars||[]).filter(function(c){return c&&maskForChar(c)}).length}catch(e){}
+  var assigning=MS.assigning?list.find(function(x){return x.id===MS.assigning}):null;
+  if(MS.assigning&&!assigning)MS.assigning=null;
+  var sub=MS.editing!==null||MS.assigning!==null;
+  var title='面具管理',subtitle='保存多份身份，再在每张面具的「分配角色」里选择给哪些角色使用。';
+  var body='';
+  if(MS.editing!==null){
+    title=MS.editing==='new'?'新建面具':'编辑面具';
+    subtitle='名字必填；其余内容可以以后慢慢补。';
+    body=editorHTML(MS.editing==='new'?null:list.find(function(x){return x.id===MS.editing}));
+  }else if(assigning){
+    title='分配角色';
+    subtitle='选择要让「'+assigning.name+'」生效的角色。';
+    body=assignmentHTML(assigning);
+  }else{
+    body='<div class="mask-summary"><div class="mask-sum"><small>保存的面具</small><b>'+list.length+' 份</b></div><div class="mask-sum"><small>正在使用的角色</small><b>'+used+' 个</b></div></div>'+
+      '<div class="mask-tip">先写面具，再点面具下面的「分配角色」勾选角色。一个角色同一时间只使用一张面具；取消勾选会恢复使用「我的资料」。聊天页不再显示面具按钮。</div>'+
+      '<div class="mask-list">'+(list.length?list.map(cardHTML).join(''):'<div class="mask-empty">还没有面具。<br>点右上角「＋」先写一份。</div>')+'</div>';
+  }
+  r.innerHTML='<div class="mask-shell"><div class="mask-head"><button class="mask-close" type="button" onclick="'+(sub?'MASKAPP.cancel()':'MASKAPP.close()')+'" aria-label="'+(sub?'返回面具列表':'返回')+'">‹</button>'+
+    '<div class="mask-title"><h2>'+esc(title)+'</h2><p>'+esc(subtitle)+'</p></div>'+
+    (!sub?'<button class="mask-add" type="button" onclick="MASKAPP.edit(\'\')" aria-label="新建面具">＋</button>':'')+
+    '</div>'+body+'</div>';
+  maskSheetTop();
+}
+function openManager(){
+  injectMaskCSS();
+  MS.editing=null;MS.assigning=null;
+  showSheet('<div id="maskRoot"></div>',true);
+  try{var md=D.getElementById('modal');if(md)md.classList.add('nox')}catch(e){}
+  sheetFull(true);
+  renderManager();
+}
+function assignMask(id){
+  try{
+    var m=masksAll().find(function(x){return x.id===id});
+    if(!m){toast('这张面具找不到了，请返回后刷新页面');return}
+    MS.editing=null;MS.assigning=id;renderManager();
+  }catch(e){
+    try{toast('打不开角色分配：'+((e&&e.message)||e))}catch(e2){}
+  }
+}
+function saveAssignment(){
+  var id=MS.assigning;
+  var m=masksAll().find(function(x){return x.id===id});
+  if(!m){MS.assigning=null;renderManager();return}
+  var cs=assignableChars(),changed=0;
+  cs.forEach(function(c,i){
+    var box=D.getElementById('mask_role_'+i);
+    var on=!!(box&&box.checked);
+    if(on){
+      if(c.maskId!==id){c.maskId=id;changed++}
+    }else if(c.maskId===id){
+      c.maskId='';changed++;
+    }
+  });
+  if(changed){
+    save(LS.chars,chars);
+    try{scheduleBackup()}catch(e){}
+  }
+  MS.assigning=null;
+  renderManager();
+  try{if(view==='chat')draw()}catch(e){}
+  toast(changed?'角色分配已保存':'角色分配没有变化');
+}
+function saveMask(){
+  var g=function(id){var el=D.getElementById(id);return el?String(el.value||'').trim():''};
+  var name=g('mask_name');
+  if(!name){alert('先给面具写一个名字');return}
+  var list=masksAll();
+  var old=MS.editing&&MS.editing!=='new'?list.find(function(x){return x.id===MS.editing}):null;
+  var rec={
+    id:old?old.id:('mk'+uid()),
+    name:name.slice(0,80),
+    gender:g('mask_gender'),
+    persona:g('mask_persona').slice(0,8000),
+    speech:g('mask_speech').slice(0,4000),
+    appearance:g('mask_appearance').slice(0,4000),
+    createdAt:(old&&old.createdAt)||Date.now(),
+    updatedAt:Date.now()
+  };
+  if(old)list=list.map(function(x){return x.id===old.id?rec:x});
+  else list.unshift(rec);
+  save(LS.masks,list);
+  try{scheduleBackup()}catch(e){}
+  MS.editing=null;MS.assigning=null;
+  renderManager();
+  try{if(view==='chat')draw()}catch(e){}
+  toast(old?'面具已更新':'面具已保存');
+}
+function removeMask(id){
+  var m=maskForChar({maskId:id});
+  if(!m)return;
+  var n=useCount(id);
+  if(!confirm('删除面具「'+m.name+'」吗？'+(n?('\n\n有 '+n+' 个角色正在使用它，删除后这些角色会切回原本的我的资料。'):'')))return;
+  save(LS.masks,masksAll().filter(function(x){return x.id!==id}));
+  var changed=false;
+  (chars||[]).forEach(function(c){if(c&&c.maskId===id){c.maskId='';changed=true}});
+  if(changed)save(LS.chars,chars);
+  if(MS.assigning===id)MS.assigning=null;
+  try{scheduleBackup()}catch(e){}
+  renderManager();
+  try{if(view==='chat')draw()}catch(e){}
+  toast('面具已删除');
+}
+function closeManager(){
+  closeSheet();
+  try{if(view==='chat')draw()}catch(e){}
+}
+window.MASKAPP={
+  open:openManager,
+  close:closeManager,
+  edit:function(id){MS.assigning=null;MS.editing=id||'new';renderManager()},
+  assign:assignMask,
+  assignSave:saveAssignment,
+  cancel:function(){MS.editing=null;MS.assigning=null;renderManager()},
+  save:saveMask,
+  remove:removeMask
 };
 })();
 
