@@ -3874,6 +3874,38 @@ function execMemTool(args,cid){
   return {ok:true,msg:'在你的记忆里翻到这些（都是真实发生过的，别把没翻到的也当成记得）：\n'+r.picked.map(p=>p.seg).join('\n\n')};
 }
 window.execMemTool=execMemTool;
+var SUMMARY_LIST_TOOL={type:'function',function:{
+  name:'list_long_summaries',
+  description:'直接列出你已经保存的「长期聊天记录总结」，不做相似度搜索。用户问你能不能看见长期总结、要核对总共有几段、或要逐段检查内容时用这个工具；不要用 search_memory 代替这个列表操作。',
+  parameters:{type:'object',properties:{
+    count:{type:'integer',description:'列几段，默认 20，最多 100'},
+    order:{type:'string',enum:['new','old'],description:'new＝最近的在前，old＝最早的在前'}
+  }}
+}};
+window.SUMMARY_LIST_TOOL=SUMMARY_LIST_TOOL;
+function execSummaryList(args,cid){
+  let c=null;try{c=chars.find(x=>x.id===cid)||curChar()}catch(e){}
+  if(!c)return {ok:false,msg:'找不到角色，这次先不读取总结。'};
+  const M=memDataForId(c.id);
+  const all=Array.isArray(M.summaries)?M.summaries:[];
+  if(!all.length)return {ok:true,msg:'你的「长期聊天记录总结」现在是 0 段。'};
+  const n=Math.max(1,Math.min(100,parseInt(args&&args.count,10)||20));
+  const order=String((args&&args.order)||'new')==='old'?'old':'new';
+  const rows=all.map((x,i)=>({x:x,i:i}));
+  rows.sort((a,b)=>order==='old'?(a.i-b.i):(b.i-a.i));
+  const show=rows.slice(0,n);
+  const body=show.map(o=>{
+    const x=o.x||{};
+    const src=(x.from!=null&&x.to!=null)
+      ?((x.arcId?('《'+(x.arcName||'历史档案')+'》第 '):('聊天第 '))+(x.from+1)+'~'+(x.to+1)+' 条')
+      :'来源未记录';
+    const when=x.t?(' · '+fmtStamp(x.t)):'';
+    return '【第 '+(o.i+1)+' 段 · '+src+when+'】\n'+String(x.text||'') ;
+  }).join('\n\n');
+  return {ok:true,msg:'你的「长期聊天记录总结」一共有 '+all.length+' 段；这次按'+(order==='old'?'最早':'最近')+
+    '顺序列出 '+show.length+' 段。以下是总结本身，不是原始聊天：\n\n'+body};
+}
+window.execSummaryList=execSummaryList;
 
 /* ---------- 角色的「直接翻某个标签」工具 ---------- */
 /* 把角色嘴里说的标签名，对到本机真实存在的标签上（只认这个角色看得见的标签）。
@@ -5339,7 +5371,8 @@ function memBlock(m,self){
     const shown=Math.min(sn,m.summaries.length);
     L.push((self?'【我记住的聊天总结 · 已加载】':'【长期聊天记录总结 · 已加载】')+
       '\n下面是已经放进你眼前记忆的最近 '+shown+' 段（一共有 '+m.summaries.length+' 段；这些不是需要你另外搜索的外部资料）：\n'+
-      pk(m.summaries,sn));
+      pk(m.summaries,sn)+
+      (palaceToolOn()?'\n（用户要你核对总数或逐段列出时，调用 list_long_summaries；不要用 search_memory 代替列表。）':''));
   }
   if(m.prefs&&m.prefs.length)L.push((self?'【我的偏好和想法】':'【偏好与认知】')+'\n'+pk(m.prefs,20));
   if(m.habits&&m.habits.length)L.push((self?'【我的性格和习惯】':'【性格与习惯】')+'\n'+pk(m.habits,15));
@@ -13874,6 +13907,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 自动总结现在会做近似去重，并且只有保存成功后才把进度记号向前移；整理失败时原始聊天仍然完整保留。
 「记忆整理」里的聊天和历史档案按来源分组显示，可以切换最新在前 / 最早在前；✓ 表示整理过，◐ 表示整理过一部分。选中一段后，可以填写额外的整理要求，并细调角色整理时是否能看见人设、情境、说话风格、原本记忆区域（核心、总结、时间线、偏好、习惯）和额外近期聊天；数量都可以单独设置。可见范围设置会跟角色一起保存并进入备份。
 普通聊天每轮自动带入多少段「长期聊天记录总结」现在可以调。入口在角色编辑 → 记忆 →「聊天记录与总结」，或设置 →「记忆注入」；范围 0～100，默认 10，0 表示暂不自动带，设置超过现有段数时会把现有的全部带上。search_memory 是相关性搜索，不会保证把全部总结一次列出；自动带入和搜索是两套机制。
+角色还有一个只读工具 list_long_summaries，专门直接列出长期聊天记录总结的段数、顺序和来源，不做相似度搜索。用户要求核对「一共有几段」「逐段列出来」「你到底能不能看见总结」时，应该用它，不要拿 search_memory 搜到的原始对话冒充总结。
 
 【我的状态（在「我的资料」里）】
 打开桌面 Dock 上的「我的资料」，最下面有一块「我的状态」：
@@ -13907,7 +13941,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=36;  /* 36：面具改为在面具管理里分配角色，聊天页移除面具按钮；35：新增多面具 */
+const GUIDE_VER=37;  /* 37：长期总结可直接逐段列出；36：面具改在面具管理里分配角色 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -17343,6 +17377,7 @@ execCharTool=function(name,args,cid){
     else if(GROUP_TOOLS.some(function(t){return t.function.name===name}))r=execGroupTool(name,args,cid);
     /* ↓ 记忆宫殿：角色自己去翻旧记忆 */
     else if(name==='search_memory')r=execMemTool(args,cid);
+    else if(name==='list_long_summaries')r=execSummaryList(args,cid);
     /* ↓ 记忆宫殿：角色直接翻某个标签下的内容 */
     else if(name==='read_tag')r=execTagTool(args,cid);
     else r={ok:false,msg:'未知工具'};
@@ -18264,7 +18299,7 @@ function toolStatText(name){
     create_page:'正在生成创意…', read_page:'正在查看创意代码…', update_page:'正在修改创意…',
     send_sticker:'正在发表情…', post_moment:'正在发朋友圈…', music_control:'正在操作音乐…',
     invite_game:'正在邀请你玩游戏…', draw_image:'正在画图…', toy:'正在玩点小东西…',
-    add_todo:'正在记待办…', search_memory:'正在翻旧记忆…', read_tag:'正在按标签翻记忆…'
+    add_todo:'正在记待办…', search_memory:'正在翻旧记忆…', list_long_summaries:'正在读取长期总结…', read_tag:'正在按标签翻记忆…'
   };
   if(m[n])return m[n];
   if(n.indexOf('mcp_')===0)return '正在用外部工具…';
@@ -22438,6 +22473,7 @@ toolsFor=function(c){
   /* ↓ 记忆宫殿：让角色自己决定什么时候去翻旧记忆 */
   try{
     if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.MEM_TOOL)t.push(window.MEM_TOOL);
+    if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.SUMMARY_LIST_TOOL)t.push(window.SUMMARY_LIST_TOOL);
     if(typeof palaceToolOn==='function'&&palaceToolOn()&&window.TAG_TOOL)t.push(window.TAG_TOOL);
   }catch(e){}
   /* ↓ 创意：让她给你做一个小网页 / 小游戏，做好收进桌面的「创意」应用里；
