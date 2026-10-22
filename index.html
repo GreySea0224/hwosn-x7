@@ -7890,7 +7890,7 @@ async function delChar(id){
   clearUnread(id);
   removeKey(LS.msg(id));removeKey(LS.mem(id));removeKey(LS.todo(id));removeKey(LS.rawMark(id));removeKey(LS.summark(id));removeKey(LS.gmem(id));
   /* 这些是后来加的角色数据，以前删角色没清，会一直留在本地占地方 */
-  removeKey('wh_p4_note_'+id);removeKey('wh_p4_diary_'+id);removeKey('wh_p5_fav_'+id);removeKey('wh_p5_art_'+id);
+  removeKey('wh_p4_note_'+id);removeKey('wh_p4_diary_'+id);removeKey('wh_p4_diary_private_'+id);removeKey('wh_p5_fav_'+id);removeKey('wh_p5_art_'+id);
   try{await idbDel(id,'rawlog')}catch(e){}
   try{await idbDel('records:'+id,'roam')}catch(e){}
   try{await idbDel('activity:'+id,'roam')}catch(e){}
@@ -7904,7 +7904,7 @@ async function delChar(id){
   for(const b of branchList){
     gone[b.id]=1;clearUnread(b.id);
     removeKey(LS.msg(b.id));removeKey(LS.mem(b.id));removeKey(LS.todo(b.id));removeKey(LS.rawMark(b.id));removeKey(LS.summark(b.id));removeKey(LS.gmem(b.id));
-    removeKey('wh_p4_note_'+b.id);removeKey('wh_p4_diary_'+b.id);removeKey('wh_p5_fav_'+b.id);removeKey('wh_p5_art_'+b.id);
+    removeKey('wh_p4_note_'+b.id);removeKey('wh_p4_diary_'+b.id);removeKey('wh_p4_diary_private_'+b.id);removeKey('wh_p5_fav_'+b.id);removeKey('wh_p5_art_'+b.id);
     try{await idbDel(b.id,'rawlog')}catch(e){}
     try{await idbDel('activity:'+b.id,'roam')}catch(e){}
     try{await idbDel('history:'+b.id,'shape')}catch(e){}
@@ -11563,6 +11563,9 @@ const VOCAB_TEST_FALLBACK=[
 ];
 let vocabBusy=false;
 let vocabBusyLabel='';
+/* 艾宾浩斯式间隔复习：每次记住就进入下一档，忘记就回到第一档。 */
+const VOCAB_REVIEW_DAYS=[1,2,4,7,15,30,60,120];
+let vocabReveal={};
 function vocabAll(){
   const v=load(VOCAB_LS,{});
   return v&&typeof v==='object'&&!Array.isArray(v)?v:{};
@@ -11969,17 +11972,66 @@ function vocabSaveSettings(){
   vocabRefresh();
   toast('背单词设置已保存');
 }
+function vocabReviewStageOf(entry){
+  if(!entry)return 0;
+  let stage=Math.round(Number(entry.stage));
+  if(Number.isFinite(stage))return Math.max(0,Math.min(VOCAB_REVIEW_DAYS.length-1,stage));
+  const last=Number(entry.lastAt)||0,next=Number(entry.nextReview)||0;
+  if(last&&next>last){
+    const days=(next-last)/86400000;
+    let best=0;
+    for(let i=1;i<VOCAB_REVIEW_DAYS.length;i++){
+      if(Math.abs(VOCAB_REVIEW_DAYS[i]-days)<Math.abs(VOCAB_REVIEW_DAYS[best]-days))best=i;
+    }
+    return best;
+  }
+  return 0;
+}
+function vocabNextReviewText(entry){
+  const next=Number(entry&&entry.nextReview)||0;
+  if(!next)return '还没安排复习';
+  const d=next-Date.now();
+  if(d<=0)return '今天该复习';
+  const days=Math.ceil(d/86400000);
+  if(days<=1)return '明天复习';
+  if(days<=30)return days+' 天后复习';
+  return new Date(next).toLocaleDateString('zh-CN')+' 复习';
+}
+function vocabReviewEntries(s){
+  const now=Date.now();
+  return Object.keys(s.learned||{}).map(key=>{
+    const e=s.learned[key];if(!e)return null;
+    const next=Number(e.nextReview)||((Number(e.lastAt)||now)+86400000);
+    return Object.assign({},e,{key:key,nextReview:next});
+  }).filter(e=>e&&e.nextReview<=now)
+    .sort((a,b)=>a.nextReview-b.nextReview);
+}
+/* 今日计划是否完成：计划里的每个词都已经点过「背会了」或「还不熟」。 */
+function vocabTodayPlanDone(s){
+  var words=(s&&Array.isArray(s.today&&s.today.words))?s.today.words:[];
+  var goal=Math.max(1,Number(s&&s.dailyGoal)||1);
+  if(words.length<goal)return false;
+  for(var i=0;i<goal;i++){if(!words[i]||typeof words[i].known!=='boolean')return false}
+  return true;
+}
 function vocabMark(idx,ok){
   const c=vocabCurrentRole();if(!c)return;
   const s=vocabState(c.id),w=s.today.words[idx];
   if(!w)return;
   const key=String(w.word||'').toLowerCase();if(!key)return;
   const old=s.learned[key]||{};
+  const now=Date.now();
+  const stage=ok?vocabReviewStageOf(old):0;
+  const intervalDays=VOCAB_REVIEW_DAYS[stage]||1;
   s.learned[key]=Object.assign({},old,{
     word:w.word,meaning:w.meaning,phonetic:w.phonetic,
+    example:w.example||old.example||'',translation:w.translation||old.translation||'',hook:w.hook||old.hook||'',
     attempts:(Number(old.attempts)||0)+1,
-    mastered:!!ok,lastAt:Date.now(),
-    nextReview:ok?Date.now()+7*86400000:Date.now()+86400000
+    reviewCount:(Number(old.reviewCount)||0)+1,
+    lapses:(Number(old.lapses)||0)+(ok?0:1),
+    stage:stage,intervalDays:intervalDays,
+    mastered:!!ok,lastAt:now,
+    nextReview:now+intervalDays*86400000
   });
   w.known=!!ok;
   const day=vocabDayKey();
@@ -11988,8 +12040,38 @@ function vocabMark(idx,ok){
   if(ok)h.known=(Number(h.known)||0)+1;else h.review=(Number(h.review)||0)+1;
   s.history=s.history.slice(0,90);
   vocabSaveRole(c.id,s);
+  var reward=0;
+  try{if(window.SHOP&&typeof SHOP.onVocabPlan==='function')reward=Number(SHOP.onVocabPlan(vocabTodayPlanDone(s)))||0}catch(e){}
   vocabRefresh();
-  toast(ok?'已记为背会':'已记为还不熟，明天再复习');
+  toast((ok?('已记为背会，'+vocabNextReviewText(s.learned[key])):'已记为还不熟，明天再复习')+(reward?('　今日计划完成，+'+reward+' 🐚'):''));
+}
+function vocabToggleReview(encoded){
+  let key='';try{key=decodeURIComponent(String(encoded||''))}catch(e){}
+  if(!key)return;
+  const c=vocabCurrentRole();if(!c)return;
+  const k=c.id+'|'+key;vocabReveal[k]=!vocabReveal[k];
+  vocabRefresh();
+}
+function vocabReviewMark(encoded,ok){
+  let key='';try{key=decodeURIComponent(String(encoded||''))}catch(e){}
+  if(!key)return;
+  const c=vocabCurrentRole();if(!c)return;
+  const s=vocabState(c.id),e=s.learned[key];if(!e)return;
+  const now=Date.now();
+  const stage=ok?Math.min(VOCAB_REVIEW_DAYS.length-1,vocabReviewStageOf(e)+1):0;
+  const intervalDays=VOCAB_REVIEW_DAYS[stage]||1;
+  e.reviewCount=(Number(e.reviewCount)||0)+1;
+  if(!ok)e.lapses=(Number(e.lapses)||0)+1;
+  e.stage=stage;e.intervalDays=intervalDays;e.mastered=!!ok;e.lastAt=now;
+  e.nextReview=now+intervalDays*86400000;
+  const day=vocabDayKey();
+  let h=s.history.find(x=>x&&x.date===day);
+  if(!h){h={date:day,known:0,review:0};s.history.unshift(h)}
+  if(ok)h.known=(Number(h.known)||0)+1;else h.review=(Number(h.review)||0)+1;
+  s.history=s.history.slice(0,90);
+  vocabSaveRole(c.id,s);
+  vocabRefresh();
+  toast(ok?('记得，下次 '+intervalDays+' 天后再复习'):'忘了，明天会再复习一次');
 }
 function vocabStreak(s){
   const days=new Set((s.history||[]).filter(x=>x&&Number(x.known)>0).map(x=>x.date));
@@ -12002,10 +12084,36 @@ function vocabStreak(s){
   }
   return n;
 }
+function vocabReviewHTML(c,s){
+  const due=vocabReviewEntries(s),shown=due.slice(0,20);
+  let body='';
+  if(shown.length){
+    body=shown.map(e=>{
+      const key=String(e.key||''),encoded=encodeURIComponent(key).replace(/'/g,'%27');
+      const reveal=!!vocabReveal[c.id+'|'+key];
+      return '<div class="card" style="margin:0 0 10px">'+
+        '<div class="row" style="align-items:flex-start"><div class="col"><b style="font-size:20px;letter-spacing:.3px">'+esc(e.word||key)+'</b>'+
+        '<span class="dim" style="font-size:12px;margin-left:7px">'+esc(e.phonetic||'')+'</span></div>'+
+        '<span class="dim" style="font-size:11px">第 '+(vocabReviewStageOf(e)+1)+' 档</span></div>'+
+        (reveal?'<div style="font-size:14px;margin-top:6px"><b>'+esc(e.meaning||'')+'</b></div>'+
+          (e.example?'<div style="font-size:13px;line-height:1.65;margin-top:6px">'+esc(e.example)+'</div>':'')+
+          (e.translation?'<div class="dim" style="font-size:12px;line-height:1.6;margin-top:2px">'+esc(e.translation)+'</div>':'')+
+          (e.hook?'<div class="dim" style="font-size:11.5px;margin-top:5px">💡 '+esc(e.hook)+'</div>':''):'')+
+        '<button class="ghost" style="width:100%;margin-top:8px" onclick="vocabToggleReview(\''+encoded+'\')">'+(reveal?'收起释义':'看释义')+'</button>'+
+        '<div class="row" style="gap:8px;margin-top:8px"><button class="ghost col" onclick="vocabReviewMark(\''+encoded+'\',false)">忘了</button>'+
+        '<button class="pri col" onclick="vocabReviewMark(\''+encoded+'\',true)">还记得</button></div></div>';
+    }).join('');
+    if(due.length>shown.length)body+='<p class="dim" style="font-size:11.5px;margin:0 0 10px">还有 '+(due.length-shown.length)+' 个到期词，完成上面这些后会出现。</p>';
+  }else{
+    body='<div class="card"><p class="dim" style="font-size:12px;margin:0">今天没有到期单词。背过的新词会按 1、2、4、7、15、30、60、120 天的间隔自动排进复习。</p></div>';
+  }
+  return '<div class="ttl" style="margin:16px 0 8px">🔁 今日复习'+(due.length?(' · '+due.length):'')+'</div>'+body;
+}
 function vocabTodayHTML(s){
   if(!s.today.words.length)return '<div class="card"><p class="dim" style="font-size:12px;margin:0">今天还没有单词。先点上面的「让角色选词」。</p></div>';
   return s.today.words.map((w,i)=>{
     const known=!!w.known;
+    const learned=s.learned[String(w.word||'').toLowerCase()]||null;
     return '<div class="card" style="margin:0 0 10px">'+
       '<div class="row" style="align-items:flex-start"><div class="col"><b style="font-size:20px;letter-spacing:.3px">'+esc(w.word||'')+'</b>'+
       '<span class="dim" style="font-size:12px;margin-left:7px">'+esc(w.phonetic||'')+'</span></div>'+
@@ -12014,6 +12122,7 @@ function vocabTodayHTML(s){
       (w.example?'<div style="font-size:13px;line-height:1.65;margin-top:6px">'+esc(w.example)+'</div>':'')+
       (w.translation?'<div class="dim" style="font-size:12px;line-height:1.6;margin-top:2px">'+esc(w.translation)+'</div>':'')+
       (w.hook?'<div class="dim" style="font-size:11.5px;margin-top:5px">💡 '+esc(w.hook)+'</div>':'')+
+      (known&&learned?'<div class="dim" style="font-size:11px;margin-top:5px">📅 下次：'+esc(vocabNextReviewText(learned))+'</div>':'')+
       '<div class="row" style="margin-top:9px"><button class="ghost col" onclick="vocabMark('+i+',false)">还不熟</button>'+
       '<button class="pri col" onclick="vocabMark('+i+',true)">背会了</button></div></div>';
   }).join('');
@@ -12079,16 +12188,21 @@ function vocabHTML(){
   const currentId=all.currentRoleId||c.id;
   const mastered=Object.keys(s.learned||{}).filter(k=>s.learned[k]&&s.learned[k].mastered).length;
   const knownToday=(s.today.words||[]).filter(x=>x&&x.known).length;
+  var vshop=null;try{if(window.SHOP&&typeof SHOP.vocabRewardState==='function')vshop=SHOP.vocabRewardState()}catch(e){}
+  const vocabRewardCoin=Number(vshop&&vshop.coin)||30;
+  const vocabRewardDone=!!(vshop&&vshop.claimed);
   const options=(chars||[]).filter(x=>x&&x.id).map(x=>'<option value="'+esc(x.id)+'" '+(x.id===currentId?'selected':'')+'>'+esc((x.emoji||'')+' '+(x.name||'角色'))+'</option>').join('');
   const scope=(k,t,d)=>'<label class="li" style="border:0;padding:6px 0"><input type="checkbox" id="vocab_scope_'+k+'" '+(s.scope[k]?'checked':'')+' style="flex:0 0 auto;margin-top:3px"><span><b>'+t+'</b><span class="dim" style="display:block;font-size:11.5px">'+d+'</span></span></label>';
   return '<div class="card"><div class="row" style="align-items:center;gap:10px">'+avBox(c,44)+
-    '<div class="col"><div class="ttl" style="margin:0">📚 背单词</div><div class="dim" style="font-size:12px">和角色一起学，进度只记在本地。</div></div></div>'+
+    '<div class="col"><div class="ttl" style="margin:0">📚 背单词</div><div class="dim" style="font-size:12px">和角色一起学，并按遗忘曲线安排复习。</div></div></div>'+
     '<label class="f" style="margin-top:10px">这次让谁陪你背</label><select id="vocab_role" onchange="vocabSwitchRole(this.value)">'+options+'</select>'+
     '<div class="row" style="gap:8px;margin-top:10px"><button class="pri col" onclick="vocabGenerate()" '+(vocabBusy?'disabled':'')+'>'+(vocabBusy?(vocabBusyLabel||'角色正在选词…'):'让角色选今天的词')+'</button></div>'+
+    '<div class="dim" style="font-size:11.5px;line-height:1.6;margin-top:7px">🐚 '+(vocabRewardDone?'今天已完成背单词计划，奖励已入账。':'把今天计划里的词都点一遍（“背会了”或“还不熟”都算），完成后自动奖励 '+vocabRewardCoin+' 贝壳，每天一次。')+'</div>'+
     '<div class="row" style="margin-top:9px;text-align:center"><div class="col"><b style="font-size:17px">'+s.today.words.length+'/'+s.dailyGoal+'</b><div class="dim" style="font-size:11px">今日词数</div></div>'+
     '<div class="col"><b style="font-size:17px">'+knownToday+'</b><div class="dim" style="font-size:11px">今日背会</div></div>'+
     '<div class="col"><b style="font-size:17px">'+mastered+'</b><div class="dim" style="font-size:11px">累计背会</div></div>'+
     '<div class="col"><b style="font-size:17px">'+vocabStreak(s)+'</b><div class="dim" style="font-size:11px">连续天数</div></div></div></div>'+
+    vocabReviewHTML(c,s)+
     vocabTestHTML()+
     '<div class="card"><div class="ttl" style="font-size:14px">每天背多少 & 角色可见范围</div>'+
     '<div class="setrow"><span class="lbl">每日目标</span><input id="vocab_goal" type="number" min="1" max="50" value="'+s.dailyGoal+'"><span class="unit">个</span></div>'+
@@ -12925,7 +13039,7 @@ function cfgSafe(){const c=JSON.parse(JSON.stringify(cfg||{}));delete c.key;if(c
 async function backupPayload(){
   const d={v:13,at:Date.now(),cfg:cfgSafe(),chars:chars,masks:masksAll(),messages:{},memories:{},todos:{},gmems:{},arcs:load(LS.arcs,[]),arcData:{},
     groups:groupsAll(),gmsgs:{},stickers:load('wh_stickers',[]),stickerCats:load('wh_sticker_cats',[]),
-    notes:{},diary:{},favs:{},arts:{},summarks:{},memHistories:{},memSummaryBases:{},memOrgCfg:{},rawMarks:{},rawLogs:{},shapeHistory:{},world:load('wh_world',[]),
+    notes:{},diary:{},privateDiary:{},favs:{},arts:{},summarks:{},memHistories:{},memSummaryBases:{},memOrgCfg:{},rawMarks:{},rawLogs:{},shapeHistory:{},world:load('wh_world',[]),
     /* 【新】歌单清单（歌名/歌手/链接；音频文件本身不进备份） */
     music:(typeof musicBackupData==='function')?musicBackupData():null,
     /* 【修复】以前这四样没进备份，换手机导入后「朋友圈」和记忆宫殿的标签会不见，这里补上：
@@ -12956,6 +13070,7 @@ async function backupPayload(){
     /* 这几类数据以前没进备份，恢复后会缺，这里补上：便条、日记、好感度记录、画册、自动总结进度 */
     d.notes[c.id]=load('wh_p4_note_'+c.id,[]);
     d.diary[c.id]=load('wh_p4_diary_'+c.id,[]);
+    d.privateDiary[c.id]=load('wh_p4_diary_private_'+c.id,[]);
     d.favs[c.id]=load('wh_p5_fav_'+c.id,[]);
     d.arts[c.id]=load('wh_p5_art_'+c.id,[]);
     d.summarks[c.id]=load(LS.summark(c.id),null);
@@ -13120,7 +13235,7 @@ function importBackupExtraData(d){
   if(d.world&&d.world.length)save('wh_world',d.world);   /* 世界书：键名和「世界书」应用里的一致（旧备份没这个字段，跳过就行） */
   /* 【新】歌单清单：旧备份里没有这项，就跳过（不会把你现在的歌单清掉） */
   if(d.music&&typeof musicBackupApply==='function')try{musicBackupApply(d.music)}catch(e){}
-  const preOf={notes:'wh_p4_note_',diary:'wh_p4_diary_',favs:'wh_p5_fav_',arts:'wh_p5_art_',summarks:'wh_summark_',
+  const preOf={notes:'wh_p4_note_',diary:'wh_p4_diary_',privateDiary:'wh_p4_diary_private_',favs:'wh_p5_fav_',arts:'wh_p5_art_',summarks:'wh_summark_',
     memHistories:'wh_memhist_',memSummaryBases:'wh_memsumbase_',memOrgCfg:'wh_memorgcfg_',rawMarks:'wh_rawmark_'};
   Object.keys(preOf).forEach(k=>{
     const map=d[k];if(!map||typeof map!=='object')return;
@@ -14645,10 +14760,15 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-21 */
+   最后更新：2026-10-22 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-10-22】
+角色在「互动」里的写日记工具新增“私密日记”。角色调用工具时可以选择 private：普通日记仍会在「互动」的日记列表里给你看；私密日记只保存在这个角色自己的日记数据里，不出现在互动页，只有角色自己知道内容。旧日记不受影响，私密日记也会跟着本地备份保存，删除角色时会一起删除。
+角色现在也能翻看自己以前写的日记：先用 read_diary 且不填 diary_id 获取最近日记目录，再从返回的 entries 里选一篇，把它的 id 填进 diary_id 读取完整正文。公开日记和私密日记都能读；私密正文只交给角色自己回忆，聊天里只显示“已读取某篇日记”，不会自动展示正文。
+「游戏 → 装扮小铺」新增两种贝壳来源：狼人杀首次赛后结算时，如果裁判把你评为 MVP，自动奖励 30 贝壳；同一局只发一次，之后在战绩页点“让裁判重新评选 MVP”只更新复盘，不会重复发奖。背单词每天把当天计划里的词都标记一遍（点“背会了”或“还不熟”都算完成），会自动奖励 30 贝壳，每天一次，并在背单词页和小铺今日任务里显示完成状态。
 
 【最近更新 · 2026-10-19】
 新增桌面第二页：在桌面空白处左右滑动可以翻页，底部的小圆点也能点。第一页保留原来的时钟、音乐组件和应用图标；第二页有「背单词」「潮汐」「塑形」和「面具管理」。
@@ -14667,7 +14787,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 角色选着面具聊天时，会把面具里的名字、性别、人设、说话方式和外貌当成她此刻主动呈现的身份；有冲突时以面具为准。角色不应该主动拆穿，也不应该把“面具、扮演、设定”这些词说出来。聊天记录里如果出现切换面具以前的名字或性别，角色只把它当作共同经历，不会反过来套到她现在的身份上。删除正在使用的面具后，使用它的角色会自动切回原本的我的资料。面具会跟着「数据与备份」一起导出和恢复。
 同一天还新增了线上 / 线下聊天模式：角色设置最上方有「线上聊天」「线下聊天」两个按钮，点一下就保存，默认线上。线上仍像发微信；线下可以适度用括号描写角色自己的表情、动作或状态。线下模式里，角色还能用单独的「【线下场景】…」标记描述简短地点或互动背景，界面会把这一行变成消息上方的时间灰色场景行，场景标记本身不会出现在气泡正文里。
 朋友圈现在支持单条动态设置可见范围。发表时可以勾选哪些角色不可见，默认公开；发完以后点这条动态标题旁的「公开 / 不可见 N 人」也能修改。被屏蔽的角色在聊天里不会收到这条动态的摘要。
-桌面第二页新增「背单词」应用。打开后可以选择陪学的角色，设置每天背几个，并逐项决定角色能看见哪些资料：人设与说话风格、长期记忆、世界书、最近聊天记录、我的资料。角色会按勾选范围选实用英文词，给出音标、中文释义、例句和简短联想；点「背会了」或「还不熟」会按角色记下当天与累计进度，换手机导入备份也会一起恢复。没有勾选的范围不会发给角色。背单词页还有「测试词汇量」：AI 从 A1 到 C2 给出 24 个词，用户逐个选择认识或不认识，答完后 AI 结合答题情况保守估算 CEFR 等级、词汇量区间、强项、短板和推荐出词难度，结论保存在本机并进入备份。之后角色在背单词应用里选词，或在聊天里陪用户背单词时，都会参考这份结论调整难度；用户不主动问时，角色不会主动提测试结果。
+桌面第二页新增「背单词」应用。打开后可以选择陪学的角色，设置每天背几个，并逐项决定角色能看见哪些资料：人设与说话风格、长期记忆、世界书、最近聊天记录、我的资料。角色会按勾选范围选实用英文词，给出音标、中文释义、例句和简短联想；点「背会了」或「还不熟」会按角色记下当天与累计进度，换手机导入备份也会一起恢复。没有勾选的范围不会发给角色。背单词页还有「测试词汇量」：AI 从 A1 到 C2 给出 24 个词，用户逐个选择认识或不认识，答完后 AI 结合答题情况保守估算 CEFR 等级、词汇量区间、强项、短板和推荐出词难度，结论保存在本机并进入备份。之后角色在背单词应用里选词，或在聊天里陪用户背单词时，都会参考这份结论调整难度；用户不主动问时，角色不会主动提测试结果。背过的词还会按艾宾浩斯式间隔复习自动排队，档位是 1、2、4、7、15、30、60、120 天；“今天该复习”的词显示在背单词页的「今日复习」里，先看英文回忆，再点看释义，选择「还记得 / 忘了」后保存下一次复习时间。选择忘了会回到 1 天后，记得会进入下一档；旧词会自动换算到接近的复习档位，不需要清空进度。
 
 【上次更新 · 2026-10-18】
 新增桌面应用「洄游」：它记录角色在聊天窗口外亲身经历的事，以角色自己为“我”。每个角色可以设置每条新记录都处理、累积到指定条数处理、每天固定时间处理，或默认关闭。主聊天先收到摘要，角色自己决定看哪些详情，也可以不回复。经历记录页可以只看某一个角色；每个角色还能单独选择自己能看见游戏、番外、塔罗、分身中的哪些类型。还新增「角色分身窗口」：每个分身有独立聊天和工具权限，默认复制本体人设与记忆快照，也可选择参考主窗口完整上下文；分身用 MCP 的活动可按日总结进洄游，主角色自己用 MCP 不会重复记录。分身会像普通角色一样显示在「角色」应用里，并标注“分身”和本体。
@@ -14704,9 +14824,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 潮汐：第二页的自动消息总管。按角色和来源查看私聊自动消息、群聊自动冒泡、待办提醒、延迟回复、洄游处理、分身每日总结，以及“角色安排”的消息和总结；能暂停来源、跳过下一次、取消某次任务、现在执行，并查看最近实际发出去的自动消息。角色设置里单独打开“允许角色自己控制潮汐”后，它才能自己查看和管理自己的排期。
 · 面具管理：第二页的独立应用。可以保存多份面具，每份写名字、性别、人设、说话方式、外貌；点每张面具下面的「分配角色」，勾选想让这张面具生效的角色。删除面具后，正在用它的角色会恢复成读取「我的资料」。
 · 朋友圈：角色自己发动态，你可以点赞、评论。你可以给每条动态单独勾选哪些角色不可见，默认公开；发完后也能改可见范围。
-· 背单词：桌面第二页。先选一个陪学角色，设置每日目标和角色可见资料范围，再让角色选词。每个词有音标、释义、例句和联想；点「背会了 / 还不熟」会按角色记录当天、累计和连续学习天数。也可以做词汇量测试：逐个回答 A1-C2 的词是否认识，AI 会保存等级、词汇量区间和推荐难度，后续角色出词会参考它。
+· 背单词：桌面第二页。先选一个陪学角色，设置每日目标和角色可见资料范围，再让角色选词。每个词有音标、释义、例句和联想；点「背会了 / 还不熟」会按角色记录当天、累计和连续学习天数。也可以做词汇量测试：逐个回答 A1-C2 的词是否认识，AI 会保存等级、词汇量区间和推荐难度，后续角色出词会参考它。到期的旧词会出现在「今日复习」，按 1、2、4、7、15、30、60、120 天逐渐拉长间隔，记得就升档，忘了就回到 1 天后。
 · 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
-· 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。
+· 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。写日记时角色可以选公开日记或只有它自己可见的私密日记；私密日记不会显示在互动页。角色也能翻看自己以前写的公开日记和私密日记。
 · 创意：角色给你做的小网页、小游戏都收在这里，点开就能看、能玩。
 · 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。还有一个「海底陪伴」小游戏：里面养一只低多边形 3D 小鲸鱼，单指拖动可以绕着小鲸鱼转视角，双指捏合可以放大缩小，轻点小鲸鱼会和它说话。菜单里可以投喂、拍照、重置状态；「照片集」会保存拍下来的海底照片。点右上角「绑定角色」，可以让小鲸鱼同步一个现有角色的人设和说话习惯，变成那个角色在海里的鲸鱼版本；它会参考一小段长期记忆，但不会把整份聊天记录塞进去。这个游戏的照片和状态跟着本地备份走。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。面杀里**女巫全程不能自救**（网杀是只有第一夜能自救）。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
@@ -14755,6 +14875,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么给不同角色使用不同面具：去桌面第二页的「面具管理」新建并填写面具；点这张面具下面的「分配角色」，勾选要让面具生效的角色，再保存。想让某个角色恢复成原来的自己，就在同一张面具的分配列表里取消勾选它。聊天页右上角没有面具按钮。
 · 怎么看它什么时候会自动发消息：在桌面空白处向左滑到第二页，点「潮汐」；也可以按角色或触发方式筛选。私聊、群聊、提醒和延迟回复有具体时间，洄游按条件或固定时间处理。
 · 怎么不让某条自动消息发出：去「潮汐」，私聊或群聊可以点「跳过这次」或暂停这类来源；待办提醒和延迟回复可以取消那一次；洄游可以暂停处理。涉及立即调用接口的「现在发一条」会先询问，可能产生费用。
+· 怎么让角色写或读日记：先确认角色设置里的「互动玩具」已打开。写私密日记时，在聊天里明确说“写一篇只给你自己看的私密日记”；角色会用 private=true 保存。让它翻以前写的日记时，说“看看你自己最近写的日记”；它会先拿目录，再选一篇读取。私密正文不会自动显示在聊天里。
+· 怎么赚贝壳：打开「游戏 → 装扮小铺」，日常签到和任务可以领；完成当天背单词计划自动加 30 贝壳，每天一次；狼人杀里你拿到 MVP 会自动加 30 贝壳，同一局只发一次，重选 MVP 不能重复领。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
@@ -14769,7 +14891,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=41;  /* 41：背单词词汇量测试与角色难度适配；40：背单词图标移到第二页 */
+const GUIDE_VER=44;  /* 44：角色可先列目录再读自己的日记；43：私密日记与贝壳奖励 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -14778,7 +14900,7 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -17681,7 +17803,7 @@ console.log('[深蓝海域] 补丁4-B 已加载');
 <script>
 /* ================================================================
    深蓝海域 · 补丁4-C（2026-09）  互动玩具 + 互动页
-   角色能自己调用：掷骰子 / 抛硬币 / 抽签 / 报时 / 记心情 / 留便条 / 写日记 / 调好感度
+   角色能自己调用：掷骰子 / 抛硬币 / 抽签 / 报时 / 记心情 / 留便条 / 写、读日记 / 调好感度
    你能看的地方：应用 → 互动（开关也在这里；每个角色还能单独关）
    粘法：粘到文件最末尾（补丁4-A、4-B 两段后面），顺序无所谓。
    ================================================================ */
@@ -17692,7 +17814,8 @@ if(!P4.now)P4.now=function(){return P4.today()};
 
 function Knote(id){return 'wh_p4_note_'+id}
 function Kdiary(id){return 'wh_p4_diary_'+id}
-var FLAG={roll_dice:'dice',flip_coin:'coin',pick_one:'pick',get_now_time:'time',set_mood:'mood',leave_note:'note',write_diary:'diary',favor_change:'favor',draw_tarot:'tarot'};
+function KdiaryPrivate(id){return 'wh_p4_diary_private_'+id}
+var FLAG={roll_dice:'dice',flip_coin:'coin',pick_one:'pick',get_now_time:'time',set_mood:'mood',leave_note:'note',write_diary:'diary',read_diary:'diary',favor_change:'favor',draw_tarot:'tarot'};
 /* 玩具：总开关（应用 → 互动）和每个玩具的小开关；角色那边还有「互动玩具」权限（现在默认关）。
    三层是「与」的关系：角色权限关着＝它一个玩具都用不了。 */
 function tcfg(){if(!cfg.toys)cfg.toys={on:true,dice:true,coin:true,pick:true,time:true,mood:true,note:true,diary:true,favor:true,tarot:true};return cfg.toys}
@@ -17702,7 +17825,7 @@ function charOK(c){return !!c&&permOn(c,'toyPerm')}
 /* 【省 token】9 个玩具合并成 1 个工具（action 选玩哪个）。
    原来每个玩具都要一整份 JSON 结构，加起来约 700 token，而且每句话都要重发一遍；
    现在只发一份。原来每个玩具的开关、「应用 → 互动」页面、聊天里的小条都照旧。 */
-var TOY_ACT={roll_dice:'掷骰子',flip_coin:'抛硬币',pick_one:'抽签',get_now_time:'看时间',set_mood:'记心情',leave_note:'留纸条',write_diary:'写日记',favor_change:'改好感度',draw_tarot:'抽塔罗'};
+var TOY_ACT={roll_dice:'掷骰子',flip_coin:'抛硬币',pick_one:'抽签',get_now_time:'看时间',set_mood:'记心情',leave_note:'留纸条',write_diary:'写日记',read_diary:'读日记',favor_change:'改好感度',draw_tarot:'抽塔罗'};
 function toyActionsOn(){
   var out=[];
   for(var i=0;i<TOYS.length;i++){var n=TOYS[i].function.name;if(toyOn(n))out.push(n)}
@@ -17714,7 +17837,7 @@ function toyToolDef(){
   return {type:'function',function:{
     name:'toy',
     description:'和用户玩的小玩具，action 选一个：'+on.map(function(n){return n+'＝'+TOY_ACT[n]}).join('、')+
-      '。text 放内容（抽签选项／心情／纸条／日记／塔罗的问题），n 放数量，delta 放好感度变化量（-10~10）。',
+      '。text 放内容（抽签选项／心情／纸条／日记／塔罗的问题），n 放数量，delta 放好感度变化量（-10~10）。写日记时，private=true 表示只有你自己能看，省略或 false 表示你和用户都能看。读日记时先省略 diary_id 获取最近日记列表，再从 data.entries 里选一篇，把它的 id 填进 diary_id 读取正文。',
     parameters:{type:'object',properties:{
       action:{type:'string',enum:on,description:'玩哪个玩具'},
       text:{type:'string',description:'内容：抽签选项（逗号分隔）／心情／纸条／日记／问题'},
@@ -17722,7 +17845,9 @@ function toyToolDef(){
       faces:{type:'integer',description:'骰子面数，默认 6'},
       delta:{type:'integer',description:'好感度变化量 -10~10'},
       reason:{type:'string',description:'好感度变化的原因（一句话）'},
-      title:{type:'string',description:'抽签是在抽什么（可留空）'}
+      title:{type:'string',description:'抽签是在抽什么（可留空）'},
+      private:{type:'boolean',description:'写日记时用：true＝只有你自己能看；false/省略＝你和用户都能看'},
+      diary_id:{type:'string',description:'读日记时用：先留空获取列表，再从列表的 entries[].id 里选一个填进来'}
     },required:['action']}
   }};
 }
@@ -17734,7 +17859,8 @@ function toyResolve(name,args){
   else if(real==='pick_one')na={options:a.text,title:a.title};
   else if(real==='set_mood')na={mood:a.text};
   else if(real==='leave_note')na={text:a.text};
-  else if(real==='write_diary')na={text:a.text};
+  else if(real==='write_diary')na={text:a.text,private:a.private};
+  else if(real==='read_diary')na={diary_id:a.diary_id};
   else if(real==='favor_change')na={delta:a.delta,reason:a.reason||a.text};
   else if(real==='draw_tarot')na={question:a.text,count:a.n};
   else if(real==='flip_coin'||real==='get_now_time')na={};
@@ -17749,7 +17875,8 @@ var TOYS=[
  {type:'function',function:{name:'get_now_time',description:'查看现在的真实日期和时间。',parameters:{type:'object',properties:{}}}},
  {type:'function',function:{name:'set_mood',description:'写下你现在的心情/状态，她能在「应用 → 互动」里看到。',parameters:{type:'object',properties:{mood:{type:'string',description:'一句话，比如「有点闷，但还行」'}},required:['mood']}}},
  {type:'function',function:{name:'leave_note',description:'给她留一张小纸条（便条），她会看到。',parameters:{type:'object',properties:{text:{type:'string',description:'纸条内容，短一点'}},required:['text']}}},
- {type:'function',function:{name:'write_diary',description:'写一段日记，记录此刻的想法（只有你和她能看到）。',parameters:{type:'object',properties:{text:{type:'string',description:'日记正文'}},required:['text']}}},
+ {type:'function',function:{name:'write_diary',description:'写一段日记，记录此刻的想法。private=true 时只有你自己能看到；否则你和用户都能看到。',parameters:{type:'object',properties:{text:{type:'string',description:'日记正文'},private:{type:'boolean',description:'true＝只有你自己能看；false/省略＝你和用户都能看'}},required:['text']}}},
+ {type:'function',function:{name:'read_diary',description:'翻看你自己以前写的日记。第一次不填 diary_id，会返回最近日记的目录；看到 entries 后，选一篇把它的 id 填进 diary_id，再调用一次读取正文。公开和私密日记都能读。',parameters:{type:'object',properties:{diary_id:{type:'string',description:'想读的日记 id；第一次查目录时留空'}}}}},
  {type:'function',function:{name:'favor_change',description:'调整你对她的「好感度」数值（-10 ~ +10），用在她说/做了什么让你有感觉的时候。',parameters:{type:'object',properties:{delta:{type:'integer',description:'变化量，正数=更近，负数=更远'},reason:{type:'string',description:'为什么变化，一句话'}},required:['delta']}}},
  {type:'function',function:{name:'draw_tarot',description:'抽塔罗牌。想占卜、想看看某件事的走向、或者她想让你抽牌的时候用。抽到的牌名和正逆位关键词会返回给你，你可以照着牌面亲自解读给她听。',parameters:{type:'object',properties:{question:{type:'string',description:'想问的问题，可以留空'},count:{type:'integer',description:'抽几张：1 或 3，默认 1；抽 3 张时分别代表过去、现在、未来'}}}}}
 ];
@@ -17787,10 +17914,56 @@ function toyLeaveNote(args,cid,blink){
 function toyWriteDiary(args,cid,blink){
   var dx=String(args.text||'').trim().slice(0,1200);
   if(!dx)return {ok:false,msg:'日记是空的'};
-  var ds=load(Kdiary(cid),[]);ds.push({t:Date.now(),text:dx});
+  var isPrivate=args.private===true||String(args.private||'').toLowerCase()==='true';
+  var key=isPrivate?KdiaryPrivate(cid):Kdiary(cid);
+  var ds=load(key,[]);ds.push({t:Date.now(),text:dx,private:isPrivate});
   while(ds.length>60)ds.shift();
-  save(Kdiary(cid),ds);scheduleBackup();blink();
-  return {ok:true,msg:'📖 日记已写进你的本子（'+dx.length+' 字，只有你和她能看到）'};
+  save(key,ds);scheduleBackup();blink();
+  return {ok:true,msg:isPrivate?('🔒 私密日记已写进你的本子（'+dx.length+' 字，只有你自己能看到）'):('📖 日记已写进你的本子（'+dx.length+' 字，只有你和她能看到）')};
+}
+function toyDiaryTime(t){
+  if(!t)return '时间未知';
+  try{return new Date(Number(t)).toLocaleString('zh-CN',{hour12:false})}catch(e){return '时间未知'}
+}
+/* 只给角色自己看的日记目录：公开和私密都收进来，按时间从新到旧。 */
+function toyDiaryEntries(cid){
+  var out=[];
+  function add(kind,key){
+    var arr=load(key,[]);
+    if(!Array.isArray(arr))return;
+    arr.forEach(function(x,idx){
+      if(!x||typeof x.text!=='string')return;
+      out.push({id:kind+':'+idx,t:Number(x.t)||0,text:x.text,isPrivate:kind==='private'});
+    });
+  }
+  add('public',Kdiary(cid));
+  add('private',KdiaryPrivate(cid));
+  out.sort(function(a,b){return (b.t||0)-(a.t||0)});
+  return out;
+}
+function toyReadDiary(args,cid){
+  var all=toyDiaryEntries(cid);
+  var id=String((args&&args.diary_id)||'').trim();
+  if(!id){
+    if(!all.length)return {ok:true,msg:'📖 你的日记本还是空的，还没有写过日记。',data:{entries:[],total:0}};
+    var recent=all.slice(0,20);
+    return {ok:true,msg:'📖 找到 '+all.length+' 篇日记，这里是最近 '+recent.length+' 篇的目录。先选一篇，再按它的 id 读取。',data:{
+      total:all.length,
+      entries:recent.map(function(e,i){return {
+        id:e.id,no:i+1,time:toyDiaryTime(e.t),visibility:e.isPrivate?'私密':'公开',
+        preview:e.text.replace(/\s+/g,' ').slice(0,80)
+      }})
+    }};
+  }
+  var hit=null;
+  for(var i=0;i<all.length;i++){if(all[i].id===id){hit=all[i];break}}
+  if(!hit){
+    return {ok:false,msg:'没找到编号为 '+id+' 的日记；请重新获取目录后再选。',data:{entries:all.slice(0,20).map(function(e,i){return {id:e.id,no:i+1,time:toyDiaryTime(e.t),visibility:e.isPrivate?'私密':'公开',preview:e.text.replace(/\s+/g,' ').slice(0,80)}})}};
+  }
+  return {ok:true,msg:'📖 已读取「'+toyDiaryTime(hit.t)+'」的'+(hit.isPrivate?'私密':'公开')+'日记。',data:{
+    id:hit.id,time:toyDiaryTime(hit.t),visibility:hit.isPrivate?'私密':'公开',private:hit.isPrivate,text:hit.text,
+    note:hit.isPrivate?'这是你写给自己的私密日记，正文只用于你自己的回忆；不要主动向用户复述。':''
+  }};
 }
 function toyFavorChange(args,c,blink){
   var d=Math.round(Number(args.delta)||0);
@@ -17826,6 +17999,7 @@ function execToy(name,args,cid){
   if(name==='set_mood')return toySetMood(args,c,blink);
   if(name==='leave_note')return toyLeaveNote(args,cid,blink);
   if(name==='write_diary')return toyWriteDiary(args,cid,blink);
+  if(name==='read_diary')return toyReadDiary(args,cid);
   if(name==='favor_change')return toyFavorChange(args,c,blink);
   if(name==='draw_tarot')return toyTarot(args);
   return {ok:false,msg:'未知玩具'};
@@ -17853,7 +18027,7 @@ function toySwitchCardHTML(T){
   '<div class="row" style="align-items:center"><div class="col"><b>总开关</b><div class="dim" style="font-size:12px">关掉后所有角色都不能再用玩具</div></div><input type="checkbox" id="ty_on" '+(T.on!==false?'checked':'')+'></div>'+
   box('dice',ciHTML("🎲")+' 掷骰子')+box('coin',ciHTML("🪙")+' 抛硬币')+box('pick',ciHTML("👉")+' 抽签 / 帮你选一个')+
   box('time',ciHTML("🕒")+' 看现在的真实时间')+box('mood',ciHTML("🫧")+' 写下心情状态','显示在下面')+
-  box('note',ciHTML("📝")+' 给你留小纸条','挂在便条墙')+box('diary',ciHTML("📖")+' 写日记','只在下面给你看')+
+  box('note',ciHTML("📝")+' 给你留小纸条','挂在便条墙')+box('diary',ciHTML("📖")+' 写 / 读日记','可写公开或仅角色自己可见，也能翻看以前写的')+
   box('favor',ciHTML("💠")+' 调整好感度','-10 ~ +10')+
   box('tarot',ciHTML("🔮")+' 抽塔罗牌','角色自己抽牌并解读')+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="P4.toySave()">保存玩具开关</button>'+
@@ -17893,7 +18067,7 @@ function toyNotesCardHTML(list){
 /* 互动页：日记卡片。 */
 function toyDiaryCardHTML(list){
   var days=[];
-  list.forEach(function(c){var arr=load(Kdiary(c.id),[]);arr.forEach(function(x,idx){days.push({cid:c.id,name:c.name,t:x.t,text:x.text,idx:idx})})});
+  list.forEach(function(c){var arr=load(Kdiary(c.id),[]);arr.forEach(function(x,idx){if(!x||x.private)return;days.push({cid:c.id,name:c.name,t:x.t,text:x.text,idx:idx})})});
   days.sort(function(a,b){return (b.t||0)-(a.t||0)});
   return '<div class="card"><div class="ttl">日记（'+days.length+'）</div>'+
   (days.length?days.slice(0,20).map(function(n){
@@ -33522,6 +33696,13 @@ async function wwFinish(){
   w.reacts=[];
   w.msg='';
   wwSave(true);
+  /* 首次赛后结算时发 MVP 贝壳；同一局由战绩 ID 防重。
+     历史页的「重新评选 MVP」不会走这里，所以重选不能反复领奖。 */
+  try{
+    if(window.SHOP&&typeof SHOP.onWerewolfMvp==='function'){
+      SHOP.onWerewolfMvp({id:w.recId,game:'ww',mvp:w.mvpUid||'',players:w.players||[]});
+    }
+  }catch(e){}
 }
 /* ---------- 狼人杀：存档 / 接着玩 ---------- */
 /* 存档用：把发言里的「思考过程」和夜间行动的「想法」收一收。
@@ -37567,13 +37748,16 @@ window.GAME={
    ================================================================ */
 var SHOP_LS='wh_shop';
 var SHOP=null;
+var SHOP_MVP_COIN=30;
+var SHOP_VOCAB_COIN=30;
 
 /* 今天的任务（每天 0 点重置，贝壳和成就都留着） */
 var SHOP_TASKS=[
   {id:'visit', ic:'🫧', n:'进来逛逛小铺', note:'打开心愿小铺就算完成',   coin:5,  goal:1},
   {id:'chat',  ic:'💬', n:'和角色聊 3 句', note:'在聊天里发出 3 条消息',   coin:20, goal:3},
   {id:'music', ic:'🎧', n:'听歌满 5 分钟', note:'在「音乐」小应用里放一会儿', coin:15, goal:300},
-  {id:'play',  ic:'🎲', n:'玩一局小游戏', note:'谁是卧底、海龟汤…都算',   coin:25, goal:1}
+  {id:'play',  ic:'🎲', n:'玩一局小游戏', note:'谁是卧底、海龟汤…都算',   coin:25, goal:1},
+  {id:'vocab', ic:'📚', n:'完成背单词今日计划', note:'把今天计划的词都标记一遍', coin:SHOP_VOCAB_COIN, goal:1}
 ];
 /* 成就（一次性，达成时自动发贝壳） */
 var SHOP_ACHS=[
@@ -37609,7 +37793,7 @@ function shopBlank(){
   return {coins:0,earned:0,spent:0,
     checkin:{last:'',streak:0,best:0},
     daily:{d:'',counts:{},claimed:{}},
-    own:{},ach:{}};
+    own:{},ach:{},mvpGames:{}};
 }
 /* 今天的日期字符串（o 是往前/往后几天） */
 function shopDay(o){
@@ -37627,6 +37811,7 @@ function shopLoad(){
   if(!s.daily.claimed||typeof s.daily.claimed!=='object')s.daily.claimed={};
   if(!s.own||typeof s.own!=='object')s.own={};
   if(!s.ach||typeof s.ach!=='object')s.ach={};
+  if(!s.mvpGames||typeof s.mvpGames!=='object')s.mvpGames={};
   delete s.inv;delete s.sent;   /* 老版本的「礼物 / 背包」数据不再用 */
   s.coins=Math.max(0,Number(s.coins)||0);
   s.earned=Number(s.earned)||0;s.spent=Number(s.spent)||0;
@@ -37690,6 +37875,7 @@ function shopProg(s,t){
     }catch(e){}
     return Math.min(t.goal,n);
   }
+  if(t.id==='vocab')return (s.daily.claimed.vocab||Number(s.daily.counts.vocabPlan))?1:0;
   return 0;
 }
 function shopProgLabel(t,p){
@@ -37697,6 +37883,7 @@ function shopProgLabel(t,p){
   if(t.id==='chat')return '已聊 '+p+' / '+t.goal+' 句';
   if(t.id==='music')return '已听 '+shMMSS(p)+' / '+shMMSS(t.goal);
   if(t.id==='play')return p>=1?'今天已经开过一局':'今天还没开局';
+  if(t.id==='vocab')return p>=1?'今日计划已完成，奖励已入账':'背完今天的计划后自动到账';
   return p+' / '+t.goal;
 }
 function shopTaskState(s,t){
@@ -37832,7 +38019,7 @@ function shopHTML(){
   h+='<div class="gx-cover sm">'+backBtn('GAME.hall()')+shopCoverTop()+
      '<div class="gx-title">装扮小铺</div>'+
      '<div class="gx-sub">Wear your shells</div>'+
-     '<div class="gx-desc">做任务、签到攒「贝壳」，给「我」换一个 SVG 头像图标、加一圈头像框。换好以后，聊天和群聊里的头像都会跟着变。</div>'+
+     '<div class="gx-desc">做任务、签到、完成背单词计划或拿到狼人杀 MVP 都能攒「贝壳」，给「我」换一个 SVG 头像图标、加一圈头像框。换好以后，聊天和群聊里的头像都会跟着变。</div>'+
      '<div class="gx-stats sh"><div><b>'+s.coins+'</b><span>🐚 贝壳</span></div>'+
      '<div><b>'+shopOwnedCount(s)+'/'+(SHOP_ICONS.length+SHOP_FRAMES.length)+'</b><span>已拥有</span></div>'+
      '<div><b>'+shopAchCount(s)+'/'+SHOP_ACHS.length+'</b><span>成就</span></div></div>'+
@@ -37864,7 +38051,7 @@ function shopHTML(){
          (st.claimed?'已领':('+'+t.coin+' 🐚'))+'</button>'+
        '</div>';
   });
-  h+='<p class="gx-hint">任务每天刷新；进度到了，点右边的按钮就能领贝壳。</p>';
+  h+='<p class="gx-hint">任务每天刷新；大部分任务进度到了点右边领取，背单词计划完成后会自动入账。狼人杀 MVP 每局奖励 '+SHOP_MVP_COIN+' 🐚，同一局只发一次。</p>';
   /* 成就 */
   h+='<div class="gx-index"><b>成就</b><i>Achievements</i></div>';
   h+='<div class="sh-achs">';
@@ -37929,6 +38116,59 @@ window.SHOP={
       shopAnnounce(shopCheck());
       shopTick();
     }catch(e){}
+  },
+  /* 狼人杀首次赛后结算：只有「你」是 MVP 才发；按战绩 ID 防重复。
+     历史页的「重新评选 MVP」不会再调用这里，所以不能靠重选刷贝壳。 */
+  onWerewolfMvp:function(rec){
+    try{
+      if(!rec||rec.game!=='ww'||!rec.id||!rec.mvp)return 0;
+      var s=shopLoad();shopRoll();
+      var key='ww:'+rec.id;
+      if(s.mvpGames[key])return 0;
+      s.mvpGames[key]=Date.now();
+      var me=null,who=null;
+      (rec.players||[]).forEach(function(p){
+        if(!p)return;
+        if(p.isUser)me=p;
+        if(p.uid===rec.mvp)who=p;
+      });
+      if(!me||!who||!who.isUser){
+        shopSave();
+        return 0;
+      }
+      s.coins+=SHOP_MVP_COIN;s.earned+=SHOP_MVP_COIN;
+      var ks=Object.keys(s.mvpGames);
+      if(ks.length>400){
+        ks.sort(function(a,b){return (Number(s.mvpGames[a])||0)-(Number(s.mvpGames[b])||0)});
+        ks.slice(0,ks.length-400).forEach(function(k){delete s.mvpGames[k]});
+      }
+      shopSave();
+      shopAnnounce(shopCheck());
+      try{toast('🏆 狼人杀 MVP 奖励 +'+SHOP_MVP_COIN+' 🐚')}catch(e){}
+      shopTick();
+      return SHOP_MVP_COIN;
+    }catch(e){return 0}
+  },
+  /* 背单词：当天计划全部标记过时调用；每天只发一次。 */
+  onVocabPlan:function(done){
+    try{
+      if(!done)return 0;
+      var s=shopLoad();shopRoll();
+      if(s.daily.claimed.vocab)return 0;
+      s.daily.counts.vocabPlan=1;
+      s.daily.claimed.vocab=1;
+      s.coins+=SHOP_VOCAB_COIN;s.earned+=SHOP_VOCAB_COIN;
+      shopSave();
+      shopAnnounce(shopCheck());
+      shopTick();
+      return SHOP_VOCAB_COIN;
+    }catch(e){return 0}
+  },
+  vocabRewardState:function(){
+    try{
+      var s=shopLoad();shopRoll();
+      return {coin:SHOP_VOCAB_COIN,claimed:!!s.daily.claimed.vocab};
+    }catch(e){return {coin:SHOP_VOCAB_COIN,claimed:false}}
   }
 };
 /* 【修】所有带血按键的「短按反馈」：
