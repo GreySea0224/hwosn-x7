@@ -2861,17 +2861,53 @@ function isFull(){
   try{return !!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement||document.msFullscreenElement)}catch(e){return false}
 }
 function fullOn(){return !cfg||cfg.full!==false}
-function enterFull(){
-  try{
-    const el=document.documentElement;
-    const fn=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
-    if(!fn)return false;
-    const p=fn.call(el,{navigationUI:'hide'});
-    if(p&&p.catch)p.catch(function(){});
-    return true;
-  }catch(e){return false}
+let _fullTrying=false;
+let _fullTryTimer=0;
+let _fullGesturesBound=false;
+let _fullWatched=false;
+function fullClearTry(){
+  _fullTrying=false;
+  try{clearTimeout(_fullTryTimer)}catch(e){}
+  _fullTryTimer=0;
 }
-function exitFullNow(){try{if(isFull()){const f=document.exitFullscreen||document.webkitExitFullscreen;if(f)f.call(document)}}catch(e){}}
+function enterFull(){
+  if(!fullOn()||isFull()||_fullTrying)return false;
+  const el=document.documentElement;
+  const fn=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+  if(!fn)return false;
+  _fullTrying=true;
+  try{
+    let p;
+    try{
+      p=fn.call(el,{navigationUI:'hide'});
+    }catch(_){
+      /* 有些旧版手机浏览器不认识这个参数，去掉参数再试一次。 */
+      p=fn.call(el);
+    }
+    _fullTryTimer=setTimeout(function(){fullClearTry();fsShowSoft()},1200);
+    if(p&&typeof p.then==='function'){
+      p.then(function(){
+        fullClearTry();
+        fsShowSoft();
+      },function(){
+        fullClearTry();
+        fsShowSoft();
+      });
+    }
+    return true;
+  }catch(e){
+    fullClearTry();
+    fsShowSoft();
+    return false;
+  }
+}
+function exitFullNow(){
+  try{
+    if(!isFull())return;
+    const f=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen;
+    if(f)f.call(document);
+  }catch(e){}
+}
 function fsBtnShow(on){
   try{
     let b=document.getElementById('fsBtn');
@@ -2882,29 +2918,45 @@ function fsBtnShow(on){
       b.onclick=function(){
         cfg.full=true;save(LS.cfg,cfg);
         enterFull();
-        setTimeout(fsShowSoft,300);
+        setTimeout(fsShowSoft,350);
       };
       document.body.appendChild(b);
     }
     b.classList.toggle('on',!!on);
   }catch(e){}
 }
-function fsShowSoft(){fsBtnShow(!isFull()&&fullSupported())}
-/* 打开应用后，第一次点屏幕时自动进全屏（只自动一次，之后靠按钮） */
+function fsShowSoft(){fsBtnShow(fullOn()&&!isFull()&&fullSupported())}
+/* 手机浏览器只允许在手指点击时进入全屏。这里监听每一次点击：
+   已经被浏览器踢出全屏后，下一次点设置、弹窗或页面就会顺手补回全屏。 */
 function fullArm(){
-  if(!fullOn()||!fullSupported()||isFull())return;
-  const go=function(){if(fullOn()&&!isFull())enterFull()};
-  window.addEventListener('touchend',go,{once:true,passive:true});
-  window.addEventListener('click',go,{once:true});
+  if(_fullGesturesBound)return;
+  _fullGesturesBound=true;
+  const go=function(){if(fullOn()&&fullSupported()&&!isFull())enterFull()};
+  const opts={capture:true,passive:true};
+  if(window.PointerEvent){
+    document.addEventListener('pointerdown',go,opts);
+    document.addEventListener('pointerup',go,opts);
+  }else{
+    document.addEventListener('touchstart',go,opts);
+  }
+  document.addEventListener('touchend',go,opts);
+  document.addEventListener('click',go,true);
 }
 function fsWatch(){
+  if(_fullWatched)return;
+  _fullWatched=true;
   const h=function(){
     const on=isFull();
+    if(!on)fullClearTry();
     try{document.body.classList.toggle('fs',on)}catch(e){}
     fsShowSoft();
   };
   try{document.addEventListener('fullscreenchange',h)}catch(e){}
   try{document.addEventListener('webkitfullscreenchange',h)}catch(e){}
+  try{document.addEventListener('mozfullscreenchange',h)}catch(e){}
+  try{document.addEventListener('MSFullscreenChange',h)}catch(e){}
+  try{document.addEventListener('fullscreenerror',h)}catch(e){}
+  try{document.addEventListener('webkitfullscreenerror',h)}catch(e){}
 }
 /* 设置里的开关 */
 function setFullOpt(on){
@@ -12873,7 +12925,7 @@ function cfgLookCardHTML(){
   '<div class="col"><b>系统通知</b><div class="dim" style="font-size:12px">页面在后台时弹通知（需授权）</div></div>'+
   '<input type="checkbox" id="c_notify" '+(cfg.notify?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
-  '<div class="col"><b>自动全屏</b><div class="dim" style="font-size:12px">打开后，进应用时点一下屏幕就进全屏、藏掉浏览器地址栏。退出全屏后右下角会出现 ⛶ 按钮，点一下回去</div></div>'+
+  '<div class="col"><b>自动全屏</b><div class="dim" style="font-size:12px">打开后，点一下页面就进全屏；设置或弹窗让浏览器退出全屏后，下一次点页面会自动补回。手机浏览器要求必须有一次手指点击，右下角也有 ⛶ 按钮可手动恢复</div></div>'+
   '<input type="checkbox" id="c_full" '+(fullOn()?'checked':'')+' onchange="setFullOpt(this.checked)"></div></div>';
 }
 /* 设置页：待办提醒卡片（提示音 / 振动 / 试一下）。 */
@@ -13832,7 +13884,7 @@ async function autoBackup(force){
    主题 / 字体 / 锁屏背景图这三样，专门给锁屏用；每次存设置时它会自动跟着更新。
    密码框、错误提示的 id（pw / pwerr）跟以前一样，解锁那套逻辑完全没动。 */
 const LOCK_SKIN_KEY='wh_lockskin';
-let _lkTimer=null,_lkFullArmed=false;
+let _lkTimer=null;
 function lockSkinRead(){
   try{const v=JSON.parse(localStorage.getItem(LOCK_SKIN_KEY));return (v&&typeof v==='object')?v:null}catch(e){return null}
 }
@@ -14652,8 +14704,7 @@ function lockArmGestures(){
    现在改成：只要还没全屏，每次碰屏幕都再试一次。 */
 function lkArmFull(){
   try{
-    if(_lkFullArmed&&isFull())return;          /* 已经全屏了就不用再试 */
-    _lkFullArmed=true;
+    if(isFull())return;                         /* 已经全屏了就不用再试 */
     if(fullOn()&&fullSupported()&&!isFull())enterFull();
   }catch(e){}
 }
