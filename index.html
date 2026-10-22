@@ -15009,6 +15009,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 角色在「互动」里的写日记工具新增“私密日记”。角色调用工具时可以选择 private：普通日记仍会在「互动」的日记列表里给你看；私密日记只保存在这个角色自己的日记数据里，不出现在互动页，只有角色自己知道内容。旧日记不受影响，私密日记也会跟着本地备份保存，删除角色时会一起删除。
 角色现在也能翻看自己以前写的日记：先用 read_diary 且不填 diary_id 获取最近日记目录，再从返回的 entries 里选一篇，把它的 id 填进 diary_id 读取完整正文。公开日记和私密日记都能读；私密正文只交给角色自己回忆，聊天里只显示“已读取某篇日记”，不会自动展示正文。
 「游戏 → 装扮小铺」新增两种贝壳来源：狼人杀首次赛后结算时，如果裁判把你评为 MVP，自动奖励 30 贝壳；同一局只发一次，之后在战绩页点“让裁判重新评选 MVP”只更新复盘，不会重复发奖。背单词每天把当天计划里的词都标记一遍（点“背会了”或“还不熟”都算完成），会自动奖励 30 贝壳，每天一次，并在背单词页和小铺今日任务里显示完成状态。
+狼人杀 9 人、12 人局首夜新增“狼队分工”。狼人按座位顺序选择悍跳狼、冲锋狼、倒钩狼或深水狼；程序会保证至少 1 个悍跳狼，并且倒钩狼与深水狼合计至少 1 个。会选择到破坏配额的狼人时，界面只提供仍合规的身份。分工会影响之后的发言和投票，倒钩狼与深水狼不会被要求无脑帮队友冲票；赛后在战绩的“身份公开”里会显示每只狼选择的分工。
 
 【最近更新 · 2026-10-19】
 新增桌面第二页：在桌面空白处左右滑动可以翻页，底部的小圆点也能点。第一页保留原来的时钟、音乐组件和应用图标；第二页有「背单词」「潮汐」「塑形」和「面具管理」。
@@ -15132,7 +15133,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=45;  /* 45：总结优先级、来源时间和多层大总结；44：角色可先列目录再读自己的日记 */
+const GUIDE_VER=46;  /* 46：狼人杀 9/12 人局狼队分工；45：总结优先级、来源时间和多层大总结；44：角色可先列目录再读自己的日记 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -29065,6 +29066,9 @@ var CSS=[
 '.ww-wrap.night .ww-say-t,.ww-wrap.night .ww-say-mini,.ww-wrap.night .ww-sys,.ww-wrap.night .ww-sys.strong{border-width:.5px;border-color:rgba(255,255,255,.14);box-shadow:0 6px 18px rgba(0,0,0,.18)}',
 '.ww-wrap.day .ww-say.me .ww-say-t{border-width:.5px;border-color:rgba(255,224,218,.16);box-shadow:0 6px 18px rgba(0,0,0,.15)}',
 '.ww-wrap.night .ww-say.me .ww-say-t{border-width:.5px;border-color:rgba(255,180,160,.16);box-shadow:0 6px 18px rgba(0,0,0,.18)}',
+/* 狼队频道固定用浅粉底 + 深红字，避免被日夜主题的浅色正文覆盖成几乎看不见。 */
+'.ww-wrap .ww-sys.wolf{background:rgba(255,239,236,.96)!important;border-color:rgba(190,60,60,.38)!important;color:#67211d!important;text-shadow:none!important;font-weight:500}',
+'.ww-wrap .ww-sys.wolf b{color:#a33a32!important;text-shadow:none!important}',
 '.ww-wrap.day .ww-seat.knw .ww-seat-nm,.ww-wrap.night .ww-seat.knw .ww-seat-nm{color:#ff7166;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.7)}',
 '.ww-wrap.day .ww-seat.mk-wolf1 .ww-seat-nm,.ww-wrap.night .ww-seat.mk-wolf1 .ww-seat-nm{color:#ffaaa1;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.65)}',
 '.ww-wrap.day .ww-seat.mk-wolf2 .ww-seat-nm,.ww-wrap.night .ww-seat.mk-wolf2 .ww-seat-nm{color:#ff6258;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.7)}',
@@ -31044,6 +31048,19 @@ var WW_IC_CLAW='<svg viewBox="0 0 24 24">'+
 var WW_IC_HIT='<svg viewBox="0 0 24 24"><path d="M12 2.6l2.2 5.6 5.9-1.4-4.1 4.4 4.1 4.4-5.9-1.4L12 21.4l-2.2-5.8-5.9 1.4 4.1-4.4-4.1-4.4 5.9 1.4z"/></svg>';
 var WW_ROLE_NAME={wolf:'狼人',wolfking:'白狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴'};
 var WW_ROLE_EMOJI={wolf:'🐺',wolfking:'👑',villager:'👤',seer:'🔮',witch:'🧪',hunter:'🔫',guard:'🛡️',idiot:'🃏'};
+var WW_WOLF_JOB_NAME={jump:'悍跳狼',charge:'冲锋狼',hook:'倒钩狼',deep:'深水狼'};
+var WW_WOLF_JOB_HELP={
+  jump:'抢预言家身份。不要反射性查杀对跳者，优先给外置位发金水拉票，或反踩真预“怕你才查杀”；编验人必须遵守真实时间线。',
+  charge:'明面帮悍跳狼或队友冲锋，但不要拉全队无脑同票；队友暴露时要会切割。',
+  hook:'倒钩：表面站好人，按局势选一种：①常规——反悍跳、抬你判断的真预；②阴阳——明面反悍跳，关键时刻票好人；③垫飞——用大量低质好话猛抬真预。别机械固定反调，必要时可票暴露队友，也别公开保狼。',
+  deep:'低调藏好，按公共逻辑独立投票，不无脑救队友，也别和狼队抱团同票。'
+};
+var WW_WOLF_JOB_VOTE={
+  jump:'先保预言家面，必要时切割队友，别拉全队冲票。',
+  charge:'可以冲锋，但别让全狼队投成同一种票型。',
+  hook:'按当前倒钩打法独立投：常规/阴阳可在关键时刻票好人，必要时票暴露队友，别公开保狼。',
+  deep:'优先藏身份，跟随可信公共逻辑投票，不无脑救队友。'
+};
 var WW_PICKS=[['random','随机'],['villager','村民'],['seer','预言家'],['witch','女巫'],['hunter','猎人'],['guard','守卫'],['idiot','白痴'],['wolfking','白狼王'],['wolf','狼人']];
 /* NPC：没有性格设定的「普通玩家」，只按普通玩家说话 —— 不读人设，省 token，用来凑人数 */
 var WW_NPC_NAMES=['摸鱼选手','深夜不睡','柠檬不酸','干饭第一名','键盘侠阿伟','路过的风景','香菜退散','开麦就困','打工人小张','月亮不睡','一杯冰美式','网不太好'];
@@ -31053,11 +31070,7 @@ var WW_NPC_FACES=['🙂','🐟','🌙','🍜','🎧','🧋','🍋','🛸','🐧'
 var WW_TIPS=[
 '【术语】金水＝验到的好人；查杀＝验到的狼；银水＝女巫救起的人。刀、自刀、空刀、生推、踩、抬、站边、共边、票型、轮次、归票。',
 '【狼术】悍跳、对跳、冲锋狼、倒钩狼、深水狼、狼踩狼；狼可以悍跳，也可以狼查杀狼。',
-'【规则】平票再辩一次；白痴被票翻牌免死，之后不能投票；夜里被刀或毒仍会死。',
-'【死讯】主持人只说谁出局，不公开夜里死因。狼一晚一刀；女巫同一晚只能用一瓶药。',
-'【狼坑】完整本局狼坑可含出局者；剩余活狼只从活人里算。总狼数减已确认死狼＝最多还剩几只活狼。死狼只扣总数，不能自动洗清活人。',
-'【双边】先盘“某预为真”的狼坑和共边，再盘“某预为假”的狼坑和共边，再按证据选边。',
-'【提醒】没有铜水、拍刀。具体板子和警长规则看下面的补充。'
+'【提醒】没有铜水、拍刀；板子和警长规则见当前局面与补充。'
 ].join('\n');
 /* 【已删】原来那套「桌子上的手语」：面杀现在夜里可以正常说话，手语这一套整段删掉了。 */
 /* 这一局是不是「面杀」（没选过就是网杀，和以前一样） */
@@ -31077,7 +31090,7 @@ function wwTxt(face,net){return wwFaceOn()?face:net}
    这里给一条明规矩：不知道谁是什么性别，一律当女生（用「她」），
    也不许用默认男性的叫法，更不许拿性别刻板印象去推身份或能力。 */
 function wwGenderLine(){
-  return '【称呼】除你之外，所有玩家、NPC 和真人都默认按女生称呼。名字、头像、说话风格不代表身份或性别。';
+  return '【称呼】除你外，玩家、NPC 和真人都用“她”称呼；名字、头像和说话风格不代表身份或性别。';
 }
 /* 【新·面杀】「大家的样子」：用户在准备页给每个角色写的一句话形象。
    面杀是面对面坐着，谁都看得见谁长什么样，所以这一条对所有 AI 都公开。
@@ -31106,11 +31119,11 @@ function wwTipsOn(p){
   return w.tips[p.cid]===true;
 }
 function wwTipsBlock(){
-  var extra=wwSheriffOn()?'\n【警长/上警】第一天天亮后竞选警长：先表态上警 → 警上各发一次言拉票 → 可以退水 → 没上警的人投票选出。警长白天投票算 1.5 票、负责定发言顺序；TA 出局时警徽可以移交给别人，也可以撕毁。狼上警抢警徽（悍跳抢警徽）是常规套路。':'';
+  var extra=wwSheriffOn()?'\n【上警】第一天先竞选再报死讯：上警发言、可退水、警下投票。警长票 1.5 并定顺序；出局时移交或撕徽。狼可悍跳抢警徽。':'';
   var bd=wwBoard((V.ww&&V.ww.count)||0);
-  if(bd.guard)extra+='\n【守卫】每晚可以守一个人（含自己），被守的人当晚不会被狼刀死；不能连续两晚守同一个人。守卫只防狼刀——被毒 / 被猎人带走 / 被投票放逐照样死。注意「同守同救必死」：同一晚你守的人、女巫又刚好用解药救了（而且狼刀的就是她），她反而会死。**主流打法：第一晚空守**——女巫第一晚常常会直接开解药，你第一晚不动，就不会撞上同守同救。';
-  if(bd.wolfking)extra+='\n【白狼王】白天可以自爆，自爆时带走场上任意一个还活着的人，然后白天立刻结束、直接进入黑夜；只能用一次。能炸的时机：竞选警长发言时、白天自己发言时、投票还没出结果之前——票一投完、确定放逐你了就炸不了了。别急着炸——留到能炸掉关键神职、或者自己快被票出去的时候最划算。';
-  return '【狼人杀术语与思路小抄】下面是老玩家的常用术语和打法，你说话时可以自然地用（能对上就用，别硬堆词）：\n'+WW_TIPS+extra;
+  if(bd.guard)extra+='\n【守卫】每晚守一人（含自己），不能连守；只挡狼刀，同守同救会死。首夜空守。';
+  if(bd.wolfking)extra+='\n【白狼王】白天可自爆带走一人并立即入夜，限一次；尽量炸关键神职或自救。';
+  return '【狼人杀小抄】术语能对上就用，别硬堆词：\n'+WW_TIPS+extra;
 }
 /* 自己可以给角色打的标记（纯给自己看，不会发给 AI） */
 var WW_MARKS=[['wolf1','怀疑狼','wolf'],['wolf2','确定狼','wolf'],['seer','像预言家','seer'],['witch','像女巫','witch'],['guard','像守卫','guard'],['hunter','像猎人','hunter'],['wolfking','像白狼王','wolfking'],['idiot','像白痴','idiot'],['good','像好人','villager']];
@@ -31124,9 +31137,9 @@ function wwFactsFor(p){
   if(!w||!w.players||!w.players.length)return '';
   var alive=wwAlive(),dead=w.players.filter(function(x){return !x.alive});
   if(w.players.some(function(x){return x&&x.anon}))
-    L.push('【匿名玩家】本局有角色开启了匿名，真实名字不会发给你；所有匿名玩家只按座位编号辨认。不要根据人设、关系、头像或名字去猜她是谁，也不要说出任何匿名玩家的真实名字。');
+    L.push('【匿名玩家】只按座位号辨认；不要猜或说出匿名者的真实名字。');
   var lkAll=wwLooksLine();if(lkAll)L.push(lkAll);   /* 【新】大家的样子放在最前面，最显眼 */
-  L.push('【事实清单（主持人给的，不用怀疑、也不用再推）】'+
+  L.push('【事实清单（主持人提供，直接采用）】'+
     '\n· 现在是第 '+w.day+' 天 · '+(w.phase==='night'?'夜晚':'白天')+'。'+
     '\n· 活着的玩家：'+(alive.map(wwName).join('、')||'（没有了）')+
     (alive.length&&p?(alive.some(function(x){return x===p})?'（'+wwTag(p)+' 就是你自己）':''):'')+
@@ -31140,46 +31153,43 @@ function wwFactsFor(p){
              :((x.killedBy==='boom')?'白天出局（白狼王自爆）'
              :((x.killedBy==='flip')?'白天掀桌认输后被处刑':'夜里出局')));
       return wwName(x)+'（'+how+'）';
-    }).join('、')+'\n  （夜里出局的只报「出局」，不说死因——被毒还是被刀，得自己推）'):'')+
-    '\n· 名字只是称呼，跟身份没有关系：名字里带「狼」字的人也可能是好人，别被名字骗了（这一条很重要）。');
+    }).join('、')+'\n  （夜里出局只报“出局”，死因自行判断）'):'')+
+    '\n· 名字只是称呼，不代表身份。'+
+    '\n· 出局只代表离场；除非主持人明确翻牌，身份不公开。');
   var rev=w.players.filter(function(x){return x.alive&&x.role==='idiot'&&x.revealed});
-  if(rev.length)L.push('· 注意：'+rev.map(function(x){return wwTag(x)}).join('、')+' 已经翻出「白痴」牌——TA 没有被放逐、还活着、还能发言，但不能再投票、也不能再被票出去。');
+  if(rev.length)L.push('· '+rev.map(function(x){return wwTag(x)}).join('、')+' 已翻白痴牌：未被放逐，能发言，但不能投票或再被票。');
   if(p&&wwIsWolf(p)){
     var team=w.players.filter(wwIsWolf);
-    L.push('【你们狼队的真实情况（只有你知道，别在发言里说破）】'+
-      '\n· 这一局的狼一共 '+team.length+' 个：'+team.map(function(x){return wwNum(x)+x.name+(x.alive?'（还活着）':'（已出局）')}).join('、')+'。'+
-      '\n· 你现在还活着的狼队友：'+(team.filter(function(x){return x.alive&&x!==p}).map(wwName).join('、')||'（没有了，只剩你一个）')+'。'+
-      '\n· 你自己是 '+wwNum(p)+p.name+'，你就属于上面这队狼，别再怀疑自己是不是。');
+    L.push('【狼队真实情况（只有你知道，勿公开）】'+
+      '\n· 全部狼：'+team.map(function(x){return wwNum(x)+x.name+(x.alive?'（活）':'（出局）')}).join('、')+'。'+
+      '\n· 活着的狼队友：'+(team.filter(function(x){return x.alive&&x!==p}).map(wwName).join('、')||'（无，只剩你）')+'。'+
+      '\n· 你是 '+wwNum(p)+p.name+'，属于这队狼。');
+    var myJob=wwWolfJobOf(p);
+    if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+WW_WOLF_JOB_HELP[myJob]);
     /* 【新】最后一只狼：实在没救了可以「掀桌」认输，别硬撑着把自己绕死 */
     if(team.filter(function(x){return x.alive}).length===1&&p.alive)
-      L.push('· 你已经是场上【最后一只狼】了。要是你觉得这一局实在翻不了盘（好人全站死、票根本拉不回来、你自己马上就要被投出去），'+
-        '别硬撑着假装——轮到你白天发言那一步会直接问你「继续装 还是 掀桌」：掀桌就是公开承认自己是狼、说一段投降演说、当场被处刑，体面地结束这一局。'+
-        '当然，只要还有一线希望（还有人信你、还有好人能被你带偏），就继续装。');
+      L.push('· 你是最后一只狼。确定翻不了盘时，可在白天发言时选择掀桌：公开认狼并被处刑；还有希望就继续装。');
     /* 【新】昨晚你们刀的是谁 —— 这是你们自己做的事（去掉死因以后必须补上，不然狼队会变瞎） */
     if(w.night&&w.night.wolf&&!w.night.spared)
       L.push('· 你们狼队昨晚刀的是 '+wwName(w.night.wolf)+(w.pendingDeaths?'（死讯还没公布，先别声张）':(w.night.wolf.alive?'，TA 现在还活着（多半是女巫的解药救回来了）':''))+
-        '。（这条只有你们自己知道，白天别往外说。）');
+        '。（仅狼队知道，白天别说。）');
     if(w.night&&w.night.spared)
-      L.push('· 昨晚你们本来要刀 '+wwName(w.night.wolf)+'，最后【收刀】放过了她（她现在还活着）。这是你们自己决定的，白天别把这事说出去。');
+      L.push('· 昨晚你们想刀 '+wwName(w.night.wolf)+'，最后收刀放过她；白天别说。');
     if(w.night&&w.night.nokill)
-      L.push('· 昨晚是你们自己决定的【空刀】——一个人都没杀，所以今天早上会是「平安夜」。这是你们自己下的棋，心里有数就行（白天别把「我们空刀了」说出来）。');
+      L.push('· 昨晚你们选择空刀，今早是平安夜；仅自己知道，白天别说。');
     /* 【新】把狼队频道塞进来：你们夜里偷偷商量的话，只有狼看得见 */
     var ch=wwWolfChannelText();
     if(ch)L.push(wwFaceOn()
-      ? ('【夜间密会（昨晚你们狼人在房间里碰头说的话，只有你们自己知道）】\n'+ch+
-         '\n· 这一局是面杀：大家住在同一个村子里、各有房间，夜里狼队碰头时可以正常说话——上面这些就是你们昨晚聊的。'+
-         '\n· 白天发言里绝对不能提这次密会，也不能把队友在密会上说的话抖出去。')
-      : ('【狼队频道（只有你们狼队看得见，好人根本不知道有这回事）】\n'+ch+
-         '\n· 这是你们自己人夜里偷偷商量的，用来配合（谁悍跳、谁打倒钩、今晚刀谁…）。'+
-         '\n· 白天发言里绝对不能提这个频道，也不能把队友在里面说的话抖出去。'));
+      ? ('【夜间密会（仅狼队可见）】\n'+ch+'\n· 白天不能提密会或泄露队友的话。')
+      : ('【狼队频道（仅狼队可见）】\n'+ch+'\n· 白天不能提频道或泄露队友的话。'));
   }
   /* 【新】警长的情况：谁在当警长、警徽还在不在 */
   if(wwSheriffOn()){
     var sp=wwSheriffP();
-    L.push('【警长（上警）这一局的情况】'+
-      (!w.sheriffDone?'· 第一天的警长竞选还没开始：警长要等天亮了之后才选。':
-       (!sp?'· 这一局现在没有警长（没人上警，或者警徽已经被撕掉了）。':
-        ('· 警长是 '+wwTag(sp)+'（TA 还活着）：白天投票放逐的时候，TA 的票算 1.5 票，每天也由 TA 决定发言顺序。'))));
+    L.push('【警长情况】'+
+      (!w.sheriffDone?'竞选尚未开始。':
+       (!sp?'当前无警长。':
+        ('警长 '+wwTag(sp)+'：票权 1.5，并决定发言顺序。'))));
   }
   if(w.phase==='day'&&w.speechMode){
     var so=wwSpeechOrderList();
@@ -31188,10 +31198,10 @@ function wwFactsFor(p){
       :((w.speechMode==='sheriff-random')
         ?('警长 '+wwTag(wwSheriffP())+' 选择随机开头')
         :'天亮时随机决定');
-    L.push('【今天的发言顺序】来源：'+src+'。'+
+    L.push('【发言顺序】来源：'+src+'。'+
       '顺序：'+(so.list.map(wwTag).join(' → ')||'（无人')+'。'+
-      '还没轮到的只是没轮到，不能拿“没开口”当狼点。'+
-      (w.speaking?('现在轮到 '+wwTag(wwPlayerByUid(w.speaking))+'。'):''));
+      '未轮到不等于心虚。'+
+      (w.speaking?('当前：'+wwTag(wwPlayerByUid(w.speaking))+'。'):''));
   }
   return L.join('\n');
 }
@@ -31265,11 +31275,10 @@ function wwBoardLine(){
   if(b.hunter)a.push('猎人 '+b.hunter+' 个');
   if(b.idiot)a.push('白痴 '+b.idiot+' 个');
   a.push('普通村民 '+b.villager+' 个');
-  return '【这一局的板子（开局就是公开信息，所有人都知道）】一共 '+w.count+' 人：'+a.join('、')+'。'+
-    '这说的是开局的配置总数；场上现在还剩几个狼、几个神，谁都不知道，只能靠发言和票型推理——不要凭空假设，也不要瞎报。'+
-    (b.idiot?('（白痴的规则：白天被投票放逐时不会死，会翻牌继续留在场上、可以发言，但从此不能再投票、也不能再被票出去；夜里被刀照样会死。）'):'')+
-    (b.guard?('（守卫的规则：每晚可以守一个人（包括自己），被守的人当晚不会被狼刀死；不能连续两晚守同一个人；守卫只管狼刀，被毒 / 被猎人带走 / 被投票放逐照样死；同一晚守卫守的人、女巫又刚好用解药救了（而且狼刀的就是她），她反而会死。）'):'')+
-    (b.wolfking?('（白狼王的规则：白天可以自爆，自爆时带走场上任意一个还活着的人，然后白天立刻结束、直接进入黑夜；自爆只能用一次。夜里它就是一只普通狼。）'):'');
+  return '【公开板子】'+w.count+' 人：'+a.join('、')+'。只知道开局配置，不知道当前还剩几个狼或神，别凭空报。'+
+    (b.idiot?('（白痴白天被票翻牌免死，之后能发言但不能投票；夜里照常会死。）'):'')+
+    (b.guard?('（守卫每晚守一人（含自己），不能连守；只挡狼刀，同守同救会死。）'):'')+
+    (b.wolfking?('（白狼王白天可自爆并带走一人，白天立刻结束；限一次。夜里是普通狼。）'):'');
 }
 /* 好人发言前要先在「草稿纸」上盘一遍；这里把草稿纸和发言拆开：
    草稿纸只留在它自己身上（不上屏、不进公共记录、别的角色看不到）。 */
@@ -31295,7 +31304,7 @@ function wwAutoTitle(t){
   return m.length>28?m.slice(0,28)+'…':m;
 }
 /* 标题必须是中立的：只描述公开说了什么，不写「装懵 / 装傻 / 演戏 / 悍跳」这类身份或动机判断 */
-var WW_TITLE_BAD=/(装懵|装傻|装良|演戏|假跳|悍跳)/;
+var WW_TITLE_BAD=/(装懵|装傻|装良|装(?:成|作)?(?:普通)?村民|装(?:成|作)?好人|伪装|假装|演戏|假跳|悍跳)/;
 function wwCleanTitle(t,text){
   t=String(t||'').replace(/^[「『"“]+|[」』"”]+$/g,'').replace(/\s+/g,' ').trim();
   if(!t||!/[\u4e00-\u9fa5A-Za-z0-9]/.test(t)||WW_TITLE_BAD.test(t)){
@@ -31311,16 +31320,11 @@ function wwSpeakTask(p,base){
      那些硬模板会让六个 AI 说话像一个模子刻出来的，没了真人感。 */
   var face=wwFaceOn();   /* 【新·面杀】面杀围着桌子坐：允许用括号写语气、动作、神态 */
   var plain=base+
-    '\n【发言方式】'+
-    '\n· 用自己的人设、语气和口头禅，别像通用 AI。长短随角色，一两句也可以。'+
-    '\n· 说真正关心的：怀疑/信任谁、理由、投谁。没信息就直说，别硬编狼坑。'+
-    '\n· 别复述规则、别套固定开场、别人人长篇。'+
-    '\n· 发言逐个轮流：还没轮到的活人不是沉默或心虚，不能拿“没开口”踩她。'+
-    (face?('\n【这一局是「面杀」：大家面对面围着一张桌子坐】你看得见每个人的脸、眼睛和小动作——'+
-      '可以用括号写少量语气、动作、神态；只写场上真实发生过的观察。'):'')+
-    (face?'':'说话像群聊，不写旁白和动作。')+
-    '\n· 不骂人、不靠发誓喊冤、不用 markdown。';
-  var titleAsk='先写【标题】：单独一行，最多 12 个字，只客观概括这段发言公开说了什么、站了谁，不判断身份和动机，不用「装懵、装傻、装良、演戏、假跳、悍跳」这类词；例：跳预、查杀1号 / 站边1号、质疑2号 / 这轮在划水 / 无信息量发言 / 报了女巫。';
+    '\n【发言】用你的人设和口气，长短随角色。说怀疑/信任谁、理由、投谁；没信息就直说，别硬编狼坑。'+
+    '别复述规则、套模板或长篇点评。没轮到的玩家不是心虚。'+
+    (face?'面杀可写少量括号动作、神态，只写真实观察。':'像群聊，不写旁白动作。')+
+    '不骂人、不靠发誓喊冤、不用 markdown。';
+  var titleAsk='先写【标题】：单独一行，最多 12 字。标题会被用户看见，必须客观概括公开说了什么、站了谁，不判断身份和动机；狼也不能暴露身份或写出“装作村民、装好人、潜伏”等真实意图。例：跳预、查杀1号 / 站边1号 / 这轮划水 / 无信息发言。';
   if(wwIsWolf(p))return plain+
     '\n【输出】'+titleAsk+'再写【草稿纸】：只有你看得到，写装身份、拉票、保谁、推谁。'+
     '再写【发言】：说给大家听，不能泄露草稿纸。';
@@ -31411,7 +31415,11 @@ function wwPublicLog(maxN){
   var w=V.ww,L=[];
   w.log.slice(-(maxN||70)).forEach(function(e){
     if(e.k==='sys')L.push('【主持人】'+e.text);
-    else if(e.k==='say'){var p=wwPlayerByUid(e.who);L.push(wwName(p)+'：'+e.text)}
+    else if(e.k==='say'){
+      var p=wwPlayerByUid(e.who),t=String(e.text||'');
+      if(/^【遗言】/.test(t))L.push('【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'：'+t.replace(/^【遗言】/,''));
+      else L.push(wwName(p)+'：'+t);
+    }
     else if(e.k==='vote')L.push('【投票】'+e.text);
     /* 【注意】只收 sys / say / vote 三类：
        'scene'（夜间 · 你的房间：她和凶手互骂那些话）、'me'、'wolf' 都不进这里 ——
@@ -31441,27 +31449,26 @@ var WW_DYNMAP={};
 function wwSysFor(p,task){
   var w=V.ww,L=[],r=p.role,dyn=[];
   /* 先让它「变成」这个角色：性格、说话方式、脾气、和在场人的关系，都在下面这一块里 */
-  L.push('【你就是这个人本人】你不是在"扮演"，你就是 TA——现在正坐在桌前，和大家一起玩「狼人杀」。'+
-    '说话要完全像这个人：语气、用词、口头禅、脾气都照下面来，别用通用 AI 的客气口吻；该毒舌就毒舌、该怂就怂，被发现是狼也照样是这个人。\n\n'+
+  L.push('【你就是这个人本人】直接以 TA 的身份玩狼人杀。完全照下面的人设说话，不用通用 AI 口吻。\n\n'+
     '=== 你就是下面这个人 ===\n'+wwCharBlock(p)+'\n=== 以上都是你自己 ===');
   L.push(wwGenderLine());   /* 【新】不知道性别就按女生：别默认大家都男的 */
   L.push('【你是谁 / 你的身份】你是 '+wwName(p)+'（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwName(p)+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'无特殊能力。听发言盘 1~2 个狼和理由，独立投票；被怀疑时用时间线自证。':
-     r==='seer'?'每晚验一人。报清金水/查杀、狼坑和归票；通常第一轮起跳，别一直藏。':
-     r==='witch'?'解药、毒药各一次，同一晚只用一瓶。'+(wwFaceOn()?'面杀全程不能自救。':'只有第一夜能自救。')+'有守卫时首夜主流开解药；不乱毒。不要轻易暴露身份。':
-     r==='hunter'?'被刀或被票可开枪，被毒不能开枪。平时藏身份，快出局时再跳。':
-     r==='idiot'?'被票时翻牌免死；翻牌后能发言但不能投票；夜里仍会死。可利用不怕票去试人。':
-     r==='guard'?'每晚守一人，不能连守；只挡刀，同守同救会死。首夜主流空守，之后重点守预言家。藏好身份。':
-     r==='wolfking'?'狼队成员。白天可自爆并带走一名活人，之后直接入夜。快被票或能炸关键神职时用；节奏已顺时别炸。':
-     '狼队成员。白天装好人，可悍跳、假金水、假查杀。真预查到队友或好人明显站真预时，狼队应有人悍跳；成功后咬住目标，别乱加戏。'));
+     r==='seer'?'每晚验一人。可以按夜晚回顾自己的验人；报清金水/查杀、狼坑和归票，通常首轮起跳。':
+     r==='witch'?'解药、毒药各一次，同夜只用一瓶。'+(wwFaceOn()?'面杀全程不能自救。':'仅首夜能自救。')+'有守卫时首夜可救人；不乱毒，少暴露。':
+     r==='hunter'?'被刀或被票可开枪；被毒不能开枪。平时藏身份，快出局再跳。':
+     r==='idiot'?'被票翻牌免死；之后能发言不能投票；夜里仍会死。':
+     r==='guard'?'每晚守一人，不能连守；只挡刀，同守同救会死。首夜空守，之后重点守预言家。':
+     r==='wolfking'?'狼队成员。白天可自爆带走一人并立即入夜，限一次；被票前或能炸关键神职时用。':
+     '狼队成员。白天装好人，可悍跳、假金水、假查杀。悍跳时按真实流程编：警上只报昨夜一个结果；死讯后仍是同日，不能凭空多编一轮验人。别反射性查杀对跳者；优先外置位金水拉票，或反踩真预“怕你才查杀”。'));
   if(p.anon)L.push('【你这一局匿名】其他玩家只知道你是 '+(p.seq||'?')+' 号，不会拿到你的真实名字。发言时用编号自称，绝不要说出自己的真实名字；就算你的人设里写着名字，也要把它当成只有自己知道的信息。');
   if(wwIsWolf(p)){
     var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':'')});
     L.push('你的狼队友：'+(mates.join('、')||'（没有别人，只有你自己）'));
   }
   if(r==='seer'){
-    var ck=(p.check||[]).map(function(c){var t=wwPlayerByUid(c.uid);return (t?t.name:'?')+' = '+(c.isWolf?'狼人':'好人')});
-    if(ck.length)dyn.push('你已经验过：'+ck.join('；'));
+    var ck=(p.check||[]).map(function(c,i){var t=wwPlayerByUid(c.uid);return '第 '+(c.day||(i+1))+' 夜：'+(t?t.name:'?')+' = '+(c.isWolf?'狼人':'好人')});
+    if(ck.length)dyn.push('你的验人结果（按夜晚）：'+ck.join('；'));
   }
   if(r==='witch'){
     dyn.push('你的药：解药'+(w.witchSave?'还在':'已经用掉了')+'；毒药'+(w.witchPoison?'还在':'已经用掉了'));
@@ -31478,21 +31485,18 @@ function wwSysFor(p,task){
     p.peeks.map(function(x){return '· '+x.tag+'：'+x.text}).join('\n')+
     '\n· 是你自己偷偷看出来的，可以用来判断谁心虚、谁在装；除非你想摊牌，别直接说「我一直在盯着你看」。');
   /* 【新】本局有警长（上警）：把规则讲清楚，AI 才知道怎么竞选、怎么用警长的权力 */
-  if(wwSheriffOn())L.push('【警长】第一天先上警，再公布死讯。上警者发言、可退水，警下投票选警长。警长票 1.5，决定每天发言顺序；出局时移交或撕毁警徽。竞选时不知道昨夜死讯，别装知道。');
-  L.push('【硬规矩】只有主持人公布的结果、自身能力和自身身份是确定事实；别人的发言和报身份可能是假。你是 '+(p.seq||'?')+' 号，别投自己。'+
+  if(wwSheriffOn())L.push('【警长】第一天先上警再报死讯；上警发言、可退水，警下投票。警长票 1.5 并定顺序，出局时移交或撕徽。竞选时不知道死讯，别装知道。');
+  L.push('【时间线】第1天：首夜验人（此前无人发言）→上警→公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。');
+  L.push('【硬规矩】主持人公布的结果、自身能力和身份才是事实；他人发言、遗言、报身份可为假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
       ? '面杀可写少量括号动作，不用 markdown。'
       : '像群聊说话，不写旁白动作，不用 markdown。')+
     (r==='wolf'?'狼可以说谎和悍跳。':''));
-  L.push('【盘局】'+
-    '① 夜里死因不公开；除非自己知道，别把“被刀/被毒”当事实。'+
-    '② 对预言家、查杀、金水或焦点牌都盘双边：A 为真时狼坑、共边、今天出谁；A 为假时狼坑、共边、今天出谁。狼可悍跳，也可狼查杀狼。'+
-    '③ 狼坑分两层：完整本局狼坑可含出局者；剩余活狼候选只从活人里算。总狼数减已确认死狼＝最多还剩几只活狼。死狼只扣总数，不能自动洗清活人。例：4 狼局已死 3 狼，仍可能剩 1 只活狼，任何活人都不能因“死了 3 狼”自动排除。'+
-    '④ 死亡、人数、票型和游戏是否继续都能辅助推理；可以反推活狼和共边，但要写清假设和依据。'+
-    '⑤ 发言顺序来源和完整顺序见当前局面；靠后只是没轮到，不能拿“没开口”踩人。'+
-    '⑥ 警徽是前任的信任托付，不是白捡，也不等于铁好。'+
-    '⑦ 改票不定狼，要看新信息和改票理由。'+
-    '⑧ 场上只有单边预言家且死者中没有预言家时，默认她为真。');
+  L.push('【盘局】夜里死因不公开；除非亲历，别把刀/毒当事实。每次有夜死者，都考虑狼自刀做局，夜死不等于一定是好人。预言家等焦点牌盘双边。'+
+    '狼坑分清本局总数与活狼：死狼只扣总数，不能洗清活人。票型、死亡人数只作证据。'+
+    '发言顺序见当前局面，未轮到不等于心虚。警徽不等于铁好；改票要说明新理由。'+
+    '场上只有单边预言家且死者中无预言家时，默认她为真。');
+  L.push('【滴滴代跳】好人完全有把握且能排出真神时，可冒充该神抢刀，例如替真预发金水或查杀；真预见同立场者跳预，可接代跳、暂装非预，合适时再亮真身。无把握别用；真预分不清代跳与狼时，优先归票查杀或更像狼者。');
   if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
   /* 【新】昨晚你自己收刀放过了她：只有动手的那几只狼知道，别以为她是被女巫救的 */
   if(p.sparedNote)dyn.push('【昨晚你自己做的事】你本来要刀 '+p.sparedNote.tag+' · '+p.sparedNote.name+'，'+
@@ -31615,6 +31619,9 @@ function wwSayMax(){
         顺手给队友留一句悄悄话，它们就能自己商量打法。
    留言都存在 log 里（k:'wolf'）：局内只有「你也是狼」才看得到；赛后透明模式里全部公开。 */
 var WW_WOLF_MSG_MAX=50;
+/* 直接写在元素上的狼队记录样式，避免历史页/游戏页的主题规则再次覆盖正文颜色。 */
+var WW_WOLF_LOG_STYLE='text-align:left;background:#fff0ee;border:1px solid #d88b84;border-radius:12px;padding:8px 10px;margin:10px 0;color:#67211d;font-size:12.5px;line-height:1.6;text-shadow:none;font-weight:500';
+var WW_WOLF_HEAD_STYLE='display:block;color:#a33a32;font-size:10.5px;letter-spacing:.06em;font-weight:700;margin-bottom:3px;text-shadow:none';
 /* 把模型写的话收拾成一句干净的留言（去引号、去前缀、掐到上限以内：网杀 50 字 / 面杀 100 字） */
 function wwWolfClean(t){
   var cap=wwWolfMax();                 /* 【新·面杀】面杀全靠括号写动作，50 字不够用 */
@@ -31646,27 +31653,108 @@ function wwWolfChannelText(max){
     return '第 '+e.d+' 夜 · 「'+wwWolfWho(e)+'」：'+String(e.text||'').replace(/\s+/g,' ').slice(0,40);
   }).join('\n');
 }
+function wwWolfJobOf(p){var w=V.ww;return (w&&w.wolfRoles&&p)?String(w.wolfRoles[p.uid]||''):''}
+function wwWolfJobNames(a){return (a||[]).map(function(k){return WW_WOLF_JOB_NAME[k]||k}).join('、')}
+/* 只在仍有足够后续狼人时允许某种选择，保证“至少一个悍跳、至少一个倒钩/深水”一定落得下来。 */
+function wwWolfAllowedJobs(order,idx){
+  var w=V.ww,prev=order.slice(0,idx),left=order.length-idx-1;
+  var hasJump=prev.some(function(p){return wwWolfJobOf(p)==='jump'});
+  var hasHide=prev.some(function(p){var j=wwWolfJobOf(p);return j==='hook'||j==='deep'});
+  return ['jump','charge','hook','deep'].filter(function(j){
+    var needJump=!hasJump&&j!=='jump'?1:0;
+    var needHide=!hasHide&&j!=='hook'&&j!=='deep'?1:0;
+    return needJump+needHide<=left;
+  });
+}
+function wwParseWolfJob(txt,allowed){
+  var s=String(txt||'');
+  if(/悍跳|跳预/.test(s))return 'jump';
+  if(/冲锋/.test(s))return 'charge';
+  if(/倒钩|倒勾/.test(s))return 'hook';
+  if(/深水/.test(s))return 'deep';
+  return allowed[Math.floor(Math.random()*allowed.length)]||'deep';
+}
+async function wwWolfPickJob(p,allowed,idx,total){
+  var w=V.ww;
+  var chosen=(w.players||[]).filter(function(x){return wwWolfJobOf(x)}).map(function(x){
+    return wwTag(x)+'='+WW_WOLF_JOB_NAME[wwWolfJobOf(x)];
+  }).join('、')||'还没有';
+  var rules=['悍跳狼：抢预、做预面，别反射查杀对跳者。',
+    '冲锋狼：明面帮队友冲，但别全队同票。',
+    '倒钩狼：表面站好人，可与队友对立，必要时票队友。',
+    '深水狼：低调藏身，独立判断，不无脑救队友。'].join('\n');
+  var sys=wwSysFor(p,'狼队按座位顺序定分工（第 '+(idx+1)+'/'+total+' 个）。已选：'+chosen+'。\n'+
+    '你只能从：'+wwWolfJobNames(allowed)+' 中选一个。\n'+rules+
+    '\n【输出格式】只输出一个分工名称。');
+  var txt=await wwCall(sys,'请选择你的狼队分工。',20,.8);
+  return wwParseWolfJob(txt,allowed);
+}
+/* 9/12 人局首夜：每只狼按座位顺序选分工；程序实时兜底配额，不让最后配额落空。 */
+async function wwWolfAssignRoles(wolves){
+  var w=V.ww;
+  if(!w||w.wolfRolesDone||w.day!==1||w.count<9||!wolves||!wolves.length)return;
+  var me=wwMe(),visible=!!(me&&wwIsWolf(me));
+  w.wolfRoles={};w.wolfRolesDone=false;
+  var order=wolves.slice().sort(function(a,b){
+    var pa=a.isUser?0:(a.role==='wolfking'?1:2),pb=b.isUser?0:(b.role==='wolfking'?1:2);
+    return pa-pb||((a.seq||0)-(b.seq||0));
+  }),gen=wwGenNow();
+  for(var i=0;i<order.length;i++){
+    if(wwStaleG(gen))return;
+    var p=order[i],allowed=wwWolfAllowedJobs(order,i),job='';
+    if(p.isUser){
+      var opts=allowed.map(function(k){return [WW_WOLF_JOB_NAME[k],k]});
+      var r=await wwAskOpt('🐺 狼队分工（第 '+(i+1)+'/'+order.length+' 个）：你想负责什么？',opts);
+      if(wwStaleG(gen))return;
+      job=String((r&&r.val)||'');
+    }else{
+      if(visible){
+        await wwStep('狼队分工：轮到「'+wwTag(p)+'」选择');
+        if(wwStaleG(gen))return;
+        w.msg='🐺 「'+wwTag(p)+'」正在选择狼队分工…';render(true);
+      }
+      try{job=await wwWolfPickJob(p,allowed,i,order.length)}
+      catch(e){job=allowed[Math.floor(Math.random()*allowed.length)]||'deep'}
+      if(wwStaleG(gen))return;
+    }
+    if(allowed.indexOf(job)<0)job=allowed[0]||'deep';
+    w.wolfRoles[p.uid]=job;
+    if(visible)w.msg='';
+    w.log.push({k:'wolf',who:p.uid,nm:p.name,seq:p.seq,d:w.day,text:'分工：'+WW_WOLF_JOB_NAME[job]});
+    render(true);
+  }
+  w.wolfRolesDone=true;
+}
+/* 把同一次狼刀里每只 AI 狼的思考按座位拼起来，赛后一次展开就能看到全部。 */
+function wwWolfThinkText(picks){
+  return (picks||[]).map(function(x){
+    var think=String((x&&x.think)||'').trim();
+    if(!think)return '';
+    var who=(x.seq?(x.seq+'号 · '):'')+(x.name||'狼人');
+    return '【'+who+' 的思考过程】\n'+think;
+  }).filter(Boolean).join('\n\n');
+}
 /* 【改·省调用】一只狼夜里一次搞定两件事：想刀谁 + 给队友留一句悄悄话。
    以前这两件事分两次请求，现在合成一次，狼多的时候能省一半请求。
    返回 {t: 想刀的人, note: 给队友的留言}。 */
 async function wwWolfAct(p){
   var w=V.ww,alive=wwAlive();
   var sys=wwCharBlock(p)+
-    '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，你是这一局的狼人之一，现在是你一个人在想：今晚刀谁，顺便跟狼队友交代一句。'+
-    '（平时刀好人；自刀骗女巫解药、或者刀自己队友，属于特殊战术，要真想清楚）'+
+    '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，本局狼人。现在决定今晚刀谁，并给狼队友留一句。'+
+    '（自刀或刀队友属特殊战术，要真想清楚）'+
+    '\n\n【狼刀做局】别只按“谁和我对立”选刀。先想这刀会让好人误信谁、站错哪边。'+
+    '例：真预已被推、悍跳狼已立住时，可自刀悍跳狼，让好人误认它为真预，并转去票狼人的对立面。'+
     '\n\n'+wwGenderLine()+
-    (wwFaceOn()?('\n\n【这一局是面杀：夜里你们在房间里碰头，可以正常说话】'+
-      '\n· 面杀的设定是大家住在同一个村子里、各自有房间：夜里狼队碰头（「夜间密会」）时说话是允许的——所以你可以像白天那样正常说话、商量战术（这一段只有狼队听得见，好人不知道你们聊了什么）。'+
-      '\n· 说的时候可以带一点神态动作（写进括号），就像真的在别人屋里压低声音商量。'):'')+
+    (wwFaceOn()?('\n\n【面杀·夜间密会】你们可以在房间里正常商量，仅狼队可见；可写少量括号神态动作。'):'')+
     '\n\n'+wwFactsFor(p)+
     '\n【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog()+
     (wwTipsOn(p)?('\n\n'+wwTipsBlock()):'')+
     '\n【已经说过的狼队留言】\n'+(wwWolfChannelText()||'（还没有）')+
-    '\n【输出】只写两行，别的都不要：\n'+
-    '第 1 行：你要刀的人，只写编号或名字（例如「3号」）；**想空刀就只写「空刀」**（今晚一个人都不杀，这是高端打法：让白天变成「平安夜」、逼女巫不敢乱用药、或者给悍跳做局，别乱用、觉得这局值得才用）；\n'+
+    '\n【输出】只写两行：\n'+
+    '第 1 行：刀谁，只写编号或名字；想空刀只写「空刀」（高风险，确有必要再用）；\n'+
     (wwFaceOn()
-      ? ('第 2 行：你在夜间密会上跟队友说的一句话（'+wwWolfMax()+' 个字以内、别换行、口语、有信息量：说说你的打算、或者为什么刀 TA，符合你的人设；想带点神态动作就写进括号，例如（压着嗓子说）我明天要跳预言家；不想说就写「无」）。')
-      : ('第 2 行：一句给狼队友的悄悄话（不超过 '+wwWolfMax()+' 个字、别换行、口语、有信息量：说说你的打算、或者为什么刀 TA，别重复别人刚说过的；不想说就写「无」）。'));
+      ? ('第 2 行：给队友的话（≤'+wwWolfMax()+' 字，别换行，说有信息量的打算；可加括号神态；不想说写「无」）。')
+      : ('第 2 行：给队友的悄悄话（≤'+wwWolfMax()+' 字，别换行，别重复；不想说写「无」）。'));
   var txt='';
   try{txt=String(await wwCall(sys,(wwFaceOn()?'请决定今晚刀谁，并在夜间密会上跟队友说一句。':'请决定今晚刀谁，并给队友留一句话。'),wwTokLimit(80),.85)||'')}catch(e){txt=''}
   var lines=String(txt).split(/\n+/).map(function(s){return s.trim()}).filter(function(s){return !!s});
@@ -31699,6 +31787,8 @@ async function wwWolfChoose(wolves){
   var w=V.ww,alive=wwAlive(),prey=alive.filter(function(p){return !wwIsWolf(p)});
   if(!alive.length)return null;
   var gen=wwGenNow();
+  if(w.day===1&&w.count>=9&&!w.wolfRolesDone)await wwWolfAssignRoles(wolves);
+  if(wwStaleG(gen))return null;
   var mates=wolves.filter(function(p){return !p.isUser});
   w.wolfPicks=[];                              /* 每只狼今晚的意见：{seq,name,t} */
   var rand=(prey.length?prey[Math.floor(Math.random()*prey.length)]:alive[Math.floor(Math.random()*alive.length)]);
@@ -31712,7 +31802,10 @@ async function wwWolfChoose(wolves){
     var a=await wwWolfAct(m);
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
     var t=a.t||(a.noKill?null:rand);            /* 明确说「空刀」就是今晚不杀；没答上来才退回随机 */
-    w.wolfPicks.push({seq:m.seq,name:m.name,uid:m.uid,t:t,noKill:!!(a.noKill&&!a.t)});   /* 记下 uid：后面「夜间 · 你的房间」要知道是哪些狼想刀你 */
+    w.wolfPicks.push({
+      seq:m.seq,name:m.name,uid:m.uid,t:t,noKill:!!(a.noKill&&!a.t),
+      think:String((WW_LAST&&WW_LAST.reason)||'')   /* 每只狼一返回就存，避免被下一只狼覆盖 */
+    });   /* 记下 uid：后面「夜间 · 你的房间」要知道是哪些狼想刀你 */
     /* 每只人机狼都留一句悄悄话：这样「你是狼」的时候，也能看到队友在商量什么 */
     if(a.note){
       w.log.push({k:'wolf',who:m.uid,nm:m.name,seq:m.seq,d:w.day,text:a.note});
@@ -31801,7 +31894,10 @@ async function wwSpeechPK(p,pk){
   return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
 }
 async function wwVoteAI(p,pool){
+  var job=wwWolfJobOf(p);
+  var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'不要无脑帮队友冲票。'):'';
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
+    (jobHint?'\n'+jobHint:'')+
     '\n【输出格式】只输出你要投的那个人的编号或名字（例如「3号」）。');
   var txt=await wwCall(sys,'请投票。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
@@ -31880,6 +31976,7 @@ function wwJudgePrompt(src,result){
   L.push('【本局】'+src.count+' 人局 · '+result);
   L.push('【每个人这一局的真实身份】\n'+src.roles);
   if(src.night)L.push('【夜里的行动（只有上帝视角能看到）】\n'+src.night);
+  L.push('【守卫规则】每夜守一人（含自己），不能连续两夜守同一人；只挡狼刀，同守同救会死。评 MVP 时不得把违规连守当作有效操作。');
   /* 【新】提醒裁判：空刀 / 收刀是正常战术，那一晚就是没人死，不是程序出错 */
   L.push('（提醒：记录里出现【空刀】或【收刀】，意思是狼队那一晚决定不杀人 / 到了房门口又放过对方 —— 这是正常战术，不是程序出错；那一晚确实没有人被刀死。）');
   L.push('【白天的发言和投票（所有人都看得到）】\n'+src.pub);
@@ -31887,17 +31984,15 @@ function wwJudgePrompt(src,result){
      注意：玩家自己那场「夜间 · 你的房间」（k:'scene'）不会出现在 src.pub 里
      —— 见 wwPublicLog / wwPublicLogRec，那两种只收 sys / say / vote，所以裁判看不到她和凶手互骂的那些话。 */
   if(src.wolf)L.push('【狼队频道（她们夜里偷偷商量的，当时场上好人完全不知道）】\n'+src.wolf);
-  L.push('【MVP 的硬标准：只选一个，而且必须给「获胜的那一阵营」里对胜利贡献最大的那个人】输的一方打得再亮眼，也不拿 MVP。怎么判断"贡献最大"：\n'+
-    '· 狼人：别只看"刀没刀到关键人物"——狼故意不刀预言家、把神职留到第二天再踩，也是正常打法。要看这个狼的「策略和行动质量」：这一刀换来了多少实打实的收益（刀掉好人方的关键角色 / 打断好人的节奏 / 逼出解药…），以及她的发言有没有给狼人阵营带来收益（悍跳、倒钩、拉票、搅浑水、帮队友抗推…）。\n'+
-    '· 预言家：也别只看"验人准不准"，更要看她本人的发言有没有说服力，以及她对好人阵营整体的贡献（报验、归票、带队、坐实真预言家的身份、帮好人排掉狼坑…）。\n'+
-    '· 好人阵营的其他角色：投票投得对不对（有没有跟对边、有没有把票投到狼身上）是重要标准；带队、挡刀、出局前留下的关键信息也算。\n'+
-    '· 一句话：谁对这局「自己阵营赢下来」贡献最大，谁就是 MVP。上面「夜里的行动」写了每晚每只狼各自想刀谁、最后刀了谁，判断狼刀收益就从这里看。');
-  L.push('【输出格式】严格按下面五行输出，每行开头就是这一行的名字，不要写别的、不要用 markdown、不要加编号：\n'+
-    '标题：给这一局取一个超短的名字，6~12 个字，一句话就概括出这局最有戏的地方（例如「悍跳狼带队取胜」「猎人枪走预言家带飞狼队」「预言家验对人却被票出」）。要求：不要标点、不要引号、不要出现「狼人杀」这三个字\n'+
+  L.push('【MVP 硬标准】只选一个，且必须是获胜阵营里贡献最大的人；输方表现再好也不拿 MVP。'+
+    '狼人看刀法收益和发言收益；预言家看验报、归票、坐实身份和带队；其他好人看跟票、挡刀和关键信息。'+
+    '别只看“刀没刀中”或“验人准不准”。');
+  L.push('【输出格式】严格按下面五行输出，不要 markdown 或额外内容：\n'+
+    '标题：6~12 字，概括本局最有戏之处，不加标点或引号，不出现「狼人杀」\n'+
     '复盘：2~4 句，说清楚这局大概发生了什么（谁刀了谁、谁被票出去、最后怎么结束的）\n'+
-    'MVP：一个人，写成「3号 · 阿汐」，后面跟一句为什么是 TA（必须是获胜阵营里贡献最大的那个，只能写一个）\n'+
-    '最佳操作：一句话，谁做了什么关键的好操作（赢的一方、输的一方都可以写，只看哪一个单独的操作最亮眼）\n'+
-    '最惨失误：一句话，谁相信错人了 / 谁做了什么失误');
+    'MVP：写成「3号 · 阿汐」并说明理由；只选获胜阵营贡献最大的一人\n'+
+    '最佳操作：一句话，双方都可选\n'+
+    '最惨失误：一句话，写关键误判或失误');
   return L.join('\n\n');
 }
 /* 游戏里的这一局：叫裁判复盘（用当前的 V.ww） */
@@ -31920,7 +32015,10 @@ function wwPublicLogRec(rec,maxN){
   ((rec&&rec.log)||[]).slice(-(maxN||240)).forEach(function(e){
     if(!e)return;
     if(e.k==='sys')L.push('【主持人】'+e.text);
-    else if(e.k==='say'){var p=wwRecP(rec,e.who);L.push((p?((p.seq?p.seq+'号 · ':'')+p.name):(e.nm||e.who||'？'))+'：'+e.text)}
+    else if(e.k==='say'){
+      var p=wwRecP(rec,e.who),t=String(e.text||'');
+      L.push((/^\u3010\u9057\u8a00\u3011/.test(t)?'【遗言·未经证实】':'')+(p?((p.seq?p.seq+'号 · ':'')+p.name):(e.nm||e.who||'？'))+'：'+t.replace(/^【遗言】/,''));
+    }
     else if(e.k==='vote')L.push('【投票】'+e.text);
     /* 【注意】同上：'scene'（她房间那场夜戏）在这里也进不来，所以裁判和复盘助手都看不到。 */
   });
@@ -31985,7 +32083,8 @@ async function wwRejudgeRec(id){
 /* ---------- 【新】AI 复盘助手：拿整局记录做「提示词体检」（默认不跑，用户点一下才跑） ---------- */
 function wwAuditSys(rec){
   var result=wwResultLine(rec.players,rec.winner,rec.endText);
-  var roles=(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n');
+  var roles=(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')+(p.isUser?'（真人玩家，仅作上下文）':'（AI 玩家）')}).join('\n');
+  var human=(rec.players||[]).filter(function(p){return p&&p.isUser}).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name}).join('、')||'（本局没有真人玩家标记）';
   var night=(rec.rec||[]).length?rec.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'（没有记录）';
   var pub=wwPublicLogRec(rec,240);
   var wolf=wwWolfChannelRec(rec,60);
@@ -31993,6 +32092,7 @@ function wwAuditSys(rec){
   L.push('你是一位「狼人杀 AI 提示词优化顾问」。你要做的不是复盘这一局，而是当一名严格的审计员：读完整局记录，找出这些 AI 玩家在「聪明程度」上暴露的问题，并给出可以直接拿去改系统提示词的建议。');
   L.push(wwGenderLine());   /* 【新】写建议时提到场上的人，也别默认男性 */
   L.push('【这一局的对局资料】\n【本局】'+(rec.count||'?')+' 人局 · '+result+
+    '\n【真人玩家】'+human+
     '\n【每个人的真实身份】\n'+roles+
     '\n【夜里的行动（上帝视角）】\n'+night+
     (wolf?('\n【狼队频道（狼队夜里偷偷商量的）】\n'+wolf):'')+
@@ -32014,7 +32114,8 @@ function wwAuditSys(rec){
     '② 不许写空话（「要加强逻辑」「要更像人」这种一律不要）。\n'+
     '③ 你只做「AI 提示词体检」，不要替这一局做复盘（那是裁判的活）。\n'+
     '④ 不要假设你知道程序代码，只从「提示词该怎么写」的角度给建议。\n'+
-    '⑤ 直接输出正文，不要用 markdown 标题符号（不要 #、不要 **），就用上面「一、二、三…」这种编号。');
+    '⑤ 只评估 AI 玩家；真人玩家的表现只作上下文，不评价，也不提针对真人的优化方案。\n'+
+    '⑥ 直接输出正文，不要用 markdown 标题符号（不要 #、不要 **），就用上面「一、二、三…」这种编号。');
   return L.join('\n\n');
 }
 async function wwAuditRec(id){
@@ -32049,7 +32150,7 @@ function wwDumpText(w){
   if(w.title)L.push('标题：'+w.title);
   L.push('结局：'+winner+(w.endText?('（'+w.endText+'）'):''));
   var wolves=players.filter(function(p){return p.role==='wolf'||p.role==='wolfking'});
-  if(wolves.length)L.push('本局狼人：'+wolves.map(function(p){return tag(p)+(p.role==='wolfking'?'（白狼王）':'')}).join('、'));
+  if(wolves.length)L.push('本局狼人：'+wolves.map(function(p){return tag(p)+(p.role==='wolfking'?'（白狼王）':'')+((w.wolfRoles&&w.wolfRoles[p.uid])?'（'+WW_WOLF_JOB_NAME[w.wolfRoles[p.uid]]+'）':'')}).join('、'));
   var me=find('u');
   if(!me)for(mi=0;mi<players.length;mi++){if(players[mi].isUser){me=players[mi];break}}
   if(me)L.push('我的身份：'+tag(me)+'（'+WW_ROLE_NAME[me.role]+'）');
@@ -32800,6 +32901,11 @@ async function wwNight(){
   /* 狼人 */
   var wolves=wwAlive().filter(wwIsWolf);
   if(wolves.length){
+    if(w.day===1&&w.count>=9&&!w.wolfRolesDone){
+      if(!(me&&wwIsWolf(me))){w.msg='🌙 天黑请闭眼…';render(true)}
+      await wwWolfAssignRoles(wolves);
+      if(wwStaleG(gen))return;
+    }
     if(me&&me.alive&&wwIsWolf(me)){
       /* 你能刀任何人，包括你自己和狼队友（自刀骗药也是战术） */
       var prey=wwAlive();      /* 【改】可以刀任何人（包含你自己和队友）；也允许空刀，见下面那个「空刀」按钮 */
@@ -32825,14 +32931,15 @@ async function wwNight(){
       if(wwStaleG(gen))return;                  /* 等生成的这几秒里换了局：别把结果写进新局 */
       w.night.wolf=wf;
     }
+    var wolfThink=wwWolfThinkText(w.wolfPicks);
     if(w.night.wolf){
       try{wwBgmKillSfx()}catch(e){}     /* 刀人这一下：补一记阴间的刀锋音效（只有音乐开着才响） */
       var opn=(w.wolfPicks||[]).map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('、');
-      w.rec.push({d:w.day,t:'狼人刀了 '+wwTag(w.night.wolf)+(opn?('　（当晚各自的想法：'+opn+'）'):''),tk:(WW_LAST&&WW_LAST.reason)||''});
+      w.rec.push({d:w.day,t:'狼人刀了 '+wwTag(w.night.wolf)+(opn?('　（当晚各自的想法：'+opn+'）'):''),tk:wolfThink});
     }else{
       /* 【新】空刀：这一晚谁也没杀 —— 上帝视角 / 裁判记录里也要写清楚（不然会以为是程序出错） */
       var opn2=(w.wolfPicks||[]).map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('、');
-      w.rec.push({d:w.day,t:'狼人今晚【空刀】（一个人都没杀）'+(opn2?('　（当晚各自的想法：'+opn2+'）'):''),tk:(WW_LAST&&WW_LAST.reason)||''});
+      w.rec.push({d:w.day,t:'狼人今晚【空刀】（一个人都没杀）'+(opn2?('　（当晚各自的想法：'+opn2+'）'):''),tk:wolfThink});
     }
     w.night.nokill=!w.night.wolf;      /* 【新】今晚是空刀：白天狼队自己心里要有数（别以为是被救了） */
     if(wwStaleG(gen))return;                 /* 上一局的循环：赶紧收手，别插到新局里 */
@@ -32870,7 +32977,7 @@ async function wwNight(){
     }
     if(tgt){
       var isW=wwIsWolf(tgt);
-      seer.check=seer.check||[];seer.check.push({uid:tgt.uid,isWolf:isW});
+      seer.check=seer.check||[];seer.check.push({uid:tgt.uid,isWolf:isW,day:w.day});
       w.night.check={uid:tgt.uid,isWolf:isW};
       w.rec.push({d:w.day,t:'预言家验了 '+wwTag(tgt)+'：'+(isW?'狼人':'好人'),tk:(WW_LAST&&WW_LAST.reason)||''});
       /* 你自己是预言家时，把结果当成一条消息推到最下面，不用再翻到上面去看身份卡 */
@@ -33343,9 +33450,11 @@ function wwSpeechOrderList(){
 /* 叫一个 AI 决定上不上警 */
 async function wwPoliceDecide(p){
   var seerHint=p&&p.role==='seer'?'你是真预言家，通常应该上警，方便报验人。':'';
-  var sys=wwSysFor(p,'现在是第一天的「警长竞选」。你要不要上警（竞选警长）？\n'+
-    '当上警长以后：白天投票算 1.5 票、每天能决定发言顺序、出局时手里还有警徽可以交出去；代价是要在所有人面前发言拉票、会被全场盯着。'+
-    '（狼上警抢警徽是很常见的打法。）按你的身份判断是否必要，不要默认上警。'+seerHint+'\n【输出格式】只输出：上警 或 不上警。');
+  var upHint=wwIsWolf(p)
+    ?'不想悍跳但想给警上留好印象，可以上警、装作点评别人；别为刷存在硬跳预言家。'
+    :'想点评别人或做滴滴代跳等复杂操作，可以上警；不跳预言家就记得退水。';
+  var sys=wwSysFor(p,'现在决定是否上警。权衡拉票成本、警徽收益和自身身份；如果想不到具体上警理由，就不要上警。'+
+    seerHint+upHint+'\n【输出格式】只输出：上警 或 不上警。');
   var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
   if(/不上警|不参选|不竞选|不上/.test(s))return false;
   return /上警|竞选|参选|要上/.test(s);
@@ -33353,16 +33462,15 @@ async function wwPoliceDecide(p){
 /* 上警之后的竞选发言 */
 async function wwPoliceSpeech(p){
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、');
-  var base='现在是你上警之后的「竞选发言」。要说服那些没上警的人把警长票投给你：说清你的身份（可以报真的，也可以装）、你的打法、当选后会怎么带节奏（比如发言顺序怎么定、你怀疑谁、打算先推谁）。'+
-    (others?('（这次上警的还有：'+others+'，可以点评她们，但别啰嗦。）'):'')+
-    '提到别人时带上编号。';
+  var base='现在做竞选发言，争取警下投票。说清身份（可真可假）、打法、当选后的发言顺序和归票方向。'+
+    (others?('其他上警者：'+others+'。'):'')+'提到别人时带编号。';
   return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
 }
 /* 一个 AI 决定要不要退水 */
 async function wwPoliceWater(p){
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
-  var sys=wwSysFor(p,'警上发言都结束了，现在是「退水」环节：你可以继续竞选（等着被警下的人投票），也可以退水（退出竞选）。'+
-    '（这一局上警的还有：'+others+'。）\n【输出格式】只输出：退水 或 不退水。');
+  var sys=wwSysFor(p,'现在决定继续竞选还是退水。没跳预言家且上警目的已完成，通常应退水；有明确收益才留下。其他上警者：'+others+'。'+
+    '\n【输出格式】只输出：退水 或 不退水。');
   var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
   if(/不退水|不退|继续|留下/.test(s))return false;
   return /退水|退出|放弃/.test(s);
@@ -33376,8 +33484,7 @@ async function wwPoliceVote(p,pool){
 }
 /* 一个 AI 警长决定今天的发言顺序 */
 async function wwOrderAI(sh,alive){
-  var sys=wwSysFor(sh,'你是这一局的警长，现在由你决定今天从谁开始发言、按什么方向轮。'+
-    '（想清楚：让谁先开口，会影响这一轮谁先被集火。）\n可选的人：'+alive.map(wwName).join('、')+
+  var sys=wwSysFor(sh,'你决定今天的发言起点和方向；先开口的人会更早被集火。\n可选的人：'+alive.map(wwName).join('、')+
     '\n【输出格式】第一行写从哪个人开始（编号或名字，例如「3号」）；第二行写「正序」或「逆序」（正序＝按座位号从小到大）。');
   var txt=String(await wwCall(sys,'请决定今天的发言顺序。',40,.85)||'');
   var who=wwMatch(txt.split(/\n+/)[0]||txt,alive);
@@ -33949,7 +34056,11 @@ async function wwFinish(){
 /* 存档用：把发言里的「思考过程」和夜间行动的「想法」收一收。
    界面上（游戏结束的透明模式）能看到完整的；但浏览器本地存储很小，
    存进历史记录时只留前一段，免得记录越存越多把它撑爆、后面的局存不进去。 */
-function wwThinkCap(t){t=String(t||'');var n=2000;return t.length>n?(t.slice(0,n)+'\n…（存档只留了前一段，游戏结束时能看全）'):t}
+function wwThinkCap(t){
+  t=String(t||'');
+  var n=/【\d{1,2}号[^\n]* 的思考过程】/.test(t)?12000:2000;
+  return t.length>n?(t.slice(0,n)+'\n…（存档只留了前一段，游戏结束时能看全）'):t;
+}
 function wwTrimThink(arr,n){
   return (arr||[]).slice(-n).map(function(e){
     if(!e||(e.think==null&&e.tk==null))return e;
@@ -33958,6 +34069,11 @@ function wwTrimThink(arr,n){
     if(o.tk!=null)o.tk=wwThinkCap(o.tk);
     return o;
   });
+}
+/* 战绩日志可以裁普通记录，但狼队夜间交流要始终保留，否则复盘时整段消失。 */
+function wwHistoryLog(arr,max){
+  var all=arr||[],tail=all.filter(function(e){return !e||e.k!=='wolf'}).slice(-(max||200));
+  return wwTrimThink(all.filter(function(e){return (e&&e.k==='wolf')||tail.indexOf(e)>=0}),all.length);
 }
 /* 把这一局的完整进度打包（中途退出时存起来，之后能接着玩） */
 function wwSnap(){
@@ -33976,10 +34092,10 @@ function wwSnap(){
     }:null,
     players:(w.players||[]).map(function(p){
       return {uid:p.uid,cid:p.cid||null,name:p.name,seq:p.seq||0,isUser:!!p.isUser,role:p.role,alive:!!p.alive,anon:!!p.anon,
-        killedBy:p.killedBy||'',revealed:!!p.revealed,check:(p.check||[]).map(function(c){return {uid:c.uid,isWolf:!!c.isWolf}}),
+        killedBy:p.killedBy||'',revealed:!!p.revealed,check:(p.check||[]).map(function(c){return {uid:c.uid,isWolf:!!c.isWolf,day:Number(c.day)||0}}),
         scratch:p.scratch||'',look:p.look||'',peeks:(p.peeks||[]).slice()};
     }),
-    log:wwTrimThink(w.log,300),rec:wwTrimThink(w.rec,90),
+    log:wwHistoryLog(w.log,300),rec:wwTrimThink(w.rec,90),
     votes:Object.assign({},w.votes||{}),
     witchSave:!!w.witchSave,witchPoison:!!w.witchPoison,witchLog:(w.witchLog||[]).slice(),
     mem:Object.assign({},w.mem||{}),tips:Object.assign({},w.tips||{}),
@@ -33990,6 +34106,7 @@ function wwSnap(){
     policeUp:(w.policeUp||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),
     policeAll:(w.policeAll||[]).slice(),
     board:(w.board==='wolfking')?'wolfking':'std',guardLast:w.guardLast||'',kingBoom:!!w.kingBoom,kingNote:w.kingNote||'',
+    wolfRoles:Object.assign({},w.wolfRoles||{}),wolfRolesDone:!!w.wolfRolesDone,
     table:(w.table==='face')?'face':'online',peekDone:!!w.peekDone,
     scene:w.scene||'',                     /* 【修】当前场景标记（清晨/黄昏这种临时阶段）：读档也要认回来 */
     /* 【新·面杀】狼队收刀的结局状态：接着玩的时候要认回来（不然读档以后这段结局就没了） */
@@ -34021,6 +34138,7 @@ function wwSnapFromRec(rec){
     witchSave:witchSave,witchPoison:witchPoison,witchLog:[],mem:{},tips:{},pick:'random',autoWatch:false,sayTok:0,
     looks:{},
     board:(players.some(function(p){return p.role==='wolfking'||p.role==='guard'})?'wolfking':'std'),guardLast:'',kingBoom:false,kingNote:'',dayOver:0,
+    wolfRoles:Object.assign({},rec.wolfRoles||{}),wolfRolesDone:!!rec.wolfRolesDone,
     table:'online',peekDone:true,        /* 老记录不知道当初选的是不是面杀：按网杀接着玩，抿身份也不再补 */
     wolfBlown:false,blownWolves:[],roomMemory:null,wordsDone:true,   /* 老记录没有这段收刀结局 */
     sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeAll:[],speechStart:'',speechDir:1};
@@ -34051,6 +34169,7 @@ function wwApplySnap(s,recId){
   w.policeAll=(s.policeAll||[]).slice();w.upSpoke={};
   w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;w.electing=false;
   w.board=(s.board==='wolfking')?'wolfking':'std';w.guardLast=s.guardLast||'';w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.dayOver=0;
+  w.wolfRoles=Object.assign({},s.wolfRoles||{});w.wolfRolesDone=!!s.wolfRolesDone;
   w.table=(s.table==='face')?'face':'online';w.peekDone=!!s.peekDone;   /* 【新·面杀】接着玩也保持同一个玩法 */
   w.scene=s.scene||'';
   /* 【新·面杀】狼队收刀的结局状态也接回来（那一刻之后被存下来的，继续走完这段审判） */
@@ -34380,7 +34499,8 @@ function wwSave(silent){
         npc:!!p.npc,emoji:p.isUser?userEmoji():((p.npc&&p.emoji)?p.emoji:((c&&c.emoji)||''))};
     }),
     sheriffUid:w.sheriffUid||null,sheriff:(w.sheriff!==false),
-    log:wwTrimThink(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||''};
+    wolfRoles:Object.assign({},w.wolfRoles||{}),wolfRolesDone:!!w.wolfRolesDone,
+    log:wwHistoryLog(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||''};
   if(unfinished){
     try{var sp=wwSnap();sp.id=rec.id;save(LS_WWSAVE,sp)}catch(e){}          /* 存一份能接着玩的进度（只留最近一份） */
   }else{
@@ -34478,6 +34598,7 @@ function wwStart(){
   w.peekDone=false;                   /* 【新·面杀】新的一局：抿身份那段要重新来一次 */
   w.wordsDone=false;                  /* 【新·面杀】新的一局：遗言按老规矩来 */
   w.wolfBlown=false;w.blownWolves=[];w.roomMemory=null;w.blownHist=[];   /* 【新·面杀】新的一局：狼队还没收刀 */
+  w.wolfRoles={};w.wolfRolesDone=false;   /* 【新】9/12 人局首夜由狼队自己选择分工 */
   w.scene='';                        /* 【修】新的一局：场景标记清空（免得上一局的黄昏带过来） */
   w.gen=(w.gen||0)+1;                 /* 新一局的新编号：老循环认不出自己就会自动收手 */
   w.resayIdx=null;w.resayOn=false;
@@ -35098,7 +35219,7 @@ function wwLogHTML(){
       /* 【新】狼队频道：只有「你也是狼」才看得到（你要是好人，这几条直接跳过） */
       var _m=wwMe();
       if(!_m||!wwIsWolf(_m))continue;      /* 注意：这里是 for 循环，要用 continue（用 return 会把整个日志截断） */
-      h+='<div class="ww-sys wolf"><b>'+wwUiIcon(wwFaceOn()?'moon':'wolf')+(wwFaceOn()?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
+      h+='<div class="ww-sys wolf" style="'+WW_WOLF_LOG_STYLE+'"><b style="'+WW_WOLF_HEAD_STYLE+'">'+wwUiIcon(wwFaceOn()?'moon':'wolf')+(wwFaceOn()?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
     }else if(e.k==='me'){
       h+='<div class="ww-sys me'+(e.icon==='vote'?' ww-vln':'')+'">'+(e.icon==='vote'?WW_VOTE_ICON:'')+'<span>'+wwSystemHTML(e.text)+'</span></div>';
     }else if(e.k==='scene'){
@@ -36025,8 +36146,9 @@ function wwHistHTML(rec){
          '<button class="ghost" onclick="GAME.wwAudit(\''+esc(rec.id)+'\')">'+wwUiIcon('scan')+'让助手体检这一局</button></div>';
     }
   }
+  var _wr=rec.wolfRoles||{};
   h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+((rec.players||[]).map(function(p){
-    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>';
+    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+(_wr[p.uid]?(' · 狼队分工：'+esc(WW_WOLF_JOB_NAME[_wr[p.uid]]||_wr[p.uid])):'')+'</div>';
   }).join(''))+'</div>';
   if((rec.rec||[]).length)h+='<details class="gx-log"><summary>夜间行动（复盘）</summary><div class="gx-vs">'+rec.rec.map(function(x,ri){
     return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('hr'+ri,x.tk,'hist'):'')+'</div>';
@@ -36054,7 +36176,7 @@ function wwHistHTML(rec){
     if(e.k==='vote'){_logHTML+='<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>';continue}
     /* 【新】狼队频道：赛后全部公开（透明模式里能看到她们夜里偷偷商量了什么）。
        面杀那几局就是「桌下的比划」，标题跟着换一下，别写成网杀的说法。 */
-    if(e.k==='wolf'){_logHTML+='<div class="ww-sys wolf"><b>'+wwUiIcon((rec&&rec.table==='face')?'moon':'wolf')+((rec&&rec.table==='face')?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';continue}
+    if(e.k==='wolf'){_logHTML+='<div class="ww-sys wolf" style="'+WW_WOLF_LOG_STYLE+'"><b style="'+WW_WOLF_HEAD_STYLE+'">'+wwUiIcon((rec&&rec.table==='face')?'moon':'wolf')+((rec&&rec.table==='face')?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';continue}
     _logHTML+='<div class="ww-sys'+(e.k==='me'?' me':'')+'">'+wwSystemHTML(e.text)+'</div>';
   }
   h+='<div class="gx-sec">记录</div>'+_logHTML;
