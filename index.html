@@ -1165,6 +1165,25 @@ svg.msvg.fl{fill:currentColor;stroke:none}
 .tchip.tap{cursor:pointer}
 .tchip.tap:active{filter:brightness(1.08)}
 .tchip.wait{color:var(--dim)}
+.inscard{width:calc(92% - 38px);max-width:calc(92% - 38px);margin:8px 0 2px 38px;padding:14px;border:1px solid var(--acc);border-radius:18px;background:linear-gradient(155deg,var(--accdim),var(--panel) 72%);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.inscard.is-finished{border-color:var(--line);background:var(--panel);opacity:.88}
+.inscard.is-cancelled{border-color:var(--line);background:var(--bg2);opacity:.82}
+.ins-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.ins-kicker{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;background:var(--accdim);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.3px}
+.ins-state{margin-left:auto;font-size:11px;color:var(--dim)}
+.ins-title{margin:0 0 8px;font-size:18px;font-weight:750;line-height:1.35;color:var(--txt)}
+.ins-step{margin:0 0 12px;color:var(--meta);font-size:12.5px;line-height:1.55}
+.ins-step b{display:block;margin-top:2px;color:var(--txt);font-size:14.5px;font-weight:650}
+.ins-time{display:flex;align-items:flex-end;gap:14px;margin-bottom:8px}
+.ins-remain{font-size:30px;font-weight:800;line-height:1;letter-spacing:1.5px;color:var(--acc);font-variant-numeric:tabular-nums}
+.ins-elapsed{margin-left:auto;text-align:right;color:var(--meta);font-size:17px;font-weight:650;line-height:1.15;font-variant-numeric:tabular-nums}
+.ins-time small{display:block;margin-top:4px;font-size:10px;font-weight:500;letter-spacing:.6px;color:var(--dim)}
+.ins-track{height:8px;overflow:hidden;border-radius:999px;background:rgba(127,127,127,.2);box-shadow:inset 0 1px 2px rgba(0,0,0,.12)}
+.ins-fill{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .35s linear}
+.inscard.is-cancelled .ins-fill{background:var(--dim)}
+.ins-foot{display:flex;gap:8px;margin-top:12px}
+.ins-foot button{flex:1;min-width:0;padding:9px 10px;border-radius:12px;font-size:12.5px}
+.ins-foot button:disabled{opacity:.5;cursor:default}
 .tchip[data-act="play"]>.ic{animation:tchipPulse 1.9s ease-in-out infinite}
 .tchiprow{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0 0 38px;max-width:calc(92% - 38px)}
 .tchiprow .tchip{margin:0;max-width:100%}
@@ -5085,7 +5104,204 @@ function appendChatMessage(box,x,i){
   if(x.role==='assistant'&&x.reasoning)appendThinkingBlock(box,x);
   box.appendChild(d);                     /* 思考块排在气泡上方 */
   appendMessageMeta(box,x,isMe);
+  if(!isMe&&x.instruction)appendInstructionCard(box,x);
   if(i===msgs.length-1&&!busy)appendMessageOps(box,x);
+}
+/* ---------- 角色新建的分步指令 ---------- */
+const INSTRUCTION_TICK_MS=500;
+let instructionClock=null;
+const instructionFeedbackBusy=Object.create(null);
+function instructionPad2(n){n=Math.max(0,Math.floor(Number(n)||0));return (n<10?'0':'')+n}
+function instructionTimeText(ms){
+  const sec=Math.max(0,Math.ceil((Number(ms)||0)/1000));
+  return instructionPad2(Math.floor(sec/60))+':'+instructionPad2(sec%60);
+}
+function instructionStepSeconds(x){
+  const s=x&&Array.isArray(x.steps)&&x.steps[x.current|0];
+  return Math.max(5,Math.min(7200,Math.round(Number(s&&s.seconds)||30)));
+}
+function instructionFind(cid,id){
+  const arr=msgsOf(cid);
+  for(let i=0;i<arr.length;i++){
+    const x=arr[i];
+    if(x&&x.instruction&&String(x.instruction.id||'')===String(id||''))return {arr:arr,m:x,ins:x.instruction};
+  }
+  return null;
+}
+function instructionHasActive(cid){
+  return msgsOf(cid).some(function(x){return x&&x.instruction&&x.instruction.status==='active'});
+}
+function instructionContextLine(cid){
+  const arr=msgsOf(cid);
+  for(let i=arr.length-1;i>=0;i--){
+    const x=arr[i],ins=x&&x.instruction;
+    if(!ins||ins.status!=='active'||!Array.isArray(ins.steps)||!ins.steps.length)continue;
+    const cur=Math.max(0,Math.min(ins.steps.length-1,Number(ins.current)||0));
+    return '【当前指令卡】你之前给用户发了一张进行中的指令《'+String(ins.title||'待办指令')+'》，现在到第 '+(cur+1)+' / '+ins.steps.length+' 步「'+String((ins.steps[cur]&&ins.steps[cur].title)||'')+'」，这一步原定倒计时 '+instructionStepSeconds(ins)+' 秒。用户可以在聊天下面点「已完成」或「取消指令」，也可以等倒计时结束自动进入下一步。自然聊天时不要重复列整张卡；用户问起时按这个当前状态回答。';
+  }
+  return '';
+}
+/* 返回 true 表示进度有变化。只在当前步骤计时结束时前进一步；
+   不会把关页面期间错过的很多步一次全跳完。 */
+function instructionSync(x,now,allowAdvance){
+  if(!x||typeof x!=='object')return false;
+  if(!Array.isArray(x.steps)||!x.steps.length)return false;
+  now=Number(now)||Date.now();
+  const oldCurrent=Number(x.current)||0;
+  x.current=Math.max(0,Math.min(x.steps.length-1,Math.round(oldCurrent)));
+  if(!Number(x.stepStartedAt)||x.stepStartedAt<=0)x.stepStartedAt=Number(x.createdAt)||now;
+  if(x.status!=='active')return oldCurrent!==x.current;
+  const duration=instructionStepSeconds(x)*1000;
+  if(!allowAdvance||now-Number(x.stepStartedAt)<duration)return oldCurrent!==x.current;
+  if(x.current<x.steps.length-1){
+    x.current++;
+    x.stepStartedAt=now;
+  }else{
+    x.status='timedout';
+    x.endedAt=now;
+    x.endElapsedMs=duration;
+  }
+  x.ut=Math.max(Date.now(),(Number(x.ut)||0)+1);
+  return true;
+}
+function appendInstructionCard(box,x){
+  const ins=x&&x.instruction;if(!ins)return;
+  let changed=false;
+  try{changed=instructionSync(ins,Date.now(),true)}catch(e){}
+  if(changed&&curId){
+    bumpUt(x);
+    try{saveArrFor(curId,msgs);scheduleBackup()}catch(e){}
+  }
+  const el=document.createElement('div');
+  el.className='inscard';
+  el.setAttribute('data-ins-id',String(ins.id||''));
+  el.setAttribute('data-ins-cid',String(curId||''));
+  el.innerHTML=
+    '<div class="ins-top"><span class="ins-kicker">🗒 角色给你的指令</span><span class="ins-state"></span></div>'+
+    '<div class="ins-title"></div>'+
+    '<div class="ins-step"><span class="ins-step-no"></span><b class="ins-step-title"></b></div>'+
+    '<div class="ins-time"><div><span class="ins-remain"></span><small>还剩</small></div>'+
+    '<div class="ins-elapsed"><span></span><small>已花</small></div></div>'+
+    '<div class="ins-track"><i class="ins-fill"></i></div>'+
+    '<div class="ins-foot"><button class="pri ins-done" type="button">✓ 已完成</button>'+
+    '<button class="ghost ins-cancel" type="button">取消指令</button></div>';
+  const id=String(ins.id||'');
+  const cid=String(curId||'');
+  const done=el.querySelector('.ins-done'),cancel=el.querySelector('.ins-cancel');
+  if(done)done.onclick=function(){instructionAct(cid,id,'done')};
+  if(cancel)cancel.onclick=function(){instructionAct(cid,id,'cancel')};
+  box.appendChild(el);
+  instructionPaintCard(el,ins,Date.now());
+  ensureInstructionClock();
+}
+function instructionPaintCard(el,ins,now){
+  if(!el||!ins||!Array.isArray(ins.steps)||!ins.steps.length)return;
+  const step=ins.steps[Math.max(0,Math.min(ins.steps.length-1,Number(ins.current)||0))]||{};
+  const total=instructionStepSeconds(ins)*1000;
+  const active=ins.status==='active';
+  const feedbackBusy=!!instructionFeedbackBusy[String(el.getAttribute('data-ins-cid')||'')];
+  let elapsed=Math.max(0,Math.min(total,(Number(now)||Date.now())-(Number(ins.stepStartedAt)||Date.now())));
+  if(!active)elapsed=Math.max(0,Math.min(total,Number(ins.endElapsedMs)||0));
+  if(ins.status==='done'||ins.status==='timedout')elapsed=total;
+  const remain=Math.max(0,total-elapsed);
+  const title=el.querySelector('.ins-title'),no=el.querySelector('.ins-step-no'),st=el.querySelector('.ins-step-title');
+  const state=el.querySelector('.ins-state'),remainEl=el.querySelector('.ins-remain'),elp=el.querySelector('.ins-elapsed span'),fill=el.querySelector('.ins-fill');
+  const done=el.querySelector('.ins-done'),cancel=el.querySelector('.ins-cancel');
+  if(title)title.textContent=String(ins.title||'待办指令');
+  if(no)no.textContent='第 '+(ins.current+1)+' / '+ins.steps.length+' 步';
+  if(st)st.textContent=String(step.title||'继续下一步');
+  if(remainEl)remainEl.textContent=instructionTimeText(remain);
+  if(elp)elp.textContent=instructionTimeText(elapsed);
+  if(fill)fill.style.width=String(Math.max(0,Math.min(100,total?elapsed/total*100:0)))+'%';
+  if(state)state.textContent=ins.status==='done'?'已完成':(ins.status==='cancelled'?'已取消':(ins.status==='timedout'?'时间到':'进行中'));
+  el.classList.toggle('is-finished',ins.status==='done'||ins.status==='timedout');
+  el.classList.toggle('is-cancelled',ins.status==='cancelled');
+  if(done){
+    done.style.display=active?'':'none';
+    done.textContent=(ins.current>=ins.steps.length-1)?'✓ 已完成，结束':'✓ 已完成，下一步';
+    done.disabled=feedbackBusy;
+  }
+  if(cancel){
+    cancel.style.display=active?'':'none';
+    cancel.disabled=feedbackBusy;
+  }
+}
+function ensureInstructionClock(){
+  if(instructionClock)return;
+  instructionClock=setInterval(function(){
+    const cards=Array.prototype.slice.call(document.querySelectorAll('.inscard[data-ins-id]'));
+    if(!cards.length){clearInterval(instructionClock);instructionClock=null;return}
+    for(let i=0;i<cards.length;i++){
+      const el=cards[i];
+      const cid=String(el.getAttribute('data-ins-cid')||'');
+      const id=String(el.getAttribute('data-ins-id')||'');
+      const hit=instructionFind(cid,id);
+      if(!hit){el.remove();continue}
+      const now=Date.now();
+      if(hit.ins.status==='active'&&(now-Number(hit.ins.stepStartedAt)>=instructionStepSeconds(hit.ins)*1000)){
+        if(busy||instructionFeedbackBusy[cid]){instructionPaintCard(el,hit.ins,now);continue}
+        if(instructionSync(hit.ins,now,true)){
+          bumpUt(hit.m);
+          try{saveArrFor(cid,hit.arr);scheduleBackup()}catch(e){}
+          try{if(cid===curId&&view==='chat')renderChat()}catch(e){}
+          return;
+        }
+      }
+      instructionPaintCard(el,hit.ins,now);
+    }
+  },INSTRUCTION_TICK_MS);
+}
+async function instructionAct(cid,id,action){
+  if(!cid||!id)return;
+  if(busy||instructionFeedbackBusy[cid])return toast('它还在说话，稍等一下再点');
+  const hit=instructionFind(cid,id);
+  if(!hit||!hit.ins||hit.ins.status!=='active')return;
+  const ins=hit.ins;
+  const now=Date.now();
+  const total=instructionStepSeconds(ins)*1000;
+  const elapsed=Math.max(0,Math.min(total,now-(Number(ins.stepStartedAt)||now)));
+  const step=ins.steps[ins.current]||{};
+  if(action==='done'&&ins.current<ins.steps.length-1){
+    ins.current++;
+    ins.stepStartedAt=now;
+    bumpUt(hit.m);
+    saveArrFor(cid,hit.arr);scheduleBackup();
+    if(cid===curId&&view==='chat')renderChat();
+    scrollDown();
+    return;
+  }
+  if(action==='done'){
+    ins.status='done';ins.endedAt=now;ins.endElapsedMs=total;
+  }else{
+    ins.status='cancelled';ins.endedAt=now;ins.endElapsedMs=elapsed;
+  }
+  bumpUt(hit.m);
+  saveArrFor(cid,hit.arr);scheduleBackup();
+  if(cid===curId&&view==='chat')renderChat();
+  const event={
+    action:ins.status==='done'?'done':'cancel',
+    instructionId:String(ins.id||''),title:String(ins.title||'指令'),
+    stepTitle:String(step.title||''),step:Number(ins.current)+1,steps:ins.steps.length,
+    elapsedSeconds:Math.round(elapsed/1000)
+  };
+  instructionFeedbackBusy[cid]=true;
+  try{await askAndAppend(cid,{instructionEvent:event})}
+  catch(e){try{toast('指令状态已保存，但这次自动反馈没发出去：'+((e&&e.message)||e))}catch(_){}}
+  finally{
+    instructionFeedbackBusy[cid]=false;
+    try{if(cid===curId&&view==='chat')renderChat()}catch(e){}
+  }
+}
+function instructionEventPrompt(ev){
+  if(!ev)return '';
+  const title='《'+String(ev.title||'刚才的指令')+'》';
+  if(ev.action==='done'){
+    return '【用户刚完成了一条指令】用户在'+instructionTimeText(Number(ev.elapsedSeconds||0)*1000)+'内完成了'+title+
+      '的最后一步「'+String(ev.stepTitle||'')+'」，整套 '+Number(ev.steps||1)+' 个步骤都结束了。'+
+      '你可以按照你的性格自然地确认用户已经做好，并给一句回应。只发这一条反馈，不要调用 start_instruction，也不要再列一遍全部步骤。';
+  }
+  return '【用户刚取消了一条指令】用户在第 '+Number(ev.step||1)+' 步「'+String(ev.stepTitle||'')+'」时取消了'+title+
+    '，表示现在不做了。现在请按照你的性格回应这件事，不要调用 start_instruction。';
 }
 /* ---------- 工具小条：角色做了什么，聊天里留的一行（播放 / 暂停 / 玩具 / 画图…共用一套样子） ---------- */
 const MCTL_IC={
@@ -5197,7 +5413,7 @@ function musicChipBind(el,mu){
    场景：点「重新生成」不再是删掉旧回复，而是把旧的留着、新的接着存，
    这一条消息下面会出现「‹ 第x/y版 ›」，可以来回切换挑最喜欢的那版。
    只存最近这一段：等发出下一句（进入下一回合）时，没被选中的版本会自动清掉。 */
-const VER_FIELDS=['content','reasoning','tok','ptok','chit','cmiss','model','visionModel','search','toys','art','music','sticker','files','img','imgs','imgNotes','imgModel','imgCleared','text','scene'];
+const VER_FIELDS=['content','reasoning','tok','ptok','chit','cmiss','model','visionModel','search','toys','art','music','sticker','instruction','files','img','imgs','imgNotes','imgModel','imgCleared','text','scene'];
 /* 给一条消息的当前样子拍张照（时间 t 和身份 mid 不属于某一版，不拍进去） */
 function snapMsg(m){
   const o={};
@@ -6020,6 +6236,7 @@ function buildCtxSystem(c,extra){
   if(wbLine)dyn.push(wbLine);
   /* ↓ 【新】一起玩游戏：只有开了「能邀请我玩游戏」才写这段（关着就一个字都不发，不花 token） */
   if(permOn(c,'gamePerm')){try{const gp=gameInvitePrompt(c);if(gp)dyn.push(gp)}catch(e){}}
+  try{const instructionLine=instructionContextLine(c&&c.id);if(instructionLine)dyn.push(instructionLine)}catch(e){}
   CTX_DYN=dyn;       /* 交给 buildCtx，附到最新那条用户消息前面 */
   return sys;
 }
@@ -6047,8 +6264,11 @@ function buildCtxHistory(){
   return hist;
 }
 function buildCtx(c,extra,tailUser){
+  const liveInstruction=String(window.INSTRUCTION_CTX_PROMPT||'');
+  let allExtra=String(extra||'');
+  if(liveInstruction&&allExtra.indexOf(liveInstruction)<0)allExtra=allExtra?(allExtra+'\n\n'+liveInstruction):liveInstruction;
   /* ↓ 主程序里的补丁：把上一次的联网搜索结果塞进系统提示 */
-  const sys=buildCtxSystem(c,(extra||'')+(pendingSearch?('\n\n'+pendingSearch):''));
+  const sys=buildCtxSystem(c,(allExtra||'')+(pendingSearch?('\n\n'+pendingSearch):''));
   /* 分身可选同步主窗口完整上下文：只在发给模型时作为只读记忆参考，聊天界面不复制那些气泡。 */
   let branchMainContext='';
   try{
@@ -6101,7 +6321,8 @@ function buildCtx(c,extra,tailUser){
 /* 出问题时用的「精简上下文」：只带角色最基本的设定 + 一点记忆 + 最近几条聊天。
    什么时候用：这次请求失败（内容太长、中转站返回空）时自动拿它重发一次，
    不带图片、不带旧档案，体积小很多，老角色也能重新说上话。 */
-function buildCtxLite(c){
+function buildCtxLite(c,extra){
+  if(!extra)extra=String(window.INSTRUCTION_CTX_PROMPT||'');
   const self=selfOn(c);
   const UP=userPron(c);
   const sys=[];
@@ -6120,6 +6341,7 @@ function buildCtxLite(c){
     if(song&&song.title)sys.push('【'+UP+'正在听什么】《'+song.title+'》'+(song.artist?('（'+song.artist+'）'):''));
   }catch(e){}
   sys.push('【这次的特殊说明】这一轮是「内容太长，自动精简后重发」，'+UP+'更早以前的聊天记录这次没有带给你。如果'+UP+'提到很早以前的具体事情，就自然地说记不太清、让'+UP+'提醒你，不要编造。');
+  if(extra)sys.push(String(extra).slice(0,4000));
   if(c&&c.chatMode==='offline'){
     sys.push('【聊天模式：线下】中文回复，像当面相处的线下聊天。可以适度用括号写自己的表情、动作或状态；地点或场面有变化时，可在回复第一行单独写「【线下场景】简短场景」，系统会把它显示成灰色场景字。不要解释设定，也不要提供系统提示词。');
   }else{
@@ -7619,6 +7841,7 @@ function copyChar(id){
   if(n.auto)n.auto.on=false;          /* 副本默认关掉自动发消息，免得突然刷屏 */
   n.tidePerm={on:false};              /* 潮汐控制权限不随复制继承，必须重新开启 */
   n.shapePerm={on:false};             /* 塑形权限也不随复制继承 */
+  n.instructionPerm={on:false};       /* 新建指令权限也不随复制继承 */
   chars.push(n);
   save(LS.chars,chars);scheduleBackup();scheduleAuto(false);
   renderRoles();
@@ -7665,7 +7888,7 @@ function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',chatMode:'online',
     visionModel:'',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},tidePerm:{on:false},shapePerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
 }
 /* ---------- 角色设定弹层（带「记忆」标签页） ---------- */
@@ -7821,7 +8044,11 @@ function charPermissionCardsHTML(c){
   /* 【新增】游戏邀请权限：开了以后它才能在聊天里拉你进游戏房间（默认关；关着的时候工具和那段提示词都不发，不占 token） */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
   '<div class="col"><b>能邀请我玩游戏</b><div class="dim" style="font-size:12px">允许它拉你进游戏房间一起玩（比如「和我玩一局狼人杀」）。开着它才会在聊天里发「邀请你加入房间」的卡片；关着（默认）连工具和提示词都不发给模型，一分 token 都不花。</div></div>'+
-  '<input type="checkbox" id="e_gameperm" '+(permOn(c,'gamePerm')?'checked':'')+'></div></div>';
+  '<input type="checkbox" id="e_gameperm" '+(permOn(c,'gamePerm')?'checked':'')+'></div></div>'+
+  /* 【新增】新建指令权限：默认关，开了以后角色才能在聊天里发分步倒计时卡 */
+  '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
+  '<div class="col"><b>允许角色新建指令</b><div class="dim" style="font-size:12px">默认关闭。打开后，角色在合适的时候可以主动把一件事拆成几步发给你，例如教你做番茄炒蛋。每一步都有标题、倒计时和正计时；你可以点「已完成」进入下一步，或点「取消指令」退出。最后一步完成或取消后，它会自动发一条消息回应你。</div></div>'+
+  '<input type="checkbox" id="e_instructionperm" '+(permOn(c,'instructionPerm')?'checked':'')+'></div></div>';
 }
 function editChar(id,tema){
   const c=chars.find(x=>x.id===id);if(!c)return;
@@ -8106,6 +8333,10 @@ function applyCharInputs(id){
   const elGameP=document.getElementById('e_gameperm');
   if(elGameP)c.gamePerm={on:!!elGameP.checked};
   else if(!c.gamePerm)c.gamePerm={on:false};
+  /* ↓ 新建指令权限：默认关；关着时工具不会出现在模型可用的工具里 */
+  const elInstructionP=document.getElementById('e_instructionperm');
+  if(elInstructionP)c.instructionPerm={on:!!elInstructionP.checked};
+  else if(!c.instructionPerm)c.instructionPerm={on:false};
   return c;
 }
 function saveChar(id){
@@ -15006,6 +15237,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-22】
+角色设置新增“允许角色新建指令”，普通角色默认关闭。打开后，角色可以在合适的时候发一张分步指令卡，例如带着你做番茄炒蛋：卡上会显示总标题、当前步骤、醒目的倒计时、较小的正计时和一条像音乐进度条一样的进度线。点「已完成」会进入下一步；最后一步点「已完成」后整张卡结束。倒计时到 0 也会自动进入下一步，最后一步时间到时显示“时间到”。任意时候都能点「取消指令」退出。用户最后完成或取消后，角色会自动发一条消息确认并给反馈；同一角色同时只保留一张进行中的指令卡。当前步骤、时间和状态都存在聊天记录里，刷新页面后还能接着看。
 角色在「互动」里的写日记工具新增“私密日记”。角色调用工具时可以选择 private：普通日记仍会在「互动」的日记列表里给你看；私密日记只保存在这个角色自己的日记数据里，不出现在互动页，只有角色自己知道内容。旧日记不受影响，私密日记也会跟着本地备份保存，删除角色时会一起删除。
 角色现在也能翻看自己以前写的日记：先用 read_diary 且不填 diary_id 获取最近日记目录，再从返回的 entries 里选一篇，把它的 id 填进 diary_id 读取完整正文。公开日记和私密日记都能读；私密正文只交给角色自己回忆，聊天里只显示“已读取某篇日记”，不会自动展示正文。
 「游戏 → 装扮小铺」新增两种贝壳来源：狼人杀首次赛后结算时，如果裁判把你评为 MVP，自动奖励 30 贝壳；同一局只发一次，之后在战绩页点“让裁判重新评选 MVP”只更新复盘，不会重复发奖。背单词每天把当天计划里的词都标记一遍（点“背会了”或“还不熟”都算完成），会自动奖励 30 贝壳，每天一次，并在背单词页和小铺今日任务里显示完成状态。
@@ -15057,7 +15289,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【角色（Dock 上那个「角色」）】
 点进去，最上面是「＋ 新建角色」。角色卡片：点一下进聊天，右上角 ✎ 改设定，长按可以拖动排序，有新消息的卡片上有小红点。角色分身也会作为普通角色卡片显示在这里，卡片上会标“分身”并写明本体是谁。
 每个角色能单独设定：线上/线下聊天模式、头像或 emoji、名字、人设、情境、说话风格、额外系统提示、对话示例、开场白、单独指定模型、看图模型、思考强度。看图模型留空时和旧版一样；填了以后，图片会先由它识图并转成文字，再交给聊天模型，所以可以「用擅长聊天的模型聊天，用擅长看图的模型看图」。
-每个角色还有一份自己的权限开关，主要有：自动发消息（按随机间隔主动找你；你关着这个前端、没打开的那段时间错过的，下次一打开会补上一条，按「现在」的时间发）、自己决定什么时候回、隐私角色、待办、群聊、朋友圈、创意、演绎记忆、看手机电量、看你在听什么歌、控制音乐、用 MCP 工具、允许角色自己控制潮汐（默认关）、邀请你玩游戏、联网搜索、互动玩具、画图。
+每个角色还有一份自己的权限开关，主要有：自动发消息（按随机间隔主动找你；你关着这个前端、没打开的那段时间错过的，下次一打开会补上一条，按「现在」的时间发）、自己决定什么时候回、隐私角色、待办、群聊、朋友圈、创意、演绎记忆、看手机电量、看你在听什么歌、控制音乐、用 MCP 工具、允许角色自己控制潮汐（默认关）、允许角色新建指令（默认关）、邀请你玩游戏、联网搜索、互动玩具、画图。
 
 【桌面上的应用分别是干什么的】
 · 待办：角色能帮你加、勾选清单，到点还会主动发消息提醒你。
@@ -15113,6 +15345,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么新建角色：点桌面 Dock 上的「角色」→ 最上面「＋ 新建角色」，填人设和开场白，保存。
 · 怎么让它主动找我说话：点角色卡片右上角 ✎ → 自动发消息，打开并设间隔。
 · 怎么让角色自己安排以后的消息：点角色卡片右上角 ✎ → 打开“允许角色自己控制潮汐”，保存。以后可以直接对它说“一小时后按你现在想好的文案发给我”，或者“一小时后去我那边看看，到时候再想说什么”。第二种只保存目的，不写死文案。它还能改时间、改文案、暂停、取消，或安排分身 MCP 总结和洄游处理；这些都会出现在潮汐里，用户可以随时取消。
+· 怎么让角色带我做分步任务：点角色卡片右上角 ✎ → 打开“允许角色新建指令”并保存。以后可以说“教我一步一步做番茄炒蛋”，或让它在合适的时候安排整理、锻炼等步骤。它会发一张带倒计时、正计时和进度线的卡；点「已完成」进入下一步，最后一步完成或点「取消指令」后，它会自动发消息回应。中途倒计时结束也会自己进入下一步。
 · 怎么让角色自己修改人设、记忆或名字后缀：点角色卡片右上角 ✎ → 打开“允许角色自己塑形”并保存。以后明确让它改人设、改说话方式、把重要事情记进记忆，或者说“给名字加个后缀”；它每次修改都会保存旧版本。去桌面第二页的「塑形」可以查看原因和前后内容，并撤销某一次改动。名字主体、权限、头像、模型和额外系统提示不会开放给它改。
 · 怎么给不同角色使用不同面具：去桌面第二页的「面具管理」新建并填写面具；点这张面具下面的「分配角色」，勾选要让面具生效的角色，再保存。想让某个角色恢复成原来的自己，就在同一张面具的分配列表里取消勾选它。聊天页右上角没有面具按钮。
 · 怎么看它什么时候会自动发消息：在桌面空白处向左滑到第二页，点「潮汐」；也可以按角色或触发方式筛选。私聊、群聊、提醒和延迟回复有具体时间，洄游按条件或固定时间处理。
@@ -15133,7 +15366,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=46;  /* 46：狼人杀 9/12 人局狼队分工；45：总结优先级、来源时间和多层大总结；44：角色可先列目录再读自己的日记 */
+const GUIDE_VER=47;  /* 47：角色可新建分步倒计时指令卡；46：狼人杀 9/12 人局狼队分工；45：总结优先级、来源时间和多层大总结 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -15142,9 +15375,9 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
-    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
+    auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
 /* 【启动检查】老账号（已经有别的角色、却没有引导者）也补一个引导者：
    只往列表最前面加一个，绝不改动旧角色。删掉以后不会再自己长回来。 */
@@ -18538,6 +18771,10 @@ if(P5_toysExec){
 /* execCharTool 是「私聊里用工具」的入口 */
 /* ↓ 这个函数是五层补丁合并后的样子：表情包 → 画图 → 好感度/提示 → 玩具 → 原来的工具分发 */
 execCharTool=function(name,args,cid){
+  if(name==='start_instruction'){
+    try{return window.execInstructionTool(args,cid)}
+    catch(e){return {ok:false,msg:'新建指令失败：'+((e&&e.message)||e)}}
+  }
   if(name==='shape_self'){
     try{return window.execShapeTool(args,cid)}
     catch(e){return {ok:false,msg:'塑形操作失败：'+((e&&e.message)||e)}}
@@ -19106,6 +19343,9 @@ askAndAppend=async function(freeCid,opts){
   opts=opts||{};
   const tideReq=opts.tideIntent||tideIntentFor(cid,c)||null;
   const tidePrompt=tideReq?('【这一轮必须实际操作潮汐】用户明确要求你管理潮汐，目标动作是 '+tideReq.action+'。你必须真的调用 control_tide 并等工具返回结果，不能只在文字里说“安排好了”或“五分钟后找你”。如果用户说几分钟后、一小时后，必须填 after_minutes，由程序计算时间。新建主动消息时 action 用 add_message，mode 用 generate 表示到点再决定说什么。') : '';
+  const instructionPrompt=opts.instructionEvent?instructionEventPrompt(opts.instructionEvent):'';
+  const extraPrompt=[tidePrompt,instructionPrompt].filter(Boolean).join('\n\n');
+  window.INSTRUCTION_CTX_PROMPT=instructionPrompt;
   const len=()=>msgsOf(cid).length;
   const live=()=>(curId===cid&&view==='chat');
   const lastIn=()=>{const arr=msgsOf(cid);return {arr:arr,m:arr.length?arr[arr.length-1]:null}};
@@ -19123,8 +19363,11 @@ askAndAppend=async function(freeCid,opts){
   window.P5MUSIC=[];
   /* ---- 【新】这一轮角色发过的「邀请你玩游戏」记录 ---- */
   window.GAME_INVITES=[];
+  /* ---- 【新】这一轮角色新建的分步指令；一轮最多挂一张 ---- */
+  window.INSTRUCTION_PENDING=null;
   /* ---- 补丁6-A：生成完要不要重画 ---- */
   var before6=len();
+  var beforeInstruction=len();
   try{
     if(!cid||!c)return;
     /* 【修复】这一轮到底看谁的记录：开头就照这个角色拍一份快照（聊天记录 + 记忆），
@@ -19165,10 +19408,15 @@ askAndAppend=async function(freeCid,opts){
     curAbort=new AbortController();
     const sig=curAbort.signal;
     try{
-      const tools=toolsFor(c);
+      /* 完成/取消指令后的反馈不需要再调用工具；直接用完整上下文做普通对话，
+         避免工具请求失败后被误降级成“精简记忆”。 */
+      const tools=opts.instructionEvent?[]:toolsFor(c).filter(function(t){
+        var n=t&&t.function&&t.function.name;
+        return !(instructionPrompt&&n==='start_instruction');
+      });
       if(tools.length){
         thinkOn();                       /* 有工具时它要先去想/去调工具，先亮起「思考中」 */
-        const baseCtx=buildCtx(c,tidePrompt);
+        const baseCtx=buildCtx(c,extraPrompt);
         const loopBase={signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}};
         let r=(await toolLoop(c,baseCtx,Object.assign({},loopBase,{forceTool:tideReq?'control_tide':''})))||{};
         let usedTools=(r.usedTools||[]).slice();
@@ -19187,7 +19435,7 @@ askAndAppend=async function(freeCid,opts){
             }catch(e){if(e&&e.name==='AbortError')throw e}   /* 这一遍再失败就算了，继续往下走兜底 */
           }
           if(!out&&!tideReq){
-            const ctx2=((r&&r.messages)||buildCtx(c)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
+            const ctx2=((r&&r.messages)||buildCtx(c,extraPrompt)).concat([{role:'system',content:'继续用中文、像发消息一样回复她。不要调用工具，直接说话。'}]);
             await callAPI(ctx2,{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},onReasoning:rr=>{reasoning+=rr;thinkOn()},onUsage:u=>usage=u,onModel:m=>{usedModel=m}});
           }
         }
@@ -19222,11 +19470,12 @@ askAndAppend=async function(freeCid,opts){
       const m=makeAssistantMsg(out,reasoning,usage,answerMeta());
       pushMsgTo(cid,m);ok=true;                 /* 【修复】存进它自己的记录 */
     }catch(e){
-      /* ↓ 新增：这次没发出去（内容太长 / 中转站返回空）→ 自动用「精简上下文」再发一次 */
+      /* ↓ 普通聊天没发出去（内容太长 / 中转站返回空）→ 自动用「精简上下文」再试一次。
+         指令完成/取消的反馈例外：必须保留角色完整记忆，失败时直接报出真实错误。 */
       var liteOK=false;
       try{
         var aborted0=!!(e&&(e.name==='AbortError'||/abort/i.test(e.message||'')));
-        if(!aborted0&&!out&&!tideReq){
+        if(!aborted0&&!out&&!tideReq&&!opts.instructionEvent){
           out='';reasoning='';usage=null;
           await callAPI(buildCtxLite(c),{stream:true,model:modelOf(c),signal:sig,temp:tp.temp,maxtok:tp.maxtok,
             onDelta:d=>{out+=d;a.classList.remove('typing');a.innerHTML=liveBubbleText(out);scrollDown()},
@@ -19263,6 +19512,7 @@ askAndAppend=async function(freeCid,opts){
   }finally{
     ctxAsk=null;                 /* 【修复】这一轮结束，记录快照不再需要了 */
     ctxVisionMode=false;
+    window.INSTRUCTION_CTX_PROMPT='';
     busy=false;curAbort=null;    /* 【修复】兜底复位：万一上面某步出错，也不会一直卡在「正在忙」 */
     /* ---- 补丁5-A：收尾 ---- */
     P5.live=false;
@@ -19303,6 +19553,18 @@ askAndAppend=async function(freeCid,opts){
         }
       }
     }catch(e){}
+    /* ---- 【新】角色这一轮新建的指令：和回复一起保存，刷新后仍然可点 ---- */
+    try{
+      var insPending=window.INSTRUCTION_PENDING||null;window.INSTRUCTION_PENDING=null;
+      if(insPending&&len()>beforeInstruction){
+        var LIns=lastIn(),mIns=LIns.m;
+        if(mIns&&mIns.role==='assistant'){
+          mIns.instruction=insPending;
+          try{saveArrFor(cid,LIns.arr);scheduleBackup()}catch(e){}
+          try{if(live())renderChat()}catch(e){}
+        }
+      }
+    }catch(e){window.INSTRUCTION_PENDING=null}
     /* ---- 补丁13-A：角色挑的表情挂到这条回复上 ---- */
     W.P13.armed=false;
     try{
@@ -19551,7 +19813,7 @@ function toolStatText(name){
   var m={
     create_page:'正在生成创意…', read_page:'正在查看创意代码…', update_page:'正在修改创意…',
     send_sticker:'正在发表情…', post_moment:'正在发朋友圈…', music_control:'正在操作音乐…',
-    invite_game:'正在邀请你玩游戏…', draw_image:'正在画图…', toy:'正在玩点小东西…',
+    invite_game:'正在邀请你玩游戏…', start_instruction:'正在准备分步指令…', draw_image:'正在画图…', toy:'正在玩点小东西…',
     add_todo:'正在记待办…', search_memory:'正在翻旧记忆…', list_long_summaries:'正在读取长期总结…', read_tag:'正在按标签翻记忆…'
   };
   if(m[n])return m[n];
@@ -19795,6 +20057,7 @@ function normalizeImportedChar(c,nid){
   if(!c.mcpPerm)c.mcpPerm={on:false};
   c.tidePerm={on:false};               /* 导入角色也默认关闭潮汐控制，避免带着高风险权限进来 */
   c.shapePerm={on:false};              /* 塑形权限同样默认关闭 */
+  c.instructionPerm={on:false};        /* 新建指令权限也由用户导入后自己决定 */
   if(!c.gamePerm)c.gamePerm={on:false};
   return c;
 }
@@ -23420,6 +23683,49 @@ var INVITE_GAME_TOOL={type:'function',function:{
   },required:['game']}
 }};
 window.INVITE_GAME_TOOL=INVITE_GAME_TOOL;   /* 挂到全局：toolsFor 要用 */
+/* ---------- 角色给用户发一张分步倒计时指令卡 ----------
+   只在角色设置「允许角色新建指令」打开时加入工具清单。 */
+var START_INSTRUCTION_TOOL={type:'function',function:{
+  name:'start_instruction',
+  description:'给用户发一张可操作的分步指令卡。适合做菜、整理、锻炼、学习等需要带着用户一步一步做的实操任务；普通聊天、单纯建议或用户没有要开始做事时不要用。请一次把完整步骤交齐，每一步写清用户现在要做什么，并给出合理倒计时。调用后聊天里会出现标题、当前步骤、倒计时、正计时、进度条和“已完成 / 取消指令”按钮；用户最后一步完成或取消后会自动通知你，你再回复反馈。',
+  parameters:{type:'object',properties:{
+    title:{type:'string',maxLength:60,description:'整件事的总标题，例如“番茄炒蛋”或“收拾书桌”'},
+    steps:{type:'array',minItems:1,maxItems:12,description:'按实际执行顺序排列的 1～12 个步骤。用户点“已完成”会进入下一步；倒计时结束也会自动进入下一步。',items:{type:'object',properties:{
+      title:{type:'string',maxLength:120,description:'这一步现在要做的具体动作，例如“把番茄倒进锅里”'},
+      duration_seconds:{type:'integer',minimum:5,maximum:7200,description:'这一小步的倒计时秒数。30 秒就填 30，5 分钟就填 300'}
+    },required:['title','duration_seconds']}}
+  },required:['title','steps']}
+}};
+window.START_INSTRUCTION_TOOL=START_INSTRUCTION_TOOL;
+function execInstructionTool(args,cid){
+  var c=null;try{c=charOf(cid)}catch(e){}
+  if(!c)return {ok:false,msg:'角色找不到了'};
+  if(!permOn(c,'instructionPerm'))return {ok:false,msg:'这个角色没有开启“允许角色新建指令”权限'};
+  if(window.INSTRUCTION_PENDING)return {ok:false,msg:'这一轮已经新建过一张指令卡了，不要重复创建'};
+  try{if(instructionHasActive(cid))return {ok:false,msg:'当前已经有一张进行中的指令卡，等用户完成或取消后再新建'}}catch(e){}
+  args=args||{};
+  var title=String(args.title||'').trim().slice(0,60);
+  var rawSteps=Array.isArray(args.steps)?args.steps:[];
+  var steps=[];
+  for(var i=0;i<rawSteps.length&&steps.length<12;i++){
+    var s=rawSteps[i]||{};
+    var text=String(s.title||'').trim().slice(0,120);
+    if(!text)continue;
+    var sec=Math.round(Number(s.duration_seconds));
+    if(!Number.isFinite(sec))continue;
+    steps.push({title:text,seconds:Math.max(5,Math.min(7200,sec))});
+  }
+  if(!title&&steps.length)title=steps[0].title.slice(0,60);
+  if(!title)return {ok:false,msg:'缺少指令标题，请重新调用并写清 title'};
+  if(!steps.length)return {ok:false,msg:'缺少有效步骤，请给出至少一步，并给每一步写 title 和 duration_seconds（5～7200 秒）'};
+  var now=Date.now();
+  window.INSTRUCTION_PENDING={
+    id:'ins_'+now.toString(36)+Math.random().toString(36).slice(2,7),
+    title:title,steps:steps,current:0,status:'active',createdAt:now,stepStartedAt:now
+  };
+  return {ok:true,msg:'指令卡已经准备好，会随你这条回复显示给用户：'+title+'，共 '+steps.length+' 步。接下来只说一两句自然的话引导用户开始，不要再把所有步骤逐条复述一遍。'};
+}
+window.execInstructionTool=execInstructionTool;
 /* ================================================================
    MCP：让角色接入外部「工具服务器」
    浏览器直接当 MCP 客户端（JSON-RPC 2.0 · Streamable HTTP）。
@@ -23722,6 +24028,10 @@ toolsFor=function(c){
   /* ↓ 【新】一起玩游戏：邀请她进房间（角色设置里默认关，开了才发） */
   try{
     if(permOn(c,'gamePerm')&&window.INVITE_GAME_TOOL)t.push(window.INVITE_GAME_TOOL);
+  }catch(e){}
+  /* ↓ 新建指令：默认关；关着时模型完全看不到这个工具 */
+  try{
+    if(permOn(c,'instructionPerm')&&window.START_INSTRUCTION_TOOL)t.push(window.START_INSTRUCTION_TOOL);
   }catch(e){}
   /* ↓ 记忆宫殿：让角色自己决定什么时候去翻旧记忆 */
   try{
