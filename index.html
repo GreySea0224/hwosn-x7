@@ -2295,6 +2295,9 @@ function tideCreateNote(cid){
 function tideRoleCanControl(c){
   return !!(c&&c.tidePerm&&c.tidePerm.on&&cfg&&cfg.autoOn);
 }
+function tideRoutineAllowed(c){
+  return !!(c&&c.tidePerm&&c.tidePerm.on);
+}
 /* 【新】把「下次该主动发消息的时间」存进本地：刷新、关掉页面再打开都不会丢。
    关着浏览器、没打开这个前端的那段时间里，谁该发却没发，下次一打开就会补上一条——
    消息还是按「现在」的时间生成，只是让角色知道现在几点了。 */
@@ -2358,6 +2361,13 @@ function nowText(){
   const d=new Date(),w='日一二三四五六'[d.getDay()];
   return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 星期'+w+' '+fmtTime(d.getTime());
 }
+function characterStatusText(c){
+  const s=c&&c.selfStatus;
+  const text=String((s&&s.text)||'').trim();
+  const at=Number(s&&s.at)||0;
+  if(!text||!at||Date.now()-at>24*60*60*1000)return '';
+  return text.slice(0,100);
+}
 function latestUserContent(cid){
   try{
     const a=msgsOf(cid);
@@ -2369,14 +2379,16 @@ function tideIntentInfo(text){
   const s=String(text||'').trim();
   if(!s)return null;
   const tideWord=/潮汐/.test(s);
-  const timeWord=/(分钟|小时|点|明天|后天|今天|过会儿|过一会儿|稍后|以后)/.test(s);
-  const planWord=/(排期|安排|提醒|总结|处理|发消息|来找|来看我|过来)/.test(s);
+  const timeWord=/(分钟|小时|点|明天|后天|今天|过会儿|过一会儿|稍后|以后|每天|每晚|每日|每周|工作日)/.test(s);
+  const planWord=/(排期|安排|提醒|总结|处理|发消息|来找|来看我|过来|写日记|记日记|复盘|动态认知|自己的状态|角色状态|更新状态)/.test(s);
+  const routineIntent=/(写日记|记日记|复盘|动态认知|自己的状态|角色状态|更新状态)/.test(s)&&/(每天|每晚|每日|定时)/.test(s);
   const directFuture=/你.{0,10}(分钟|小时|点).{0,12}(发|来|找|看我)|(分钟|小时)后.{0,10}(发个?消息|来找我|过来找我|来看我|找我说话)/.test(s);
   if(!(tideWord||(timeWord&&planWord)||directFuture))return null;
-  if(!tideWord&&!directFuture&&!/(加.{0,6}排期|新建.{0,6}排期|调用.{0,6}工具|安排.{0,10}(主动|发消息|提醒|总结|处理))/.test(s))return null;
+  if(!tideWord&&!directFuture&&!routineIntent&&!/(加.{0,6}排期|新建.{0,6}排期|调用.{0,6}工具|安排.{0,10}(主动|发消息|提醒|总结|处理))/.test(s))return null;
   let action='';
   if(/(取消|撤销|删掉|删除).*(排期|安排|提醒|消息|总结|处理)|(取消这次|取消安排)/.test(s))action='cancel';
   else if(/(改|调整|推迟|提前|改成|换到).*(时间|分钟|小时|点|明天|后天)/.test(s))action='reschedule';
+  else if(/(日记|复盘|动态认知|自己的状态|角色状态|更新状态)/.test(s)&&/(每天|每晚|每日|定时|以后|安排|设置)/.test(s))action='add_routine';
   else if(/提醒/.test(s)&&timeWord&&/(安排|加|新建|设|定)/.test(s))action='add_reminder';
   else if(/分身/.test(s)&&/(总结|活动|MCP|记录)/i.test(s))action='add_branch_summary';
   else if(/洄游/.test(s)&&/(处理|看看|查看).*(记录|洄游)|安排.*处理/.test(s))action='add_roam_review';
@@ -2385,8 +2397,11 @@ function tideIntentInfo(text){
   return action?{action:action,text:s}:null;
 }
 function tideIntentFor(cid,c){
-  if(!c||!(c.tidePerm&&c.tidePerm.on)||!cfg||!cfg.autoOn)return null;
-  return tideIntentInfo(latestUserContent(cid));
+  if(!c||!(c.tidePerm&&c.tidePerm.on))return null;
+  var info=tideIntentInfo(latestUserContent(cid));
+  if(!info)return null;
+  if(cfg&&cfg.autoOn)return info;
+  return /^(list|add_routine|edit_routine|run_routine|remove_routine)$/.test(info.action)?info:null;
 }
 function stampOf(t){const d=new Date(t||Date.now());return (d.getMonth()+1)+'/'+d.getDate()+' '+fmtTime(d.getTime())}
 function ago(ts){
@@ -5839,7 +5854,7 @@ function summaryInjectionList(cid,M,nOverride){
 }
 function memBlock(m,self,cid){
   const L=[],pk=(arr,n)=>arr.slice(-n).map(x=>'- '+x.text).join('\n');
-  if(m.core)L.push((self?'【我是谁】':'【角色核心设定】')+'\n'+m.core);
+  if(m.core)L.push('【动态认知】\n'+m.core);
   if(m.timeline&&m.timeline.length)L.push((self?'【我的时间线】':'【时间线】')+'\n'+pk(m.timeline,15));
   const picked=summaryInjectionList(cid||curId,m);
   if(picked.length&&m.summaries&&m.summaries.length){
@@ -6074,10 +6089,10 @@ function buildCtxSystem(c,extra){
   if(cfg.timeOn!==false)dyn.push('【现在的时间】'+nowText()+'。消息开头「（月/日 时:分）」是那条消息发出的时间，你可以据此判断现在几点、上次聊天是多久以前、隔了几天。');
   try{const vp=vocabAssessmentPrompt();if(vp)dyn.push(vp)}catch(e){}
   if(permOn(c,'tidePerm')&&cfg.autoOn){
-    dyn.push('【潮汐控制】你可以用 control_tide 查看和管理自己尚未执行的排期。用户说“半小时后、一小时后、过一会儿”时，新增或改时间必须填 after_minutes，交给程序计算，不要自己手算 at；只有用户明确说出某个日期或钟点时才用 at。新建成功后状态就是待执行，不要紧接着调用 pause；如果时间填错，用 reschedule 改成正确的 after_minutes。列表里的 delay 是你对当前聊天消息的延迟回复，不是主动排期：除非用户明确让你改或取消这次回复，否则不要碰它；要安排以后主动发一条，必须调用 add_message。');
+    dyn.push('【潮汐控制】你可以用 control_tide 查看和管理自己尚未执行的排期。用户说“半小时后、一小时后、过一会儿”时，新增或改时间必须填 after_minutes，交给程序计算，不要自己手算 at；只有用户明确说出某个日期或钟点时才用 at。新建成功后状态就是待执行，不要紧接着调用 pause；如果时间填错，用 reschedule 改成正确的 after_minutes。列表里的 delay 是你对当前聊天消息的延迟回复，不是主动排期：除非用户明确让你改或取消这次回复，否则不要碰它；要安排以后主动发一条，必须调用 add_message。你也可以给自己设置每日日常：add_routine + routine_type=diary 每天写日记，routine_type=review 每天复盘并用更新后的现状覆盖动态认知，routine_type=status 每天更新自己的当前状态；时间填 HH:MM。日记默认私密，除非用户明确要公开。复盘不是写流水账，而是更新“现在的我、用户现状、关系变化、修正后的理解和下一步想法”。');
   }
   if(permOn(c,'shapePerm')){
-    dyn.push('【塑形】你可以用 shape_self 更新自己的文字人设、普通记忆和名字后缀。人设部分只能改人设、情境、说话风格、开场白、对话示例；记忆部分只能改核心设定、时间线、长期总结、偏好、习惯。可以用 set_name_suffix 在原名字后面添加、替换或清空后缀（例如“大白”变成“大白_吃骨头”），但绝不能修改名字主体；头像、模型、额外系统提示、权限和任何运行开关也不能改。只有用户明确要求你调整自己，或确实需要长期记住已经发生的重要约定时才使用。每次修改都要写清原因，不要为了临时对话反复重写核心人设。');
+    dyn.push('【塑形】你可以用 shape_self 更新自己的文字人设、普通记忆、动态认知和名字后缀。人设部分只能改人设、情境、说话风格、开场白、对话示例；记忆部分可以更新动态认知、时间线、长期总结、偏好、习惯。动态认知用来覆盖更新“现在的我、用户现状、关系变化和下一步想法”，不是逐日追加日记。可以用 set_name_suffix 在原名字后面添加、替换或清空后缀（例如“大白”变成“大白_吃骨头”），但绝不能修改名字主体；头像、模型、额外系统提示、权限和任何运行开关也不能改。只有用户明确要求你调整自己，或确实需要长期记住已经发生的重要约定时才使用。每次修改都要写清原因，不要为了临时对话反复重写本来的固定人设。');
   }
   /* ↓ 新增：把「用户正在听的歌」告诉角色（一起听音乐功能） */
   try{
@@ -6118,6 +6133,11 @@ function buildCtxSystem(c,extra){
       dyn.push('【'+UP+'的手机电量】'+UP+'手机现在大概剩 '+Math.round(Math.max(0,Math.min(1,bs.level))*100)+'%'+(bs.charging?'，正在充电。':'，没在充电。')+
         '\n这是真实电量（浏览器读的）。可以自然关心一句，别反复念叨数字。');
     }
+  }catch(e){}
+  /* 【角色日常】角色自己设置的当前状态，只在一天内有效，避免旧状态一直挂着。 */
+  try{
+    const ownStatus=characterStatusText(c);
+    if(ownStatus)dyn.push('【你现在的状态】'+ownStatus+'\n这是你自己最近写下的当前状态；聊天时可以自然地符合它，但不用每句都主动解释。');
   }catch(e){}
   /* ↓ 新增：把「朋友圈」最近的事告诉角色（它自己也能发） */
   try{
@@ -7164,8 +7184,8 @@ function orgCfgHTML(c,opt){
     cb('persona','人设','角色的性格、身份和基本设定')+
     cb('scenario','情境与世界观','角色当前所处的情境')+
     cb('style','说话风格','只提供表达习惯，不把风格当成事实')+
-    cb('memory','原本的记忆区域','核心设定、聊天总结、时间线、偏好、习惯')+
-    cb('core','其中包含核心设定','关掉后不提供“我是谁”的核心文字')+
+    cb('memory','原本的记忆区域','动态认知、聊天总结、时间线、偏好、习惯')+
+    cb('core','其中包含动态认知','关掉后不提供角色当前对“自己、用户和关系”的动态认知')+
     cb('user','我的资料','名字、性别和备注；名字仍会用于区分说话人')+
     '<div style="margin-top:8px">'+num('summaries','已有聊天总结最多看',100)+num('timeline','时间线最多看',50)+
     num('prefs','偏好与认知最多看',50)+num('habits','性格与习惯最多看',50)+
@@ -7238,7 +7258,7 @@ function memoryOrganizerHTML(){
       :'<p class="dim" style="font-size:13px">这个角色还没有聊天原文。</p>')+
     '</div>'+orgCfgHTML(c,opt)+
     '<div class="card"><div class="ttl" style="font-size:14px">撤回与清理</div>'+
-    '<p class="dim" style="font-size:12px;margin:0 0 8px">“撤回最近一次”会恢复到那次整理前的记忆状态。“清空 AI 总结”会恢复到第一次使用新版整理前的状态；如果你在那之后又手改过核心设定，也会被一起恢复，所以执行前会再次确认。聊天原文始终不动。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">“撤回最近一次”会恢复到那次整理前的记忆状态。“清空 AI 总结”会恢复到第一次使用新版整理前的状态；如果你在那之后又手改过动态认知，也会被一起恢复，所以执行前会再次确认。聊天原文始终不动。</p>'+
     '<div class="row"><button class="col" '+(hist.length?'':'disabled')+' onclick="orgUndoLast()">撤回最近一次</button>'+
     '<button class="ghost col" '+(base?'':'disabled')+' onclick="orgClearAll()">清空 AI 总结</button></div></div>'+
     '<div class="card"><div class="ttl" style="font-size:14px">聊天总结全部（'+sum.length+' 条）</div>'+
@@ -7347,7 +7367,7 @@ function orgUndoLast(){
 function orgClearAll(){
   const id=memCtx.id||curId;
   if(!memBaselineOf(id))return alert('还没有新版整理产生的初始快照，无法一键清空。');
-  if(!confirm('把记忆恢复到第一次使用新版整理之前？\n\n会清掉之后由 AI 整理写入的内容；如果你后来又手改过核心设定，也会一起恢复。\n\n所有聊天原文都不会删除。确定继续吗？'))return;
+  if(!confirm('把记忆恢复到第一次使用新版整理之前？\n\n会清掉之后由 AI 整理写入的内容；如果你后来又手改过动态认知，也会一起恢复。\n\n所有聊天原文都不会删除。确定继续吗？'))return;
   if(!clearAiSummaryHistory(id))return alert('没有找到可恢复的快照。');
   orgRender(true);alert('已清空并恢复到新版整理前的记忆。聊天原文没有删。');
 }
@@ -7369,7 +7389,7 @@ function orgGlobalContext(c,M,opt,id,selected){
   if(opt.scenario&&c.scenario)bits.push('当前情境：'+String(c.scenario).slice(0,3000));
   if(opt.style&&c.style)bits.push('我的说话风格：'+String(c.style).slice(0,1500));
   if(opt.memory){
-    if(opt.core&&M.core)bits.push('我已有的核心设定：'+String(M.core).slice(0,6000));
+    if(opt.core&&M.core)bits.push('我已有的动态认知：'+String(M.core).slice(0,6000));
     const sm=summaryInjectionList(id,M,opt.summaries);
     if(sm.length)bits.push('我已有的聊天总结（按优先级选取）：\n'+
       sm.map(x=>'- ['+summaryTimeText(id,x,M)+'；优先级 '+summaryPrio(x)+
@@ -7842,6 +7862,7 @@ function copyChar(id){
   n.tidePerm={on:false};              /* 潮汐控制权限不随复制继承，必须重新开启 */
   n.shapePerm={on:false};             /* 塑形权限也不随复制继承 */
   n.instructionPerm={on:false};       /* 新建指令权限也不随复制继承 */
+  n.selfRoutines=[];n.selfStatus=null;/* 每日日常和当前状态也不随复制继承 */
   chars.push(n);
   save(LS.chars,chars);scheduleBackup();scheduleAuto(false);
   renderRoles();
@@ -7886,7 +7907,7 @@ function moveChar(id,dir){
 function pick(id){loadChar(id);go('chat')}
 function newChar(){
   const c={id:uid(),name:'新角色',emoji:'🐋',avatar:'',persona:'',scenario:'',style:'',greeting:'',model:'',chatMode:'online',
-    visionModel:'',
+    visionModel:'',selfRoutines:[],selfStatus:null,
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:false},groupPerm:{on:false},actMem:{on:false,n:12},momentPerm:{on:true},ideaPerm:{on:false},mcpPerm:{on:false},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:false},batPerm:{on:false},listenPerm:{on:false},musicPerm:{on:false},toyPerm:{on:false},gamePerm:{on:false}};
   chars.push(c);save(LS.chars,chars);scheduleBackup();loadChar(c.id);draw();editChar(c.id);
@@ -8035,7 +8056,7 @@ function charPermissionCardsHTML(c){
   '<input type="checkbox" id="e_mcpperm" '+(permOn(c,'mcpPerm')?'checked':'')+'></div></div>'+
   /* 【新增】潮汐控制权限：默认关，只允许它管理自己的排期 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
-  '<div class="col"><b>允许角色自己控制潮汐</b><div class="dim" style="font-size:12px">默认关闭。打开后，它可以在聊天里查看、修改、暂停或取消自己尚未执行的排期，也能新增待办提醒、一次性消息或分身总结；消息可以写死文案，也可以只定时间、到点再决定说什么。新增提醒还要打开待办权限，群消息还要打开群聊权限。它碰不到别的角色；设置里的“全局自动发消息”关掉时它也不能用。最多同时留 10 个由它新建的任务，每个任务最早 2 分钟后、最晚 30 天内。</div></div>'+
+  '<div class="col"><b>允许角色自己控制潮汐</b><div class="dim" style="font-size:12px">默认关闭。打开后，它可以在聊天里查看、修改、暂停或取消自己的排期，也能新增待办提醒、一次性消息、分身总结，还可以给自己设置每天写日记、复盘动态认知和更新当前状态。日记默认私密，角色可以明确改成公开；复盘会覆盖更新现状，不会每天往后追加。新增提醒还要打开待办权限，群消息还要打开群聊权限。它碰不到别的角色；普通自动消息还要看全局开关，每日日记、复盘和状态只受这个权限控制。</div></div>'+
   '<input type="checkbox" id="e_tideperm" '+(permOn(c,'tidePerm')?'checked':'')+'></div></div>'+
   /* 【新增】塑形权限：默认关，只允许它修改自己的文字人设和普通记忆 */
   '<div class="card" style="margin-top:12px"><div class="row" style="align-items:center">'+
@@ -8661,9 +8682,10 @@ function memInnerHTML(){
   if(!c)return '<p class="hint">先选个角色</p>';
   const M=memCur();
   return memModeCard(M)+
-  collap('core','我是谁（核心设定）',
-    '<textarea id="mcore" style="min-height:96px" placeholder="用第一人称写：我是谁、我的核心是什么…（例：我是'+esc(userPron())+'的女朋友，嘴硬心软）">'+esc(M.core||'')+'</textarea>'+
-    '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存</button>'+
+  collap('core','动态认知',
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">这里不是固定人设，而是角色对“我现在是谁、用户现在怎样、我们的关系最近有什么变化”的持续认知。每日复盘会覆盖更新现状，不往后追加旧日记。</p>'+
+    '<textarea id="mcore" style="min-height:120px" placeholder="用第一人称写当前认知，例如：我是××，正在和××相处；最近我们的关系……；我修正了……；接下来我想……">'+esc(M.core||'')+'</textarea>'+
+    '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存动态认知</button>'+
     '<button class="col" onclick="summarizeNow()">总结最近 '+SUM_N+' 条</button></div>')+
   listCard('时间线','timeline')+
   listCard('长期聊天记录总结','summaries')+
@@ -8790,7 +8812,7 @@ function showPalaceLast(){
     const hh=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
     const hits=L.hits.length?L.hits.map((h,i)=>{
       const where=(h.src==='arc')?('旧档案《'+(h.name||'未命名')+'》第 '+(h.i+1)+' 条')
-        :(h.src==='mem'?('提炼记忆 · '+({core:'核心设定',timeline:'时间线',summaries:'聊天总结',prefs:'偏好',habits:'习惯'}[h.field]||h.field))
+        :(h.src==='mem'?('提炼记忆 · '+({core:'动态认知',timeline:'时间线',summaries:'聊天总结',prefs:'偏好',habits:'习惯'}[h.field]||h.field))
           :('聊天记录第 '+(h.i+1)+' 条'));
       return '<div class="li"><span>'+(i+1)+'. '+esc(where)+(h.tag?'　🏷 标签命中':'')+' <span class="dim">相关度 '+h.score+'</span></span></div>';
     }).join(''):'<p class="dim" style="font-size:13px">这一次没翻到相关的东西。</p>';
@@ -15231,10 +15253,15 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-22 */
+   最后更新：2026-10-23 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-10-23】
+角色记忆页原来的“我是谁（核心设定）”改为“动态认知”。固定身份仍写在角色人设里；动态认知用来记录角色此刻对“自己是谁、用户现在怎样、关系有什么变化、最近修正了什么理解、接下来想怎么做”的持续认识。每日复盘会覆盖更新这块现状，不会每天往后追加，避免越堆越长。
+角色设置开启“允许角色自己控制潮汐”后，角色可以给自己设置每日日常：每天固定时间写日记、复盘并更新动态认知、更新当前状态。每个角色最多各有一条，时间和日记公开/私密都能由角色自己修改；日记没特别说明时默认私密。潮汐里能看到下一次执行时间、上次执行、公开范围，并能暂停、恢复、立即执行或删除。页面关着时不会后台运行，下次打开会补做当天已经到点的日常。
+角色日常执行时会使用和普通聊天相同的完整角色上下文，包括人设、动态认知、长期记忆、近期聊天、记忆宫殿检索和角色可见资料，不会自动换成精简上下文。状态会显示在聊天标题下方并告诉角色自己当前在做什么；超过一天没更新的旧状态会自动视为过期。
 
 【最近更新 · 2026-10-22】
 角色设置新增“允许角色新建指令”，普通角色默认关闭。打开后，角色可以在合适的时候发一张分步指令卡，例如带着你做番茄炒蛋：卡上会显示总标题、当前步骤、醒目的倒计时、较小的正计时和一条像音乐进度条一样的进度线。点「已完成」会进入下一步；最后一步点「已完成」后整张卡结束。倒计时到 0 也会自动进入下一步，最后一步时间到时显示“时间到”。任意时候都能点「取消指令」退出。用户最后完成或取消后，角色会自动发一条消息确认并给反馈；同一角色同时只保留一张进行中的指令卡。当前步骤、时间和状态都存在聊天记录里，刷新页面后还能接着看。
@@ -15251,7 +15278,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-10-20】
 狼人杀准备页的「邀请玩家」新增两项设置。每个已邀请角色都可以指定一个必须拿到的身份，开局发牌时会先满足这些指定；如果当前人数或板子里没有这张身份牌、同一种身份指定得比牌数多，或和玩家自己的指定身份冲突，程序会明确提示并阻止开局，不会偷偷改掉。每个已邀请角色还可以打开「游戏中匿名」：开启后，牌桌座位、发言记录、赛后身份表和发给其他 AI 的公共信息只显示座位编号，不显示角色真实名字；匿名角色自己也会被告知不能说真名。这个设置很适合配合“给某个角色固定身份”使用，让游戏过程只围绕编号展开。
-角色设置新增“允许角色自己塑形”，默认关闭。打开后，角色可以修改自己的文字人设、情境/世界观、说话风格、开场白、对话示例，以及记忆页的“我是谁”核心设定、时间线、长期总结、偏好与认知、性格与习惯；可以新增、修改或删除普通记忆条目。塑形还支持给名字添加、替换或清空后缀，例如原名“大白”可以变成“大白_吃骨头”，但不能把名字主体改成“大黑”。emoji、头像、模型、额外系统提示和所有权限/运行开关都不能改。
+角色设置新增“允许角色自己塑形”，默认关闭。打开后，角色可以修改自己的文字人设、情境/世界观、说话风格、开场白、对话示例，以及记忆页的动态认知、时间线、长期总结、偏好与认知、性格与习惯；可以新增、修改或删除普通记忆条目。塑形还支持给名字添加、替换或清空后缀，例如原名“大白”可以变成“大白_吃骨头”，但不能把名字主体改成“大黑”。emoji、头像、模型、额外系统提示和所有权限/运行开关都不能改。
 每次塑形都会保存修改前和修改后的文字、时间、角色与原因。桌面第二页的「塑形」应用可以按角色查看这些记录并撤销某一次改动；如果同一项之后又被改过，撤销前会明确提醒会覆盖较新的内容。撤销名字后缀时也会恢复原来的完整名字。撤销本身也会留下记录。
 
 【最近更新 · 2026-10-21】
@@ -15318,12 +15345,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 小工具：骰子、塔罗、随机这类小玩意。
 
 【记忆是怎么运作的】
-每个角色一份记忆：核心设定、时间线、聊天总结、偏好、习惯。
+每个角色一份记忆：动态认知、时间线、聊天总结、偏好、习惯。固定身份和根本性格写在角色人设里，动态认知只放会随经历更新的现状与关系认识。
 「自动总结」可以每隔若干条聊天自动把内容总结进记忆。
 「历史模式」决定每次发消息带多少旧聊天：自动（推荐）／全量／只看总结。
 很久以前的细节交给「记忆宫殿」按需检索，不占平时的开销。
 角色编辑 → 记忆 → 「记忆整理与撤回」里，可以选过去约 40 条聊天，或选导入的历史档案片段，让角色先看完整人设、关系背景和已有记忆，再以第一人称整理这一段。每次整理都有写前快照，能撤回最近一次，也能清空 AI 总结并恢复到开始整理前。
-撤回和清空只恢复“总结 / 时间线 / 偏好 / 习惯 / 核心设定”，任何聊天原文都不会删除。现在提炼后的总结、时间线、偏好和习惯也会进入记忆宫殿搜索，不会只看最近十条。
+撤回和清空只恢复“总结 / 时间线 / 偏好 / 习惯 / 动态认知”，任何聊天原文都不会删除。现在提炼后的总结、时间线、偏好和习惯也会进入记忆宫殿搜索，不会只看最近十条。
 自动总结现在会做近似去重，并且只有保存成功后才把进度记号向前移；整理失败时原始聊天仍然完整保留。
 「记忆整理」里的聊天和历史档案按来源分组显示，可以切换最新在前 / 最早在前；✓ 表示整理过，◐ 表示整理过一部分。选中一段后，可以填写额外的整理要求，并细调角色整理时是否能看见人设、情境、说话风格、原本记忆区域（核心、总结、时间线、偏好、习惯）和额外近期聊天；数量都可以单独设置。可见范围设置会跟角色一起保存并进入备份。
 普通聊天每轮自动带入多少段「长期聊天记录总结」现在可以调。入口在角色编辑 → 记忆 →「聊天记录与总结」，或设置 →「记忆注入」；范围 0～100，默认 10，0 表示暂不自动带，设置超过现有段数时会把现有的全部带上。search_memory 是相关性搜索，不会保证把全部总结一次列出；自动带入和搜索是两套机制。
@@ -15345,6 +15372,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么新建角色：点桌面 Dock 上的「角色」→ 最上面「＋ 新建角色」，填人设和开场白，保存。
 · 怎么让它主动找我说话：点角色卡片右上角 ✎ → 自动发消息，打开并设间隔。
 · 怎么让角色自己安排以后的消息：点角色卡片右上角 ✎ → 打开“允许角色自己控制潮汐”，保存。以后可以直接对它说“一小时后按你现在想好的文案发给我”，或者“一小时后去我那边看看，到时候再想说什么”。第二种只保存目的，不写死文案。它还能改时间、改文案、暂停、取消，或安排分身 MCP 总结和洄游处理；这些都会出现在潮汐里，用户可以随时取消。
+· 怎么让它每天自己写日记、复盘或更新状态：点角色卡片右上角 ✎ → 打开“允许角色自己控制潮汐”并保存。然后对它说“每天晚上十点写一篇私密日记”“每天晚上十点零五复盘并更新动态认知”或“每天早上八点半更新你的当前状态”。它也可以在潮汐里自己创建、修改、暂停和删除这些每日日常。日记没有明确说公开时默认私密；复盘会覆盖更新“动态认知”，不会每天追加。
 · 怎么让角色带我做分步任务：点角色卡片右上角 ✎ → 打开“允许角色新建指令”并保存。以后可以说“教我一步一步做番茄炒蛋”，或让它在合适的时候安排整理、锻炼等步骤。它会发一张带倒计时、正计时和进度线的卡；点「已完成」进入下一步，最后一步完成或点「取消指令」后，它会自动发消息回应。中途倒计时结束也会自己进入下一步。
 · 怎么让角色自己修改人设、记忆或名字后缀：点角色卡片右上角 ✎ → 打开“允许角色自己塑形”并保存。以后明确让它改人设、改说话方式、把重要事情记进记忆，或者说“给名字加个后缀”；它每次修改都会保存旧版本。去桌面第二页的「塑形」可以查看原因和前后内容，并撤销某一次改动。名字主体、权限、头像、模型和额外系统提示不会开放给它改。
 · 怎么给不同角色使用不同面具：去桌面第二页的「面具管理」新建并填写面具；点这张面具下面的「分配角色」，勾选要让面具生效的角色，再保存。想让某个角色恢复成原来的自己，就在同一张面具的分配列表里取消勾选它。聊天页右上角没有面具按钮。
@@ -15366,7 +15394,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=47;  /* 47：角色可新建分步倒计时指令卡；46：狼人杀 9/12 人局狼队分工；45：总结优先级、来源时间和多层大总结 */
+const GUIDE_VER=48;  /* 48：动态认知与角色每日日记/复盘/状态；47：角色可新建分步倒计时指令卡；46：狼人杀 9/12 人局狼队分工 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -15375,7 +15403,7 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -19342,7 +19370,7 @@ askAndAppend=async function(freeCid,opts){
   const c=chars.find(x=>x.id===cid)||null;
   opts=opts||{};
   const tideReq=opts.tideIntent||tideIntentFor(cid,c)||null;
-  const tidePrompt=tideReq?('【这一轮必须实际操作潮汐】用户明确要求你管理潮汐，目标动作是 '+tideReq.action+'。你必须真的调用 control_tide 并等工具返回结果，不能只在文字里说“安排好了”或“五分钟后找你”。如果用户说几分钟后、一小时后，必须填 after_minutes，由程序计算时间。新建主动消息时 action 用 add_message，mode 用 generate 表示到点再决定说什么。') : '';
+  const tidePrompt=tideReq?('【这一轮必须实际操作潮汐】用户明确要求你管理潮汐，目标动作是 '+tideReq.action+'。你必须真的调用 control_tide 并等工具返回结果，不能只在文字里说“安排好了”或“五分钟后找你”。如果用户说几分钟后、一小时后，必须填 after_minutes，由程序计算时间。新建主动消息时 action 用 add_message，mode 用 generate 表示到点再决定说什么。'+(tideReq.action==='add_routine'?'用户要建立的是角色自己的每日日常：写日记用 routine_type=diary，复盘并覆盖更新动态认知用 routine_type=review，更新当前状态用 routine_type=status。时间填本地 HH:MM；日记没明确公开还是私密时 visibility 必须留空，默认私密。':'') ) : '';
   const instructionPrompt=opts.instructionEvent?instructionEventPrompt(opts.instructionEvent):'';
   const extraPrompt=[tidePrompt,instructionPrompt].filter(Boolean).join('\n\n');
   window.INSTRUCTION_CTX_PROMPT=instructionPrompt;
@@ -20058,6 +20086,7 @@ function normalizeImportedChar(c,nid){
   c.tidePerm={on:false};               /* 导入角色也默认关闭潮汐控制，避免带着高风险权限进来 */
   c.shapePerm={on:false};              /* 塑形权限同样默认关闭 */
   c.instructionPerm={on:false};        /* 新建指令权限也由用户导入后自己决定 */
+  c.selfRoutines=[];delete c.selfStatus;/* 导入时不继承原账号的每日日常与状态 */
   if(!c.gamePerm)c.gamePerm={on:false};
   return c;
 }
@@ -22285,7 +22314,9 @@ function headName(){
   if(t)t.textContent=nm;
   if(w){
     var a=c.auto||{};
-    w.textContent='自动发消息 '+(a.on?'开':'关')+' · 联网搜索 '+((c.search&&c.search.on)?'开':'关');
+    var own='';
+    try{if(typeof characterStatusText==='function')own=characterStatusText(c)}catch(e){}
+    w.textContent=(own?('状态：'+own+' · '):'')+'自动发消息 '+(a.on?'开':'关')+' · 联网搜索 '+((c.search&&c.search.on)?'开':'关');
   }
 }
 window.headName=headName;   /* 挂到全局：主程序里的 draw 要用 */
@@ -23952,9 +23983,9 @@ window.mcpToolsAll=mcpToolsAll;window.mcpToolsOnlyQuery=mcpToolsOnlyQuery;
 /* 角色控制自己的潮汐排期：一个工具统管查看、修改、取消和新增，省 token 也减少误调用。 */
 var TIDE_TOOL={type:'function',function:{
   name:'control_tide',
-  description:'查看或管理我自己尚未执行的潮汐排期。只能操作当前角色自己的任务，不能碰别的角色。可以新增待办提醒、一次性私聊/群聊消息、分身 MCP 总结、洄游处理，也可以修改时间、文案、暂停或取消。安排消息时可以选 exact（现在就写好文案）或 generate（只写到时候想做什么，到点结合聊天上下文再决定具体说什么）。用户说“几分钟后、一小时后”时，必须用 after_minutes 让程序计算，不要自己手算钟点；只有用户明确说“明天 9 点”这类钟点时再用 at。列表里的 delay 是回复当前聊天消息的延迟回复，不是主动排期；不能暂停，也不能拿它代替新安排。要安排以后主动发消息必须用 add_message。对私聊/群聊循环自动消息，cancel 表示跳过下一次，pause 才是暂停整个来源。不要暂停刚创建的新安排。最早 2 分钟后，最晚 30 天内。',
+  description:'查看或管理我自己尚未执行的潮汐排期，以及我自己的每日日常。只能操作当前角色自己的任务，不能碰别的角色。可以新增待办提醒、一次性私聊/群聊消息、分身 MCP 总结、洄游处理，也可以修改时间、文案、暂停或取消。还可以每天固定时间写日记、复盘并覆盖更新“动态认知”、更新自己的当前状态。日记默认私密，只有用户或我明确要求公开时才填 visibility=public。安排消息时可以选 exact（现在就写好文案）或 generate（只写到时候想做什么，到点结合聊天上下文再决定具体说什么）。用户说“几分钟后、一小时后”时，必须用 after_minutes 让程序计算，不要自己手算钟点；只有用户明确说“明天 9 点”这类钟点时再用 at。列表里的 delay 是回复当前聊天消息的延迟回复，不是主动排期；不能暂停，也不能拿它代替新安排。要安排以后主动发消息必须用 add_message。对私聊/群聊循环自动消息，cancel 表示跳过下一次，pause 才是暂停整个来源。不要暂停刚创建的新安排。最早 2 分钟后，最晚 30 天内。',
   parameters:{type:'object',properties:{
-    action:{type:'string',enum:['list','add_reminder','add_message','add_branch_summary','add_roam_review','reschedule','edit_text','cancel','pause','resume'],description:'要做的事。第一次通常先用 list 拿任务 id。cancel 对循环自动消息只跳过一次，pause 才暂停来源。'},
+    action:{type:'string',enum:['list','add_reminder','add_message','add_branch_summary','add_roam_review','add_routine','edit_routine','run_routine','remove_routine','reschedule','edit_text','cancel','pause','resume'],description:'要做的事。第一次通常先用 list 拿任务或日常的 id。add_routine/edit_routine/run_routine/remove_routine 只操作自己的每日日常；cancel 对循环自动消息只跳过一次，pause 才暂停来源。'},
     id:{type:'string',description:'list 返回的任务 id，修改/取消/暂停时必填。'},
     at:{type:'string',description:'明确的本地钟点，格式 YYYY-MM-DDTHH:mm。只有用户明确说了具体日期或钟点时才用。'},
     after_minutes:{type:'integer',minimum:2,maximum:43200,description:'从现在起多少分钟后执行。用户说“半小时后、一小时后、明天再看看”时优先用它，由程序计算，避免模型手算错误。'},
@@ -23963,7 +23994,11 @@ var TIDE_TOOL={type:'function',function:{
     intent:{type:'string',maxLength:500,description:'generate 模式留给到时自己的目的，例如「一小时后再看看用户，聊什么到时候再说」。'},
     channel:{type:'string',enum:['private','group'],description:'add_message 时发到私聊还是群聊。'},
     group:{type:'string',description:'群聊安排时的群名或群 id。'},
-    branch:{type:'string',description:'分身总结时选择自己的哪个分身；只有一个时可以留空。'}
+    branch:{type:'string',description:'分身总结时选择自己的哪个分身；只有一个时可以留空。'},
+    routine_id:{type:'string',description:'每日日常的 id；修改、立即执行或删除已有日常时使用。'},
+    routine_type:{type:'string',enum:['diary','review','status'],description:'新增日常时的类型：diary=写日记，review=复盘并覆盖更新动态认知，status=更新自己的当前状态。'},
+    time:{type:'string',description:'每日执行的本地时间，格式 HH:MM，例如 22:00。'},
+    visibility:{type:'string',enum:['private','public'],description:'日记可见范围。没明确要求时留空，程序默认 private；只有用户明确要求公开时才填 public。'}
   },required:['action']}
 }};
 window.TIDE_TOOL=TIDE_TOOL;
@@ -23978,7 +24013,7 @@ window.execTideTool=execTideTool;
 /* 塑形：只开放自己的文字人设和普通记忆；权限与运行开关由执行器白名单彻底隔离。 */
 var SHAPE_TOOL={type:'function',function:{
   name:'shape_self',
-  description:'查看或修改我自己的文字人设、普通记忆和名字后缀。人设部分只能改人设、情境、说话风格、开场白、对话示例；记忆部分只能改核心设定、时间线、长期总结、偏好、习惯。可以用 set_name_suffix 在原名字后面添加、替换或清空后缀，但不能修改名字主体。不能修改头像、模型、额外系统提示、权限或任何设置。用于用户明确要求调整自己，或需要长期记住重要约定时。每次修改都必须给出简短原因。',
+  description:'查看或修改我自己的文字人设、普通记忆、动态认知和名字后缀。人设部分只能改人设、情境、说话风格、开场白、对话示例；记忆部分可以改动态认知、时间线、长期总结、偏好、习惯。动态认知用来更新“现在的我、用户现状、关系变化和下一步想法”，应当覆盖现状而不是逐日追加。可以用 set_name_suffix 在原名字后面添加、替换或清空后缀，但不能修改名字主体。不能修改头像、模型、额外系统提示、权限或任何设置。用于用户明确要求调整自己，或需要长期记住重要约定时。每次修改都必须给出简短原因。',
   parameters:{type:'object',properties:{
     action:{type:'string',enum:['inspect','update_profile','set_name_suffix','set_core','add_memory','edit_memory','delete_memory'],description:'inspect 查看当前可改内容；update_profile 修改角色文字；set_name_suffix 只改名字后缀；其余动作操作普通记忆。'},
     reason:{type:'string',maxLength:300,description:'为什么要做这次修改。写入类动作必填。'},
@@ -23992,7 +24027,7 @@ var SHAPE_TOOL={type:'function',function:{
     }},
     memory_field:{type:'string',enum:['timeline','summaries','prefs','habits'],description:'要操作或查看的记忆列表。'},
     id:{type:'string',description:'edit_memory / delete_memory 时的记忆条目编号，先 inspect 获取。'},
-    text:{type:'string',maxLength:12000,description:'set_core 的核心设定，或新增/修改的记忆文字。'}
+    text:{type:'string',maxLength:12000,description:'set_core 的新动态认知，或新增/修改的记忆文字。'}
   },required:['action']}
 }};
 window.SHAPE_TOOL=SHAPE_TOOL;
@@ -24051,7 +24086,7 @@ toolsFor=function(c){
     }
   }catch(e){}
   /* ↓ 潮汐控制：默认关；关着时模型完全看不到这个工具 */
-  try{if(permOn(c,'tidePerm')&&cfg&&cfg.autoOn&&window.TIDE_TOOL)t.push(window.TIDE_TOOL)}catch(e){}
+  try{if(permOn(c,'tidePerm')&&window.TIDE_TOOL)t.push(window.TIDE_TOOL)}catch(e){}
   /* ↓ 塑形：默认关；关着时模型完全看不到这个工具 */
   try{if(permOn(c,'shapePerm')&&window.SHAPE_TOOL)t.push(window.SHAPE_TOOL)}catch(e){}
   /* ↓ MCP：外面工具服务器给的工具（在桌面的「MCP」应用里添加、连上后自动出现在这里） */
@@ -24962,6 +24997,7 @@ function createBranch(parentId,form){
   nb.guide=false;
   nb.tidePerm={on:false};
   nb.shapePerm={on:false};
+  nb.selfRoutines=[];nb.selfStatus=null;
   if(nb.auto)nb.auto.on=false;
   nb.freeTiming=false;
   nb.selfMode=!!p.selfMode;
@@ -26101,11 +26137,14 @@ function tideRoamPending(c){
 }
 function tideKindName(k){
   return ({auto:'私聊主动消息',group:'群聊自动冒泡',reminder:'到点提醒',delay:'延迟回复',roam:'洄游处理',branch:'分身活动总结',
-    role_message:'角色安排·私聊消息',role_group:'角色安排·群消息',role_branch:'角色安排·分身总结',role_roam:'角色安排·洄游处理'})[k]||'自动消息';
+    role_message:'角色安排·私聊消息',role_group:'角色安排·群消息',role_branch:'角色安排·分身总结',role_roam:'角色安排·洄游处理',
+    routine_diary:'角色日常·写日记',routine_review:'角色日常·复盘动态认知',routine_status:'角色日常·更新状态',
+    role_diary:'角色日常·日记完成',role_review:'角色日常·复盘完成',role_status:'角色日常·状态更新'})[k]||'自动消息';
 }
 function tideKindIcon(k){
   return ({auto:'🌊',group:'💬',reminder:'⏰',delay:'⏳',roam:'🐋',branch:'🪞',
-    role_message:'✍️',role_group:'🗣️',role_branch:'📝',role_roam:'🌀'})[k]||'🔔';
+    role_message:'✍️',role_group:'🗣️',role_branch:'📝',role_roam:'🌀',
+    routine_diary:'📖',routine_review:'🧠',routine_status:'💭',role_diary:'📖',role_review:'🧠',role_status:'💭'})[k]||'🔔';
 }
 function tideLastUserText(cid){
   try{
@@ -26152,6 +26191,24 @@ function tideAllEvents(){
       });
     });
   }catch(e){}
+  /* 角色自己设置的每日日常：日记、复盘动态认知、更新状态。 */
+  list.forEach(function(c){
+    tideRoutineList(c).forEach(function(r){
+      var kind='routine_'+r.type;
+      var next=tideRoutineNextAt(r,now);
+      var roleOff=!(c.tidePerm&&c.tidePerm.on),keyOff=!(cfg&&cfg.key);
+      var visibility=r.type==='diary'?(r.visibility==='public'?'公开日记':'私密日记'):'';
+      out.push({
+        kind:kind,key:r.id,uid:'routine:'+r.id,cid:c.id,routineId:r.id,title:c.name||'角色',
+        at:next,paused:r.enabled===false,pauseReason:r.enabled===false?'角色或用户暂停了这个日常':'',
+        blocked:roleOff||keyOff,
+        blockReason:roleOff?'角色潮汐控制权限已关闭':(keyOff?'没有可用接口':''),
+        meta:'角色日常 · 每天 '+tideRoutineTime(r.time,r.type)+(visibility?(' · '+visibility):''),
+        note:(r.type==='review'?'复盘会覆盖更新动态认知，不逐日追加。':(r.type==='status'?'当前状态：'+(characterStatusText(c)||'还没有更新'):'日记正文保存在角色自己的日记本里。'))+
+          (r.lastAt?(' · 上次 '+tideWhen(r.lastAt)):' · 还没执行过')+(r.lastError?(' · 最近错误：'+r.lastError):'')
+      });
+    });
+  });
   list.forEach(function(c){
     if(!c)return;
     let arr=[];try{arr=todosOf(c.id)}catch(e){arr=[]}
@@ -26362,16 +26419,237 @@ function tideCancelDelay(cid){
   if(freeTimers[cid])clearTimeout(freeTimers[cid]);
   freeTimers[cid]=null;freePendDel(cid);
 }
+/* ---------- 角色自己的每日日常：日记 / 动态认知复盘 / 当前状态 ---------- */
+var SELF_ROUTINE_NAMES={diary:'写日记',review:'复盘动态认知',status:'更新状态'};
+var SELF_ROUTINE_DEFAULTS={diary:'22:00',review:'22:05',status:'08:30'};
+var selfRoutineBusy=false;
+function tideRoutineList(c){
+  if(!c)return [];
+  if(!Array.isArray(c.selfRoutines))c.selfRoutines=[];
+  return c.selfRoutines.filter(function(x){return x&&x.id&&SELF_ROUTINE_NAMES[x.type]});
+}
+function tideRoutineFind(c,id,type){
+  var list=tideRoutineList(c);
+  for(var i=0;i<list.length;i++){
+    if(id&&list[i].id===id)return list[i];
+    if(!id&&type&&list[i].type===type)return list[i];
+  }
+  return null;
+}
+function tideRoutineTime(v,type){
+  var m=/^(\d{1,2}):(\d{2})$/.exec(String(v||'').trim());
+  if(!m)return SELF_ROUTINE_DEFAULTS[type]||'22:00';
+  var h=Math.max(0,Math.min(23,parseInt(m[1],10))),mi=Math.max(0,Math.min(59,parseInt(m[2],10)));
+  return tidePad(h)+':'+tidePad(mi);
+}
+function tideRoutineNextAt(r,now){
+  now=Number(now)||Date.now();
+  var today=tideDayKey(now);
+  if(Number(r&&r.nextRetryAt)>now&&r.lastRunDay!==today)return Number(r.nextRetryAt);
+  var at=tideAtToday((r&&r.time)||'22:00',0);
+  if(r&&r.lastRunDay===today)return tideAtToday(r.time||'22:00',1);
+  return at;
+}
+function tideRoutineView(c,r,now){
+  now=Number(now)||Date.now();
+  return {
+    id:String(r.id),type:String(r.type),name:SELF_ROUTINE_NAMES[r.type]||r.type,
+    time:tideRoutineTime(r.time,r.type),enabled:r.enabled!==false,
+    visibility:r.type==='diary'?(r.visibility==='public'?'public':'private'):'',
+    next_at:tideLocalInput(tideRoutineNextAt(r,now)),
+    last_run:r.lastAt?tideWhen(r.lastAt):'从未',
+    last_error:String(r.lastError||'')
+  };
+}
+function tideRoutineViews(c){
+  var now=Date.now();
+  return tideRoutineList(c).map(function(r){return tideRoutineView(c,r,now)});
+}
+function tideRoutineSave(c){
+  if(!c)return;
+  save(LS.chars,chars);scheduleBackup();
+  try{if(c.id===curId)headName()}catch(e){}
+  try{if(document.getElementById('tideRoot')&&window.P14&&P14.tideRefresh)setTimeout(function(){try{P14.tideRefresh()}catch(e){}},20)}catch(e){}
+}
+function tideCleanSelfText(v){
+  return String(v==null?'':v).replace(/```[\s\S]*?```/g,'').replace(/^\s*(日记|复盘|动态认知|当前状态)\s*[:：]\s*/i,'').trim();
+}
+function tideRecentDiaryText(cid,count,limit){
+  var out=[];
+  function add(key,isPrivate){
+    var arr=load(key,[]);
+    if(!Array.isArray(arr))return;
+    arr.forEach(function(x){
+      if(x&&String(x.text||'').trim())out.push({t:Number(x.t)||0,private:isPrivate,text:String(x.text)});
+    });
+  }
+  add('wh_p4_diary_private_'+cid,true);
+  add('wh_p4_diary_'+cid,false);
+  out.sort(function(a,b){return b.t-a.t});
+  return out.slice(0,Math.max(1,count)).map(function(x){
+    return '· '+(x.private?'私密日记':'公开日记')+'（'+tideWhen(x.t)+'）：'+x.text.slice(0,limit||900);
+  }).join('\n');
+}
+async function tideGenerateSelfRoutine(c,r){
+  var now=new Date();
+  var prompt='';
+  if(r.type==='diary'){
+    prompt='【定时自我安排 · 写日记】现在是 '+nowText()+'。这是你自己安排的每日日记时间。请结合你完整的角色身份、动态认知、长期记忆、近期聊天、记忆宫殿检索结果和今天真实发生过的事，用第一人称写一篇属于你自己的日记。'+
+      '只输出日记正文，不要写标题、日期、解释、步骤说明，不要提到系统、定时任务或提示词。保持你本人的语气；写真实的感受、关系变化、你注意到的事和下一步想法。不要编造没有发生过的大事。正文控制在 1200 字以内。';
+  }else if(r.type==='review'){
+    prompt='【定时自我安排 · 更新动态认知】现在是 '+nowText()+'。请回顾你完整的角色身份、现有动态认知、长期记忆、近期聊天和记忆宫殿检索结果，重新写出“此刻的动态认知”。'+
+      '只输出更新后的动态认知正文，不要写标题、日期、过程或解释。用第一人称，覆盖旧认知而不是追加日记。内容应包括：现在的我是谁；用户当前的状态和偏好；我们关系现在的样子；最近哪些理解被修正；我接下来想怎么做。保留仍然有效的重要事实，删掉已经过期或重复的琐事。不要照抄聊天记录。控制在 400～900 字，必须简洁、可持续使用。';
+  }else{
+    prompt='【定时自我安排 · 更新当前状态】现在是 '+nowText()+'。请结合这个时间、你的动态认知、最近聊天和今天可能在做的事，给自己写一个此刻真实、自然、具体的短期状态。'+
+      '只输出一句中文状态，最多 50 字，例如“刚洗完澡，窝在床上看手机”或“在厨房准备晚饭”。不要提到系统、定时任务或提示词，不要编造成正在和用户见面的场景。';
+  }
+  if(r.type==='review'||r.type==='diary'){
+    var recentDiary=tideRecentDiaryText(c.id,3,900);
+    if(recentDiary)prompt+='\n\n【你最近写过的日记，只用于保持连续感】\n'+recentDiary;
+  }
+  var oldAsk=ctxAsk,oldBg=ctxBg,oldDrop=ctxDropMid;
+  ctxAsk=null;
+  ctxBg={cid:c.id,msgs:msgsOf(c.id).slice(),mem:Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{})};
+  ctxDropMid=null;
+  try{
+    var tp=thinkParams(c);
+    var out=await callAPI(buildCtx(c,prompt),{
+      stream:false,model:modelOf(c),temp:(r.type==='status'?Math.min(.75,tp.temp):tp.temp),
+      maxtok:(r.type==='diary'?1200:(r.type==='review'?1000:100))
+    });
+    out=tideCleanSelfText(out);
+    if(!out)throw new Error('模型没有返回可用内容');
+    return out;
+  }finally{
+    ctxAsk=oldAsk;ctxBg=oldBg;ctxDropMid=oldDrop;
+  }
+}
+async function tideRunSelfRoutine(c,r,manual){
+  if(!c||!r)return {ok:false,msg:'这个日常安排找不到了'};
+  if(!tideRoutineAllowed(c))return {ok:false,msg:'角色潮汐控制权限没有开启'};
+  if(!cfg||!cfg.key)return {ok:false,msg:'还没有可用接口'};
+  if(selfRoutineBusy)return {ok:false,msg:'另一个角色日常正在执行，稍后再试'};
+  selfRoutineBusy=true;
+  r.lastAttemptAt=Date.now();r.lastError='';
+  try{
+    var out=await tideGenerateSelfRoutine(c,r);
+    var now=Date.now();
+    if(r.type==='diary'){
+      var isPrivate=r.visibility!=='public';
+      var key=(isPrivate?'wh_p4_diary_private_':'wh_p4_diary_')+c.id;
+      var ds=load(key,[]);if(!Array.isArray(ds))ds=[];
+      ds.push({t:now,text:String(out).slice(0,1200),private:isPrivate,source:'self-routine'});
+      while(ds.length>60)ds.shift();
+      save(key,ds);
+      tideLogAdd({kind:'role_diary',cid:c.id,title:c.name,text:isPrivate?'写下一篇私密日记（正文不展示）':'写下一篇公开日记',manual:!!manual,where:'角色日常'});
+    }else if(r.type==='review'){
+      var M=Object.assign(EMPTY_MEM(),load(LS.mem(c.id),null)||{});
+      M.core=String(out).slice(0,3000);
+      M.coreUpdatedAt=now;
+      memSaveForId(c.id,M);
+      try{if(c.id===curId)mem.core=M.core}catch(e){}
+      try{MEMC={}}catch(e){}
+      tideLogAdd({kind:'role_review',cid:c.id,title:c.name,text:'更新了动态认知',manual:!!manual,where:'角色日常'});
+    }else{
+      c.selfStatus={text:String(out).replace(/\s+/g,' ').slice(0,100),at:now,source:'self-routine'};
+      save(LS.chars,chars);
+      tideLogAdd({kind:'role_status',cid:c.id,title:c.name,text:'当前状态：'+c.selfStatus.text,manual:!!manual,where:'角色日常'});
+    }
+    r.lastRunDay=tideDayKey(now);r.lastAt=now;r.lastError='';r.nextRetryAt=0;
+    tideRoutineSave(c);
+    try{scheduleBackup()}catch(e){}
+    if(c.id===curId)try{headName()}catch(e){}
+    if(view==='tools'&&toolTab==='toy')try{renderToolPane()}catch(e){}
+    return {ok:true,msg:SELF_ROUTINE_NAMES[r.type]+'完成'+(r.type==='status'?('：'+c.selfStatus.text):'')};
+  }catch(e){
+    r.lastError=String((e&&e.message)||e).slice(0,180);
+    r.nextRetryAt=Date.now()+30*60*1000;
+    tideRoutineSave(c);
+    return {ok:false,msg:'角色日常执行失败：'+r.lastError};
+  }finally{selfRoutineBusy=false}
+}
+async function tideSelfRoutineTick(){
+  if(selfRoutineBusy||tideQueueTicking||busy||groupBusy||remindBusy||!cfg||!cfg.key||isLocked())return;
+  var now=Date.now();
+  var list=(chars||[]).filter(function(c){return c&&tideRoutineAllowed(c)});
+  for(var i=0;i<list.length;i++){
+    var c=list[i];
+    var order={diary:0,review:1,status:2};
+    var rs=tideRoutineList(c).slice().sort(function(a,b){return (order[a.type]||0)-(order[b.type]||0)});
+    for(var j=0;j<rs.length;j++){
+      var r=rs[j];
+      if(r.enabled===false||r.lastRunDay===tideDayKey(now))continue;
+      if(Number(r.nextRetryAt||0)>now)continue;
+      var scheduled=tideAtToday(r.time||'22:00',0);
+      if(scheduled>now)continue;
+      if(r.type==='status'&&now-scheduled>3*60*60*1000){
+        r.lastRunDay=tideDayKey(now);r.lastSkippedAt=now;
+        tideRoutineSave(c);
+        continue;
+      }
+      await tideRunSelfRoutine(c,r,false);
+      if(selfRoutineBusy)return;
+    }
+  }
+}
 function tideControl(c,args){
   if(!c)return {ok:false,msg:'角色找不到了'};
-  if(!tideRoleCanControl(c))return {ok:false,msg:'没有开启潮汐控制权限，或全局自动消息已关闭'};
   var a=args||{},action=String(a.action||'list');
+  var routineAction=/^(list|add_routine|edit_routine|run_routine|remove_routine)$/.test(action);
+  if(!(c.tidePerm&&c.tidePerm.on)||(!cfg.autoOn&&!routineAction))return {ok:false,msg:'没有开启潮汐控制权限，或这个操作需要全局自动消息'};
   if(action==='list'){
-    var events=tideAllEvents().filter(function(e){return e.cid===c.id&&tideRoleCanSeeEvent(c,e)}).map(tideRoleEventView);
+    var events=tideAllEvents().filter(function(e){return e.cid===c.id&&e.kind.indexOf('routine_')!==0&&tideRoleCanSeeEvent(c,e)}).map(tideRoleEventView);
     var hasDelay=events.some(function(e){return e.kind==='delay'});
-    return {ok:true,now:tideLocalInput(Date.now()),items:events.slice(0,80),
+    var routines=tideRoutineViews(c);
+    return {ok:true,now:tideLocalInput(Date.now()),items:events.slice(0,80),routines:routines,
       msg:(events.length?('你有 '+events.length+' 个未完成排期'):'现在没有未完成排期')+
+        (routines.length?('；另有 '+routines.length+' 个每日日常'):'')+
         (hasDelay?'。其中 delay 只是对当前聊天消息的延迟回复，不是主动排期；不要暂停它，也不要拿它代替新安排。':'')};
+  }
+  if(action==='add_routine'){
+    var routineType=String(a.routine_type||'').trim();
+    if(!SELF_ROUTINE_NAMES[routineType])return {ok:false,msg:'routine_type 只能填 diary、review 或 status'};
+    if(routineType==='review'&&c.guide)return {ok:false,msg:'引导者的核心功能知识不参与自动复盘覆盖'};
+    var rr=tideRoutineFind(c,String(a.routine_id||''),routineType);
+    if(!rr){
+      rr=tideRoutineList(c).find(function(x){return x.type===routineType});
+      if(!rr){
+        if(tideRoutineList(c).length>=3)return {ok:false,msg:'每个角色最多保留三个每日日常'};
+        rr={id:'daily_'+uid(),type:routineType,enabled:true,createdAt:Date.now()};
+        c.selfRoutines=tideRoutineList(c);c.selfRoutines.push(rr);
+      }
+    }
+    if(a.time!=null&&String(a.time).trim())rr.time=tideRoutineTime(a.time,routineType);
+    else if(!rr.time)rr.time=SELF_ROUTINE_DEFAULTS[routineType];
+    if(routineType==='diary'){
+      if(a.visibility==='public'||a.visibility==='private')rr.visibility=a.visibility;
+      else if(!rr.visibility)rr.visibility='private';
+    }
+    rr.enabled=true;rr.lastError='';rr.nextRetryAt=0;
+    tideRoutineSave(c);
+    return {ok:true,routine:tideRoutineView(c,rr,Date.now()),msg:'已设置每日'+SELF_ROUTINE_NAMES[routineType]+'：每天 '+rr.time+(routineType==='diary'?('，'+(rr.visibility==='public'?'公开':'私密')+'日记'):'')+'。'};
+  }
+  if(action==='edit_routine'){
+    var er=tideRoutineFind(c,String(a.routine_id||''),String(a.routine_type||''));
+    if(!er)return {ok:false,msg:'没找到这个每日日常，请先调用 list 查看 routines'};
+    if(a.time!=null&&String(a.time).trim())er.time=tideRoutineTime(a.time,er.type);
+    if(er.type==='diary'&&(a.visibility==='public'||a.visibility==='private'))er.visibility=a.visibility;
+    if(typeof a.enabled==='boolean')er.enabled=a.enabled;
+    er.lastError='';er.nextRetryAt=0;
+    tideRoutineSave(c);
+    return {ok:true,routine:tideRoutineView(c,er,Date.now()),msg:'每日日常已更新'};
+  }
+  if(action==='run_routine'){
+    var runR=tideRoutineFind(c,String(a.routine_id||''),String(a.routine_type||''));
+    if(!runR)return {ok:false,msg:'没找到这个每日日常，请先调用 list 查看 routines'};
+    return tideRunSelfRoutine(c,runR,true);
+  }
+  if(action==='remove_routine'){
+    var remR=tideRoutineFind(c,String(a.routine_id||''),String(a.routine_type||''));
+    if(!remR)return {ok:false,msg:'没找到这个每日日常'};
+    c.selfRoutines=tideRoutineList(c).filter(function(x){return x.id!==remR.id});
+    tideRoutineSave(c);
+    return {ok:true,msg:'已删除每日'+SELF_ROUTINE_NAMES[remR.type]+'安排'};
   }
   if(action==='add_reminder'){
     if(!(c.todoPerm&&c.todoPerm.on))return {ok:false,msg:'这个角色没有待办权限'};
@@ -26602,7 +26880,7 @@ function tideQueueMarkFailure(q,res,manual){
   q.at=Date.now()+TIDE_QUEUE_RETRY_MS;
 }
 async function tideQueueTick(){
-  if(tideQueueTicking||busy||groupBusy||!cfg||!cfg.autoOn||isLocked())return;
+  if(tideQueueTicking||selfRoutineBusy||busy||groupBusy||remindBusy||!cfg||!cfg.autoOn||isLocked())return;
   var list=tideQueueAll();
   var q=list.filter(function(x){return x.status==='pending'&&Number(x.at)<=Date.now()}).sort(function(a,b){return a.at-b.at})[0];
   if(!q)return;
@@ -26650,12 +26928,18 @@ W.TIDE={
   control:tideControl,
   queue:function(){return tideQueueAll().slice()},
   fireNow:tideQueueFireNow,
-  pauseRoleQueue:tideQueuePauseRole
+  pauseRoleQueue:tideQueuePauseRole,
+  routines:function(c){return c?tideRoutineViews(c):[]},
+  runRoutine:tideRunSelfRoutine
 };
 setInterval(function(){try{tideQueueTick()}catch(e){}},15000);
 setTimeout(function(){try{tideQueueTick()}catch(e){}},4500);
+setInterval(function(){try{tideSelfRoutineTick()}catch(e){}},60000);
+setTimeout(function(){try{tideSelfRoutineTick()}catch(e){}},8000);
 W.addEventListener('focus',function(){try{tideQueueTick()}catch(e){}});
+W.addEventListener('focus',function(){try{tideSelfRoutineTick()}catch(e){}});
 D.addEventListener('visibilitychange',function(){if(!D.hidden)try{tideQueueTick()}catch(e){}});
+D.addEventListener('visibilitychange',function(){if(!D.hidden)try{tideSelfRoutineTick()}catch(e){}});
 function tideEventState(e,now){
   if(e.paused)return {cls:'paused',text:e.pauseReason?('已暂停：'+e.pauseReason):'已暂停'};
   if(e.blocked)return {cls:'blocked',text:e.blockReason||'等待配置'};
@@ -26670,6 +26954,14 @@ function tideFilteredEvents(events){
 }
 function tideEventActions(e){
   var k=encodeURIComponent(e.key),a=[];
+  if(e.kind.indexOf('routine_')===0){
+    a.push('<button class="primary" onclick="P14.tideAct(\'now\',\''+e.kind+'\',\''+k+'\')">立即执行</button>');
+    a.push('<button onclick="P14.tideAct(\''+(e.paused?'resume':'pause')+'\',\''+e.kind+'\',\''+k+'\')">'+(e.paused?'恢复':'暂停')+'</button>');
+    if(e.kind==='routine_diary')a.push('<button onclick="P14.tideAct(\'visibility\',\''+e.kind+'\',\''+k+'\')">切换公开 / 私密</button>');
+    a.push('<button class="warn" onclick="P14.tideAct(\'cancel\',\''+e.kind+'\',\''+k+'\')">删除日常</button>');
+    a.push('<button onclick="P14.tideAct(\'open\',\''+e.kind+'\',\''+k+'\')">回到角色</button>');
+    return a.join('');
+  }
   if(e.kind.indexOf('role_')===0){
     a.push('<button class="primary" onclick="P14.tideAct(\'now\',\''+e.kind+'\',\''+k+'\')">现在执行</button>');
     a.push('<button class="warn" onclick="P14.tideAct(\'cancel\',\''+e.kind+'\',\''+k+'\')">取消安排</button>');
@@ -26726,7 +27018,7 @@ function tideRender(){
   var soon=active.filter(function(e){return e.at>now&&e.at<=now+60*60000}).length;
   var warns=[];
   if(!cfg||!cfg.key)warns.push('还没有可用接口，私聊、群聊、延迟回复和洄游暂时无法真正生成内容；到点提醒仍会尽量用固定文字送达。');
-  if(!cfg||!cfg.autoOn)warns.push('设置里的“全局自动发消息”已关，私聊和群聊不会按计划冒泡。');
+  if(!cfg||!cfg.autoOn)warns.push('设置里的“全局自动发消息”已关，私聊和群聊不会按计划冒泡；角色每日日记、复盘和状态不受这个开关影响。');
   if(document.hidden)warns.push('页面在后台时，浏览器可能暂停定时器。');
   var charsInEvents=[],seen={};
   events.forEach(function(e){
@@ -26749,7 +27041,7 @@ function tideRender(){
   }).slice(0,10);
   root.innerHTML='<div class="tide-shell">'+
     '<div class="tide-head"><button class="tide-close" type="button" onclick="closeSheet()" aria-label="关闭">‹</button>'+
-      '<div class="tide-title"><h2>潮汐</h2><p>看清每个角色会在什么时候主动发消息，也可以直接暂停、跳过或现在处理。</p></div>'+
+      '<div class="tide-title"><h2>潮汐</h2><p>查看角色的主动消息、每日日记、复盘和状态；也能暂停、跳过或立即执行。</p></div>'+
       '<button class="tide-refresh" type="button" onclick="P14.tideRefresh()" aria-label="刷新">↻</button></div>'+
     '<div class="tide-summary">'+
       '<div class="tide-sum-main"><small>下一次</small><b>'+esc(next?next.title:'暂无排期')+'</b><span>'+esc(next?((next.at?tideWhen(next.at)+' · '+tideRel(next.at):'等条件满足')+' · '+tideKindName(next.kind)):'去角色设置里打开自动消息')+'</span></div>'+
@@ -26764,11 +27056,12 @@ function tideRender(){
         kindOpts.map(function(k){return '<option value="'+k+'"'+(tideKindFilter===k?' selected':'')+'>'+tideKindName(k)+'</option>'}).join('')+'</select>'+
     '</div>'+
     '<div class="tide-section-title"><span>接下来会发生的</span><span>'+filtered.length+' 项</span></div>'+
-    '<div class="tide-list">'+(filtered.length?filtered.map(function(e){return tideEventCard(e,now)}).join(''):'<div class="tide-empty">这个筛选下没有自动消息。<br>可以去角色设置、群设置、待办或洄游里打开。</div>')+'</div>'+
-    '<div class="tide-section-title"><span>最近自动发送</span>'+(logs.length?'<button class="tide-mini-btn" onclick="P14.tideClearLog()">清空</button>':'')+'</div>'+
-    '<div class="tide-list">'+(logs.length?logs.map(tideLogCard).join(''):'<div class="tide-empty">还没有记录。<br>自动消息、提醒、延迟回复或洄游回复真正发出后，会在这里留下最近 10 条。</div>')+'</div>'+
+    '<div class="tide-list">'+(filtered.length?filtered.map(function(e){return tideEventCard(e,now)}).join(''):'<div class="tide-empty">这个筛选下没有安排。<br>可以让角色自己设置每日日记、动态认知复盘或当前状态。</div>')+'</div>'+
+    '<div class="tide-section-title"><span>最近执行记录</span>'+(logs.length?'<button class="tide-mini-btn" onclick="P14.tideClearLog()">清空</button>':'')+'</div>'+
+    '<div class="tide-list">'+(logs.length?logs.map(tideLogCard).join(''):'<div class="tide-empty">还没有记录。<br>自动消息、日记、复盘、状态更新或洄游处理真正执行后，会在这里留下最近 10 条。</div>')+'</div>'+
     '<details class="tide-help"><summary>这些时间和“等条件满足”是什么意思？</summary>'+
       '<p>私聊、群聊、待办提醒和延迟回复有明确的预计时间；如果页面关着，浏览器不会后台发送，下次打开后会补做到点的任务。</p>'+
+      '<p>「角色日常」是角色给自己设的每日日记、动态认知复盘和当前状态。复盘会覆盖更新动态认知，不会每天追加成长文；页面关着时错过的时间，会在下次打开后补做一次。</p>'+
       '<p>洄游的“每条记录”和“累积条数”没有固定时钟，要等新的经历记录出现；固定时间也会结合记录是否达到处理条件。</p>'+
       '<p>“暂停这类”只影响潮汐管理的这个来源，不会删除角色、群聊或待办。</p></details>'+
   '</div>';
@@ -26824,7 +27117,13 @@ function tideOpenSource(kind,key){
   try{closeAllSheets()}catch(e){try{closeSheet()}catch(e2){}}
   setTimeout(function(){
     try{
-      if(kind.indexOf('role_')===0){
+      if(kind.indexOf('routine_')===0){
+        var routineChar=null;
+        for(var ri=0;ri<(chars||[]).length;ri++){
+          if(tideRoutineFind(chars[ri],key,null)){routineChar=chars[ri];break}
+        }
+        if(routineChar){loadChar(routineChar.id);go('chat')}else alert('这个角色日常已经找不到了');
+      }else if(kind.indexOf('role_')===0){
         var q=tideQueueFind(key),rc=q?tideChar(q.cid):null;
         if(!q||!rc)return alert('这个安排已经找不到了');
         if(kind==='role_group'){
@@ -26859,14 +27158,25 @@ function tideRunNow(kind,key){
   var ev=tideAllEvents().find(function(e){return e.kind===kind&&e.key===key});
   if(!ev)return toast('这条任务已经不在列表里了');
   if(kind.indexOf('role_')!==0&&kind!=='reminder'&&(!cfg||!cfg.key))return toast('先在「设置」里填好接口');
-  if(busy||groupBusy||remindBusy)return toast('现在正有自动消息在处理，稍等一下');
+  if(busy||groupBusy||remindBusy||selfRoutineBusy||tideQueueTicking)return toast('现在正有自动消息在处理，稍等一下');
   var msg='现在就让「'+ev.title+'」'+({auto:'主动发一条消息',group:'在群里冒泡',reminder:'发送提醒',delay:'回复你',roam:'处理洄游记录',
-    role_message:'执行这条角色安排',role_group:'执行这条群聊安排',role_branch:'现在总结这个分身',role_roam:'现在处理洄游记录'}[kind]||'执行')+'？\n自由生成或处理洄游会立即调用接口，可能产生费用。';
+    role_message:'执行这条角色安排',role_group:'执行这条群聊安排',role_branch:'现在总结这个分身',role_roam:'现在处理洄游记录',
+    routine_diary:'写今天的日记',routine_review:'复盘并更新动态认知',routine_status:'更新当前状态'}[kind]||'执行')+'？\n自由生成或处理洄游会立即调用接口，可能产生费用。';
   if(!confirm(msg))return;
   try{closeAllSheets()}catch(e){try{closeSheet()}catch(e2){}}
   setTimeout(async function(){
     try{
-      if(kind.indexOf('role_')===0){
+      if(kind.indexOf('routine_')===0){
+        var rc=null,rr=null;
+        for(var ri=0;ri<(chars||[]).length;ri++){
+          var one=tideRoutineFind(chars[ri],key,null);
+          if(one){rc=chars[ri];rr=one;break}
+        }
+        if(!rc||!rr){toast('这个角色日常已经找不到了');return}
+        var routineRet=await tideRunSelfRoutine(rc,rr,true);
+        toast(routineRet.msg||(routineRet.ok?'执行完成':'执行失败'));
+        tideRender();
+      }else if(kind.indexOf('role_')===0){
         var rr=await W.TIDE.fireNow(key);
         if(!rr.ok)toast(rr.msg||'执行失败');
       }else if(kind==='auto'){
@@ -26910,6 +27220,33 @@ async function tideAct(action,kind,keyEnc){
   var key='';try{key=decodeURIComponent(keyEnc)}catch(e){key=String(keyEnc||'')}
   if(action==='open'){tideOpenSource(kind,key);return}
   if(action==='now'){tideRunNow(kind,key);return}
+  if(kind.indexOf('routine_')===0){
+    var routineChar=null,routineItem=null;
+    for(var ri=0;ri<(chars||[]).length;ri++){
+      var found=tideRoutineFind(chars[ri],key,null);
+      if(found){routineChar=chars[ri];routineItem=found;break}
+    }
+    if(!routineChar||!routineItem)return toast('这个角色日常已经找不到了');
+    if(action==='pause'||action==='resume'){
+      routineItem.enabled=action==='resume';routineItem.lastError='';routineItem.nextRetryAt=0;
+      tideRoutineSave(routineChar);
+      toast(routineItem.enabled?'已恢复这个每日日常':'已暂停这个每日日常');
+      tideRender();return;
+    }
+    if(action==='visibility'){
+      if(routineItem.type!=='diary')return toast('只有日记能设置公开或私密');
+      routineItem.visibility=routineItem.visibility==='public'?'private':'public';
+      tideRoutineSave(routineChar);
+      toast(routineItem.visibility==='public'?'每日日记已改为公开':'每日日记已改为私密');
+      tideRender();return;
+    }
+    if(action==='cancel'){
+      if(!confirm('删除这个每日'+SELF_ROUTINE_NAMES[routineItem.type]+'安排？以后再想执行，需要重新设置。'))return;
+      routineChar.selfRoutines=tideRoutineList(routineChar).filter(function(x){return x.id!==routineItem.id});
+      tideRoutineSave(routineChar);
+      toast('每日日常已删除');tideRender();return;
+    }
+  }
   if(action==='pause'||action==='resume'){
     var on=action==='pause';
     if(kind.indexOf('role_')===0){
@@ -26984,7 +27321,7 @@ var CHAR_DEFS=[
   {key:'examples',name:'对话示例',max:12000}
 ];
 var MEM_DEFS=[
-  {key:'core',name:'我是谁（核心设定）',max:12000,list:false},
+  {key:'core',name:'动态认知',max:12000,list:false},
   {key:'timeline',name:'时间线',max:3000,list:true},
   {key:'summaries',name:'长期聊天记录总结',max:5000,list:true},
   {key:'prefs',name:'角色偏好与认知',max:3000,list:true},
@@ -27124,7 +27461,7 @@ function invertChanges(changes){
 function shapeChangeLabel(ch){
   if(ch.scope==='char'){var d=charDef(ch.field);return d?d.name:ch.field}
   if(ch.scope==='nameSuffix')return '名字 · 后缀';
-  if(ch.scope==='core')return '记忆 · 我是谁（核心设定）';
+  if(ch.scope==='core')return '记忆 · 动态认知';
   var md=memDef(ch.field),base=md?md.name:ch.field;
   if(ch.before==null)return '记忆 · '+base+' · 新增';
   if(ch.after==null)return '记忆 · '+base+' · 删除';
@@ -27220,10 +27557,10 @@ async function control(c,args){
   }
   if(action==='set_core'){
     var core=String(a.text==null?'':a.text).trim();
-    if(!core)return {ok:false,msg:'核心设定不能为空；如果只是想新增一条记忆，请用 add_memory'};
-    if(core.length>12000)return {ok:false,msg:'核心设定最多 12000 字'};
+    if(!core)return {ok:false,msg:'动态认知不能为空；如果只是想新增一条记忆，请用 add_memory'};
+    if(core.length>12000)return {ok:false,msg:'动态认知最多 12000 字'};
     var beforeCore=String(memAll(c.id).core||'');
-    if(beforeCore===core)return {ok:false,msg:'核心设定没有发生变化'};
+    if(beforeCore===core)return {ok:false,msg:'动态认知没有发生变化'};
     return commitShape(c,[{scope:'core',field:'core',before:beforeCore,after:core}],reason);
   }
   var md=memDef(String(a.memory_field||''));
