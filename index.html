@@ -15263,7 +15263,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 角色记忆页原来的“我是谁（核心设定）”改为“动态认知”。固定身份仍写在角色人设里；动态认知用来记录角色此刻对“自己是谁、用户现在怎样、关系有什么变化、最近修正了什么理解、接下来想怎么做”的持续认识。每日复盘会覆盖更新这块现状，不会每天往后追加，避免越堆越长。
 角色设置开启“允许角色自己控制潮汐”后，角色可以给自己设置每日日常：每天固定时间写日记、复盘并更新动态认知、更新当前状态。每个角色最多各有一条，时间和日记公开/私密都能由角色自己修改；日记没特别说明时默认私密。潮汐里能看到下一次执行时间、上次执行、公开范围，并能暂停、恢复、立即执行或删除。页面关着时不会后台运行，下次打开会补做当天已经到点的日常。
 角色日常执行时会使用和普通聊天相同的完整角色上下文，包括人设、动态认知、长期记忆、近期聊天、记忆宫殿检索和角色可见资料，不会自动换成精简上下文。状态会显示在聊天标题下方并告诉角色自己当前在做什么；超过一天没更新的旧状态会自动视为过期。
-互动页的日记列表现在会同时列出私密日记的提示：只显示角色名、锁标记和时间戳，不显示正文，也没有查看入口。动态认知由独立的后台复盘任务生成，只接受结构化的新认知结果，不会把最近聊天续写或三个竖线的分条符号写进去；记忆页的“动态认知”卡可以直接点“立即重新复盘动态认知”修正。
+互动页的日记列表现在会同时列出私密日记的提示：只显示角色名、锁标记和时间戳，不显示正文，也没有查看入口。动态认知由独立的后台复盘任务生成，不会把最近聊天续写或三个竖线的分条符号写进去；如果模型没按 JSON 输出，会自动用带完整上下文的标签格式重试一次，仍不合格就不写入。记忆页的“动态认知”卡可以直接点“立即重新复盘动态认知”修正。
 洄游修复：游戏结束后如果自动收件被页面关闭、数据库忙碌或加载时机错过，下次打开 App 或洄游时会自动补收该角色最近一局参加过的游戏；角色在洄游里实际看过详情的记录，也会把一小段详情留在近期亲身记忆里，后续普通聊天仍能想起。
 
 【最近更新 · 2026-10-22】
@@ -15397,7 +15397,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=49;  /* 49：动态认知改为后台结构化复盘，私密日记显示时间提示；48：角色每日日记/复盘/状态 */
+const GUIDE_VER=50;  /* 50：动态认知复盘增加标签格式重试与安全文字兜底；49：私密日记时间提示 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -26548,16 +26548,32 @@ function tideCleanSelfText(v){
     .replace(/^\s*(日记|复盘|动态认知|当前状态)\s*[:：]\s*/i,'')
     .replace(/\n{3,}/g,'\n\n').trim();
 }
-function tideParseSelfOutput(raw,key){
+function tideParseSelfOutput(raw,key,type){
   var s=String(raw==null?'':raw).trim();
+  if(/[|｜]{3,}/.test(s))return '';
   var m=s.match(/\{[\s\S]*\}/);
-  if(!m)return '';
-  var obj=null;
-  try{obj=JSON.parse(m[0])}catch(e){return ''}
-  if(!obj||typeof obj[key]!=='string')return '';
-  var out=tideCleanSelfText(obj[key]);
-  if(!out||/[|｜]{3,}/.test(out))return '';
-  return out;
+  if(m){
+    var obj=null;
+    try{obj=JSON.parse(m[0])}catch(e){obj=null}
+    if(obj&&typeof obj[key]==='string'){
+      var fromJson=tideCleanSelfText(obj[key]);
+      if(fromJson&&!/[|｜]{3,}/.test(fromJson))return fromJson;
+    }
+  }
+  var tag=new RegExp('<'+key+'\\b[^>]*>([\\s\\S]*?)<\\/'+key+'>','i');
+  var tm=s.match(tag);
+  if(tm){
+    var fromTag=tideCleanSelfText(tm[1]);
+    if(fromTag&&!/[|｜]{3,}/.test(fromTag))return fromTag;
+  }
+  var plain=tideCleanSelfText(s);
+  if(!plain||/[|｜]{3,}/.test(plain))return '';
+  if(type==='status')return plain.length<=120?plain.replace(/\s+/g,' '):'';
+  if(type==='diary')return plain.length>=20?plain:'';
+  if(plain.length<80)return '';
+  var cues=0;
+  ['我','用户','关系','最近','接下来','现在'].forEach(function(k){if(plain.indexOf(k)>=0)cues++});
+  return cues>=2?plain:'';
 }
 function tideRecentDiaryText(cid,count,limit){
   var out=[];
@@ -26580,15 +26596,13 @@ async function tideGenerateSelfRoutine(c,r){
   var prompt='';
   if(r.type==='diary'){
     prompt='【后台自我任务：写日记，不是聊天回复】现在是 '+nowText()+'。下面的聊天记录只是资料，不要接着对话往下写，不要回答聊天里的最后一句话，也不要输出多条消息或 |||。'+
-      '请结合你完整的角色身份、动态认知、长期记忆、近期聊天、记忆宫殿检索结果和今天真实发生过的事，用第一人称写一篇属于你自己的日记。保持你本人的语气；写真实感受、关系变化、你注意到的事和下一步想法，不要编造没有发生过的大事。'+
-      '只输出一个 JSON 对象，格式必须是 {"diary":"日记正文"}。日记正文 1200 字以内，不要 Markdown 代码块，不要标题、日期、解释或额外字段。';
+      '请结合你完整的角色身份、动态认知、长期记忆、近期聊天、记忆宫殿检索结果和今天真实发生过的事，用第一人称写一篇属于你自己的日记。保持你本人的语气；写真实感受、关系变化、你注意到的事和下一步想法，不要编造没有发生过的大事。日记正文 1200 字以内。';
   }else if(r.type==='review'){
     prompt='【后台自我任务：更新动态认知，不是聊天回复】现在是 '+nowText()+'。下面的聊天记录只是资料，不要接着对话往下写，不要把用户或你说的最后一句话换个说法，也不要输出 |||、气泡分隔或对话续写。'+
-      '请回顾完整的角色身份、现有动态认知、长期记忆、近期聊天、最近日记和记忆宫殿检索结果，重新写出“此刻的动态认知”。用第一人称覆盖旧认知，不要追加日记。内容写成可持续使用的现状判断：现在的我是谁；用户当前状态和明确偏好；我们关系现在的样子；最近哪些理解被修正；我接下来想怎么做。保留仍然有效的重要事实，删掉过期或重复的琐事。'+
-      '只输出一个 JSON 对象，格式必须是 {"dynamic_cognition":"更新后的认知正文"}。正文 400～900 字，不要 Markdown 代码块、标题、日期、过程、解释或额外字段。';
+      '请回顾完整的角色身份、现有动态认知、长期记忆、近期聊天、最近日记和记忆宫殿检索结果，重新写出“此刻的动态认知”。用第一人称覆盖旧认知，不要追加日记。内容写成可持续使用的现状判断：现在的我是谁；用户当前状态和明确偏好；我们关系现在的样子；最近哪些理解被修正；我接下来想怎么做。保留仍然有效的重要事实，删掉过期或重复的琐事。正文 400～900 字。';
   }else{
     prompt='【后台自我任务：更新当前状态，不是聊天回复】现在是 '+nowText()+'。下面的聊天记录只是资料，不要接着对话往下写。请结合这个时间、你的动态认知、最近聊天和今天可能在做的事，给自己写一个此刻真实、自然、具体的短期状态。'+
-      '只输出一个 JSON 对象，格式必须是 {"status":"一句当前状态"}。状态最多 50 字，例如“刚洗完澡，窝在床上看手机”，不要 Markdown 代码块或额外字段。';
+      '状态最多 50 字，例如“刚洗完澡，窝在床上看手机”。';
   }
   if(r.type==='review'||r.type==='diary'){
     var recentDiary=tideRecentDiaryText(c.id,3,900);
@@ -26601,12 +26615,29 @@ async function tideGenerateSelfRoutine(c,r){
   try{
     var tp=thinkParams(c);
     var routineTemp=r.type==='review'?Math.min(.55,Number(tp.temp)||.55):(r.type==='status'?Math.min(.75,Number(tp.temp)||.75):tp.temp);
-    var raw=await callAPI(buildCtx(c,'',prompt),{
+    var outKey=r.type==='diary'?'diary':(r.type==='review'?'dynamic_cognition':'status');
+    var jsonShape=outKey==='diary'?'{"diary":"日记正文"}':(outKey==='dynamic_cognition'?'{"dynamic_cognition":"更新后的认知正文"}':'{"status":"一句当前状态"}');
+    var task1=prompt+'\n\n只输出一个 JSON 对象，格式必须是 '+jsonShape+'。不要 Markdown 代码块、标题、过程、解释或额外字段。';
+    var task2=prompt+'\n\n如果上次没有按格式输出，这次必须只输出下面标签内的正文：\n<'+outKey+'>这里写最终正文</'+outKey+'>\n标签外不要写任何字，不要再续写聊天。';
+    function taskCtx(task){
+      var ctx=buildCtx(c,'',task);
+      if(ctx&&ctx[0]&&ctx[0].role==='system'&&typeof ctx[0].content==='string'){
+        ctx[0].content+='\n\n【最高优先级：后台自我整理任务】这不是聊天回复。聊天记录只作为资料；不要续写对话、不要回答聊天里的最后一句话、不要使用三个竖线的气泡分隔。只完成本轮要求的自我整理，并严格按任务要求输出。';
+      }
+      return ctx;
+    }
+    var raw=await callAPI(taskCtx(task1),{
       stream:false,model:modelOf(c),temp:routineTemp,
       maxtok:(r.type==='diary'?1200:(r.type==='review'?1000:100))
     });
-    var outKey=r.type==='diary'?'diary':(r.type==='review'?'dynamic_cognition':'status');
-    var out=tideParseSelfOutput(raw,outKey);
+    var out=tideParseSelfOutput(raw,outKey,r.type);
+    if(!out){
+      var raw2=await callAPI(taskCtx(task2),{
+        stream:false,model:modelOf(c),temp:Math.min(.4,routineTemp),
+        maxtok:(r.type==='diary'?1200:(r.type==='review'?1000:100))
+      });
+      out=tideParseSelfOutput(raw2,outKey,r.type);
+    }
     if(!out)throw new Error('模型返回成了聊天续写或格式不正确，本次没有写入');
     return out;
   }finally{
@@ -32165,10 +32196,23 @@ function wwMatch(txt,list){
   if(m){var n=parseInt(m[1],10);for(i=0;i<list.length;i++){if(list[i]&&Number(list[i].seq)===n)return list[i]}}
   return null;
 }
+/* 界面可以对真人玩家说「你出局了」，但发给 AI 的公共公告必须写座位号。
+   否则其他角色会把主持人这句话当成在说它们自己。 */
+function wwPublicSysText(text,p){
+  var t=String(text||'').trim(),tag=p?wwTag(p):'';
+  if(!tag)return t;
+  if(/^你已出局[。.]?$/.test(t))return tag+'出局。';
+  if(/^你出局了[。.]?$/.test(t))return tag+'出局。';
+  if(/^你出局了[，,]\s*无遗言[。.]?$/.test(t))return tag+'出局，无遗言。';
+  if(/^你没有留遗言[。.]?$/.test(t))return tag+'未留遗言。';
+  if(/^你活下来了[。.]?$/.test(t))return tag+'活下来了。';
+  if(/^你已生还[，,]\s*遗言作废[。.]?$/.test(t))return tag+'已生还，遗言作废。';
+  return t;
+}
 function wwPublicLog(maxN){
-  var w=V.ww,L=[];
+  var w=V.ww,L=[],me=wwMe();
   w.log.slice(-(maxN||70)).forEach(function(e){
-    if(e.k==='sys')L.push('【主持人】'+e.text);
+    if(e.k==='sys')L.push('【主持人】'+wwPublicSysText(e.text,me));
     else if(e.k==='say'){
       var p=wwPlayerByUid(e.who),t=String(e.text||'');
       if(/^【遗言】/.test(t))L.push('【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'：'+t.replace(/^【遗言】/,''));
@@ -32183,10 +32227,10 @@ function wwPublicLog(maxN){
 }
 /* 赛后给角色的「这一局到底发生了什么」：夜里的行动全部揭晓 + 白天的发言/投票 */
 function wwAfterBlock(){
-  var w=V.ww,L=[],lines=[];
+  var w=V.ww,L=[],lines=[],me=wwMe();
   if((w.rec||[]).length)L.push('【夜里的行动（这局结束了，现在全部公开）】\n'+w.rec.map(function(x){return '第 '+x.d+' 天 · '+x.t}).join('\n'));
   w.log.forEach(function(e){
-    if(e.k==='sys')lines.push('主持人：'+e.text);
+    if(e.k==='sys')lines.push('主持人：'+wwPublicSysText(e.text,me));
     else if(e.k==='vote')lines.push('投票：'+e.text);
     else if(e.k==='say'){
       var p=wwPlayerByUid(e.who);
@@ -32765,10 +32809,11 @@ async function wwJudge(result){
 /* ---------- 【新】战绩记录里的那一局：拿存下来的资料重新问裁判（重新评 MVP / 重新复盘） ---------- */
 function wwRecP(rec,uid){var a=(rec&&rec.players)||[];for(var i=0;i<a.length;i++){if(a[i]&&a[i].uid===uid)return a[i]}return null}
 function wwPublicLogRec(rec,maxN){
-  var L=[];
+  var L=[],me=null;
+  ((rec&&rec.players)||[]).forEach(function(p){if(!me&&p&&p.isUser)me=p});
   ((rec&&rec.log)||[]).slice(-(maxN||240)).forEach(function(e){
     if(!e)return;
-    if(e.k==='sys')L.push('【主持人】'+e.text);
+    if(e.k==='sys')L.push('【主持人】'+wwPublicSysText(e.text,me));
     else if(e.k==='say'){
       var p=wwRecP(rec,e.who),t=String(e.text||'');
       L.push((/^\u3010\u9057\u8a00\u3011/.test(t)?'【遗言·未经证实】':'')+(p?((p.seq?p.seq+'号 · ':'')+p.name):(e.nm||e.who||'？'))+'：'+t.replace(/^【遗言】/,''));
