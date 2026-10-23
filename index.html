@@ -8686,7 +8686,8 @@ function memInnerHTML(){
     '<p class="dim" style="font-size:12px;margin:0 0 8px">这里不是固定人设，而是角色对“我现在是谁、用户现在怎样、我们的关系最近有什么变化”的持续认知。每日复盘会覆盖更新现状，不往后追加旧日记。</p>'+
     '<textarea id="mcore" style="min-height:120px" placeholder="用第一人称写当前认知，例如：我是××，正在和××相处；最近我们的关系……；我修正了……；接下来我想……">'+esc(M.core||'')+'</textarea>'+
     '<div class="row" style="margin-top:8px"><button class="pri col" onclick="saveCore()">保存动态认知</button>'+
-    '<button class="col" onclick="summarizeNow()">总结最近 '+SUM_N+' 条</button></div>')+
+    '<button class="col" onclick="summarizeNow()">总结 '+SUM_N+' 条到长期总结</button></div>'+
+    '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="runDynamicReviewNow()">↻ 立即重新复盘动态认知</button></div>')+
   listCard('时间线','timeline')+
   listCard('长期聊天记录总结','summaries')+
   listCard('角色偏好与认知','prefs')+
@@ -15262,10 +15263,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 角色记忆页原来的“我是谁（核心设定）”改为“动态认知”。固定身份仍写在角色人设里；动态认知用来记录角色此刻对“自己是谁、用户现在怎样、关系有什么变化、最近修正了什么理解、接下来想怎么做”的持续认识。每日复盘会覆盖更新这块现状，不会每天往后追加，避免越堆越长。
 角色设置开启“允许角色自己控制潮汐”后，角色可以给自己设置每日日常：每天固定时间写日记、复盘并更新动态认知、更新当前状态。每个角色最多各有一条，时间和日记公开/私密都能由角色自己修改；日记没特别说明时默认私密。潮汐里能看到下一次执行时间、上次执行、公开范围，并能暂停、恢复、立即执行或删除。页面关着时不会后台运行，下次打开会补做当天已经到点的日常。
 角色日常执行时会使用和普通聊天相同的完整角色上下文，包括人设、动态认知、长期记忆、近期聊天、记忆宫殿检索和角色可见资料，不会自动换成精简上下文。状态会显示在聊天标题下方并告诉角色自己当前在做什么；超过一天没更新的旧状态会自动视为过期。
+互动页的日记列表现在会同时列出私密日记的提示：只显示角色名、锁标记和时间戳，不显示正文，也没有查看入口。动态认知由独立的后台复盘任务生成，只接受结构化的新认知结果，不会把最近聊天续写或三个竖线的分条符号写进去；记忆页的“动态认知”卡可以直接点“立即重新复盘动态认知”修正。
+洄游修复：游戏结束后如果自动收件被页面关闭、数据库忙碌或加载时机错过，下次打开 App 或洄游时会自动补收该角色最近一局参加过的游戏；角色在洄游里实际看过详情的记录，也会把一小段详情留在近期亲身记忆里，后续普通聊天仍能想起。
 
 【最近更新 · 2026-10-22】
 角色设置新增“允许角色新建指令”，普通角色默认关闭。打开后，角色可以在合适的时候发一张分步指令卡，例如带着你做番茄炒蛋：卡上会显示总标题、当前步骤、醒目的倒计时、较小的正计时和一条像音乐进度条一样的进度线。点「已完成」会进入下一步；最后一步点「已完成」后整张卡结束。倒计时到 0 也会自动进入下一步，最后一步时间到时显示“时间到”。任意时候都能点「取消指令」退出。用户最后完成或取消后，角色会自动发一条消息确认并给反馈；同一角色同时只保留一张进行中的指令卡。当前步骤、时间和状态都存在聊天记录里，刷新页面后还能接着看。
-角色在「互动」里的写日记工具新增“私密日记”。角色调用工具时可以选择 private：普通日记仍会在「互动」的日记列表里给你看；私密日记只保存在这个角色自己的日记数据里，不出现在互动页，只有角色自己知道内容。旧日记不受影响，私密日记也会跟着本地备份保存，删除角色时会一起删除。
+角色在「互动」里的写日记工具新增“私密日记”。角色调用工具时可以选择 private：普通日记仍会在「互动」的日记列表里给你看；私密日记只在互动页显示角色名、锁标记和时间戳，正文只有角色自己知道、不会展示。旧日记不受影响，私密日记也会跟着本地备份保存，删除角色时会一起删除。
 角色现在也能翻看自己以前写的日记：先用 read_diary 且不填 diary_id 获取最近日记目录，再从返回的 entries 里选一篇，把它的 id 填进 diary_id 读取完整正文。公开日记和私密日记都能读；私密正文只交给角色自己回忆，聊天里只显示“已读取某篇日记”，不会自动展示正文。
 「游戏 → 装扮小铺」新增两种贝壳来源：狼人杀首次赛后结算时，如果裁判把你评为 MVP，自动奖励 30 贝壳；同一局只发一次，之后在战绩页点“让裁判重新评选 MVP”只更新复盘，不会重复发奖。背单词每天把当天计划里的词都标记一遍（点“背会了”或“还不熟”都算完成），会自动奖励 30 贝壳，每天一次，并在背单词页和小铺今日任务里显示完成状态。
 狼人杀 9 人、12 人局首夜新增“狼队分工”。狼人按座位顺序选择悍跳狼、冲锋狼、倒钩狼或深水狼；程序会保证至少 1 个悍跳狼，并且倒钩狼与深水狼合计至少 1 个。会选择到破坏配额的狼人时，界面只提供仍合规的身份。分工会影响之后的发言和投票，倒钩狼与深水狼不会被要求无脑帮队友冲票；赛后在战绩的“身份公开”里会显示每只狼选择的分工。
@@ -15326,7 +15329,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 朋友圈：角色自己发动态，你可以点赞、评论。你可以给每条动态单独勾选哪些角色不可见，默认公开；发完后也能改可见范围。
 · 背单词：桌面第二页。先选一个陪学角色，设置每日目标和角色可见资料范围，再让角色选词。每个词有音标、释义、例句和联想；点「背会了 / 还不熟」会按角色记录当天、累计和连续学习天数。也可以做词汇量测试：逐个回答 A1-C2 的词是否认识，AI 会保存等级、词汇量区间和推荐难度，后续角色出词会参考它。到期的旧词会出现在「今日复习」，按 1、2、4、7、15、30、60、120 天逐渐拉长间隔，记得就升档，忘了就回到 1 天后。
 · 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
-· 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。写日记时角色可以选公开日记或只有它自己可见的私密日记；私密日记不会显示在互动页。角色也能翻看自己以前写的公开日记和私密日记。
+· 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。写日记时角色可以选公开日记或只有它自己可见的私密日记；私密日记在互动页只显示时间提示，不显示正文。角色也能翻看自己以前写的公开日记和私密日记。
 · 创意：角色给你做的小网页、小游戏都收在这里，点开就能看、能玩。
 · 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。还有一个「海底陪伴」小游戏：里面养一只低多边形 3D 小鲸鱼，单指拖动可以绕着小鲸鱼转视角，双指捏合可以放大缩小，轻点小鲸鱼会和它说话。菜单里可以投喂、拍照、重置状态；「照片集」会保存拍下来的海底照片。点右上角「绑定角色」，可以让小鲸鱼同步一个现有角色的人设和说话习惯，变成那个角色在海里的鲸鱼版本；它会参考一小段长期记忆，但不会把整份聊天记录塞进去。这个游戏的照片和状态跟着本地备份走。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。面杀里**女巫全程不能自救**（网杀是只有第一夜能自救）。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
@@ -15378,7 +15381,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么给不同角色使用不同面具：去桌面第二页的「面具管理」新建并填写面具；点这张面具下面的「分配角色」，勾选要让面具生效的角色，再保存。想让某个角色恢复成原来的自己，就在同一张面具的分配列表里取消勾选它。聊天页右上角没有面具按钮。
 · 怎么看它什么时候会自动发消息：在桌面空白处向左滑到第二页，点「潮汐」；也可以按角色或触发方式筛选。私聊、群聊、提醒和延迟回复有具体时间，洄游按条件或固定时间处理。
 · 怎么不让某条自动消息发出：去「潮汐」，私聊或群聊可以点「跳过这次」或暂停这类来源；待办提醒和延迟回复可以取消那一次；洄游可以暂停处理。涉及立即调用接口的「现在发一条」会先询问，可能产生费用。
-· 怎么让角色写或读日记：先确认角色设置里的「互动玩具」已打开。写私密日记时，在聊天里明确说“写一篇只给你自己看的私密日记”；角色会用 private=true 保存。让它翻以前写的日记时，说“看看你自己最近写的日记”；它会先拿目录，再选一篇读取。私密正文不会自动显示在聊天里。
+· 怎么让角色写或读日记：先确认角色设置里的「互动玩具」已打开。写私密日记时，在聊天里明确说“写一篇只给你自己看的私密日记”；角色会用 private=true 保存。互动页只显示角色、锁标记和时间，不显示正文。让它翻以前写的日记时，说“看看你自己最近写的日记”；它会先拿目录，再选一篇读取。私密正文不会自动显示在聊天里。
 · 怎么赚贝壳：打开「游戏 → 装扮小铺」，日常签到和任务可以领；完成当天背单词计划自动加 30 贝壳，每天一次；狼人杀里你拿到 MVP 会自动加 30 贝壳，同一局只发一次，重选 MVP 不能重复领。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
@@ -15394,7 +15397,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=48;  /* 48：动态认知与角色每日日记/复盘/状态；47：角色可新建分步倒计时指令卡；46：狼人杀 9/12 人局狼队分工 */
+const GUIDE_VER=49;  /* 49：动态认知改为后台结构化复盘，私密日记显示时间提示；48：角色每日日记/复盘/状态 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -18570,14 +18573,32 @@ function toyNotesCardHTML(list){
 /* 互动页：日记卡片。 */
 function toyDiaryCardHTML(list){
   var days=[];
-  list.forEach(function(c){var arr=load(Kdiary(c.id),[]);arr.forEach(function(x,idx){if(!x||x.private)return;days.push({cid:c.id,name:c.name,t:x.t,text:x.text,idx:idx})})});
+  list.forEach(function(c){
+    var pub=load(Kdiary(c.id),[]);
+    if(Array.isArray(pub))pub.forEach(function(x,idx){
+      if(!x||x.private)return;
+      days.push({cid:c.id,name:c.name,t:x.t,text:x.text,idx:idx,isPrivate:false});
+    });
+    var priv=load(KdiaryPrivate(c.id),[]);
+    if(Array.isArray(priv))priv.forEach(function(x,idx){
+      if(!x||typeof x.text!=='string')return;
+      days.push({cid:c.id,name:c.name,t:x.t,text:'',idx:idx,isPrivate:true});
+    });
+  });
   days.sort(function(a,b){return (b.t||0)-(a.t||0)});
+  var pubN=days.filter(function(x){return !x.isPrivate}).length,privN=days.length-pubN;
   return '<div class="card"><div class="ttl">日记（'+days.length+'）</div>'+
+  '<p class="dim" style="font-size:11.5px;margin:-2px 0 8px">公开日记会显示正文；私密日记只显示角色和时间，正文不在这里展示。</p>'+
   (days.length?days.slice(0,20).map(function(n){
     return '<div class="arcitem"><div class="arcname"><b>'+esc(n.name)+'</b> <span class="dim">'+esc(stampOf(n.t))+'</span></div>'+
-    '<div class="arcmeta" style="color:var(--txt)">'+nl2br(n.text)+'</div>'+
-    '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P4.toyDelDiary(\''+n.cid+'\','+n.idx+')">删掉这页</button></div></div>';
-  }).join(''):'<p class="dim" style="font-size:13px">还没有日记</p>')+'</div>';
+    (n.isPrivate
+      ?'<div class="arcmeta" style="color:var(--dim)">🔒 私密日记 · 正文只有角色自己能看到</div>'
+      :'<div class="arcmeta" style="color:var(--txt)">'+nl2br(n.text)+'</div>'+
+       '<div class="row arcfoot"><button class="ghost iconbtn" onclick="P4.toyDelDiary(\''+n.cid+'\','+n.idx+')">删掉这页</button></div>')+
+    '</div>';
+  }).join(''):'<p class="dim" style="font-size:13px">还没有日记</p>')+
+  (days.length>20?'<p class="dim" style="font-size:11.5px">只显示最近 20 篇；公开 '+pubN+' 篇，私密 '+privN+' 篇。</p>':'')+
+  '</div>';
 }
 function toyHTML(){
   var T=tcfg();
@@ -24333,10 +24354,20 @@ var R={
 
 function chOf(id){try{return (chars||[]).find(function(c){return c&&c.id===id})||null}catch(e){return null}}
 function mainChars(){try{return (chars||[]).filter(function(c){return c&&!c.branchOf})}catch(e){return[]}}
-function primePending(){
+function catchUpGames(){
   return Promise.all(mainChars().map(function(c){
+    return catchUpLatestGame(c.id).catch(function(){return false});
+  }));
+}
+async function primePending(){
+  var ms=mainChars();
+  await Promise.all(ms.map(function(c){
     return loadRecords(c.id).catch(function(){return[]});
   }));
+  /* 有些游戏记录可能已经存进游戏历史，但当时页面被关掉、数据库正忙，
+     或洄游脚本还没准备好，自动收件就漏了。下次打开时给每个开启洄游的
+     角色补最近一局，避免她明明玩过、角色却完全不知道。 */
+  await catchUpGames();
 }
 function uiChars(){
   return mainChars().filter(function(c){
@@ -24612,6 +24643,38 @@ function syncGameRecords(done){
     }));
   });
   return Promise.all(jobs);
+}
+
+function gameMatchesRole(r,cid){
+  if(!r||!cid)return false;
+  if((r.players||[]).some(function(p){return p&&p.cid===cid})||r.hostCid===cid)return true;
+  /* 老版本战绩可能只存了名字、没存角色 id；这里只做精确名字兜底，
+     新战绩仍然优先按 id 对应，避免同名角色误收。 */
+  var c=chOf(cid);if(!c)return false;
+  var name=String(c.name||'').trim();if(!name)return false;
+  return (r.players||[]).some(function(p){
+    return p&&(String(p.name||'').trim()===name||String(p.gname||'').trim()===name);
+  })||String(r.hostName||'').trim()===name;
+}
+async function catchUpLatestGame(cid){
+  var c=chOf(cid),main=ownerOf(c);
+  if(!main||isBranch(main)||!roamActive(main)||!sourceAllowed(main,'game'))return false;
+  if(!window.ROAM_GAME_HELPERS||typeof window.ROAM_GAME_HELPERS.records!=='function')return false;
+  var list=[];
+  try{
+    list=(window.ROAM_GAME_HELPERS.records()||[]).filter(function(r){
+      return r&&r.finished&&gameMatchesRole(r,main.id);
+    }).sort(function(a,b){return(Number(b.t)||0)-(Number(a.t)||0)});
+  }catch(e){return false}
+  if(!list.length)return false;
+  var r=list[0],arr=await loadRecords(main.id),key='game:'+r.id+':'+main.id;
+  if(eventExists(arr,key))return false;
+  var payload=null;
+  try{payload=window.ROAM_GAME_HELPERS.make(r)}catch(e){return false}
+  if(!payload)return false;
+  payload.cids=[main.id];
+  var added=await syncGameRecords([payload]);
+  return !!(added&&added[0]);
 }
 
 function argsBrief(args){
@@ -24906,7 +24969,11 @@ async function runCharacter(c,events,manual){
     }
     if(!Array.isArray(c.roamRecent))c.roamRecent=[];
     events.forEach(function(e){
-      c.roamRecent.push({t:now,text:safeText(e.summary||e.title||'一件小事',180)});
+      var note=String(e.summary||e.title||'一件小事');
+      if(readIds.indexOf(e.id)>=0&&e.detail){
+        note+='\n我当时看过的详情：'+safeText(String(e.detail),e.source==='game'?1200:700);
+      }
+      c.roamRecent.push({t:now,text:safeText(note,e.source==='game'?1400:900)});
     });
     while(c.roamRecent.length>24)c.roamRecent.shift();
     var rc=cfgOf(c);
@@ -25157,6 +25224,9 @@ function open(){
   try{var md=D.getElementById('modal');if(md)md.classList.add('nox')}catch(e){}
   sheetFull(true);
   render();
+  catchUpGames().then(function(recovered){
+    if(recovered.some(Boolean)&&R.open)render();
+  }).catch(function(){});
 }
 function back(){
   try{closeSheet()}catch(e){}
@@ -26472,7 +26542,22 @@ function tideRoutineSave(c){
   try{if(document.getElementById('tideRoot')&&window.P14&&P14.tideRefresh)setTimeout(function(){try{P14.tideRefresh()}catch(e){}},20)}catch(e){}
 }
 function tideCleanSelfText(v){
-  return String(v==null?'':v).replace(/```[\s\S]*?```/g,'').replace(/^\s*(日记|复盘|动态认知|当前状态)\s*[:：]\s*/i,'').trim();
+  return String(v==null?'':v)
+    .replace(/```(?:\w+)?\s*/g,'').replace(/```/g,'')
+    .replace(/^\s*[|｜]{3,}\s*$/gm,'')
+    .replace(/^\s*(日记|复盘|动态认知|当前状态)\s*[:：]\s*/i,'')
+    .replace(/\n{3,}/g,'\n\n').trim();
+}
+function tideParseSelfOutput(raw,key){
+  var s=String(raw==null?'':raw).trim();
+  var m=s.match(/\{[\s\S]*\}/);
+  if(!m)return '';
+  var obj=null;
+  try{obj=JSON.parse(m[0])}catch(e){return ''}
+  if(!obj||typeof obj[key]!=='string')return '';
+  var out=tideCleanSelfText(obj[key]);
+  if(!out||/[|｜]{3,}/.test(out))return '';
+  return out;
 }
 function tideRecentDiaryText(cid,count,limit){
   var out=[];
@@ -26494,14 +26579,16 @@ async function tideGenerateSelfRoutine(c,r){
   var now=new Date();
   var prompt='';
   if(r.type==='diary'){
-    prompt='【定时自我安排 · 写日记】现在是 '+nowText()+'。这是你自己安排的每日日记时间。请结合你完整的角色身份、动态认知、长期记忆、近期聊天、记忆宫殿检索结果和今天真实发生过的事，用第一人称写一篇属于你自己的日记。'+
-      '只输出日记正文，不要写标题、日期、解释、步骤说明，不要提到系统、定时任务或提示词。保持你本人的语气；写真实的感受、关系变化、你注意到的事和下一步想法。不要编造没有发生过的大事。正文控制在 1200 字以内。';
+    prompt='【后台自我任务：写日记，不是聊天回复】现在是 '+nowText()+'。下面的聊天记录只是资料，不要接着对话往下写，不要回答聊天里的最后一句话，也不要输出多条消息或 |||。'+
+      '请结合你完整的角色身份、动态认知、长期记忆、近期聊天、记忆宫殿检索结果和今天真实发生过的事，用第一人称写一篇属于你自己的日记。保持你本人的语气；写真实感受、关系变化、你注意到的事和下一步想法，不要编造没有发生过的大事。'+
+      '只输出一个 JSON 对象，格式必须是 {"diary":"日记正文"}。日记正文 1200 字以内，不要 Markdown 代码块，不要标题、日期、解释或额外字段。';
   }else if(r.type==='review'){
-    prompt='【定时自我安排 · 更新动态认知】现在是 '+nowText()+'。请回顾你完整的角色身份、现有动态认知、长期记忆、近期聊天和记忆宫殿检索结果，重新写出“此刻的动态认知”。'+
-      '只输出更新后的动态认知正文，不要写标题、日期、过程或解释。用第一人称，覆盖旧认知而不是追加日记。内容应包括：现在的我是谁；用户当前的状态和偏好；我们关系现在的样子；最近哪些理解被修正；我接下来想怎么做。保留仍然有效的重要事实，删掉已经过期或重复的琐事。不要照抄聊天记录。控制在 400～900 字，必须简洁、可持续使用。';
+    prompt='【后台自我任务：更新动态认知，不是聊天回复】现在是 '+nowText()+'。下面的聊天记录只是资料，不要接着对话往下写，不要把用户或你说的最后一句话换个说法，也不要输出 |||、气泡分隔或对话续写。'+
+      '请回顾完整的角色身份、现有动态认知、长期记忆、近期聊天、最近日记和记忆宫殿检索结果，重新写出“此刻的动态认知”。用第一人称覆盖旧认知，不要追加日记。内容写成可持续使用的现状判断：现在的我是谁；用户当前状态和明确偏好；我们关系现在的样子；最近哪些理解被修正；我接下来想怎么做。保留仍然有效的重要事实，删掉过期或重复的琐事。'+
+      '只输出一个 JSON 对象，格式必须是 {"dynamic_cognition":"更新后的认知正文"}。正文 400～900 字，不要 Markdown 代码块、标题、日期、过程、解释或额外字段。';
   }else{
-    prompt='【定时自我安排 · 更新当前状态】现在是 '+nowText()+'。请结合这个时间、你的动态认知、最近聊天和今天可能在做的事，给自己写一个此刻真实、自然、具体的短期状态。'+
-      '只输出一句中文状态，最多 50 字，例如“刚洗完澡，窝在床上看手机”或“在厨房准备晚饭”。不要提到系统、定时任务或提示词，不要编造成正在和用户见面的场景。';
+    prompt='【后台自我任务：更新当前状态，不是聊天回复】现在是 '+nowText()+'。下面的聊天记录只是资料，不要接着对话往下写。请结合这个时间、你的动态认知、最近聊天和今天可能在做的事，给自己写一个此刻真实、自然、具体的短期状态。'+
+      '只输出一个 JSON 对象，格式必须是 {"status":"一句当前状态"}。状态最多 50 字，例如“刚洗完澡，窝在床上看手机”，不要 Markdown 代码块或额外字段。';
   }
   if(r.type==='review'||r.type==='diary'){
     var recentDiary=tideRecentDiaryText(c.id,3,900);
@@ -26513,12 +26600,14 @@ async function tideGenerateSelfRoutine(c,r){
   ctxDropMid=null;
   try{
     var tp=thinkParams(c);
-    var out=await callAPI(buildCtx(c,prompt),{
-      stream:false,model:modelOf(c),temp:(r.type==='status'?Math.min(.75,tp.temp):tp.temp),
+    var routineTemp=r.type==='review'?Math.min(.55,Number(tp.temp)||.55):(r.type==='status'?Math.min(.75,Number(tp.temp)||.75):tp.temp);
+    var raw=await callAPI(buildCtx(c,'',prompt),{
+      stream:false,model:modelOf(c),temp:routineTemp,
       maxtok:(r.type==='diary'?1200:(r.type==='review'?1000:100))
     });
-    out=tideCleanSelfText(out);
-    if(!out)throw new Error('模型没有返回可用内容');
+    var outKey=r.type==='diary'?'diary':(r.type==='review'?'dynamic_cognition':'status');
+    var out=tideParseSelfOutput(raw,outKey);
+    if(!out)throw new Error('模型返回成了聊天续写或格式不正确，本次没有写入');
     return out;
   }finally{
     ctxAsk=oldAsk;ctxBg=oldBg;ctxDropMid=oldDrop;
@@ -26568,6 +26657,20 @@ async function tideRunSelfRoutine(c,r,manual){
     return {ok:false,msg:'角色日常执行失败：'+r.lastError};
   }finally{selfRoutineBusy=false}
 }
+async function runDynamicReviewNow(){
+  var c=null;try{c=curChar()}catch(e){}
+  if(!c)return toast('先选一个角色');
+  if(!tideRoutineAllowed(c))return alert('先去这个角色的设置里打开“允许角色自己控制潮汐”，才能让角色复盘动态认知。');
+  if(!cfg||!cfg.key)return alert('先在设置里填好接口');
+  if(busy||groupBusy||remindBusy||selfRoutineBusy||tideQueueTicking)return toast('现在正有内容在生成，稍等一下再复盘');
+  var r=tideRoutineFind(c,null,'review')||{id:'manual_review',type:'review',time:'22:05',enabled:true};
+  toast('正在按完整上下文重新复盘…');
+  var res=await tideRunSelfRoutine(c,r,true);
+  if(!res.ok)return alert(res.msg||'复盘失败');
+  toast('动态认知已按当前关系重新更新');
+  try{if(document.getElementById('mcore'))refreshMem()}catch(e){}
+}
+window.runDynamicReviewNow=runDynamicReviewNow;
 async function tideSelfRoutineTick(){
   if(selfRoutineBusy||tideQueueTicking||busy||groupBusy||remindBusy||!cfg||!cfg.key||isLocked())return;
   var now=Date.now();
@@ -28513,7 +28616,11 @@ function recPut(list){
         done.push({id:r.id,game:r.game,t:r.t||Date.now(),title:recTitle(r),sub:recSub(r),
           detail:detail,cids:cids});
       });
-      if(done.length)ROAM.syncGameRecords(done);
+      if(done.length){
+        Promise.resolve(ROAM.syncGameRecords(done)).catch(function(e){
+          try{console.warn('游戏已存进历史，但这次没有送进洄游；下次打开会自动补收最近一局',e)}catch(_){}
+        });
+      }
     }
   }catch(e){}
 }
@@ -36675,7 +36782,8 @@ function wwHTML(){
     }else if(ua.kind==='opt'){
       h+='<div class="ww-act">'+wwActHead(ua.label)+
          '<div class="gx-seg">'+(ua.opts||[]).map(function(o){
-        return '<button onclick="GAME.wwPickOpt('+Number(o[1])+')">'+wwSystemHTML(o[0])+'</button>';
+        var v=o[1],arg=(typeof v==='number')?String(v):("'"+String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'");
+        return '<button onclick="GAME.wwPickOpt('+arg+')">'+wwSystemHTML(o[0])+'</button>';
       }).join('')+'</div></div>';
     }else if(ua.kind==='say'){
       h+='<div class="ww-act">'+wwActHead(ua.label)+
