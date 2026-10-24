@@ -15263,6 +15263,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-10-24】
 狼人杀准备页的 12 人板子新增「守墓人石像鬼」：3 个普通狼、1 个石像鬼、4 个平民、预言家、女巫、猎人和守墓人。石像鬼属于狼人阵营，但普通狼与石像鬼互不相认，石像鬼不参加普通狼的夜间商量和刀人；她每晚可以查验一名存活玩家的具体身份，普通狼全部出局后才会接刀。守墓人每晚自动得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份；第一夜、平票或无人被放逐时没有结果。两者的查验记录和身份信息只给自己看，并会随中途续局保存。邀请卡、预设配置和角色固定身份也已支持这个新板子。
 新增 12 人「梦魇守卫」板子：3 个普通狼、1 个梦魇、4 个平民、预言家、女巫、猎人和守卫。梦魇每晚最先单独行动，可以选择空梦，或恐惧一名玩家；不能连续两晚恐惧同一人。被恐惧者当夜不能使用技能，猎人被恐惧后当夜死亡或紧接着的白天被票出都不能开枪。梦魇完成恐惧或空梦后与普通狼会合并参加狼刀和狼队分工，且无论由 AI 还是你本人操作，梦魇都排第一个选择分工；首夜恐惧前她不知道普通狼身份，会合后才显示红名，普通狼则从第一夜起就知道梦魇是谁。
+所有 12 人板子现在按「屠边」判胜负：狼人全部出局则好人胜；全部村民出局或全部神职出局则狼人胜，不再按狼人和好人数量相等直接结束。若同一夜狼刀刚好完成屠边、同时最后一只狼又被女巫毒死，则按约定的狼刀优先判狼人胜。6～9 人局仍使用原来的数量判定。
 狼人杀 NPC 现在每人有一条约 30～45 字的专属短人设，口吻涵盖古风、名侦探式装帅、嘴硬带“喵”、快嘴、冷幽默、直球、效率派等；每个 NPC 只读取自己的那条，不额外读取其他 11 份。所有角色发言都会提醒保持本人的句长、节奏、情绪和少量自然口癖，避免全场都像同一种分析员。
 狼人杀竞选增加了随机变化和稳定性：非真预好人 AI 每人约有三分之一概率获得“突然很想秀操作”的上警心情，每局最多发放 4 次；AI 是否上警的内部表态顺序会随机洗牌，竞选发言仍按座位顺序进行。每个 9/12 人 AI 狼局都会保证至少一只悍跳狼，并让该 AI 实际参加竞选、明确跳预且不能退水。好人支持听发言、评价和代跳两条上警路线；代跳者退水后会说明假验作废，其他好人和骑士不会只因退水就把她定狼。
 
@@ -15409,7 +15410,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=63;  /* 63：梦魇优先分工；62：梦魇守卫；61：守墓人石像鬼 */
+const GUIDE_VER=64;  /* 64：12 人屠边；63：梦魇优先分工；62：梦魇守卫 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32135,6 +32136,7 @@ function wwBoardLine(){
   if(b.idiot)a.push('白痴 '+b.idiot+' 个');
   a.push('普通村民 '+b.villager+' 个');
   return '【公开板子】'+w.count+' 人：'+a.join('、')+'。只知道开局配置，不知道当前还剩几个狼或神，别凭空报。'+
+    (w.count===12?'12 人局按屠边判胜负：狼人杀光全部村民或全部神职即胜。':'')+
     (b.idiot?('（白痴白天被票翻牌免死，之后能发言但不能投票；夜里照常会死。）'):'')+
     (b.guard?('（守卫每晚守一人（含自己），不能连守；只挡狼刀，同守同救会死。）'):'')+
     (b.knight?('（骑士每局可决斗一次：自己发言时可以决斗，其他人全部发言完、投票前还可以再考虑一次。命中狼人则对方立即出局、白天结束；命中好人则骑士出局、白天继续。警长竞选和平票 PK 时不能决斗。）'):'')+
@@ -33828,8 +33830,10 @@ async function wwRoomTrigger(deaths){
 }
 /* 不改状态地看一眼：这一下会不会直接把游戏判完（用来决定还要不要留遗言） */
 function wwWillOver(){
-  var alive=wwAlive(),wl=alive.filter(wwIsWolf).length,good=alive.length-wl;
-  return (!alive.length)||(wl===0)||(wl>=good);
+  var w=V.ww,alive=wwAlive(),wl=alive.filter(wwIsWolf).length,good=alive.length-wl;
+  var villagers=alive.filter(function(p){return p.role==='villager'}).length;
+  var gods=Math.max(0,good-villagers);
+  return (!alive.length)||(wl===0)||(w.count===12&&(villagers===0||gods===0))||(w.count!==12&&wl>=good);
 }
 /* 【新·面杀】你死在夜里之后的三步，顺序很重要：
    ① 先让你留遗言——这时候你还没进那个房间、不知道是谁下的手，所以遗言不可能把狼爆出来；
@@ -34297,9 +34301,25 @@ function wwPushSay(g,o){
 function wwCheckOver(){
   var w=V.ww;if(w.over)return true;
   var alive=wwAlive(),wl=alive.filter(wwIsWolf).length,good=alive.length-wl;
+  var villagers=alive.filter(function(p){return p.role==='villager'}).length;
+  var gods=Math.max(0,good-villagers);
+  var noVillagers=w.count===12&&villagers===0;
+  var noGods=w.count===12&&gods===0;
+  var wolfKnifeFirst=!!(w.count===12&&wl===0&&(noVillagers||noGods)&&w.night&&w.night.wolf&&
+    w.night.wolf.killedBy==='wolf'&&w.night.poison&&wwIsWolf(w.night.poison));
+  if(wolfKnifeFirst){
+    w.over=true;w.winner='wolf';
+    w.endText=(noVillagers?'所有村民已出局':'所有神职已出局')+'；狼刀在先 —— 狼人获胜。';
+    return true;
+  }
   if(!alive.length){w.over=true;w.winner='';w.endText='场上没有人了。';return true}
   if(wl===0){w.over=true;w.winner='good';w.endText='所有狼人都出局了 —— 好人获胜。';return true}
-  if(wl>=good){w.over=true;w.winner='wolf';w.endText='狼人的数量已经不少于好人了 —— 狼人获胜。';return true}
+  if(w.count===12&&(noVillagers||noGods)){
+    w.over=true;w.winner='wolf';
+    w.endText=(noVillagers&&noGods?'好人的村民和神职均已出局':(noVillagers?'所有村民已出局':'所有神职已出局'))+' —— 狼人完成屠边。';
+    return true;
+  }
+  if(w.count!==12&&wl>=good){w.over=true;w.winner='wolf';w.endText='狼人的数量已经不少于好人了 —— 狼人获胜。';return true}
   return false;
 }
 async function wwHunterCheck(p){
@@ -37390,7 +37410,7 @@ function wwInfoHTML(){
   if(b.nightmare)rules.push('梦魇：狼人阵营。每晚最先单独恐惧一人，使其本夜技能失效；不能连续两晚恐惧同一人，可空梦。随后与普通狼会合参加狼刀；首夜恐惧前不认识狼队友。');
   if(b.idiot)rules.push('白痴：被票翻牌免死，之后不能投票、不能再被票。');
   if(wwSheriffOn())rules.push('警长：票权 1.5，决定每天的发言顺序。');
-  rules.push('胜负：狼人全出局则好人胜；狼人不少于好人则狼人胜。');
+  rules.push(w.count===12?'胜负（屠边）：狼人全出局则好人胜；村民全部出局或神职全部出局则狼人胜。同夜狼刀完成屠边且最后一狼被毒死时，按狼刀在先判狼人胜。':'胜负：狼人全出局则好人胜；狼人不少于好人则狼人胜。');
   return '<div class="ww-mkmodal ww-helpmask" onclick="GAME.wwInfo(0)">'+
     '<div class="ww-mkbox ww-helpbox" onclick="event.stopPropagation()">'+
       '<div class="ww-pophead"><b>本局说明</b><button class="ww-popx" type="button" aria-label="关闭" onclick="GAME.wwInfo(0)">×</button></div>'+
