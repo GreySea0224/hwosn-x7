@@ -15270,7 +15270,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀的警长竞选也补清了：警长票是“支持谁当选”，不是放逐票。后置位还没发言时可以施压和试探，但必须用“如果她起跳”“若后面有人跳预”这种假设句，不能说得像对方已经报过身份或验人结果。真预言家和悍跳狼竞选时要报昨夜结果；警徽流按常见逻辑说清：验到好人就让本人接徽，验到狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。警长出局时应优先按自己报过的分支交徽；其他玩家会根据实际接徽人反推她宣称的验人结果，再结合是否真预、遗言和票型判断。游戏事实清单会单独列出“哪个警长出局后把徽交给了谁”和最近公开报过的警徽流，公共公告也会写明交徽前后的人。真预面对另一个跳预者不能把“真身份”当退水理由，只能给好人代跳留退路。发言展开/收起只刷新中间记录区，不再重画整张牌桌；狼人杀还关闭了实时背景模糊和全屏呼吸动画，避免 Android 浏览器在整页重画时闪白或黑一帧。
 狼人杀的玩家公开发言也会由独立、客观的标题模型生成短标题，不判断身份真假；普通发言、竞选、PK 和公开遗言都会覆盖。第一轮/竞选时建议预言家和悍跳狼把标题写成“跳预＋金水X/查杀X＋警徽流”，方便收起后仍能快速看懂，但不再强制；后续轮次按实际内容白描。
 新增 12 人「骑士白狼王」板子：3 普狼＋白狼王、4 民、预言家、女巫、猎人、骑士。骑士每局决斗一次；AI 骑士在自己发言后看一次，所有人发言完、投票前再看一次。第一天警上若至少两名玩家的标题或开场声明出现跳预，警徽落地后会立刻再问骑士一次。命中狼则对方立即出局、白天结束；命中好人则骑士出局、白天继续。警长竞选和平票 PK 不能决斗。用户玩骑士时，发言阶段顶部有“⚔ 决斗”入口，可在当前发言结束后随时选人；竞选、投票和 PK 时不可用。
-狼人杀玩家自己对战时，夜间 AI 的逐个行动会自动连续播放，不再要求一直点“继续”；玩家自己的狼刀、验人、用药等选择仍会停下等待。夜里全部结算完后，会在“进入白天”处停一次让玩家确认。真预言家在警上被前置位查杀时，不能再用“你没验我凭什么知道我是狼”这种自我矛盾反问，而要直接认定该查杀是编的并报自己的真实验人；最后一个竞选发言者也不会再假设后面还有预言家起跳。
+狼人杀玩家自己对战时，夜间 AI 的逐个行动会自动连续播放，不再要求一直点“继续”；玩家自己的狼刀、验人、用药等选择仍会停下等待。夜里全部结算完后，会在“进入白天”处停一次让玩家确认。真预言家在警上被前置位查杀时，不能再用“你没验我凭什么知道我是狼”这种自我矛盾反问，而要直接认定该查杀是编的并报自己的真实验人；最后一个竞选发言者也不会再假设后面还有预言家起跳。AI 猎人、白狼王或骑士在决定是否发动技能时，界面只显示“某位玩家正在考虑是否发动技能…”，不提前暴露座位号和身份；真正发动后再公开是谁。
 
 【最近更新 · 2026-10-22】
 角色设置新增“允许角色新建指令”，普通角色默认关闭。打开后，角色可以在合适的时候发一张分步指令卡，例如带着你做番茄炒蛋：卡上会显示总标题、当前步骤、醒目的倒计时、较小的正计时和一条像音乐进度条一样的进度线。点「已完成」会进入下一步；最后一步点「已完成」后整张卡结束。倒计时到 0 也会自动进入下一步，最后一步时间到时显示“时间到”。任意时候都能点「取消指令」退出。用户最后完成或取消后，角色会自动发一条消息确认并给反馈；同一角色同时只保留一张进行中的指令卡。当前步骤、时间和状态都存在聊天记录里，刷新页面后还能接着看。
@@ -15403,7 +15403,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=59;  /* 59：夜间自动行动与真预竞选话术；58：骑士白狼王 */
+const GUIDE_VER=60;  /* 60：技能提示匿名化；59：夜间自动行动与真预话术；58：骑士白狼王 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32159,7 +32159,7 @@ function wwSpeakTask(p,base){
      那些硬模板会让六个 AI 说话像一个模子刻出来的，没了真人感。 */
   var face=wwFaceOn();   /* 【新·面杀】面杀围着桌子坐：允许用括号写语气、动作、神态 */
   var plain=base+(wwHushOn()
-    ? '\n【发言】用你的人设和口气，公开发言控制在 2~4 句、约 120~260 个汉字。先给结论和归票，再给最多两条关键证据；没信息就直说，别硬编狼坑。'
+    ? '\n【发言】用你的人设和口气，公开发言控制在 2~4 句、约 120~260 个汉字。没信息就直说，别硬编狼坑。'
     : '\n【发言】用你的人设和口气，长短随角色。说怀疑/信任谁、理由、投谁；没信息就直说，别硬编狼坑。')+
     '别复述规则、套模板或长篇点评；不要为了显得独立而故意唱反调。没轮到的玩家不是心虚。'+
     '即便角色平时爱打比方，这一局也少用比喻；不要说“记账、账本、复印、档案、考试、法庭”这类口癖，直接说谁、哪句话、为什么。'+
@@ -32419,16 +32419,17 @@ function wwSysFor(p,task){
       ? '面杀可写少量括号动作，不用 markdown。'
       : '像群聊说话，不写旁白动作，不用 markdown。')+
     (r==='wolf'?'狼可以说谎和悍跳。':''));
-  L.push('【盘局】夜里死因不公开；除非亲历，别把刀/毒当事实。每次有夜死者，都考虑狼自刀做局，夜死不等于一定是好人。预言家等焦点牌盘双边。'+
-    '狼坑分清本局总数与活狼：死狼只扣总数，不能洗清活人。票型、死亡人数只作证据。'+
-    '发言顺序见当前局面，未轮到不等于心虚。警徽不等于铁好；改票要说明新理由。'+
-    '有死讯、翻牌或关键改票后重新算谁最受益，别机械沿用上一轮结论。'+
-    '场上只有一个人跳某神职、没有对跳或明确反证时，先按真神处理；女巫、猎人、守卫、白痴都同理。'+
-    '若公开事实已经能排除死者中另有该神职，单边神职更可信；早跳、说得顺、太干净不能单独推翻。');
-  L.push('【判断纪律】证据强弱按：主持人事实、验人、公开票型 > 具体动机和前后矛盾 > 语气与说话习惯。'+
-    '“理由太齐、话太顺、像复印、票线顺”只能当旁证，不能单独定狼；同一轮不要只靠这一种理由。'+
-    '不要为了显得独立而故意反对多数，也不要多数投谁就无理由跟投。');
-  L.push('【滴滴代跳】好人完全有把握且能排出真神时，可冒充该神抢刀，例如替真预发金水或查杀；真预见同立场者跳预，可接代跳、暂装非预，合适时再亮真身。无把握别用；真预分不清代跳与狼时，优先归票查杀或更像狼者。');
+  L.push('【判断纪律】只有主持人公告、自己的身份和技能结果算已证实；别人报的身份、验人、遗言都可能是假的。'+
+    '夜里死、被票出、被保或被踩都只是线索，不能说成铁狼、铁好；确定是真预的警徽才有可信度。'+
+    '夜死也可能是狼自刀，定狼出局（自爆/被骑士戳/所有跳预都死＝至少死一狼）可盘狼队剩余数量和真预在哪边，'+
+    '不能以此认定站过狼的都是狼。狼会卖队友、倒钩、给好人警徽或金水做身份。'+
+    '证据强弱：主持人事实、可信验人、票型矛盾>具体动机和前后矛盾>语气；话顺、理由齐不能单独定狼。'+
+    '单边神职无对跳或明确反证时，可以先不投她，但这只说明她神职面较大，不证明她归票正确。'+
+    '出现死讯、翻牌或关键改票后重算谁最受益；有新证据才改票。');
+  L.push('【滴滴代跳与退水】好人为诈身份或挡刀，可以假跳预言家、发假金水或假查杀；但要有退出计划。'+
+    '跳预者主动退水，很可能是好人代跳中止，不能只凭退水就直接定狼；也不等于铁好，要结合退水时机和后续行为，防狼借退水洗白。'+
+    '代跳者退水后，其之前报的金水、查杀不再按可信验人算，应明确视为假验作废，并转听真预归票。'+
+    '真预识破代跳后可以接受配合、暂不抢跳；分不清代跳和狼时，看验人、退水说明和后续归票。');
   if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
   /* 【新】昨晚你自己收刀放过了她：只有动手的那几只狼知道，别以为她是被女巫救的 */
   if(p.sparedNote)dyn.push('【昨晚你自己做的事】你本来要刀 '+p.sparedNote.tag+' · '+p.sparedNote.name+'，'+
@@ -32835,12 +32836,16 @@ function wwLastOwnSpeech(p){
 async function wwVoteAI(p,pool){
   var job=wwWolfJobOf(p);
   var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'不要无脑帮队友冲票。'):'';
-  var own=wwLastOwnSpeech(p);
+  var own=wwIsWolf(p)?wwLastOwnSpeech(p):'';
   var ownHint=own?('\n你刚才公开发言的首尾是：「'+wwClipSpeech(own,260,100)+'」。把它作为投票起点，但不必被它锁死：'+
     '听完后面的人、发现新信息、局面策略变了，可以合理改票。不要无理由随机换人，也不要只因为多数人投谁就跟票。'):'';
+  var goodHint='\n按狼坑位置投，自行判断归票是否可信。按开局狼数、当前人数最多剩几狼，和是否有定狼已出局'+
+    '（自爆/被骑士戳/跳预的全死=至少1狼死）粗估剩余狼数。再分析你想票的候选：若她是狼，队友是谁，'+
+    '若她不是狼，是否有更像在狼队的人。票型一边倒时思考狼队是跟票投狼做身份，还是在冲票好人；'+
+    '一个人有人保或没人保都不能靠这个定身份。除主持人公开事实外，只有你暂信真预报的查杀算强证据；'+
+    '别的神职/金水归票，不等于她归票的对象一定是狼，自己分析狼坑。';
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
-    (jobHint?'\n'+jobHint:'')+
-    ownHint+
+    (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+ownHint):goodHint)+
     '\n【输出格式】只输出你要投的那个人的编号或名字（例如「3号」）。');
   var txt=await wwCall(sys,'请投票。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
@@ -34063,7 +34068,7 @@ async function wwHunterCheck(p){
     if(wwStaleG(gen))return;
     tgt=r.uid?wwPlayerByUid(r.uid):null;
   }else{
-    w.msg='🔫 猎人 '+wwTag(p)+' 正在考虑开枪…';render(true);
+    w.msg='某位玩家正在考虑是否发动技能…';render(true);
     tgt=await wwHunterShoot(p);
     if(wwStaleG(gen))return;
   }
@@ -34336,9 +34341,9 @@ async function wwKingTry(gen,p){
   var w=V.ww;
   if(!p||!p.alive||p.role!=='wolfking'||w.kingBoom||p.isUser)return false;
   if(wwAlive().length<2)return false;
-  await wwStep('💥 白狼王正在想：要不要自爆');
+  await wwStep('某位玩家正在考虑是否发动技能');
   if(wwStaleG(gen))return false;
-  w.msg='💥 白狼王正在考虑自爆…';render(true);
+  w.msg='某位玩家正在考虑是否发动技能…';render(true);
   var tgt=await wwKingDecide(p);
   if(wwStaleG(gen))return false;
   if(!tgt)return false;
@@ -34399,6 +34404,7 @@ function wwSpeechOrderList(){
 }
 /* 叫一个 AI 决定上不上警 */
 async function wwPoliceDecide(p){
+  if(wwWolfJobOf(p)==='jump')return true;
   var seerHint=p&&p.role==='seer'?'你是真预言家，通常应该上警，方便报验人。':'';
   var upHint=wwIsWolf(p)
     ?'不想悍跳但想给警上留好印象，可以上警、装作点评别人；别为刷存在硬跳预言家。'
@@ -34413,10 +34419,22 @@ async function wwPoliceDecide(p){
 async function wwPoliceSpeech(p){
   var up=wwPoliceUpP(),others=up.filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、');
   var later=up.filter(function(x){return x!==p&&Number(x.seq)>Number(p.seq)});
+  var earlier=up.filter(function(x){return x!==p&&Number(x.seq)<Number(p.seq)});
   var isJump=(p&&p.role==='seer')||wwWolfJobOf(p)==='jump';
-  var badgeHint=isJump
-    ?'如果你报预言家身份，第一轮建议报昨夜验人结果，并把警徽流两个分支说清楚：今晚验A，A是好就让A本人接徽；A是狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。可以按自己的打法调整，别为了套格式编造信息。'
-    :'如果不跳预言家，只说自己的真实身份或可信的衣服、为什么适合拿警徽，别硬报验人结果。';
+  var goodUpHint='你是不跳预言家的好人，二选一：①上警听发言：说明目的；'+
+    (earlier.length
+      ?('前面已有'+earlier.map(wwTag).join('、')+'发言，评价她们的竞选、说想投谁当警长及理由，可指出谁聊爆；')
+      :'你是第一个发言，就诚实说本想先听但暂时没信息；')+
+    '明确说自己是好人，可退水。②好人代跳：直接假跳预言家，不必说“我是来听发言”；'+
+    '可给可信者金水，或给可疑者、后置位上警者假查杀试探。目标反应像狼、真预明显接受代跳且继续装能挡刀或带票，才留下；'+
+    '真预反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真预归票。';
+  var badgeHint=wwWolfJobOf(p)==='jump'
+    ?'你是悍跳狼，这一轮必须明确自称预言家，报昨夜验人结果，并把警徽流两个分支说清楚：今晚验A，A是好就让A本人接徽；A是狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。不能改报别的身份，不能提退水。'
+    :(isJump
+      ?'如果你报预言家身份，第一轮建议报昨夜验人结果，并把警徽流两个分支说清楚：今晚验A，A是好就让A本人接徽；A是狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。可以按自己的打法调整，别为了套格式编造信息。'
+      :(wwIsWolf(p)
+        ?'如果不跳预言家，只说自己的真实身份或可信的衣服、为什么适合拿警徽，别硬报验人结果。'
+        :goodUpHint));
   var seerHint=p&&p.role==='seer'
     ?'你是真预言家：如果后置位还有人跳预，从你的视角对方就是对跳狼。不能把“真身份”当作让对方退水的理由；只有想给好人代跳留退路时，可以说“若你是好人代跳，现在退水；继续跳就是对跳”。'+
       '如果有人已经明确说验了你并给你查杀，不要反问“她凭什么知道我是狼”——对方已经声称验过你，这种反问会像没听懂规则。直接说“你对我的查杀是编的；我是真预，我验的是X”，再报金水/查杀和警徽流。'
@@ -34428,13 +34446,22 @@ async function wwPoliceSpeech(p){
     badgeHint+seerHint+orderHint+
     '如果确实还有后置位，可以施压，但只能假设、不能当成已经发生：可说“若后面有人起跳预言家，我看她的验人和警徽流；好人别来抢身份，我不认代跳”。'+
     (others?('其他上警者：'+others+'。'):'')+'提到别人时带编号。';
-  return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
+  var say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
+  if(wwWolfJobOf(p)==='jump'&&!(/预言家|跳预/.test(say)&&/金水|查杀|验/.test(say))){
+    say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,'你是悍跳狼，这次必须明确自称“预言家”，并报昨夜验人结果。'+base)));
+    if(!/预言家|跳预/.test(say))say='我是预言家。'+say;
+  }
+  return say;
 }
 /* 一个 AI 决定要不要退水 */
 async function wwPoliceWater(p){
+  if(wwWolfJobOf(p)==='jump')return false;
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
+  var proxyHint=(!wwIsWolf(p)&&p.role!=='seer')
+    ?'\n如果你只是上警听发言，目的完成且没有明确留警收益，通常退水。如果你是好人代跳：真预明显接受代跳且继续装能挡刀或带票，才不退；真预反驳、试探没收获、目标更像好人，或继续装可能被骑士决斗，就退水。退水后要让其他好人知道你是代跳、假验作废。'
+    :'';
   var sys=wwSysFor(p,'现在决定继续竞选还是退水。没跳预言家且上警目的已完成，通常应退水；有明确收益才留下。其他上警者：'+others+'。'+
-    '\n【输出格式】只输出：退水 或 不退水。');
+    proxyHint+'\n【输出格式】只输出：退水 或 不退水。');
   var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
   if(/不退水|不退|继续|留下/.test(s))return false;
   return /退水|退出|放弃/.test(s);
@@ -34709,7 +34736,7 @@ function wwKnightClaims(){
     if(!e||e.k!=='say')return;
     if(w.policeAll&&w.policeAll.length&&w.policeAll.indexOf(e.who)<0)return;
     var title=String(e.title||''),lead=String(e.text||'').replace(/^【竞选发言】/,'').slice(0,50);
-    if(/跳预/.test(title)||/^我(?:是|跳|要跳)?预言家/.test(lead)){
+    if(/跳预|预言家/.test(title)||/^(?!我不是|我不跳|我不认)我[^。！？\n]{0,8}(?:是|起跳|要跳|跳|认)[^。！？\n]{0,8}(?:预言家|真预)/.test(lead.slice(0,24))){
       if(!ids[e.who]){ids[e.who]=1;list.push(e.who)}
     }
   });
@@ -34718,10 +34745,15 @@ function wwKnightClaims(){
 async function wwKnightChoose(p,reason){
   var pool=wwKnightTargets(p);
   if(!pool.length)return null;
-  var dual=wwKnightClaims().length>=2||!!(V.ww&&V.ww.dualSeerClaims);
+  var claims=wwKnightClaims();
+  var retiredSeer=claims.filter(function(uid){
+    return (V.ww.policeAll||[]).indexOf(uid)>=0&&(V.ww.policeUp||[]).indexOf(uid)<0;
+  }).map(wwPlayerByUid).filter(function(x){return !!x});
+  var dual=claims.length>=2||!!(V.ww&&V.ww.dualSeerClaims);
   var sys=wwSysFor(p,'现在可以发动【骑士决斗】，每局只有一次。可选的人：'+pool.map(wwName).join('、')+
     '\n命中狼人：对方立即出局，白天立刻结束；命中好人：你自己出局，白天继续。警长竞选和平票 PK 不能决斗。'+
     (dual?'\n警上出现了至少两个跳预的玩家。先比较两边验人和警徽流，再判断要不要现在决斗；这只是机会，不强制。':'')+
+    (retiredSeer.length?('\n已退水的跳预者：'+retiredSeer.map(wwName).join('、')+'。她可能是在打好人代跳，不要只凭曾跳预或这次退水就决斗她；先看她是否说明假验作废、是否给真预让位，以及留下的跳预者是否更矛盾。'):'')+
     (reason==='beforeVote'?'\n所有人已经发言完，马上投票。你可以用这一次机会，也可以保留到以后。':'')+
     '\n【输出格式】只输出“决斗：X号”，或只输出“不决斗”。');
   var txt=String(await wwCall(sys,'请决定是否发动骑士决斗。',40,.75)||'');
@@ -34759,9 +34791,9 @@ async function wwKnightDuel(p,tgt,byUser){
 async function wwKnightTry(p,reason){
   var w=V.ww,gen=wwGenNow();
   if(!wwKnightReady(p))return false;
-  await wwStep('⚔ 骑士正在考虑是否决斗');
+  await wwStep('某位玩家正在考虑是否发动技能');
   if(wwStaleG(gen))return false;
-  w.msg='⚔ 骑士「'+wwTag(p)+'」正在考虑决斗…';render(true);
+  w.msg='某位玩家正在考虑是否发动技能…';render(true);
   var tgt=null;
   try{tgt=await wwKnightChoose(p,reason)}catch(e){tgt=null}
   if(wwStaleG(gen))return false;
