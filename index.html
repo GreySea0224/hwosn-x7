@@ -15263,6 +15263,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-10-25】
 狼人杀新增「AI身份盘」。程序会自动从公开发言、验人、票型和规则时间线整理硬事实，每个 AI 再补充自己的阵营与特殊身份判断，并随本局存档继续保留；发言、投票和夜间行动都会参考这份精简身份盘，减少想到过又忘掉的情况。赛后点「复制整局文字」会附带身份盘和最近改判，也可以单点「复制身份盘」只复制这部分方便测试。身份盘不会给 AI 读取真实身份，声明也不等于翻牌。
 狼人杀新增「质问与回答记录」和原文核对。程序会区分“角色自称”和“只是提到角色”，例如“梦魇守卫这个板子”不会再被当成跳守卫；已经回答过的问题会留下提问人、回答日期、完整原答和重复追问次数，AI 不能再说对方没解释而没有读过原话。用户被追问时，完整原回答会直接附给所有 AI。AI 发言时也可以先写“【查原文】座位号 第几天 关键词”，让程序取出完整公开原文后重新完成这轮发言，每轮最多查一次。旧版身份盘会自动停用并重建，复制身份盘时也会带上质问与回答记录。
+狼人杀新增「场记 AI」。每个发言轮结束、投票前和白天开始时，最多批量核对一次新增公开发言，不会每句话都调用；它整理谁明确自称了什么、哪些问题是同一主题、哪些已经回答，以及哪些身份声明互相冲突。场记看不到真实身份、夜间私密行动或其他 AI 的思考，每条声明还必须由程序核对原话编号、说话座位和是否为本人直接自称，才会写进公共身份盘。高级设置里可以关闭场记 AI，关掉后自动使用本地规则兜底；复制身份盘会显示场记是否运行、识别条数和最近错误。
 狼人杀准备页的 12 人板子新增「守墓人石像鬼」：3 个普通狼、1 个石像鬼、4 个平民、预言家、女巫、猎人和守墓人。石像鬼属于狼人阵营，但普通狼与石像鬼互不相认，石像鬼不参加普通狼的夜间商量和刀人；她每晚可以查验一名存活玩家的具体身份，普通狼全部出局后才会接刀。守墓人每晚自动得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份；第一夜、平票或无人被放逐时没有结果。两者的查验记录和身份信息只给自己看，并会随中途续局保存。邀请卡、预设配置和角色固定身份也已支持这个新板子。
 狼人杀的观战模式新增「上帝视角」：进入对局后，点牌桌右上角的眼睛按钮，就能在座位上看到每名玩家的具体身份，并在记录区看到夜间谁对谁用了技能；所有狼人夜间交流也会直接显示。再点一次眼睛就关闭。这个视角只在观战模式出现，不会把答案发给其他 AI。女巫现在无论网杀还是面杀都全程不能自救。
 狼队首夜分工新增真人代排：你自己是狼时，可以先选「我来安排全队」，按座位给每只狼指定悍跳、冲锋、倒钩或深水；也可以选「让狼队自己分配」。分工只是默认打法，狼队夜间频道里的真人指令优先级最高，其次是狼队这一夜的讨论，最后才是分工标签；AI 不能因为自己是深水狼等标签就拒绝用户要求它改跳、改刀或改票。石像鬼 AI 留遗言时，如果确实验到神职，会用“重点留意某号、夜里优先确认某号”这类隐晦方式给狼队递话，不会直接自曝或凭空编验人。
@@ -15414,7 +15415,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=69;  /* 69：狼人杀质问回答、原文核对与旧身份盘重建；68：AI 身份盘与复制身份盘 */
+const GUIDE_VER=70;  /* 70：狼人杀场记 AI 与原文校验；69：质问回答、原文核对与旧身份盘重建 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -31786,6 +31787,10 @@ function wwCfgHTML(){
      '<button class="'+(wwHushOn()?'on':'')+'" onclick="GAME.wwHush(1)">省流 · 少想</button>'+
      '<button class="'+(!wwHushOn()?'on':'')+'" onclick="GAME.wwHush(0)">照旧 · 多想</button></div></div>'+
      '<p class="gx-hint">省流会压缩较早发言、限制公开发言长度，并提醒 AI 少写长篇思考，更省 token；推理可能浅一点。</p>';
+  h+='<div class="ww-cfgrow" style="margin-top:10px"><span>场记 AI（核对身份与问答）</span><div class="gx-seg">'+
+     '<button class="'+(wwScribeOn()?'on':'')+'" onclick="GAME.wwScribe(1)">开</button>'+
+     '<button class="'+(!wwScribeOn()?'on':'')+'" onclick="GAME.wwScribe(0)">关</button></div></div>'+
+     '<p class="gx-hint">每个发言轮和投票前最多核对一次，不按每句话调用；关掉后只使用本地规则整理，更省 token。</p>';
   h+='<details class="gx-log" style="margin-top:12px"><summary>规则与玩法说明</summary><div class="gx-vs">'+
      '<p class="gx-hint">网杀：夜里狼队在「狼队频道」打字商量；白天发言不写动作神态。面杀：在村子各自的房间过夜、白天去集会堂，先「抿身份」，狼队夜里在「夜间密会」正常说话。</p>'+
      '<p class="gx-hint">面杀白天投票出局叫「处刑」；夜里真的死了会先留遗言，再演一段「夜间 · 你的房间」。网杀和面杀的女巫都全程不能自救。</p>'+
@@ -32130,9 +32135,9 @@ function wwGodNightHTML(){
 }
 function wwBoardSafe(bd){return (bd==='wolfking'||bd==='knightking'||bd==='gravegargoyle'||bd==='nightmareguard')?bd:'std'}
 function wwBoardLabel(bd){return bd==='knightking'?'骑士白狼王':(bd==='wolfking'?'守卫白狼王':(bd==='gravegargoyle'?'守墓人石像鬼':(bd==='nightmareguard'?'梦魇守卫':'预女猎白')))}
-function wwBoard(n){
+function wwBoard(n,state){
   if(n===12){
-    var bd=(V.ww&&V.ww.board)||'std';
+    var bd=((state||V.ww)&&(state||V.ww).board)||'std';
     if(bd==='wolfking')return {wolf:3,wolfking:1,villager:4,seer:1,witch:1,hunter:1,guard:1};
     if(bd==='knightking')return {wolf:3,wolfking:1,villager:4,seer:1,witch:1,hunter:1,knight:1};
     if(bd==='gravegargoyle')return {wolf:3,gargoyle:1,villager:4,seer:1,witch:1,hunter:1,gravekeeper:1};
@@ -32313,9 +32318,9 @@ function wwGargoyleInference(p){
 /* ---------- AI 身份盘 ----------
    程序只整理公开声明和技能时间线，不读取真实身份；AI 再补“像不像、信多少”。
    这样既能防止模型忘记，也不会让它靠上帝视角开挂。 */
-var WW_IDENTITY_ROLE_ORDER=['seer','witch','hunter','gravekeeper','knight','guard','idiot','wolfking','gargoyle','nightmare'];
+var WW_IDENTITY_ROLE_ORDER=['seer','witch','hunter','gravekeeper','knight','guard','idiot','wolfking','gargoyle','nightmare','villager'];
 function wwIdentityRoleName(role){return WW_ROLE_NAME[role]||role||'未知'}
-function wwClaimIdentityRoles(txt){
+function wwClaimIdentityRoles(txt,speakerSeq){
   var s=String(txt||''),out=[],seen={};
   var clauses=s.split(/[。！？!?；;\n]+/);
   clauses.forEach(function(clause){
@@ -32325,12 +32330,16 @@ function wwClaimIdentityRoles(txt){
       if(clause.indexOf(name)<0)return;
       var neg=new RegExp('(?:不是|不跳|不穿|不认|不像)[^，,：:\\s]{0,8}'+name);
       if(neg.test(clause))return;
-      var p1=new RegExp('^\\s*(?:我)?\\d{1,2}\\s*号[^，,。！？!?；;\\n]{0,8}[，,：:]\\s*(?:真)?'+name);
-      var p2=new RegExp('^\\s*(?:我)?\\d{1,2}\\s*号[\\s，,：:]*(?:真)?'+name);
-      var p3=new RegExp('(?:我|本人)(?:是|就是|这边是|起跳|跳)?\\s*(?:\\d{1,2}\\s*号)?[，,：:\\s]*(?:真)?'+name);
-      var p4=new RegExp('(?:身份(?:是|为)|我报(?:身份)?(?:是|为)?)\\s*(?:真)?'+name);
-      var p5=new RegExp('身份(?:我)?(?:摊开|摆明|说)[^。！？!?；;\\n]{0,16}(?:是|为)?(?:真)?'+name);
-      if(p1.test(clause)||p2.test(clause)||p3.test(clause)||p4.test(clause)||p5.test(clause)){
+      var plain=role==='villager'?'(?:普通)?':'';
+      var p1=new RegExp('^\\s*(?:我)?(\\d{1,2})\\s*号[^，,。！？!?；;\\n]{0,8}[，,：:]\\s*(?:真)?'+plain+name);
+      var p2=new RegExp('^\\s*(?:我)?(\\d{1,2})\\s*号[\\s，,：:]*(?:真)?'+plain+name);
+      var p3=new RegExp('(?:我|本人)(?:是|就是|这边是|起跳|跳)?\\s*(?:\\d{1,2}\\s*号)?[，,：:\\s]*(?:真)?'+plain+name);
+      var p4=new RegExp('(?:身份(?:是|为)|我报(?:身份)?(?:是|为)?)\\s*(?:真)?'+plain+name);
+      var p5=new RegExp('身份(?:我)?(?:摊开|摆明|说)[^。！？!?；;\\n]{0,16}(?:是|为)?(?:真)?'+plain+name);
+      var m1=clause.match(p1),m2=clause.match(p2);
+      var selfSeat=!!((m1&&(!speakerSeq||Number(m1[1])===Number(speakerSeq)))||
+        (m2&&(!speakerSeq||Number(m2[1])===Number(speakerSeq))));
+      if(selfSeat||p3.test(clause)||p4.test(clause)||p5.test(clause)){
         seen[role]=1;out.push(role);
       }
     });
@@ -32361,7 +32370,7 @@ function wwPublicIdentityData(w){
     if(!e||e.k!=='say'||!e.who)return;
     var p=byUid[e.who],txt=String(e.text||'').replace(/^【竞选发言】/,'').replace(/^【遗言】/,'');
     if(!p||!txt)return;
-    var roles=wwClaimIdentityRoles(txt);
+    var roles=wwClaimIdentityRoles(txt,p.seq);
     var checks=(roles.indexOf('seer')>=0||roles.indexOf('gravekeeper')>=0)?wwIdentityChecks(txt):[];
     roles.forEach(function(role){
       data[role]=data[role]||{};
@@ -32376,7 +32385,32 @@ function wwPublicIdentityData(w){
   return data;
 }
 function wwIdentityTag(p){return p?(p.seq?p.seq+'号':'玩家'):'？'}
+function wwScribeClaimsText(w){
+  if(!w||!w.scribe||!w.scribe.ran)return '';
+  var claims=(w.scribe.claims||[]).slice(),by={},L=[],any=false;
+  claims.forEach(function(x){
+    if(!x||!x.seat||!x.role)return;
+    by[x.role]=by[x.role]||{};
+    by[x.role][x.seat]=x;
+  });
+  WW_IDENTITY_ROLE_ORDER.forEach(function(role){
+    var rows=by[role]?Object.keys(by[role]).map(function(k){return by[role][k]}):[];
+    if(!rows.length)return;
+    any=true;
+    var label=role==='seer'?'跳预':wwIdentityRoleName(role);
+    L.push('· '+rows.map(function(x){
+      return x.seat+'号='+label+'（'+x.ref+'）';
+    }).join('；'));
+    var b=wwBoard(w.count,w);
+    if((b[role]||0)===1&&rows.length>1)
+      L.push('  ↳ '+wwIdentityRoleName(role)+'开局只有 1 位，当前多个声明互相冲突，不能全信。');
+  });
+  if(!any)return '';
+  return '【场记 AI 核对后的公开身份声明】\n'+L.join('\n');
+}
 function wwPublicIdentityText(w){
+  var scribe=wwScribeClaimsText(w);
+  if(scribe)return scribe+'\n· 声明不等于翻牌；阵营判断和具体职业必须分开记录。好人身份也不等于真预言家。';
   var data=wwPublicIdentityData(w),L=[],any=false;
   WW_IDENTITY_ROLE_ORDER.forEach(function(role){
     var rows=data[role]?Object.keys(data[role]).map(function(k){return data[role][k]}):[];
@@ -32388,7 +32422,8 @@ function wwPublicIdentityText(w){
       return wwIdentityTag(r.p)+'='+label+(extra?'（'+extra+'）':'');
     }).join('；');
     L.push('· '+s);
-    if(rows.length>1)L.push('  ↳ '+wwIdentityRoleName(role)+'开局只有 1 位，当前多个声明互相冲突，不能全信。');
+    var b=wwBoard(w.count,w);
+    if((b[role]||0)===1&&rows.length>1)L.push('  ↳ '+wwIdentityRoleName(role)+'开局只有 1 位，当前多个声明互相冲突，不能全信。');
   });
   if(!any)L.push('· 暂时没有明确的公开神职声明。');
   L.push('· 声明不等于翻牌；阵营判断和具体职业必须分开记录。好人身份也不等于真预言家。');
@@ -32540,10 +32575,11 @@ function wwQuestionLedger(w){
   return groups;
 }
 function wwQuestionLedgerText(w,p){
-  var gs=wwQuestionLedger(w),L=[];
+  var gs=wwQuestionLedger(w),L=[],have={};
   gs.forEach(function(g){
     var mine=g.target.uid===p.uid||g.asks.some(function(a){return a.uid===p.uid});
     if(!mine&&!g.target.isUser)return;
+    have[g.target.uid+'|'+g.topic]=1;
     var askers=[];
     g.asks.forEach(function(a){var n=a.seq+'号';if(askers.indexOf(n)<0)askers.push(n)});
     var head='· '+g.target.seq+'号·'+g.topic+'｜'+(g.status==='answered'?'已回答':'未回答')+
@@ -32555,6 +32591,27 @@ function wwQuestionLedgerText(w,p){
       L.push('  原答：'+a.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,210,80)+'」');
     }
   });
+  if(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length){
+    var refs=wwScribeRefMap(w);
+    (w.scribe.qa||[]).forEach(function(qa){
+      var targetP=wwPlayerByUidTarget(w,qa.target),key=targetP?targetP.uid+'|'+qa.topic:'';
+      if(!targetP||have[key])return;
+      var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
+      var mineAsk=asks.some(function(a){return a.uid===p.uid});
+      if(targetP.uid!==p.uid&&!targetP.isUser&&!mineAsk)return;
+      var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
+      L.push('· '+targetP.seq+'号·'+qa.topic+'｜'+(ans.length?'已回答':'未回答')+
+        '｜场记核对'+(asks.length?('｜问过：'+asks.map(function(a){return a.p.seq+'号'}).filter(function(v,i,a){return a.indexOf(v)===i}).join('、')):''));
+      if(asks.length){
+        var q=asks[asks.length-1];
+        L.push('  问句：'+wwClipSpeech(q.text,100,35));
+      }
+      if(ans.length){
+        var a=ans[ans.length-1];
+        L.push('  原答：'+a.p.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,260,100)+'」');
+      }
+    });
+  }
   if(!L.length)return '';
   L.unshift('【质问与回答记录（程序按公开原文整理）】');
   L.push('纪律：标为“已回答”的问题，不得再说对方“没解释/没交代”。可以引用原答并反驳其中某一点，或提出真正的新问题。');
@@ -32570,6 +32627,18 @@ function wwFullUserAnswers(w){
       seen[a.ref]=1;arr.push(a);
     });
   });
+  if(w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length){
+    var refs=wwScribeRefMap(w);
+    w.scribe.qa.forEach(function(qa){
+      if(Number(qa.target)!==Number(me.seq))return;
+      (qa.answerRefs||[]).forEach(function(r){
+        var a=refs[r];
+        if(!a||seen[a.ref])return;
+        seen[a.ref]=1;
+        arr.push({uid:a.uid,seq:a.p.seq,day:a.day,ref:a.ref,text:a.text,idx:a.idx});
+      });
+    });
+  }
   arr.sort(function(a,b){return b.idx-a.idx});
   arr=arr.slice(0,2);
   if(!arr.length)return '';
@@ -32600,6 +32669,151 @@ function wwSearchPublicRaw(w,query){
   return hits.slice(-3).map(function(r){
     return '【'+r.ref+' · 第'+r.day+'天 · '+(r.p.seq?r.p.seq+'号':'玩家')+'】\n'+String(r.text||'');
   }).join('\n\n');
+}
+/* ---------- 场记 AI：只整理公开信息，不参与游戏，也看不到真实身份 ---------- */
+function wwEmptyScribe(){
+  return {version:1,ran:false,claims:[],qa:[],seen:{},updatedDay:0,phase:'',error:''};
+}
+function wwCloneScribe(s){
+  try{return JSON.parse(JSON.stringify(s||wwEmptyScribe()))}catch(e){return wwEmptyScribe()}
+}
+function wwScribeRoleList(w){
+  var b=wwBoard(w.count,w),out=[];
+  ['wolf','wolfking','gargoyle','nightmare','seer','witch','guard','hunter','gravekeeper','idiot','knight','villager'].forEach(function(k){
+    if(b[k])out.push(k+'='+WW_ROLE_NAME[k]+'×'+b[k]);
+  });
+  return out.join('、');
+}
+function wwScribeKey(r){return r.day+'|'+r.uid+'|'+r.idx+'|'+String(r.text||'').slice(0,30)+'|'+String(r.text||'').length}
+function wwScribeNormText(t){return String(t||'').replace(/\s+/g,'').replace(/[“”"'‘’]/g,'')}
+function wwScribeNewRows(w){
+  var seen=(w&&w.scribe&&w.scribe.seen)||{};
+  return wwPublicEventRows(w).filter(function(r){return !seen[wwScribeKey(r)]}).slice(-20);
+}
+function wwScribeSys(w,rows){
+  var old=w.scribe||wwEmptyScribe();
+  var L=[];
+  L.push('你是狼人杀对局的「场记 AI」。你不参加游戏，不猜真实身份，不使用上帝视角，只根据公开文本整理可核对记录。');
+  L.push('【本局板子允许的身份】'+wwScribeRoleList(w)+'。只能使用这些身份代号。');
+  L.push('【已有场记（可补充，不要无缘无故推翻）】\n'+
+    '身份声明：'+((old.claims||[]).slice(-20).map(function(x){return x.seat+'号='+x.role+'['+x.ref+']'}).join('；')||'暂无')+'\n'+
+    '问题记录：'+((old.qa||[]).slice(-15).map(function(x){return x.target+'号·'+x.topic+'='+x.status+'['+x.questionRef+']'}).join('；')||'暂无'));
+  L.push('【新增公开事件（每行都有编号，引用必须原样使用编号）】\n'+rows.map(function(r){
+    return '['+r.ref+'] 第'+r.day+'天 · '+r.p.seq+'号 · '+r.p.name+'：'+String(r.text||'').slice(0,900);
+  }).join('\n'));
+  L.push('【身份声明规则】\n'+
+    '1. 只有本人直接说“我是X”“我跳X”“我报X”“我的身份是X”“X号，X身份”才算自称。\n'+
+    '2. “1号守墓人报的狼”“梦魇守卫这个板子”“守墓人我不打”只是在提别人或提规则，绝不能记成说话人自称。\n'+
+    '3. quote 必须是对应事件里原样出现的一小段话；quoteRef 必须是该事件的编号。\n'+
+    '4. 别人转述、主持人公告和自己的推测都不算身份自称。\n'+
+    '5. 阵营判断、身份真假判断只属于各玩家自己的私人身份盘，不属于公共场记。');
+  L.push('【问题与回答规则】\n'+
+    '1. 把同一个目标、同一主题的追问合并，不按每一句话重复建条目。\n'+
+    '2. 如果目标之前已经用具体理由回答过，status 写 answered，并在 answerRefs 填所有对应回答事件编号。\n'+
+    '3. 只有真正没给出理由时写 unanswered。回答后又被追问，也仍写 answered。\n'+
+    '4. 普通角色提及、反问、情绪发泄不要硬做成新问题。');
+  L.push('【只输出一个 JSON 对象，不要 markdown、不要解释】\n'+
+    '{"claims":[{"seat":1,"role":"gravekeeper","ref":"D2-P1-1","quote":"我是1号，守墓人"}],'+
+    '"qa":[{"target":7,"topic":"代跳/退水","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"answered"}]}');
+  return L.join('\n\n');
+}
+function wwScribeParse(raw){
+  var s=String(raw||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try{return JSON.parse(s)}catch(e){}
+  var a=s.indexOf('{'),b=s.lastIndexOf('}');
+  if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(e){}}
+  return null;
+}
+function wwScribeRefMap(w){
+  var map={};
+  wwPublicEventRows(w).forEach(function(r){map[r.ref]=r});
+  return map;
+}
+function wwScribeSourceOk(row,seat,quote){
+  if(!row||Number(row.p.seq)!==Number(seat)||!quote)return false;
+  var a=wwScribeNormText(row.text),b=wwScribeNormText(quote);
+  return b.length>=2&&a.indexOf(b)>=0;
+}
+function wwScribeAllowedRole(w,role){
+  var b=wwBoard(w.count,w);
+  return !!(b[role]||role==='villager');
+}
+function wwScribeApply(w,obj,newRows){
+  var refs=wwScribeRefMap(w),claims=[],qa=[];
+  (Array.isArray(obj&&obj.claims)?obj.claims:[]).forEach(function(x){
+    if(!x)return;
+    var seat=Number(x.seat),role=String(x.role||''),ref=String(x.ref||''),quote=String(x.quote||'').trim();
+    var row=refs[ref];
+    if(!wwScribeAllowedRole(w,role)||!wwScribeSourceOk(row,seat,quote))return;
+    var direct=wwClaimIdentityRoles(quote,seat);
+    if(direct.indexOf(role)<0)return;
+    var key=seat+'|'+role+'|'+ref+'|'+wwScribeNormText(quote).slice(0,80);
+    if(!claims.some(function(y){return y.key===key}))claims.push({key:key,seat:seat,role:role,ref:ref,quote:quote});
+  });
+  (Array.isArray(obj&&obj.qa)?obj.qa:[]).forEach(function(x){
+    if(!x)return;
+    var target=Number(x.target),topic=String(x.topic||'').trim().slice(0,30);
+    var qRefs=(Array.isArray(x.questionRefs)?x.questionRefs:[x.questionRef]).map(String).filter(function(r){return !!refs[r]});
+    var aRefs=(Array.isArray(x.answerRefs)?x.answerRefs:[x.answerRef]).map(String).filter(function(r){
+      var rr=refs[r];return !!rr&&Number(rr.p.seq)===target;
+    });
+    var targetP=wwPlayerByUidTarget(w,target);
+    if(!targetP||!topic||!qRefs.length)return;
+    var status=aRefs.length?'answered':(x.status==='unanswered'?'unanswered':'unanswered');
+    var key=target+'|'+topic;
+    var old=qa.filter(function(y){return y.key===key})[0];
+    if(old){
+      qRefs.forEach(function(r){if(old.questionRefs.indexOf(r)<0)old.questionRefs.push(r)});
+      aRefs.forEach(function(r){if(old.answerRefs.indexOf(r)<0)old.answerRefs.push(r)});
+      old.status=old.answerRefs.length?'answered':status;
+    }else qa.push({key:key,target:target,topic:topic,questionRefs:qRefs,answerRefs:aRefs,status:status});
+  });
+  var s=w.scribe||wwEmptyScribe();
+  var ck={};s.claims=(s.claims||[]).concat(claims).filter(function(x){
+    if(!x||ck[x.key])return false;ck[x.key]=1;return true;
+  }).slice(-80);
+  var qmap={};(s.qa||[]).forEach(function(x){if(x&&x.key)qmap[x.key]=x});
+  qa.forEach(function(x){
+    if(!x||!x.key)return;
+    var old=qmap[x.key];
+    if(!old){qmap[x.key]=x;return}
+    old.questionRefs=old.questionRefs||[];
+    old.answerRefs=old.answerRefs||[];
+    (x.questionRefs||[]).forEach(function(r){if(old.questionRefs.indexOf(r)<0)old.questionRefs.push(r)});
+    (x.answerRefs||[]).forEach(function(r){if(old.answerRefs.indexOf(r)<0)old.answerRefs.push(r)});
+    old.status=old.answerRefs.length?'answered':x.status;
+  });
+  s.qa=Object.keys(qmap).map(function(k){return qmap[k]}).slice(-40);
+  s.seen=s.seen||{};
+  newRows.forEach(function(r){s.seen[wwScribeKey(r)]=1});
+  s.ran=true;s.updatedDay=Number(w.day)||0;s.error='';
+  w.scribe=s;
+}
+function wwPlayerByUidTarget(w,seq){
+  var hit=null;(w.players||[]).some(function(p){if(p&&Number(p.seq)===Number(seq)){hit=p;return true}return false});
+  return hit;
+}
+async function wwScribeTick(w,phase){
+  if(!w||w.over||w.stopped||w.scribeBusy)return;
+  if(!wwScribeOn())return;
+  if(!cfg||!cfg.key)return;
+  var rows=wwScribeNewRows(w);
+  if(!rows.length)return;
+  var gen=w.gen||0;
+  w.scribeBusy=true;
+  var oldMsg=w.msg;
+  w.msg='📝 场记正在核对公开发言…';render(true);
+  try{
+    var txt=String(await wwCall(wwScribeSys(w,rows),'请整理这些新增公开事件。',900,.25)||'');
+    if(wwStaleG(gen)||w.stopped||w.over){w.scribeBusy=false;return}
+    var obj=wwScribeParse(txt);
+    if(!obj)throw new Error('场记返回格式不正确');
+    wwScribeApply(w,obj,rows);
+  }catch(e){
+    w.scribe=w.scribe||wwEmptyScribe();
+    w.scribe.error=String((e&&e.message)||e).slice(0,80);
+  }
+  w.scribeBusy=false;w.msg=oldMsg||'';render(true);
 }
 /* 好人发言前要先在「草稿纸」上盘一遍；这里把草稿纸和发言拆开：
    草稿纸只留在它自己身上（不上屏、不进公共记录、别的角色看不到）。 */
@@ -33015,6 +33229,7 @@ var _WWAC=null,_WWRETHINK=0;
    效果看模型听不听话；嫌 AI 推理变浅了，在开局设置里切回「照旧」即可（存进 cfg.wwHush，关掉就是 false）。 */
 var WW_HUSH='【别想太久】这是个快节奏的桌游，不是写论文：只做一次简短比较，抓住一条主证据和一条反证就够了。别复述输入、别反复自我推翻、别把同一件事想两遍；有数了就立刻按当前任务规定的字段给出结论：该写票就写票，该写目标、判断、留言就写全，不省字段，不要先写长篇推理。';
 function wwHushOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwHush===false)}
+function wwScribeOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwScribe===false)}
 async function wwCall(sys,usr,maxtok,temp){
   var mt=(maxtok==null)?160:maxtok;   /* 0 是「不限制」：请求里就不放 max_tokens */
   var dyn='';
@@ -33743,10 +33958,11 @@ async function wwAuditRec(id){
 }
 /* 身份盘的纯文本版本：给复制、测试和复盘用；只收当前最终判断与最近改判，不复制所有长思考。 */
 function wwDumpQALedger(w){
-  var gs=wwQuestionLedger(w),L=[];
-  if(!gs.length)return '';
+  var gs=wwQuestionLedger(w),L=[],have={};
+  if(!gs.length&&!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length))return '';
   L.push('【质问与回答记录】');
   gs.forEach(function(g){
+    have[g.target.uid+'|'+g.topic]=1;
     L.push('· '+(g.target.seq?g.target.seq+'号':g.target.name)+' · '+g.topic+' · '+
       (g.status==='answered'?'已回答':'未回答')+(g.repeated?(' · 回答后重复追问 '+g.repeated+' 次'):''));
     g.asks.forEach(function(a){
@@ -33756,6 +33972,18 @@ function wwDumpQALedger(w){
       L.push('  答 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260));
     });
   });
+  if(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length){
+    var refs=wwScribeRefMap(w);
+    w.scribe.qa.forEach(function(qa){
+      var tp=wwPlayerByUidTarget(w,qa.target),key=tp?tp.uid+'|'+qa.topic:'';
+      if(!tp||have[key])return;
+      var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
+      var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
+      L.push('· '+tp.seq+'号 · '+qa.topic+' · 场记 '+(ans.length?'已回答':'未回答'));
+      asks.forEach(function(a){L.push('  问 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100))});
+      ans.forEach(function(a){L.push('  答 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260))});
+    });
+  }
   return L.join('\n');
 }
 function wwDumpIdentityBoard(w){
@@ -33763,6 +33991,8 @@ function wwDumpIdentityBoard(w){
   var players=w.players,L=[];
   var tag=function(p){return p?((p.seq?p.seq+'号 · ':'')+p.name):'？'};
   L.push('【AI身份盘】');
+  var sc=w.scribe||null;
+  L.push('【场记状态】'+(sc&&sc.ran?('已核对 · 第 '+(sc.updatedDay||'?')+' 天 · 身份声明 '+((sc.claims||[]).length)+' 条 · 问答 '+((sc.qa||[]).length)+' 条'):'尚未核对，使用本地规则兜底')+(sc&&sc.error?(' · 最近错误：'+sc.error):''));
   L.push('【程序整理的公开身份线索】');
   L.push(wwPublicIdentityText(w));
   var qaDump=wwDumpQALedger(w);
@@ -34996,6 +35226,8 @@ async function wwExile(p){
 async function wwDoVote(voters,targets){
   var w=V.ww;
   var gen=wwGenNow();
+  await wwScribeTick(w,'before-vote');
+  if(wwStaleG(gen)||wwAbort())return;
   w.votes={};w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;
   w.msg='';                      /* 清掉上一次发言留下的"正在发言…"，别和投票状态叠在一起 */
   var me=(voters||[]).filter(function(p){return p&&p.alive&&p.isUser})[0]||null;
@@ -35905,6 +36137,8 @@ async function wwDay(){
   /* 【新·面杀】昨晚狼队收了刀：狼队的底已经露了 —— 死讯、死者的遗言、警徽都处理完了，
      这一天不再发言、也不再投票：直接把狼队押上处刑台（她们不用再撒谎），审完判好人获胜。 */
   if(w.wolfBlown){await wwBlownDay();return}
+  await wwScribeTick(w,'day-start');
+  if(wwStaleG(gen))return;
   /* 发言顺序：有警长就由警长定；没警长就随机挑一个开头、按座位号往下（不是每次都从你开始） */
   if(wwHasBadge()){await wwDecideOrder();if(wwStaleG(gen))return;}
   else{w.speechStart='';w.speechDir=1;w.speechMode='random';}
@@ -36177,6 +36411,7 @@ function wwSnap(){
     /* 【新·面杀】狼队收刀的结局状态：接着玩的时候要认回来（不然读档以后这段结局就没了） */
     wolfBlown:!!w.wolfBlown,blownWolves:(w.blownWolves||[]).slice(),
     roomMemory:(w.roomMemory||[]).slice(),wordsDone:!!w.wordsDone,
+    scribe:wwCloneScribe(w.scribe||wwEmptyScribe()),
     pendingDeaths:(w.pendingDeaths&&w.pendingDeaths.length)?w.pendingDeaths.map(function(x){return {uid:x.uid,killedBy:x.killedBy||'wolf'}}):null
   };
 }
@@ -36206,6 +36441,7 @@ function wwSnapFromRec(rec){
     wolfRoles:Object.assign({},rec.wolfRoles||{}),wolfRolesDone:!!rec.wolfRolesDone,
     table:'online',peekDone:true,        /* 老记录不知道当初选的是不是面杀：按网杀接着玩，抿身份也不再补 */
     wolfBlown:false,blownWolves:[],roomMemory:null,wordsDone:true,   /* 老记录没有这段收刀结局 */
+    scribe:wwCloneScribe(rec.scribe||wwEmptyScribe()),
     sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeAll:[],speechStart:'',speechDir:1};
 }
 /* 把一份存档倒回 V.ww */
@@ -36244,6 +36480,7 @@ function wwApplySnap(s,recId){
   /* 【新·面杀】狼队收刀的结局状态也接回来（那一刻之后被存下来的，继续走完这段审判） */
   w.wolfBlown=!!s.wolfBlown;w.blownWolves=(s.blownWolves||[]).slice();
   w.roomMemory=(s.roomMemory||[]).slice();w.wordsDone=!!s.wordsDone;w.blownHist=[];
+  w.scribe=wwCloneScribe(s.scribe||wwEmptyScribe());w.scribeBusy=false;
   w.cids=w.players.filter(function(p){return !p.isUser&&p.cid}).map(function(p){return p.cid});   /* 让「再来一局」还能用同一批角色 */
   w.judge='';w.mvpUid='';w.title='';w.reacts=[];w.reacting=false;
   w.night=s.night?{wolf:byUid[s.night.wolf]||null,save:!!s.night.save,poison:byUid[s.night.poison]||null,
@@ -36565,7 +36802,7 @@ function wwSave(silent){
   var w=V.ww;if(!w||!w.players||!w.players.length)return;
   var unfinished=!!(w.stopped||!w.over);      /* 没打完的局：连进度一起存，之后可以接着玩 */
   var rec={id:w.recId||('g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),t:Date.now(),game:'ww',finished:!unfinished,
-    count:w.count,mode:w.mode,table:(w.table==='face')?'face':'online',day:w.day,winner:w.winner||'',endText:w.endText||'',
+    count:w.count,mode:w.mode,table:(w.table==='face')?'face':'online',board:wwBoardSafe(w.board),day:w.day,winner:w.winner||'',endText:w.endText||'',
     players:w.players.map(function(p){
       var c=p.isUser?null:chOf(p.cid);
       return {uid:p.uid,name:p.name,seq:p.seq||0,isUser:!!p.isUser,cid:p.cid||null,role:p.role,alive:!!p.alive,anon:!!p.anon,
@@ -36574,7 +36811,8 @@ function wwSave(silent){
     }),
     sheriffUid:w.sheriffUid||null,sheriff:(w.sheriff!==false),
     wolfRoles:Object.assign({},w.wolfRoles||{}),wolfRolesDone:!!w.wolfRolesDone,
-    log:wwHistoryLog(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||''};
+    log:wwHistoryLog(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||'',
+    scribe:wwCloneScribe(w.scribe||wwEmptyScribe())};
   if(unfinished){
     try{var sp=wwSnap();sp.id=rec.id;save(LS_WWSAVE,sp)}catch(e){}          /* 存一份能接着玩的进度（只留最近一份） */
   }else{
@@ -36677,6 +36915,7 @@ function wwStart(){
   w.wolfBlown=false;w.blownWolves=[];w.roomMemory=null;w.blownHist=[];   /* 【新·面杀】新的一局：狼队还没收刀 */
   w.wolfRoles={};w.wolfRolesDone=false;   /* 【新】9/12 人局首夜由狼队自己选择分工 */
   w.scene='';                        /* 【修】新的一局：场景标记清空（免得上一局的黄昏带过来） */
+  w.scribe=wwEmptyScribe();w.scribeBusy=false;
   w.gen=(w.gen||0)+1;                 /* 新一局的新编号：老循环认不出自己就会自动收手 */
   w.resayIdx=null;w.resayOn=false;
   w.resume='';
@@ -40136,6 +40375,11 @@ window.GAME={
   wwHush:function(on){
     var v=(on===1||on==='1'||on===true);
     try{cfg=cfg||{};cfg.wwHush=v;save(LS.cfg,cfg)}catch(e){}
+    render(false);
+  },
+  wwScribe:function(on){
+    var v=(on===1||on==='1'||on===true);
+    try{cfg=cfg||{};cfg.wwScribe=v;save(LS.cfg,cfg)}catch(e){}
     render(false);
   },
   wwThinkTap:function(btn,ns,key){wwThinkTap(btn,ns,key)},
