@@ -15260,8 +15260,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
-【最近更新 · 2026-10-24】
+【最近更新 · 2026-10-25】
 狼人杀准备页的 12 人板子新增「守墓人石像鬼」：3 个普通狼、1 个石像鬼、4 个平民、预言家、女巫、猎人和守墓人。石像鬼属于狼人阵营，但普通狼与石像鬼互不相认，石像鬼不参加普通狼的夜间商量和刀人；她每晚可以查验一名存活玩家的具体身份，普通狼全部出局后才会接刀。守墓人每晚自动得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份；第一夜、平票或无人被放逐时没有结果。两者的查验记录和身份信息只给自己看，并会随中途续局保存。邀请卡、预设配置和角色固定身份也已支持这个新板子。
+狼人杀的观战模式新增「上帝视角」：进入对局后，点牌桌右上角的眼睛按钮，就能在座位上看到每名玩家的具体身份，并在记录区看到夜间谁对谁用了技能；所有狼人夜间交流也会直接显示。再点一次眼睛就关闭。这个视角只在观战模式出现，不会把答案发给其他 AI。女巫现在无论网杀还是面杀都全程不能自救。
 新增 12 人「梦魇守卫」板子：3 个普通狼、1 个梦魇、4 个平民、预言家、女巫、猎人和守卫。梦魇每晚最先单独行动，可以选择空梦，或恐惧一名玩家；不能连续两晚恐惧同一人。被恐惧者当夜不能使用技能，猎人被恐惧后当夜死亡或紧接着的白天被票出都不能开枪。梦魇完成恐惧或空梦后与普通狼会合并参加狼刀和狼队分工，且无论由 AI 还是你本人操作，梦魇都排第一个选择分工；首夜恐惧前她不知道普通狼身份，会合后才显示红名，普通狼则从第一夜起就知道梦魇是谁。
 所有 12 人板子现在按「屠边」判胜负：狼人全部出局则好人胜；全部村民出局或全部神职出局则狼人胜，不再按狼人和好人数量相等直接结束。若同一夜狼刀刚好完成屠边、同时最后一只狼又被女巫毒死，则按约定的狼刀优先判狼人胜。6～9 人局仍使用原来的数量判定。
 狼人杀 NPC 现在每人有一条约 30～45 字的专属短人设，口吻涵盖古风、名侦探式装帅、嘴硬带“喵”、快嘴、冷幽默、直球、效率派等；每个 NPC 只读取自己的那条，不额外读取其他 11 份。所有角色发言都会提醒保持本人的句长、节奏、情绪和少量自然口癖，避免全场都像同一种分析员。
@@ -15344,7 +15345,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 音乐：加歌单、一起听歌；角色能不能看到你在听什么、能不能帮你放歌，看权限。
 · 互动：掷骰子、抽签、看时间、记心情、留便条、写日记、调好感度，还有画册。写日记时角色可以选公开日记或只有它自己可见的私密日记；私密日记在互动页只显示时间提示，不显示正文。角色也能翻看自己以前写的公开日记和私密日记。
 · 创意：角色给你做的小网页、小游戏都收在这里，点开就能看、能玩。
-· 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。还有一个「海底陪伴」小游戏：里面养一只低多边形 3D 小鲸鱼，单指拖动可以绕着小鲸鱼转视角，双指捏合可以放大缩小，轻点小鲸鱼会和它说话。菜单里可以投喂、拍照、重置状态；「照片集」会保存拍下来的海底照片。点右上角「绑定角色」，可以让小鲸鱼同步一个现有角色的人设和说话习惯，变成那个角色在海里的鲸鱼版本；它会参考一小段长期记忆，但不会把整份聊天记录塞进去。这个游戏的照片和状态跟着本地备份走。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。面杀里**女巫全程不能自救**（网杀是只有第一夜能自救）。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
+· 游戏：谁是卧底、狼人杀这类，可以邀请角色一起玩。还有一个「海底陪伴」小游戏：里面养一只低多边形 3D 小鲸鱼，单指拖动可以绕着小鲸鱼转视角，双指捏合可以放大缩小，轻点小鲸鱼会和它说话。菜单里可以投喂、拍照、重置状态；「照片集」会保存拍下来的海底照片。点右上角「绑定角色」，可以让小鲸鱼同步一个现有角色的人设和说话习惯，变成那个角色在海里的鲸鱼版本；它会参考一小段长期记忆，但不会把整份聊天记录塞进去。这个游戏的照片和状态跟着本地备份走。狼人杀的「准备」页可以选两种玩法：网上（网杀，和以前一样，夜里狼队在「狼队频道」打字商量，一夜 50 字）和面对面（面杀，一群人住在一个村子里、各有房间，白天在「集会堂」碰头）。面杀是仿「真人狼人杀」的沉浸版：狼队夜里在「夜间密会」碰头，**可以正常说话**（只有狼听得见，一夜 100 字）；白天投票出局叫「处刑」（票最多的被推上处刑台）；她自己是狼时，夜里刀了人会写「今晚你带着刀来到了 ×号 的房间……」，她已经出局、由队友去刀时写「今晚你的队友带着刀来到了 ×号 的房间……」；预言家 / 女巫 / 守卫 / 猎人的技能在她亲自操作时也是同样的说法（门口占卜、赶到血泊现场、门口守着、临死前扣扳机）。网杀和面杀里**女巫都全程不能自救**。面杀还会在发完身份、入夜之前先来一段「抿身份」（她自己写表情小动作，还能点头像去看别人的脸色；AI 角色也会随机偷偷盯别人看一两次，看到的样子会记在它自己心里）；**她要是真的死在夜里**（被守住、被解药救回来不算），会先让她写遗言（那时她还不知道是谁下的手），再演一段「夜间 · 你的房间」：下手的人（狼或者毒她的女巫）来找她说话，她可以骂人、可以问为什么、也可以点「跳过这段」；几个人一起下的手还能自己挑跟谁对线（可以多选），演完角色动手、写明「你的生命值：0」才结束，这段结束以后她的遗言才会公开给场上其他人（所以不会剧透；上警把死讯押后的话这段也跟着押后）。白天发言可以用括号写语气和动作。准备页勾上角色后，还能给每个角色写一句「TA 长什么样」（例：一个帅气女教师的样子），这样别的角色就不会认错人。另外狼人杀里角色和 NPC 默认都按女生处理（拿不准性别就用「她」，也不许拿性别刻板印象猜身份）。
 · 【狼人杀 · 面杀的夜戏（补充）】她死在夜里那一段「夜间 · 你的房间」是整屏的夜戏：深色、占满一屏，说话的人只写角色名、不写「几号」；在游戏记录里收成一条、默认折起来，点标题才展开。这一场戏里她可以求饶：把凶手说动了的话，狼可以「收刀」放过她（收刀就不死，那一夜算平安夜，之前写的遗言也不公布）；被女巫毒死的收不了刀。这一场戏（她和凶手互骂的那些话）**不给裁判复盘看**；但狼队夜里商量「刀谁」的「夜间密会 / 狼队频道」照旧给裁判看（评狼队打法要用）。另外，她分享战绩给角色时：发言是**完整**的（不截断）、不带思考链；这一段挨刀小剧场**默认不跟着分享**，想分享就在战绩页点「🌙 单独分享『夜间 · 你的房间』」。
 · 【狼人杀 · 空刀 / 收刀 / 掀桌】轮到狼人在夜里刀人时，界面上有一个「空刀」按钮（今晚一个人都不杀）：这是高端局偶尔用的打法（做「平安夜」、逼女巫不敢乱用解药、给悍跳做局）。AI 狼也会自己考虑空刀，几只狼各表一态，主张空刀的比主张某个目标的多，这一晚就真的不杀人。另一种是「收刀」：她在那段夜戏里把人说动了，狼放过她——这一晚同样没人死。这两种都会在上帝视角记录里写清楚（「狼人本来要刀 ×号，最后收刀放过了她」），所以裁判知道这是战术、不是程序出错；动手的狼自己也记得「我收刀放过了她」（不会被当成女巫救人）；面杀里的好人也知道「平安夜」未必是女巫开药或守卫守住，也可能就是狼没刀——所以她说「狼昨晚没刀人」时，别人会认真接过来盘。还有「掀桌」：AI 狼要是成了场上**最后一只狼**、自己又觉得翻不了盘，轮到她白天发言时会自己决定「继续装 还是 掀桌」；掀桌就是公开承认自己是狼、说一段投降演说，然后当场被处刑（好人直接获胜）——这样它不用再硬撑着装，也不会一直泡在思考里想不出策略。
 · 【狼人杀 · 面杀的夜戏细节】门口站着几只狼时，会先让她挑要跟谁对线（**可以只挑一个**，也可以多选）；对线时说话顺序每次随机洗一遍（像群聊那样，不是固定按座位号），而且后说的人知道前面的人刚说了什么；聊满 5 轮之后，对面还能自己判断要不要再多聊两轮（最多拖到 30 轮）。这一段（连同「抿身份」和「死了之后的遗言+夜戏」整个流程）都做了容错：里面出小错也不会把整局打断。
@@ -15410,7 +15411,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=64;  /* 64：12 人屠边；63：梦魇优先分工；62：梦魇守卫 */
+const GUIDE_VER=65;  /* 65：观战上帝视角与女巫全程不能自救；64：12 人屠边；63：梦魇优先分工 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -29107,6 +29108,17 @@ var CSS=[
 '.ww-stop svg{width:15px;height:15px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}',
 '.ww-stop:active{transform:scale(.94)}',
 '.ww-helpbtn{color:var(--dim)}',
+'.ww-godbtn.on{background:var(--wwaccdim,rgba(200,163,90,.2));border-color:var(--wwaccline,rgba(200,163,90,.55));color:var(--wwacc2,#edd49a)}',
+'.ww-godbtn .ww-ui-ic{width:15px;height:15px;margin:0;vertical-align:0}',
+'.ww-godbtn .ww-ui-ic svg{width:15px;height:15px}',
+'.ww-godrole{display:block;max-width:52px;font-size:8.5px;line-height:1.25;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}',
+'.ww-godrole.wolf{color:#ff9a90}',
+'.ww-godrole.good{color:#f1d38d}',
+'.ww-godbox{margin:8px 0 12px;padding:8px 9px;border-radius:12px;background:rgba(7,12,18,.74);border:1px solid rgba(237,212,154,.34);color:#f6f8fa;box-shadow:0 6px 18px rgba(0,0,0,.22);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}',
+'.ww-godbox summary{cursor:pointer;font-size:10.5px;font-weight:700;color:#f1d38d;line-height:1.5}',
+'.ww-godbox summary .ww-ui-ic{vertical-align:-3px;margin-right:3px}',
+'.ww-god-lines{margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:10.5px;line-height:1.5;color:rgba(244,248,251,.9)}',
+'.ww-god-lines>div{padding:4px 6px;border-radius:7px;background:rgba(255,255,255,.055)}',
 '.ww-helpmask{background:rgba(3,5,8,.38);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:auto}',
 '.ww-helpbox{max-width:370px;padding:16px;background:linear-gradient(160deg,rgba(20,27,36,.97),rgba(8,12,18,.96));border-color:rgba(218,235,248,.24)}',
 '.ww-help-board{padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(218,235,248,.16)}',
@@ -31773,7 +31785,7 @@ function wwCfgHTML(){
      '<p class="gx-hint">省流会压缩较早发言、限制公开发言长度，并提醒 AI 少写长篇思考，更省 token；推理可能浅一点。</p>';
   h+='<details class="gx-log" style="margin-top:12px"><summary>规则与玩法说明</summary><div class="gx-vs">'+
      '<p class="gx-hint">网杀：夜里狼队在「狼队频道」打字商量；白天发言不写动作神态。面杀：在村子各自的房间过夜、白天去集会堂，先「抿身份」，狼队夜里在「夜间密会」正常说话。</p>'+
-     '<p class="gx-hint">面杀白天投票出局叫「处刑」；夜里真的死了会先留遗言，再演一段「夜间 · 你的房间」。女巫在面杀里全程不能自救。</p>'+
+     '<p class="gx-hint">面杀白天投票出局叫「处刑」；夜里真的死了会先留遗言，再演一段「夜间 · 你的房间」。网杀和面杀的女巫都全程不能自救。</p>'+
      '<p class="gx-hint">角色卡上的「'+wwUiIcon('book')+'教程」可以单独开关：打开的角色会多拿一份术语和思路小抄（默认关）。</p>'+
      '</div></details>';
   h+='<button class="ww-btn" type="button" onclick="GAME.wwCfg(0)"><span class="bar"><span class="orn">'+WW_ORN_SVG+'</span><span class="btxt">完成</span></span></button>';
@@ -32002,6 +32014,8 @@ function wwFactsFor(p){
       '\n· 活着的狼队友：'+(team.filter(function(x){return x.alive&&x!==p}).map(wwName).join('、')||'（无，只剩你）')+'。'+
       '\n· 你是 '+wwNum(p)+p.name+'。'+
       (w.players.some(function(x){return x.role==='gargoyle'})?'本局另有一只石像鬼，但普通狼不知道她是谁。':''));
+    var gh=wwGargoyleHuntHint(p);
+    if(gh)L.push(gh);
     if(w.night&&w.night.feared)L.push('· 最近这一夜梦魇恐惧的是 '+wwName(w.night.feared)+'。');
     var myJob=wwWolfJobOf(p);
     if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+WW_WOLF_JOB_HELP[myJob]);
@@ -32098,6 +32112,16 @@ function wwMarkBadge(uid){
   var k=wwMarkOf(uid);if(!k)return '';
   return '<span class="ww-mkbadge '+k+'">'+WW_MARK_TXT[k]+'</span>';
 }
+/* 观战专用的上帝视角：只影响本地界面，不会发给任何 AI。 */
+function wwGodOn(){var w=V.ww;return !!(w&&w.mode==='watch'&&w.godView)}
+function wwGodNightHTML(){
+  var w=V.ww;if(!wwGodOn())return '';
+  var rows=(w.rec||[]).slice(-30);
+  return '<details class="ww-godbox" open><summary>'+wwUiIcon('eye')+'上帝视角 · 夜间行动</summary>'+
+    '<div class="ww-god-lines">'+(rows.length?rows.map(function(x){
+      return '<div>第 '+esc(String(x.d||'?'))+' 天 · '+esc(x.t||'')+'</div>';
+    }).join(''):'<div>第一夜还没开始行动。</div>')+'</div></details>';
+}
 function wwBoardSafe(bd){return (bd==='wolfking'||bd==='knightking'||bd==='gravegargoyle'||bd==='nightmareguard')?bd:'std'}
 function wwBoardLabel(bd){return bd==='knightking'?'骑士白狼王':(bd==='wolfking'?'守卫白狼王':(bd==='gravegargoyle'?'守墓人石像鬼':(bd==='nightmareguard'?'梦魇守卫':'预女猎白')))}
 function wwBoard(n){
@@ -32144,6 +32168,31 @@ function wwBoardLine(){
     (b.gravekeeper?('（守墓人每晚查验上一白天被投票放逐者是好人还是狼人；第一夜和无人被放逐时没有结果。）'):'')+
     (b.gargoyle?('（石像鬼属于狼人阵营，但不与普通狼互认、不参加狼刀；每晚查验一名存活玩家的具体身份，普通狼全灭后接刀。）'):'')+
     (b.nightmare?('（梦魇属于狼人阵营。每晚最先单独恐惧一人，使其当夜技能失效，不能连续两晚恐惧同一人，可空梦；随后参加狼刀。首夜恐惧前不认识狼队友。）'):'');
+}
+/* 这几种 12 人板子常打好人警上压跳：先暂时跳预、给后置位金水或可疑位查杀，再退水。 */
+function wwClassicProxyBoard(){
+  var w=V.ww;
+  return !!(w&&w.count===12&&(w.board==='gravegargoyle'||w.board==='nightmareguard'||w.board==='wolfking'||w.board==='knightking'));
+}
+function wwClassicProxyHint(p){
+  if(!wwClassicProxyBoard()||!p||p.isUser||wwIsWolf(p))return '';
+  var board=wwBoardLabel(V.ww.board);
+  return '【'+board+' · 好人压跳是常规操作】这一板的好人常在警上暂时跳预言家、给后置位金水或给可疑位查杀，'+
+    '用来占位、施压、观察反应或替真预挡刀，随后再退水；这属于合理的压跳/代跳，不是“爱秀怪操作”。'+
+    '不能只因为她上过警、发过假验或后来退水就直接定狼和冲票。'+
+    '判断要看：退水时是否说明假验作废、真预出现后是否让位并跟真预归票、压跳期间有没有故意搅乱好人视角、退水后是否继续认真盘票。'+
+    '好人应当理解和支持这条路线；当然狼也可能穿同样的衣服，所以保留判断，不无条件认好。';
+}
+/* 石像鬼和普通狼互不相认：狼队要能从公开信息里谨慎识别“大狼”的递话。 */
+function wwGargoyleHuntHint(p){
+  var w=V.ww;
+  if(!w||w.board!=='gravegargoyle'||!wwIsPackWolf(p))return '';
+  return '【石像鬼板子 · 主动寻找大狼】本局另有一只石像鬼，普通狼从开局就不知道她是谁，但要认真找她。'+
+    '石像鬼能查具体身份，常会用警上跳预、给后置位金水/查杀、带票方向或对神职的判断来递信息。'+
+    '如果某个上警者给后置位一个金水、尤其把金水给一个本来就偏狼的位置，随后观察或退水，要先想到一种可能：她可能是石像鬼，'+
+    '而“给狼金水”可能是在向狼队列信号，并不是真的认那个位置为好人。'+
+    '但好人也会穿石像鬼的衣服钓狼，所以不能无条件认定；看她递的信息是否精准命中狼、是否没有伤害狼队、退水后是否给真预让位。'+
+    '拿不准时不要带头把疑似大狼票出去或夜里刀她；先按潜在盟友保护并继续用公开信息验证，别当众喊破她的身份。';
 }
 /* 好人发言前要先在「草稿纸」上盘一遍；这里把草稿纸和发言拆开：
    草稿纸只留在它自己身上（不上屏、不进公共记录、别的角色看不到）。 */
@@ -32445,7 +32494,7 @@ function wwSysFor(p,task){
   L.push('【你是谁 / 你的身份】你是 '+wwName(p)+'（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwName(p)+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'无特殊能力。听发言盘 1~2 个狼和理由，独立投票；被怀疑时用时间线自证。':
      r==='seer'?'每晚验一人。报清每夜验人、金水/查杀和归票；被质疑时正面回答最关键的问题，有把握就给出可验证信息，不靠长篇口语化时间线自证。通常首轮起跳。':
-     r==='witch'?'解药、毒药各一次，同夜只用一瓶。'+(wwFaceOn()?'面杀全程不能自救。':'仅首夜能自救。')+'有守卫时首夜可救人；不乱毒，少暴露。被怀疑时只讲真实药况和救人时机，别为了圆场编药。':
+     r==='witch'?'解药、毒药各一次，同夜只用一瓶。女巫全程不能自救。有守卫时首夜可救人；不乱毒，少暴露。被怀疑时只讲真实药况和救人时机，别为了圆场编药。':
      r==='hunter'?'被刀或被票可开枪；被毒不能开枪。平时藏身份；自己快被推出、且亮枪能改变票型时，及时报猎人。':
      r==='knight'?'每局可决斗一次。自己发言时可以决斗；所有人发言结束、投票前还会再得到一次考虑机会。警长竞选和平票 PK 不能决斗。命中狼人则对方立即出局、白天结束；命中好人则你自己出局、白天继续。别在没证据时乱戳。':
      r==='idiot'?'被票翻牌免死；之后能发言不能投票；夜里仍会死。平时可藏，稳定成为抗推位时及时翻牌自保。':
@@ -32507,13 +32556,15 @@ function wwSysFor(p,task){
     '夜死也可能是狼自刀，定狼出局（自爆/被骑士戳/所有跳预都死＝至少死一狼）可盘狼队剩余数量和真预在哪边，'+
     '不能以此认定站过狼的都是狼。狼会卖队友、倒钩、给好人警徽或金水做身份。'+
     '证据强弱：主持人事实、可信验人、票型矛盾>具体动机和前后矛盾>语气；话顺、理由齐不能单独定狼。'+
-    '首夜验人多为盲选，允许按人设随口说“随便验、看头像或名字、觉得像高玩”；真预和悍跳都要给一句首验理由，别人不能只因理由牵强就定狼。'+
+    '首夜验人多为盲选，允许按人设随口说“随便验、看头像或名字、觉得像高玩”；真预和悍跳都要给一句首验理由，别人不能只因理由牵强就定狼。第一天不要踩预言家的验人理由，只从她给出的逻辑本身分析。'+
     '单边神职无对跳或明确反证时，可以先不投她，但这只说明她神职面较大，不证明她归票正确。'+
     '出现死讯、翻牌或关键改票后重算谁最受益；有新证据才改票。');
   L.push('【滴滴代跳与退水】好人为诈身份或挡刀，可以假跳预言家、发假金水或假查杀；但要有退出计划。'+
     '跳预者主动退水，很可能是好人代跳中止，不能只凭退水就直接定狼；也不等于铁好，要结合退水时机和后续行为，防狼借退水洗白。'+
     '代跳者退水后，其之前报的金水、查杀不再按可信验人算，应明确视为假验作废，并转听真预归票。'+
     '真预识破代跳后可以接受配合、暂不抢跳；分不清代跳和狼时，看验人、退水说明和后续归票。');
+  var proxyBoard=wwClassicProxyHint(p);
+  if(proxyBoard)L.push(proxyBoard);
   if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
   /* 【新】昨晚你自己收刀放过了她：只有动手的那几只狼知道，别以为她是被女巫救的 */
   if(p.sparedNote)dyn.push('【昨晚你自己做的事】你本来要刀 '+p.sparedNote.tag+' · '+p.sparedNote.name+'，'+
@@ -32891,8 +32942,8 @@ async function wwGargoyleKill(p){
 async function wwWitchChoose(witch,victim){
   var w=V.ww,out={save:false,poison:null};
   var selfKnife=!!(victim&&victim===witch);
-  /* 【新·面杀】面杀里女巫全程不能自救（网杀照旧：只有第一夜可以自救） */
-  var maySave=!!(victim&&w.witchSave&&!(selfKnife&&(wwFaceOn()?true:(w.day!==1))));
+  /* 女巫全程不能自救，网杀和面杀一致。 */
+  var maySave=!!(victim&&w.witchSave&&!selfKnife);
   var mayPoison=!!w.witchPoison;
   if(!maySave&&!mayPoison)return out;
   /* 【改】女巫只有在解药还在时，主持人才会告诉她今晚谁被狼刀（跟真人女巫的待遇一样）。
@@ -32901,7 +32952,7 @@ async function wwWitchChoose(witch,victim){
   if(w.witchSave&&victim){
     t='今晚狼人刀的人是：'+victim.name+'。';
     if(maySave)t+='你的解药还在，可以救 TA。';
-    if(selfKnife)t+=wwFaceOn()?'（规则：这一局是面杀，女巫全程不能自救。）':'（规则：第二夜起女巫不能救自己，所以今晚你不能自救。）';
+    if(selfKnife)t+='（规则：女巫全程不能自救，所以今晚你不能自救。）';
   }else if(!w.witchSave){
     t='你的解药已经用过了，所以今晚谁被狼刀、死没死人，你都无从得知（别假装知道刀口）。';
   }
@@ -34180,7 +34231,7 @@ async function wwNight(){
     if(me&&me.alive&&witch===me){
       var selfKnife=!!(w.night.wolf&&w.night.wolf===me);
       if(w.night.wolf&&w.witchSave){
-        if(selfKnife&&(wwFaceOn()||w.day!==1)){
+        if(selfKnife){
           w.log.push({k:'me',text:'🧪 今晚被刀的是你，不能自救。'});
           render(true);
         }else{
@@ -34706,7 +34757,8 @@ async function wwPoliceSpeech(p){
       :'你是第一个发言，就诚实说本想先听但暂时没信息；')+
     '明确说自己是好人，可退水。②好人代跳：直接假跳预言家，不必说“我是来听发言”；'+
     '可给可信者金水，或给可疑者、后置位上警者假查杀试探。目标反应像狼、真预明显接受代跳且继续装能挡刀或带票，才留下；'+
-    '真预反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真预归票。';
+    '真预反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真预归票。'+
+    (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后置位金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'');
   var priorSeer=wwKnightClaims().map(wwPlayerByUid).filter(function(x){
     return x&&x!==p&&Number(x.seq)<Number(p.seq);
   });
@@ -34743,6 +34795,7 @@ async function wwPoliceWater(p){
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
   var proxyHint=(!wwIsWolf(p)&&p.role!=='seer')
     ?'\n如果你只是上警听发言，目的完成且没有明确留警收益，通常退水。如果你是好人代跳：真预明显接受代跳且继续装能挡刀或带票，才不退；真预反驳、试探没收获、目标更像好人，或继续装可能被骑士决斗，就退水。退水后要让其他好人知道你是代跳、假验作废。'
+      +(wwClassicProxyBoard()?'\n本板的警上压跳/代跳是常规操作；按退出计划正常退水并说明假验作废，本身不能当成狼点。':'')
     :'';
   var sys=wwSysFor(p,'现在决定继续竞选还是退水。没跳预言家且上警目的已完成，通常应退水；有明确收益才留下。其他上警者：'+others+'。'+
     proxyHint+'\n【输出格式】只输出：退水 或 不退水。');
@@ -36082,6 +36135,7 @@ function wwStart(){
   w.auto=(w.mode==='watch'&&w.autoWatch);
   w.phase='night';
   w.helpOpen=false;
+  w.godView=false;
   /* 板子简称显示在「现场」标题栏，不再单独写一条系统气泡 */
   /* 【新】她在准备页写的「大家的样子」：也铺一条到现场，方便她自己核对有没有生效 */
   var lkArr=w.players.filter(function(p){return p&&!p.anon&&String(p.look||'').trim()}).map(function(p){return wwName(p)+'：'+String(p.look).trim()});
@@ -36546,11 +36600,13 @@ function wwSeatHTML(p){
   var upSpoke=!!(w.upSpoke&&w.upSpoke[p.uid]);
   var st=p.alive?(w.electing?(upOut?'已退水':(upNow?(upSpoke?'已发言':'未发言'):'未上警')):((p.role==='idiot'&&p.revealed)?'白痴·已翻牌':(voted?'已投票':(dayOn?(spoke?'已发言':'未发言'):'在场')))):(w.over?(WW_ROLE_NAME[p.role]||'出局'):'出局');
   var fx=(w.fx&&w.fx.uid===p.uid)?('<span class="ww-fx '+(w.fx.kind||'claw')+'">'+(w.fx.kind==='hit'?WW_IC_HIT:WW_IC_CLAW)+'</span>'):'';
+  var god=wwGodOn();
   return '<div class="ww-seat'+(p.alive?'':' out')+(p.isUser?' me':'')+((w.speaking&&w.speaking===p.uid)?' spk':'')+(pickable?' pick':'')+(votable?' pick':'')+(mypick?' mypick':'')+(hit?' hit':'')+(markable?' mkpick':'')+(knw?' knw':'')+(mk?(' mk-'+mk):'')+'"'+
      (pickable?(' onclick="GAME.wwPickUid(\''+p.uid+'\')"'):(votable?(' onclick="GAME.wwVotePick(\''+p.uid+'\')"'):(markable?(' onclick="GAME.wwMarkPick(\''+p.uid+'\')"'):'')))+'>'+
      '<span class="ww-seat-av">'+(p.seq?('<span class="ww-seat-no"'+(cc?(' style="background:'+esc(cc)+'"'):'')+'>'+p.seq+'</span>'):'')+
      (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.anon?'':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid)))))+wwMarkBadge(p.uid)+(upNow?('<span class="ww-uphand'+(mk?' lft':'')+'" title="上警">'+WW_IC_HAND+'</span>'):'')+((w.sheriffUid&&p.uid===w.sheriffUid)?('<span class="ww-sheriff" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+fx+'</span>'+
      '<span class="ww-seat-nm">'+esc(p.isUser?'我':(p.anon?'':p.name))+'</span>'+
+     (god?('<span class="ww-godrole '+(wwIsWolf(p)?'wolf':'good')+'">'+esc((WW_ROLE_EMOJI[p.role]||'')+' '+(WW_ROLE_NAME[p.role]||'未知'))+'</span>'):'')+
      '<span class="ww-seat-st'+(p.alive&&voted?' voted':((p.alive&&((dayOn&&spoke)||(w.electing&&upNow&&upSpoke)))?' spoke':''))+'">'+esc(st)+'</span>'+
      '</div>';
 }
@@ -36641,7 +36697,7 @@ function wwRefreshLog(){
   }catch(e){return false}
 }
 function wwLogHTML(){
-  var w=V.ww,h='';
+  var w=V.ww,h=wwGodNightHTML();
   var arr=w.log.slice(-60),base=w.log.length-arr.length;
   var lastAI=-1;                       /* 最后一条「角色」的发言：只有它才能重新说 */
   arr.forEach(function(e,i){
@@ -36697,9 +36753,9 @@ function wwLogHTML(){
     }else if(e.k==='vote'){
       h+='<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>';
     }else if(e.k==='wolf'){
-      /* 【新】狼队频道：只有「你也是狼」才看得到（你要是好人，这几条直接跳过） */
+      /* 狼队频道：正常只有狼看得到；观战开启上帝视角时完整公开。 */
       var _m=wwMe();
-      if(!_m||!wwCanSeeWolfChat(_m))continue;  /* 梦魇首夜会合前、石像鬼都看不到普通狼队频道 */
+      if(!wwGodOn()&&(!_m||!wwCanSeeWolfChat(_m)))continue;  /* 梦魇首夜会合前、石像鬼都看不到普通狼队频道 */
       h+='<div class="ww-sys wolf" style="'+WW_WOLF_LOG_STYLE+'"><b style="'+WW_WOLF_HEAD_STYLE+'">'+wwUiIcon(wwFaceOn()?'moon':'wolf')+(wwFaceOn()?'夜间密会':'狼队频道')+' · 第 '+e.d+' 夜</b>'+esc(wwWolfWho(e))+'：'+esc(e.text)+'</div>';
     }else if(e.k==='me'){
       h+='<div class="ww-sys me'+(e.icon==='vote'?' ww-vln':'')+'">'+(e.icon==='vote'?WW_VOTE_ICON:'')+'<span>'+wwSystemHTML(e.text)+'</span></div>';
@@ -37402,7 +37458,7 @@ function wwInfoHTML(){
       mine.push('狼队：'+(mateN||'没有队友')+(me.role==='wolfking'?(w.kingBoom?' · 💥已用':' · 💥可用'):''));
     }
   }
-  if(b.witch)rules.push('女巫：解药、毒药各一瓶，同一晚限用一瓶。'+(wwFaceOn()?'面杀全程不能自救。':'第一夜可自救，之后不能。'));
+  if(b.witch)rules.push('女巫：解药、毒药各一瓶，同一晚限用一瓶。网杀和面杀都全程不能自救。');
   if(b.hunter)rules.push('猎人：被毒杀不能开枪。');
   if(b.knight)rules.push('骑士：每局决斗一次。自己发言时可决斗，所有人发言完、投票前还能再考虑一次；警长竞选和平票 PK 不能决斗。命中狼人则对方出局、白天立即结束；命中好人则骑士出局、白天继续。');
   if(b.gravekeeper)rules.push('守墓人：每晚查验上一白天被投票放逐者是好人还是狼人；第一夜、平票或无人被放逐时没有结果。');
@@ -37448,7 +37504,7 @@ function wwHTML(){
     }
     topRole='<i class="ww-top-role">'+wwSystemHTML(rb.join(' · '))+'</i>';
   }else{
-    topRole='<i class="ww-top-role">旁观 · 余 '+alive.length+' 人</i>';
+    topRole='<i class="ww-top-role">旁观 · '+(w.godView?'上帝视角':'身份隐藏')+' · 余 '+alive.length+' 人</i>';
   }
   /* 顶部游戏栏：返回 + 第几天 + 白天/夜晚气氛胶囊 + 结束（不再用那张大黑海报） */
   h+='<div class="ww-head"><div class="ww-top">'+
@@ -37456,6 +37512,7 @@ function wwHTML(){
      '<div class="ww-top-t">第 '+w.day+' 天'+
      '<span class="ww-mood '+(w.phase==='night'?'night':'day')+'">'+(w.over?(wwUiIcon('flag')+'结束'):(w.phase==='night'?(wwUiIcon('moon')+'夜里'):(wwUiIcon('sun')+'白天')))+'</span>'+
      topRole+'</div>'+
+     (w.mode==='watch'?'<button class="ww-snd ww-godbtn'+(w.godView?' on':'')+'" type="button" aria-label="'+(w.godView?'关闭上帝视角':'打开上帝视角')+'" aria-pressed="'+(w.godView?'true':'false')+'" onclick="GAME.wwGodToggle()">'+wwUiIcon('eye')+'</button>':'')+
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
      ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='knight'&&wwKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="骑士决斗" onclick="GAME.wwKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
@@ -37469,7 +37526,7 @@ function wwHTML(){
   h+='<div class="ww-stage">'+
      '<div class="ww-rail'+(picking?' picking':'')+'">'+w.players.slice(0,half).map(wwSeatHTML).join('')+'</div>'+
      '<div class="ww-center">'+
-       (w.log.length?wwLogHTML():'<p class="gx-hint">游戏正在准备…</p>')+
+       ((w.log.length||wwGodOn())?wwLogHTML():'<p class="gx-hint">游戏正在准备…</p>')+
      '</div>'+
      '<div class="ww-rail'+(picking?' picking':'')+'">'+w.players.slice(half).map(wwSeatHTML).join('')+'</div>'+
      '</div>';
@@ -39581,6 +39638,7 @@ window.GAME={
   wwReactGo:function(){wwReactGo()},
   wwStop:function(){wwStop()},
   wwInfo:function(on){var w=V.ww;if(!w)return;w.helpOpen=!!on;render(false)},
+  wwGodToggle:function(){var w=V.ww;if(!w||w.mode!=='watch')return;w.godView=!w.godView;render(true)},
   /* 装扮小铺（单人 · 做任务攒贝壳 · 换 SVG 头像图标 / 头像框） */
   shopHome:function(){V.view='shop';render(false)},
   shopBack:function(){V.view='shop';render(false)},
