@@ -15263,6 +15263,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-10-25】
 狼人杀准备页的 12 人板子新增「守墓人石像鬼」：3 个普通狼、1 个石像鬼、4 个平民、预言家、女巫、猎人和守墓人。石像鬼属于狼人阵营，但普通狼与石像鬼互不相认，石像鬼不参加普通狼的夜间商量和刀人；她每晚可以查验一名存活玩家的具体身份，普通狼全部出局后才会接刀。守墓人每晚自动得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份；第一夜、平票或无人被放逐时没有结果。两者的查验记录和身份信息只给自己看，并会随中途续局保存。邀请卡、预设配置和角色固定身份也已支持这个新板子。
 狼人杀的观战模式新增「上帝视角」：进入对局后，点牌桌右上角的眼睛按钮，就能在座位上看到每名玩家的具体身份，并在记录区看到夜间谁对谁用了技能；所有狼人夜间交流也会直接显示。再点一次眼睛就关闭。这个视角只在观战模式出现，不会把答案发给其他 AI。女巫现在无论网杀还是面杀都全程不能自救。
+狼队首夜分工新增真人代排：你自己是狼时，可以先选「我来安排全队」，按座位给每只狼指定悍跳、冲锋、倒钩或深水；也可以选「让狼队自己分配」。分工只是默认打法，狼队夜间频道里的真人指令优先级最高，其次是狼队这一夜的讨论，最后才是分工标签；AI 不能因为自己是深水狼等标签就拒绝用户要求它改跳、改刀或改票。石像鬼 AI 留遗言时，如果确实验到神职，会用“重点留意某号、夜里优先确认某号”这类隐晦方式给狼队递话，不会直接自曝或凭空编验人。
 新增 12 人「梦魇守卫」板子：3 个普通狼、1 个梦魇、4 个平民、预言家、女巫、猎人和守卫。梦魇每晚最先单独行动，可以选择空梦，或恐惧一名玩家；不能连续两晚恐惧同一人。被恐惧者当夜不能使用技能，猎人被恐惧后当夜死亡或紧接着的白天被票出都不能开枪。梦魇完成恐惧或空梦后与普通狼会合并参加狼刀和狼队分工，且无论由 AI 还是你本人操作，梦魇都排第一个选择分工；首夜恐惧前她不知道普通狼身份，会合后才显示红名，普通狼则从第一夜起就知道梦魇是谁。
 所有 12 人板子现在按「屠边」判胜负：狼人全部出局则好人胜；全部村民出局或全部神职出局则狼人胜，不再按狼人和好人数量相等直接结束。若同一夜狼刀刚好完成屠边、同时最后一只狼又被女巫毒死，则按约定的狼刀优先判狼人胜。6～9 人局仍使用原来的数量判定。
 狼人杀 NPC 现在每人有一条约 30～45 字的专属短人设，口吻涵盖古风、名侦探式装帅、嘴硬带“喵”、快嘴、冷幽默、直球、效率派等；每个 NPC 只读取自己的那条，不额外读取其他 11 份。所有角色发言都会提醒保持本人的句长、节奏、情绪和少量自然口癖，避免全场都像同一种分析员。
@@ -15411,7 +15412,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=66;  /* 66：石像鬼板子悍跳可临场调整；65：观战上帝视角与女巫不能自救 */
+const GUIDE_VER=67;  /* 67：狼队真人代排与指挥优先级、石像鬼遗言递话；66：石像鬼悍跳可调整 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32019,6 +32020,7 @@ function wwFactsFor(p){
     if(w.night&&w.night.feared)L.push('· 最近这一夜梦魇恐惧的是 '+wwName(w.night.feared)+'。');
     var myJob=wwWolfJobOf(p);
     if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+WW_WOLF_JOB_HELP[myJob]);
+    if(!p.isUser)L.push(wwWolfCommandRule());
     /* 【新】最后一只狼：实在没救了可以「掀桌」认输，别硬撑着把自己绕死 */
     if(wwAlive().filter(wwIsWolf).length===1&&p.alive)
       L.push('· 你是最后一只狼。确定翻不了盘时，可在白天发言时选择掀桌：公开认狼并被处刑；还有希望就继续装。');
@@ -32719,8 +32721,15 @@ function wwWolfChannelText(max){
   var a=wwWolfAll();
   if(!a.length)return '';
   return a.slice(-(max||40)).map(function(e){
-    return '第 '+e.d+' 夜 · 「'+wwWolfWho(e)+'」：'+String(e.text||'').replace(/\s+/g,' ').slice(0,40);
+    var who=wwWolfWho(e);
+    if(e.isUser)who+='（真人玩家 · 最高优先级）';
+    return '第 '+e.d+' 夜 · 「'+who+'」：'+String(e.text||'').replace(/\s+/g,' ').slice(0,e.isUser?120:40);
   }).join('\n');
+}
+function wwWolfCommandRule(){
+  return '【狼队执行优先级】本夜真人玩家在狼队频道里的明确安排最高；本夜没有新指令时，优先听狼队这一夜形成的讨论和多数策略；最后才是“悍跳/冲锋/倒钩/深水”等分工标签。'+
+    '分工只是默认打法，不是禁令或角色限制。多句真人指令冲突时，以本夜时间最新的那句为准。'+
+    '真人要求你跳预、改刀、改票、退水或按指定方式配合时，要优先执行，不能因为自己是“深水狼”等标签就拒绝。';
 }
 function wwWolfJobOf(p){var w=V.ww;return (w&&w.wolfRoles&&p)?String(w.wolfRoles[p.uid]||''):''}
 function wwWolfJobNames(a){return (a||[]).map(function(k){return WW_WOLF_JOB_NAME[k]||k}).join('、')}
@@ -32762,23 +32771,32 @@ async function wwWolfPickJob(p,allowed,idx,total){
 async function wwWolfAssignRoles(wolves){
   var w=V.ww;
   if(!w||w.wolfRolesDone||w.day!==1||w.count<9||!wolves||!wolves.length)return;
-  var me=wwMe(),visible=!!(me&&wwIsPackWolf(me));
+  var me=wwMe();
+  var userLead=!!(me&&me.alive&&wwIsWolfKiller(me)&&wolves.some(function(p){return p===me}));
+  var visible=userLead;
   w.wolfRoles={};w.wolfRolesDone=false;
   var order=wolves.slice().sort(function(a,b){
     var pri=function(p){return p.role==='nightmare'?0:(p.isUser?1:(p.role==='wolfking'?2:3))};
     var pa=pri(a),pb=pri(b);
     return pa-pb||((a.seq||0)-(b.seq||0));
   }),gen=wwGenNow();
+  var userArrange=false;
+  if(userLead){
+    var lead=await wwAskOpt('🐺 今晚狼队分工由谁来定？',[['我来安排全队',1],['让狼队自己分配',0]]);
+    if(wwStaleG(gen))return;
+    userArrange=!!(lead&&Number(lead.val)===1);
+  }
   for(var i=0;i<order.length;i++){
     if(wwStaleG(gen))return;
     var p=order[i],allowed=wwWolfAllowedJobs(order,i),job='';
-    if(p.isUser){
+    if(userArrange){
       var opts=allowed.map(function(k){return [WW_WOLF_JOB_NAME[k],k]});
-      var r=await wwAskOpt('🐺 狼队分工（第 '+(i+1)+'/'+order.length+' 个）：你想负责什么？',opts);
+      var r=await wwAskOpt('🐺 狼队分工（第 '+(i+1)+'/'+order.length+' 个）：'+
+        (p.isUser?'给你自己':'给「'+wwTag(p)+'」')+'安排什么？',opts);
       if(wwStaleG(gen))return;
       job=String((r&&r.val)||'');
     }else{
-      if(visible){
+      if(visible&&!p.isUser){
         await wwStep('狼队分工：轮到「'+wwTag(p)+'」选择');
         if(wwStaleG(gen))return;
         w.msg='🐺 「'+wwTag(p)+'」正在选择狼队分工…';render(true);
@@ -33001,7 +33019,7 @@ function wwLastOwnSpeech(p){
 }
 async function wwVoteAI(p,pool){
   var job=wwWolfJobOf(p);
-  var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'不要无脑帮队友冲票。'):'';
+  var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'这只是默认建议，不压过真人玩家的明确指挥或本夜狼队讨论；不要无脑帮队友冲票。'):'';
   var own=wwIsWolf(p)?wwLastOwnSpeech(p):'';
   var ownHint=own?('\n你刚才公开发言的首尾是：「'+wwClipSpeech(own,260,100)+'」。把它作为投票起点，但不必被它锁死：'+
     '听完后面的人、发现新信息、局面策略变了，可以合理改票。不要无理由随机换人，也不要只因为多数人投谁就跟票。'):'';
@@ -33017,8 +33035,26 @@ async function wwVoteAI(p,pool){
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
 }
 async function wwLastWords(p){
-  var sys=wwSysFor(p,'你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
-    '时间够，把该交代的都说清楚，别只留一句话。提到别人时带上编号。只输出你要说的话。');
+  var task='你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
+    '时间够，把该交代的都说清楚，别只留一句话。提到别人时带上编号。只输出你要说的话。';
+  if(p&&p.role==='gargoyle'){
+    var gck=(p.check||[]).filter(function(c){return c.kind==='gargoyle'}).map(function(c){
+      var t=wwPlayerByUid(c.uid);
+      return (t?wwTag(t):'?')+'='+(WW_ROLE_NAME[c.role]||c.role||'未知');
+    });
+    var godRoles={seer:1,witch:1,hunter:1,guard:1,gravekeeper:1,knight:1,idiot:1};
+    var godHits=(p.check||[]).filter(function(c){return c.kind==='gargoyle'&&godRoles[c.role]}).map(function(c){
+      var t=wwPlayerByUid(c.uid);
+      return (t?wwTag(t):'?')+'='+(WW_ROLE_NAME[c.role]||c.role);
+    });
+    task+='\n【石像鬼遗言递话】你的遗言公开，但狼队也会听到。'+
+      (gck.length?('\n你已查验：'+gck.join('、')+'。'):'\n你还没有有效查验。')+
+      (godHits.length
+        ?('\n你验到了神职：'+godHits.join('、')+'。请隐晦地把这些位置递给狼队，例如放进你“最不放心、建议夜里重点留意/优先确认”的判断里；不要直接说“我是石像鬼”或“我验到X是预言家”这种明示。')
+        :'\n如果没验到神，就不要硬编或假装验到；可以留下真实阵营判断和模糊线索。')+
+      '\n目标是让狼队听懂、好人拿不到直接翻牌式的确证；表达要自然，别为了递话把遗言写成一串暗号。';
+  }
+  var sys=wwSysFor(p,task);
   return (await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+wwTag(p)+' 没留下什么。）';
 }
 /* 真人玩家留遗言：规则里第一轮出局能留遗言，就让「你」自己在发言框里说一段（不想说可以跳过） */
