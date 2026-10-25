@@ -32015,7 +32015,7 @@ function wwFactsFor(p){
       '\n· 活着的狼队友：'+(team.filter(function(x){return x.alive&&x!==p}).map(wwName).join('、')||'（无，只剩你）')+'。'+
       '\n· 你是 '+wwNum(p)+p.name+'。'+
       (w.players.some(function(x){return x.role==='gargoyle'})?'本局另有一只石像鬼，但普通狼不知道她是谁。':''));
-    var gh=wwGargoyleHuntHint(p);
+    var gh=wwGargoyleInference(p)||wwGargoyleHuntHint(p);
     if(gh)L.push(gh);
     if(w.night&&w.night.feared)L.push('· 最近这一夜梦魇恐惧的是 '+wwName(w.night.feared)+'。');
     var myJob=wwWolfJobOf(p);
@@ -32196,6 +32196,115 @@ function wwGargoyleHuntHint(p){
     '而“给狼金水”可能是在向狼队列信号，并不是真的认那个位置为好人。'+
     '但好人也会穿石像鬼的衣服钓狼，所以不能无条件认定；看她递的信息是否精准命中狼、是否没有伤害狼队、退水后是否给真预让位。'+
     '拿不准时不要带头把疑似大狼票出去或夜里刀她；先按潜在盟友保护并继续用公开信息验证，别当众喊破她的身份。';
+}
+/* 石像鬼板子的基础推理不能只丢给模型自由发挥，否则它很容易只跟着公开舆论走。
+   这里只使用普通狼本来就掌握的两类信息：
+   1. 自己的狼队友是谁；2. 所有人都听得到的公开发言和遗言。
+   不读取石像鬼或预言家的真实身份，只把“给已知狼金水、攻击已知狼、跳预查杀”等证据串起来。 */
+function wwMentionsSeq(txt,seq){
+  var n=Number(seq);
+  if(!n)return false;
+  return new RegExp('(^|[^0-9])'+n+'\\s*号?([^0-9]|$)').test(String(txt||''));
+}
+function wwClaimedSeer(txt){
+  var t=String(txt||'');
+  return /(?:我是|我这边是|我起跳|我跳)[^。！？\n]{0,18}预言家/.test(t)||
+    /(?:我|本人)[^。！？\n]{0,12}(?:验|查验|摸)[^。！？\n]{0,24}(?:金水|查杀)/.test(t);
+}
+function wwGoldwaterToMate(txt,mate){
+  if(!mate||!wwMentionsSeq(txt,mate.seq)||!/金水/.test(String(txt||'')))return false;
+  var n=Number(mate.seq);
+  return new RegExp('(?:我|本人)[^。！？\\n]{0,28}(?:验|查验|摸)[^。！？\\n]{0,20}'+n+'\\s*号?[^。！？\\n]{0,14}金水').test(String(txt||''))||
+    new RegExp('(?:我是|我这边是|我起跳|我跳)[^。！？\\n]{0,24}预言家[，,：:；;\\s]*'+n+'\\s*号?[^。！？\\n]{0,12}金水').test(String(txt||''));
+}
+function wwPointsAtMateAsWolf(txt,mate){
+  if(!mate||!wwMentionsSeq(txt,mate.seq))return false;
+  var parts=String(txt||'').split(/[。！？!?；;\n]+/);
+  for(var i=0;i<parts.length;i++){
+    if(wwMentionsSeq(parts[i],mate.seq)&&/(?:狼人|是狼|像狼|双狼|查杀)/.test(parts[i]))return true;
+  }
+  return false;
+}
+function wwGargoyleRead(p){
+  var w=V.ww;
+  if(!w||w.board!=='gravegargoyle'||!wwIsPackWolf(p))return null;
+  var mates=wwWolfMates(p).filter(wwIsPackWolf),best=null;
+  w.players.forEach(function(cand){
+    if(!cand||cand===p||wwIsPackWolf(cand))return;
+    var says=(w.log||[]).filter(function(e){return e&&e.k==='say'&&e.who===cand.uid});
+    if(!says.length)return;
+    var ownSeer=false,gold=null,attack=null;
+    says.forEach(function(e){
+      var t=String(e.text||'').replace(/^【竞选发言】/,'');
+      if(wwClaimedSeer(t))ownSeer=true;
+      mates.forEach(function(m){
+        if(wwGoldwaterToMate(t,m))gold=m;
+        if(wwPointsAtMateAsWolf(t,m))attack=m;
+      });
+    });
+    if(!gold)return;
+    var score=10+(ownSeer?4:0)+(attack?3:0);
+    if(!best||score>best.score)best={candidate:cand,gold:gold,attack:attack,score:score};
+  });
+  if(!best)return null;
+  var seer=null;
+  w.players.forEach(function(q){
+    if(!q||q===p||q===best.candidate||wwIsPackWolf(q))return;
+    var says=(w.log||[]).filter(function(e){return e&&e.k==='say'&&e.who===q.uid});
+    var claimed=false,hit=false;
+    says.forEach(function(e){
+      var t=String(e.text||'').replace(/^【竞选发言】/,'');
+      if(wwClaimedSeer(t))claimed=true;
+      if(wwMentionsSeq(t,best.candidate.seq)&&/(?:查杀|是狼|狼人)/.test(t))hit=true;
+    });
+    if(claimed&&hit&&!seer)seer=q;
+  });
+  var hint=null;
+  var words=(w.log||[]).filter(function(e){
+    return e&&e.k==='say'&&e.who===best.candidate.uid&&/^【遗言】/.test(String(e.text||''));
+  });
+  if(words.length){
+    var last=String(words[words.length-1].text||'').replace(/^【遗言】/,'');
+    w.players.forEach(function(q){
+      if(!q||q===best.candidate||hint||!wwMentionsSeq(last,q.seq))return;
+      var n=Number(q.seq);
+      var direct=new RegExp(n+'\\s*号?[^。！？!?；;\\n]{0,18}(?:才像|更像|比较像|像|可能是|是|可以验|重点|优先|留意|确认)'+
+        '[^。！？!?；;\\n]{0,16}(?:预言家|女巫|猎人|守卫|守墓人|神职)');
+      var watch=new RegExp('(?:重点|优先|留意|确认|关注)[^。！？!?；;\\n]{0,10}'+n+'\\s*号');
+      if(direct.test(last)||watch.test(last))hint=q;
+    });
+  }
+  var fakeSeers=mates.filter(function(m){
+    return (w.log||[]).some(function(e){
+      return e&&e.k==='say'&&e.who===m.uid&&wwClaimedSeer(e.text);
+    });
+  });
+  best.seer=seer;
+  best.hint=hint;
+  best.fakeSeers=fakeSeers;
+  return best;
+}
+function wwGargoyleInference(p){
+  var r=wwGargoyleRead(p);
+  if(!r)return '';
+  var L=['【石像鬼推理链（狼队私有，只依据公开信息与已知狼队友）】'];
+  L.push('· 已知硬事实：'+wwTag(r.gold)+' 是你们可以确认的普通狼队友。');
+  L.push('· 石像鬼候选：'+wwTag(r.candidate)+' 公开跳预，却把金水给已知狼队友'+wwTag(r.gold)+
+    (r.attack?('，还点过已知狼队友'+wwTag(r.attack)):'')+
+    '。按这个板子的常见递话方式，'+wwTag(r.candidate)+' 是高度疑似石像鬼。');
+  if(r.seer){
+    L.push('· 因为本局只有一只石像鬼，'+wwTag(r.candidate)+' 若成立，'+wwTag(r.seer)+' 就不可能是石像鬼；'+
+      wwTag(r.seer)+' 又不是普通狼队友，同时跳预并对'+wwTag(r.candidate)+'报查杀，所以'+wwTag(r.seer)+'是高度疑似真预。');
+    if(r.fakeSeers&&r.fakeSeers.length)L.push('· 反证：'+r.fakeSeers.map(wwTag).join('、')+
+      ' 是已知普通狼队友，却也占着跳预位；若再把'+wwTag(r.seer)+'硬算成石像鬼，就必须额外解释真预在哪里，逻辑成本明显更高。');
+  }else{
+    L.push('· 因为本局只有一只石像鬼，如果'+wwTag(r.candidate)+'成立，另一名跳预者不能同时被算作石像鬼；要继续核对她的验人和警徽流。');
+  }
+  if(r.hint)L.push('· 遗言指向：'+wwTag(r.candidate)+'的遗言重点提到'+wwTag(r.hint)+
+    '，这是给狼队的下一刀/查验提示；它只是线索，不把它当成主持人翻牌事实。');
+  L.push('【必须落实】投票不能无视这张候选链；夜间刀人至少比较“直接处理疑似真预”和“执行石像鬼遗言指人”的收益、风险与后续做局。'+
+    '不要把高可信候选当普通好人票，也不要当众说破狼队内部推测。');
+  return L.join('\n');
 }
 /* 好人发言前要先在「草稿纸」上盘一遍；这里把草稿纸和发言拆开：
    草稿纸只留在它自己身上（不上屏、不进公共记录、别的角色看不到）。 */
@@ -32817,6 +32926,8 @@ async function wwWolfAssignRoles(wolves){
 function wwWolfThinkText(picks){
   return (picks||[]).map(function(x){
     var think=String((x&&x.think)||'').trim();
+    var logic=String((x&&x.logic)||'').trim();
+    if(logic)think+=(think?'\n':'')+'【落刀方案】'+logic;
     if(!think)return '';
     var who=(x.seq?(x.seq+'号 · '):'')+(x.name||'狼人');
     return '【'+who+' 的思考过程】\n'+think;
@@ -32827,6 +32938,7 @@ function wwWolfThinkText(picks){
    返回 {t: 想刀的人, note: 给队友的留言}。 */
 async function wwWolfAct(p){
   var w=V.ww,alive=wwAlive();
+  var gread=wwGargoyleRead(p);
   var sys=wwCharBlock(p)+
     '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，本局狼人。现在决定今晚刀谁，并给狼队友留一句。'+
     '（自刀或刀队友属特殊战术，要真想清楚）'+
@@ -32838,23 +32950,38 @@ async function wwWolfAct(p){
     '\n【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog()+
     (wwTipsOn(p)?('\n\n'+wwTipsBlock()):'')+
     '\n【已经说过的狼队留言】\n'+(wwWolfChannelText()||'（还没有）')+
-    '\n【输出】只写两行：\n'+
-    '第 1 行：刀谁，只写编号或名字；想空刀只写「空刀」（高风险，确有必要再用）；\n'+
+    '\n【输出】只写三行：\n'+
+    '目标：编号或名字；想空刀只写「目标：空刀」（高风险，确有必要再用）。\n'+
+    '判断：'+(gread
+      ? ('必须用一两句话落实上面的石像鬼推理链，并比较两件事：直接处理疑似真预，还是执行遗言指人；说明这一刀为什么更赚、会留下什么风险。')
+      : '用一两句话说明这一刀的主要收益和风险。')+'\n'+
     (wwFaceOn()
-      ? ('第 2 行：给队友的话（≤'+wwWolfMax()+' 字，别换行，说有信息量的打算；可加括号神态；不想说写「无」）。')
-      : ('第 2 行：给队友的悄悄话（≤'+wwWolfMax()+' 字，别换行，别重复；不想说写「无」）。'));
+      ? ('留言：给队友的话（≤'+wwWolfMax()+' 字，别换行，说有信息量的打算；可加括号神态；不想说写「无」）。')
+      : ('留言：给队友的悄悄话（≤'+wwWolfMax()+' 字，别换行，别重复；不想说写「无」）。'));
   var txt='';
-  try{txt=String(await wwCall(sys,(wwFaceOn()?'请决定今晚刀谁，并在夜间密会上跟队友说一句。':'请决定今晚刀谁，并给队友留一句话。'),160,.85)||'')}catch(e){txt=''}
+  try{txt=String(await wwCall(sys,(wwFaceOn()?'请决定今晚刀谁，并在夜间密会上跟队友说一句。':'请决定今晚刀谁，并给队友留一句话。'),260,.85)||'')}catch(e){txt=''}
   var lines=String(txt).split(/\n+/).map(function(s){return s.trim()}).filter(function(s){return !!s});
-  var pick=wwMatch(lines[0]||txt,alive)||wwMatch(txt,alive);
+  var targetLine='',logicLine='',noteLine='';
+  lines.forEach(function(s){
+    if(/^(?:目标|刀谁|刀人)\s*[:：]/.test(s))targetLine=s;
+    else if(/^(?:判断|方案|理由)\s*[:：]/.test(s))logicLine=s;
+    else if(/^(?:留言|悄悄话)\s*[:：]/.test(s))noteLine=s;
+  });
+  if(!targetLine)targetLine=lines[0]||txt;
+  var pick=wwMatch(String(targetLine).replace(/^[^:：]*[:：]\s*/,''),alive)||wwMatch(targetLine,alive)||wwMatch(txt,alive);
   /* 【新】空刀：第一行写「空刀」就是今晚不杀人（不能和「没答上来」混为一谈） */
-  var noKill=/空刀|空着|不刀|不杀/.test(String(lines[0]||''))&&!pick;
+  var noKill=/空刀|空着|不刀|不杀/.test(String(targetLine||''))&&!pick;
   var note='';
-  for(var i=1;i<lines.length;i++){
-    var s=wwWolfClean(lines[i]);
-    if(s&&s!=='无'&&s!=='没有'&&s!=='无。'){note=s;break}
+  if(noteLine)note=wwWolfClean(String(noteLine).replace(/^[^:：]*[:：]\s*/,''));
+  if(!note){
+    for(var i=lines.length-1;i>=0;i--){
+      if(lines[i]===targetLine||lines[i]===logicLine||lines[i]===noteLine)continue;
+      var s=wwWolfClean(String(lines[i]).replace(/^(?:目标|刀谁|刀人|判断|方案|理由|留言|悄悄话)\s*[:：]\s*/,''));
+      if(s&&s!=='无'&&s!=='没有'&&s!=='无。'){note=s;break}
+    }
   }
-  return {t:pick,note:note,noKill:!!noKill};
+  var logic=logicLine?String(logicLine).replace(/^[^:：]*[:：]\s*/,'').trim():'';
+  return {t:pick,note:note,noKill:!!noKill,logic:logic};
 }
 /* 你是狼人：夜里给狼队留言（这一夜一共 50 字；可以分几条说，不想说就点「不留言」） */
 async function wwWolfChatNight(){
@@ -32892,7 +33019,8 @@ async function wwWolfChoose(wolves){
     var t=a.t||(a.noKill?null:rand);            /* 明确说「空刀」就是今晚不杀；没答上来才退回随机 */
     w.wolfPicks.push({
       seq:m.seq,name:m.name,uid:m.uid,t:t,noKill:!!(a.noKill&&!a.t),
-      think:String((WW_LAST&&WW_LAST.reason)||'')   /* 每只狼一返回就存，避免被下一只狼覆盖 */
+      think:String((WW_LAST&&WW_LAST.reason)||''),  /* 每只狼一返回就存，避免被下一只狼覆盖 */
+      logic:String(a.logic||'')
     });   /* 记下 uid：后面「夜间 · 你的房间」要知道是哪些狼想刀你 */
     /* 每只人机狼都留一句悄悄话：这样「你是狼」的时候，也能看到队友在商量什么 */
     if(a.note){
@@ -33019,6 +33147,7 @@ function wwLastOwnSpeech(p){
 }
 async function wwVoteAI(p,pool){
   var job=wwWolfJobOf(p);
+  var gread=wwGargoyleRead(p);
   var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'这只是默认建议，不压过真人玩家的明确指挥或本夜狼队讨论；不要无脑帮队友冲票。'):'';
   var own=wwIsWolf(p)?wwLastOwnSpeech(p):'';
   var ownHint=own?('\n你刚才公开发言的首尾是：「'+wwClipSpeech(own,260,100)+'」。把它作为投票起点，但不必被它锁死：'+
@@ -33030,9 +33159,21 @@ async function wwVoteAI(p,pool){
     '别的神职/金水归票，不等于她归票的对象一定是狼，自己分析狼坑。';
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
     (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+ownHint):goodHint)+
-    '\n【输出格式】只输出你要投的那个人的编号或名字（例如「3号」）。');
-  var txt=await wwCall(sys,'请投票。',40,.8);
-  return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
+    '\n【输出格式】只写两行：\n投票：编号或名字（例如「3号」）。\n判断：'+
+    (gread
+      ? ('必须说明你是否采信上面的石像鬼推理链；如果投'+wwTag(gread.candidate)+'，要给出足以推翻“给已知狼金水”的硬反证。')
+      : '用一句话说明主要证据，不要只写“感觉”。'));
+  var txt=await wwCall(sys,'请投票。',100,.8);
+  var lines=String(txt||'').split(/\n+/).map(function(s){return s.trim()}).filter(function(s){return !!s});
+  var targetLine='',logicLine='';
+  lines.forEach(function(s){
+    if(/^(?:投票|票给|目标)\s*[:：]/.test(s))targetLine=s;
+    else if(/^(?:判断|理由)\s*[:：]/.test(s))logicLine=s;
+  });
+  if(!targetLine)targetLine=lines[0]||txt;
+  var pick=wwMatch(String(targetLine).replace(/^[^:：]*[:：]\s*/,''),pool)||wwMatch(targetLine,pool)||wwMatch(txt,pool);
+  if(logicLine)p.lastVoteLogic=String(logicLine).replace(/^[^:：]*[:：]\s*/,'').trim();
+  return pick||pool[Math.floor(Math.random()*pool.length)];
 }
 async function wwLastWords(p){
   var task='你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
