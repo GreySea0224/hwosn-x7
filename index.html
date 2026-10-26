@@ -32336,10 +32336,11 @@ function wwClaimIdentityRoles(txt,speakerSeq){
       var p3=new RegExp('(?:我|本人)(?:是|就是|这边是|起跳|跳)?\\s*(?:\\d{1,2}\\s*号)?[，,：:\\s]*(?:真)?'+plain+name);
       var p4=new RegExp('(?:身份(?:是|为)|我报(?:身份)?(?:是|为)?)\\s*(?:真)?'+plain+name);
       var p5=new RegExp('身份(?:我)?(?:摊开|摆明|说)[^。！？!?；;\\n]{0,16}(?:是|为)?(?:真)?'+plain+name);
+      var p6=new RegExp('(?:直接说|直说|先说|报一下|说下|说清楚)[^。！？!?；;\\n]{0,6}身份[^。！？!?；;\\n]{0,10}(?:是|为|就是)?(?:真)?'+plain+name);
       var m1=clause.match(p1),m2=clause.match(p2);
       var selfSeat=!!((m1&&(!speakerSeq||Number(m1[1])===Number(speakerSeq)))||
         (m2&&(!speakerSeq||Number(m2[1])===Number(speakerSeq))));
-      if(selfSeat||p3.test(clause)||p4.test(clause)||p5.test(clause)){
+      if(selfSeat||p3.test(clause)||p4.test(clause)||p5.test(clause)||p6.test(clause)){
         seen[role]=1;out.push(role);
       }
     });
