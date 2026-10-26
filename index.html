@@ -31884,11 +31884,16 @@ var WW_ROLE_NAME={wolf:'狼人',wolfking:'白狼王',villager:'村民',seer:'预
 var WW_ROLE_EMOJI={wolf:'🐺',wolfking:'👑',villager:'👤',seer:'🔮',witch:'🧪',hunter:'🔫',guard:'🛡️',idiot:'🃏',knight:'⚔️',gravekeeper:'⚰️',gargoyle:'🗿',nightmare:'😈'};
 var WW_WOLF_JOB_NAME={jump:'悍跳狼',charge:'冲锋狼',hook:'倒钩狼',deep:'深水狼'};
 var WW_WOLF_JOB_HELP={
-  jump:'优先抢预言家身份。竞选取警徽时像真预一样报昨夜验人结果；警徽流按常见逻辑说全两个分支：今晚验A，A是好就让A接徽；A是狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。不能只写“按顺序归票”。不要反射性查杀对跳者，优先给外置位发金水拉票，或反踩真预“怕你才查杀”；编验人必须遵守真实时间线。若当前板子允许临场调整，且强跳明显会送狼，可改打普通上警或退水。',
+  jump:'优先抢预言家身份，像真预一样报昨夜验人结果。不能只写“按顺序归票”。不要反射性查杀对跳者，优先给外置位发金水拉票，或反踩真预“怕你才查杀”；编验人必须遵守真实时间线。',
   charge:'明面帮悍跳狼或队友冲锋，但不要拉全队无脑同票；队友暴露时要会切割。',
   hook:'倒钩：表面站好人，按局势选一种：①常规——反悍跳、抬你判断的真预；②阴阳——明面反悍跳，关键时刻票好人；③垫飞——用大量低质好话猛抬真预。别机械固定反调，必要时可票暴露队友，也别公开保狼。',
   deep:'低调藏好，按公共逻辑独立投票，不无脑救队友，也别和狼队抱团同票。'
 };
+function wwWolfJobHelp(role){
+  if(role==='jump'&&wwSheriffOn())return WW_WOLF_JOB_HELP.jump+
+    '竞选取警徽时把警徽流两个分支说清：今晚验A，A好就让A接徽；A是狼就交给已知金水或最信好人，没有合适接徽人就撕徽。强跳明显送狼时，可改普通上警或退水。';
+  return WW_WOLF_JOB_HELP[role]||'';
+}
 var WW_WOLF_JOB_VOTE={
   jump:'先保预言家面，必要时切割队友，别拉全队冲票。',
   charge:'可以冲锋，但别让全狼队投成同一种票型。',
@@ -31916,7 +31921,7 @@ var WW_NPC_PERSONAS={
 /* 给 AI 角色参考的术语/思路小抄（精简版，只在开局设置里打开时才发给 AI）
    注意：只保留游戏里实际存在的规则；旧玩法独有的铜水、拍刀不写。 */
 var WW_TIPS=[
-'【术语】金水＝验到的好人；查杀＝验到的狼；银水＝女巫救起的人；警徽流＝预言家出局后警徽交给谁、用来传验人结果。刀、自刀、空刀、生推、踩、抬、站边、共边、票型、轮次、归票。',
+'【术语】金水＝验到的好人；查杀＝验到的狼；银水＝女巫救起的人。刀、自刀、空刀、生推、踩、抬、站边、共边、票型、轮次、归票。',
 '【狼术】悍跳、对跳、冲锋狼、倒钩狼、深水狼、狼踩狼；狼可以悍跳，也可以狼查杀狼。',
 '【提醒】没有铜水、拍刀；板子和警长规则见当前局面与补充。'
 ].join('\n');
@@ -31967,7 +31972,7 @@ function wwTipsOn(p){
   return w.tips[p.cid]===true;
 }
 function wwTipsBlock(){
-  var extra=wwSheriffOn()?'\n【上警】第一天先竞选再报死讯：上警发言、可退水、警下投票。警长票 1.5 并定顺序；出局时移交或撕徽。狼可悍跳抢警徽。':'';
+  var extra=wwSheriffOn()?'\n【上警】第一天先竞选再报死讯：上警发言、可退水、警下投票。警长票 1.5 并定顺序；出局时移交或撕徽。狼可悍跳抢警徽。警徽流＝预言家出局后警徽交给谁、用来传验人结果。':'';
   var bd=wwBoard((V.ww&&V.ww.count)||0);
   if(bd.guard)extra+='\n【守卫】每晚守一人（含自己），不能连守；只挡狼刀，同守同救会死。首夜空守。';
   if(bd.knight)extra+='\n【骑士】每局决斗一次。自己发言时可决斗，所有人发言完、投票前还能再考虑一次；警长竞选和平票 PK 不能决斗。命中狼人：对方出局、白天立即结束；命中好人：骑士自己出局、白天继续。';
@@ -32026,7 +32031,7 @@ function wwFactsFor(p){
     if(gh)L.push(gh);
     if(w.night&&w.night.feared)L.push('· 最近这一夜梦魇恐惧的是 '+wwName(w.night.feared)+'。');
     var myJob=wwWolfJobOf(p);
-    if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+WW_WOLF_JOB_HELP[myJob]);
+    if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+wwWolfJobHelp(myJob));
     if(!p.isUser)L.push(wwWolfCommandRule());
     /* 【新】最后一只狼：实在没救了可以「掀桌」认输，别硬撑着把自己绕死 */
     if(wwAlive().filter(wwIsWolf).length===1&&p.alive)
@@ -32186,7 +32191,7 @@ function wwClassicProxyBoard(){
   return !!(w&&w.count===12&&(w.board==='gravegargoyle'||w.board==='nightmareguard'||w.board==='wolfking'||w.board==='knightking'));
 }
 function wwClassicProxyHint(p){
-  if(!wwClassicProxyBoard()||!p||p.isUser||wwIsWolf(p))return '';
+  if(!wwSheriffOn()||!wwClassicProxyBoard()||!p||p.isUser||wwIsWolf(p))return '';
   var board=wwBoardLabel(V.ww.board);
   return '【'+board+' · 好人压跳是常规操作】这一板的好人常在警上暂时跳预言家、给后置位金水或给可疑位查杀，'+
     '用来占位、施压、观察反应或替真预挡刀，随后再退水；这属于合理的压跳/代跳，不是“爱秀怪操作”。'+
@@ -32198,12 +32203,14 @@ function wwClassicProxyHint(p){
 function wwGargoyleHuntHint(p){
   var w=V.ww;
   if(!w||w.board!=='gravegargoyle'||!wwIsPackWolf(p))return '';
+  var where=wwSheriffOn()?'上警者':'公开跳预的玩家';
+  var after=wwSheriffOn()?'随后观察或退水':'随后继续观察她的表态';
   return '【石像鬼板子 · 主动寻找大狼】本局另有一只石像鬼，普通狼从开局就不知道她是谁，但要认真找她。'+
     '这不等于她永远不认识普通狼：她每晚能查验一名存活玩家的具体身份，可能已经验过你，也可能还没验到，不能用“石像鬼应该不认识我”直接排除这种可能。'+
-    '她常会用警上跳预、给任意位置金水/查杀、带票方向或对神职的判断来递信息。'+
-    '如果某个上警者给任意位置发金水，尤其把金水给已知普通狼队友，随后观察或退水，要先想到一种可能：她可能是石像鬼，'+
+    '她常会用'+(wwSheriffOn()?'警上跳预':'公开跳预')+'、给任意位置金水/查杀、带票方向或对神职的判断来递信息。'+
+    '如果某个'+where+'给任意位置发金水，尤其把金水给已知普通狼队友，'+after+'，要先想到一种可能：她可能是石像鬼，'+
     '而“给狼金水”可能是在向狼队列信号，并不是真的认那个位置为好人。'+
-    '但好人也可能故意做出类似动作，所以不能只凭一次发金水认定；看她递的信息是否精准命中狼、是否没有伤害狼队、退水后是否给真预让位。'+
+    '但好人也可能故意做出类似动作，所以不能只凭一次发金水认定；看她递的信息是否精准命中狼、是否没有伤害狼队、后续是否按好人视角归票。'+
     '拿不准时不要带头把疑似大狼票出去或夜里刀她；先按潜在盟友保护并继续用公开信息验证，别当众喊破她的身份。';
 }
 /* 石像鬼板子的基础推理不能只丢给模型自由发挥，否则它很容易只跟着公开舆论走。
@@ -32307,7 +32314,7 @@ function wwGargoyleInference(p){
     if(r.fakeSeers&&r.fakeSeers.length)L.push('· 反证：'+r.fakeSeers.map(wwTag).join('、')+
       ' 是已知普通狼队友，却也占着跳预位；若再把'+wwTag(r.seer)+'硬算成石像鬼，就必须额外解释真预在哪里，逻辑成本明显更高。');
   }else{
-    L.push('· 因为本局只有一只石像鬼，如果'+wwTag(r.candidate)+'成立，另一名跳预者不能同时被算作石像鬼；要继续核对她的验人和警徽流。');
+    L.push('· 因为本局只有一只石像鬼，如果'+wwTag(r.candidate)+'成立，另一名跳预者不能同时被算作石像鬼；要继续核对她的验人'+(wwSheriffOn()?'和警徽流':'和后续归票')+'。');
   }
   if(r.hint)L.push('· 遗言指向：'+wwTag(r.candidate)+'的遗言重点提到'+wwTag(r.hint)+
     '，这是给狼队的下一刀/查验提示；它只是线索，不把它当成主持人翻牌事实。');
@@ -32576,27 +32583,12 @@ function wwQuestionLedger(w){
   return groups;
 }
 function wwQuestionLedgerText(w,p){
-  var gs=wwQuestionLedger(w),L=[],have={};
-  gs.forEach(function(g){
-    var mine=g.target.uid===p.uid||g.asks.some(function(a){return a.uid===p.uid});
-    if(!mine&&!g.target.isUser)return;
-    have[g.target.uid+'|'+g.topic]=1;
-    var askers=[];
-    g.asks.forEach(function(a){var n=a.seq+'号';if(askers.indexOf(n)<0)askers.push(n)});
-    var head='· '+g.target.seq+'号·'+g.topic+'｜'+(g.status==='answered'?'已回答':'未回答')+
-      '｜问过：'+askers.join('、')+(g.repeated?('｜回答后仍重复追问 '+g.repeated+' 次'):'');
-    L.push(head);
-    if(g.asks.length)L.push('  问句：'+wwClipSpeech(g.asks[g.asks.length-1].text,100,35));
-    if(g.answers.length){
-      var a=g.answers[g.answers.length-1];
-      L.push('  原答：'+a.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,210,80)+'」');
-    }
-  });
-  if(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length){
+  var L=[],useScribe=!!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length),scribeShown=false;
+  if(useScribe){
     var refs=wwScribeRefMap(w);
     (w.scribe.qa||[]).forEach(function(qa){
-      var targetP=wwPlayerByUidTarget(w,qa.target),key=targetP?targetP.uid+'|'+qa.topic:'';
-      if(!targetP||have[key])return;
+      var targetP=wwPlayerByUidTarget(w,qa.target);
+      if(!targetP)return;
       var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       var mineAsk=asks.some(function(a){return a.uid===p.uid});
       if(targetP.uid!==p.uid&&!targetP.isUser&&!mineAsk)return;
@@ -32612,22 +32604,32 @@ function wwQuestionLedgerText(w,p){
         L.push('  原答：'+a.p.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,260,100)+'」');
       }
     });
+    scribeShown=L.length>0;
+  }
+  if(!useScribe||!L.length){
+    wwQuestionLedger(w).forEach(function(g){
+      var mine=g.target.uid===p.uid||g.asks.some(function(a){return a.uid===p.uid});
+      if(!mine&&!g.target.isUser)return;
+      var askers=[];
+      g.asks.forEach(function(a){var n=a.seq+'号';if(askers.indexOf(n)<0)askers.push(n)});
+      L.push('· '+g.target.seq+'号·'+g.topic+'｜'+(g.status==='answered'?'已回答':'未回答')+
+        '｜问过：'+askers.join('、')+(g.repeated?('｜回答后仍重复追问 '+g.repeated+' 次'):''));
+      if(g.asks.length)L.push('  问句：'+wwClipSpeech(g.asks[g.asks.length-1].text,100,35));
+      if(g.answers.length){
+        var a=g.answers[g.answers.length-1];
+        L.push('  原答：'+a.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,210,80)+'」');
+      }
+    });
   }
   if(!L.length)return '';
-  L.unshift('【质问与回答记录（程序按公开原文整理）】');
+  L.unshift((useScribe&&scribeShown)?'【质问与回答记录（场记 AI 核对原话）】':'【质问与回答记录（本地规则兜底）】');
   L.push('纪律：标为“已回答”的问题，不得再说对方“没解释/没交代”。可以引用原答并反驳其中某一点，或提出真正的新问题。');
   return L.slice(0,14).join('\n');
 }
 function wwFullUserAnswers(w){
   var me=(w.players||[]).filter(function(p){return p&&p.isUser})[0],seen={},arr=[];
   if(!me)return '';
-  wwQuestionLedger(w).forEach(function(g){
-    if(g.target.uid!==me.uid)return;
-    g.answers.forEach(function(a){
-      if(seen[a.ref])return;
-      seen[a.ref]=1;arr.push(a);
-    });
-  });
+  var useScribe=false;
   if(w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length){
     var refs=wwScribeRefMap(w);
     w.scribe.qa.forEach(function(qa){
@@ -32636,7 +32638,17 @@ function wwFullUserAnswers(w){
         var a=refs[r];
         if(!a||seen[a.ref])return;
         seen[a.ref]=1;
+        useScribe=true;
         arr.push({uid:a.uid,seq:a.p.seq,day:a.day,ref:a.ref,text:a.text,idx:a.idx});
+      });
+    });
+  }
+  if(!useScribe){
+    wwQuestionLedger(w).forEach(function(g){
+      if(g.target.uid!==me.uid)return;
+      g.answers.forEach(function(a){
+        if(seen[a.ref])return;
+        seen[a.ref]=1;arr.push(a);
       });
     });
   }
@@ -32698,7 +32710,7 @@ function wwScribeSys(w,rows){
   L.push('【本局板子允许的身份】'+wwScribeRoleList(w)+'。只能使用这些身份代号。');
   L.push('【已有场记（可补充，不要无缘无故推翻）】\n'+
     '身份声明：'+((old.claims||[]).slice(-20).map(function(x){return x.seat+'号='+x.role+'['+x.ref+']'}).join('；')||'暂无')+'\n'+
-    '问题记录：'+((old.qa||[]).slice(-15).map(function(x){return x.target+'号·'+x.topic+'='+x.status+'['+x.questionRef+']'}).join('；')||'暂无'));
+    '问题记录：'+((old.qa||[]).slice(-15).map(function(x){return x.target+'号·'+x.topic+'='+x.status+'['+((x.questionRefs||[]).join('/')||'?')+']'}).join('；')||'暂无'));
   L.push('【新增公开事件（每行都有编号，引用必须原样使用编号）】\n'+rows.map(function(r){
     return '['+r.ref+'] 第'+r.day+'天 · '+r.p.seq+'号 · '+r.p.name+'：'+String(r.text||'').slice(0,900);
   }).join('\n'));
@@ -32712,7 +32724,8 @@ function wwScribeSys(w,rows){
     '1. 把同一个目标、同一主题的追问合并，不按每一句话重复建条目。\n'+
     '2. 如果目标之前已经用具体理由回答过，status 写 answered，并在 answerRefs 填所有对应回答事件编号。\n'+
     '3. 只有真正没给出理由时写 unanswered。回答后又被追问，也仍写 answered。\n'+
-    '4. 普通角色提及、反问、情绪发泄不要硬做成新问题。');
+    '4. 普通角色提及、反问、情绪发泄不要硬做成新问题。\n'+
+    '5. 一段长发言同时提到多人时，target 必须写真正被要求解释/回答的人，不能机械选择最先出现的编号。');
   L.push('【只输出一个 JSON 对象，不要 markdown、不要解释】\n'+
     '{"claims":[{"seat":1,"role":"gravekeeper","ref":"D2-P1-1","quote":"我是1号，守墓人"}],'+
     '"qa":[{"target":7,"topic":"代跳/退水","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"answered"}]}');
@@ -32795,7 +32808,8 @@ function wwPlayerByUidTarget(w,seq){
   return hit;
 }
 async function wwScribeTick(w,phase){
-  if(!w||w.over||w.stopped||w.scribeBusy)return;
+  if(!w||w.stopped||w.scribeBusy)return;
+  if(w.over&&phase!=='finish')return;
   if(!wwScribeOn())return;
   if(!cfg||!cfg.key)return;
   var rows=wwScribeNewRows(w);
@@ -32806,7 +32820,7 @@ async function wwScribeTick(w,phase){
   w.msg='📝 场记正在核对公开发言…';render(true);
   try{
     var txt=String(await wwCall(wwScribeSys(w,rows),'请整理这些新增公开事件。',900,.25)||'');
-    if(wwStaleG(gen)||w.stopped||w.over){w.scribeBusy=false;return}
+    if(wwStaleG(gen)||w.stopped||(w.over&&phase!=='finish')){w.scribeBusy=false;return}
     var obj=wwScribeParse(txt);
     if(!obj)throw new Error('场记返回格式不正确');
     wwScribeApply(w,obj,rows);
@@ -32857,7 +32871,7 @@ async function wwUserSayTitle(text){
   if(!src)return '';
   var sys='你是狼人杀公开发言的客观记录员，只负责写一条短标题，不参与游戏、不判断身份真假、不分析动机。'+
     '只输出标题本身，不要引号、解释或 markdown，最多 24 个字。'+
-    (campaign?'这是第一天警上竞选发言。建议标题优先写成“跳预＋原话明确报出的金水X/查杀X＋警徽流”，便于快速看懂；但如果原话没有明确跳预，就按原话白描，不能补不存在的身份、验人或警徽流。':(firstRound?'这是第一轮普通发言，可以保留原话里已经出现的跳预、金水/查杀和警徽流，但不用硬套格式。':'后续轮次不套固定格式，只客观概括这段公开发言。'))+
+    ((campaign&&wwSheriffOn())?'这是第一天警上竞选发言。建议标题优先写成“跳预＋原话明确报出的金水X/查杀X＋警徽流”，便于快速看懂；但如果原话没有明确跳预，就按原话白描，不能补不存在的身份、验人或警徽流。':(firstRound?(wwSheriffOn()?'这是第一轮普通发言，可以保留原话里已经出现的跳预、金水/查杀和警徽流，但不用硬套格式。':'这是第一轮普通发言，只保留原话里已经出现的跳预、金水或查杀。本局没有警长，只按身份、验人和票型概括。'):'后续轮次不套固定格式，只客观概括这段公开发言。'))+
     '不是跳预发言时，用白描写“站边X / 质疑X / 投X / 报身份X / 无信息发言”这类事实，不判断谁真谁假。';
   var raw='';
   try{raw=String(await wwCall(sys,'请给这段公开发言写标题：\n'+src.slice(0,2000),60,.2)||'').trim()}catch(e){raw=''}
@@ -32889,8 +32903,10 @@ function wwSpeakTask(p,base){
     '不骂人、不靠发誓喊冤、不用 markdown。';
   var titleAsk='先写【标题】：单独一行，最多 12 字。标题会被用户看见，必须客观概括公开说了什么、站了谁，不判断身份和动机；狼也不能暴露身份或写出“装作村民、装好人、潜伏”等真实意图。例：站边1号 / 查杀1号 / 这轮划水 / 无信息发言。';
   if(((p&&p.role==='seer')||wwWolfJobOf(p)==='jump')&&V.ww&&Number(V.ww.day)===1){
-    titleAsk='先写【标题】：单独一行，最多 24 字。第一轮建议写成“跳预＋金水X/查杀X＋警徽流”，例如“跳预 查杀8 警徽流8好给8/8狼给2”，方便快速看懂。'+
-      '这是建议不是硬模板：如果本轮没跳预或没报完整信息，就按实际公开内容客观概括，绝不能编造没有说过的信息。后续轮次不用套这个格式。';
+    titleAsk=wwSheriffOn()
+      ?('先写【标题】：单独一行，最多 24 字。第一轮建议写成“跳预＋金水X/查杀X＋警徽流”，例如“跳预 查杀8 警徽流8好给8/8狼给2”，方便快速看懂。'+
+        '这是建议不是硬模板：如果本轮没跳预或没报完整信息，就按实际公开内容客观概括，绝不能编造没有说过的信息。后续轮次不用套这个格式。')
+      :('先写【标题】：单独一行，最多 24 字。第一轮可写“跳预＋金水X/查杀X”，按原话客观概括。本局没有警长，只按验人、身份和票型概括。');
   }
   if(wwIsWolf(p))return plain+
     '\n如需核对旧原文，第一行只写“【查原文】座位号 第几天 关键词”；程序会给出原文后让你重答，每轮最多一次。'+
@@ -33184,16 +33200,17 @@ function wwSysFor(p,task){
     '警长票是“支持谁当选警长”，不是白天把谁投出局；竞选里说“警下票给几号”时，意思必须是支持几号当警长。'+
     '可以对还没发言的后置位施压或试探，但要用假设句；不能把对方尚未作出的身份声明和验人结果当成事实。'+
     '警徽流可以传递验人信息。常见打法是：验A，A是好就让A接徽；A是狼就把徽交给已知金水或可信好人，没有合适接徽人就撕徽。她死后实际接徽人要和生前报的分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。');
-  L.push('【时间线】第1天：首夜验人（此前无人发言）→上警→公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。');
+  L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
+    (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
   L.push('【硬规矩】主持人公布的结果、自身能力和身份才是事实；他人发言、遗言、报身份可为假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
       ? '面杀可写少量括号动作，不用 markdown。'
       : '像群聊说话，不写旁白动作，不用 markdown。')+
     (wwIsWolf(p)?'狼人阵营可以说谎和悍跳。':''));
   L.push('【判断纪律】只有主持人公告、自己的身份和技能结果算已证实；别人报的身份、验人、遗言都可能是假的。'+
-    '夜里死、被票出、被保或被踩都只是线索，不能说成铁狼、铁好；确定是真预的警徽才有可信度。'+
+    '夜里死、被票出、被保或被踩都只是线索，不能说成铁狼、铁好；'+(wwSheriffOn()?'确定是真预的警徽才有可信度。':'')+
     '夜死也可能是狼自刀，定狼出局（自爆/被骑士戳/所有跳预都死＝至少死一狼）可盘狼队剩余数量和真预在哪边，'+
-    '不能以此认定站过狼的都是狼。狼会卖队友、倒钩、给好人警徽或金水做身份。'+
+    '不能以此认定站过狼的都是狼。狼会卖队友、倒钩、'+(wwSheriffOn()?'给好人警徽或':'')+'金水做身份。'+
     '证据强弱：主持人事实、可信验人、票型矛盾>具体动机和前后矛盾>语气；话顺、理由齐不能单独定狼。'+
     '首夜验人多为盲选，允许按人设随口说“随便验、看头像或名字、觉得像高玩”；真预和悍跳都要给一句首验理由，别人不能只因理由牵强就定狼。第一天不要踩预言家的验人理由，只从她给出的逻辑本身分析。'+
     '单边神职无对跳或明确反证时，可以先不投她，但这只说明她神职面较大，不证明她归票正确。'+
@@ -33959,30 +33976,30 @@ async function wwAuditRec(id){
 }
 /* 身份盘的纯文本版本：给复制、测试和复盘用；只收当前最终判断与最近改判，不复制所有长思考。 */
 function wwDumpQALedger(w){
-  var gs=wwQuestionLedger(w),L=[],have={};
-  if(!gs.length&&!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length))return '';
+  var L=[],useScribe=!!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length);
+  if(!useScribe&&!wwQuestionLedger(w).length)return '';
   L.push('【质问与回答记录】');
-  gs.forEach(function(g){
-    have[g.target.uid+'|'+g.topic]=1;
-    L.push('· '+(g.target.seq?g.target.seq+'号':g.target.name)+' · '+g.topic+' · '+
-      (g.status==='answered'?'已回答':'未回答')+(g.repeated?(' · 回答后重复追问 '+g.repeated+' 次'):''));
-    g.asks.forEach(function(a){
-      L.push('  问 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100));
-    });
-    g.answers.forEach(function(a){
-      L.push('  答 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260));
-    });
-  });
-  if(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length){
+  if(useScribe){
     var refs=wwScribeRefMap(w);
     w.scribe.qa.forEach(function(qa){
-      var tp=wwPlayerByUidTarget(w,qa.target),key=tp?tp.uid+'|'+qa.topic:'';
-      if(!tp||have[key])return;
+      var tp=wwPlayerByUidTarget(w,qa.target);
+      if(!tp)return;
       var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       L.push('· '+tp.seq+'号 · '+qa.topic+' · 场记 '+(ans.length?'已回答':'未回答'));
       asks.forEach(function(a){L.push('  问 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100))});
       ans.forEach(function(a){L.push('  答 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260))});
+    });
+  }else{
+    wwQuestionLedger(w).forEach(function(g){
+      L.push('· '+(g.target.seq?g.target.seq+'号':g.target.name)+' · '+g.topic+' · '+
+        (g.status==='answered'?'已回答':'未回答')+(g.repeated?(' · 回答后重复追问 '+g.repeated+' 次'):''));
+      g.asks.forEach(function(a){
+        L.push('  问 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100));
+      });
+      g.answers.forEach(function(a){
+        L.push('  答 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260));
+      });
     });
   }
   return L.join('\n');
@@ -36318,6 +36335,8 @@ async function wwFinish(){
   var w=V.ww;
   if(w.stopped){w.msg='';wwSave(true);return}   /* 中途结束的局：不生成裁判复盘和赛后感想 */
   var gen=w.gen||0;
+  try{await wwScribeTick(w,'finish')}catch(e){}
+  if(gen!==(w.gen||0))return;
   var who=w.players.filter(wwIsWolf).map(function(p){return wwNum(p)+p.name}).join('、');
   var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(w.endText||'');
   /* 先让中立裁判从上帝视角复盘这一局（顺便评个 MVP） */
