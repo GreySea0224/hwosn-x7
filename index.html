@@ -15528,6 +15528,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-27】
+狼人杀已取消“AI 自动掀桌认输”。即使只剩最后一只狼，也必须继续正常发言、投票和夜间行动，不会再额外发起认输请求。此前历史记录里已有的掀桌结果只作为旧战绩显示。
+狼人夜间现在会检查自刀成本：前几天仍有其他狼、场上仍有跳预者时，若自刀只是为了证明假预身份、没有明确抗推和票型收益，系统会改选好人目标；真人玩家在狼队频道明确要求自刀时仍会执行。梦魇每次行动前会先看到自己的历史恐惧记录、上一夜目标和本夜尚未选择的明确提示，避免把过去和当前行动混淆。
 狼人杀或其他游戏的战绩分享到聊天后，不再每轮把完整战报重复塞进上下文。聊天里只保留时间、结果、参与者等缩略信息；完整发言、投票和行动仍保存在游戏战绩里。只有最近聊天上下文里确实有战绩时，角色才会拿到只读工具 game_record_read；她可以按兴趣主动查看，也会在用户追问细节时查看。没有相关战绩时不会提供这个工具，省下工具说明占用的 token。
 角色聊天里的「思考过程」现在也会记录工具调用。展开胶囊后，可以按实际顺序看到 AI 想了什么、调用了哪个工具、传入什么参数、成功还是失败，以及工具返回了什么。常见的令牌、密码等敏感字段会隐藏，很长的内容会截断。刷新聊天或切换回复版本后，记录仍会保留。模型没有返回思考文字时，也能单独看到工具记录。
 角色使用工具时更主动了：只要当前提供的工具能查证事实、真正完成任务或提高准确性，AI 会直接调用，不再先问一次“要不要我帮你”；只有目标、关键参数不清楚，或操作明显不可逆且依据不足时才会先询问。工具仍受角色设置里的权限开关限制，不会因此擅自打开没授权的工具。
@@ -15692,7 +15694,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=75;  /* 75：狼人杀不退水只排除代跳，不直接定狼；74：证据分级与世界线淘汰 */
+const GUIDE_VER=76;  /* 76：取消自动认输、自刀检查与梦魇行动记忆；75：不退水只排除代跳 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32382,9 +32384,6 @@ function wwFactsFor(p){
     var myJob=wwWolfJobOf(p);
     if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+wwWolfJobHelp(myJob));
     if(!p.isUser)L.push(wwWolfCommandRule());
-    /* 【新】最后一只狼：实在没救了可以「掀桌」认输，别硬撑着把自己绕死 */
-    if(wwAlive().filter(wwIsWolf).length===1&&p.alive)
-      L.push('· 你是最后一只狼。确定翻不了盘时，可在白天发言时选择掀桌：公开认狼并被处刑；还有希望就继续装。');
     /* 【新】昨晚你们刀的是谁 —— 这是你们自己做的事（去掉死因以后必须补上，不然狼队会变瞎） */
     if(w.night&&w.night.wolf&&!w.night.spared)
       L.push('· 你们狼队昨晚刀的是 '+wwName(w.night.wolf)+(w.pendingDeaths?'（死讯还没公布，先别声张）':(w.night.wolf.alive?'，TA 现在还活着（多半是女巫的解药救回来了）':''))+
@@ -33861,6 +33860,39 @@ function wwWolfThinkText(picks){
     return '【'+who+' 的思考过程】\n'+think;
   }).filter(Boolean).join('\n\n');
 }
+function wwLivingPublicSeerClaims(w){
+  var out=[],seen={},data=wwPublicIdentityData(w);
+  if(data.seer)Object.keys(data.seer).forEach(function(k){
+    var r=data.seer[k];if(r&&r.p&&r.p.alive&&!seen[r.p.uid]){seen[r.p.uid]=1;out.push(r.p)}
+  });
+  ((w&&w.scribe&&w.scribe.claims)||[]).forEach(function(x){
+    if(!x||x.role!=='seer')return;
+    var p=wwPlayerByUidTarget(w,x.seat);
+    if(p&&p.alive&&!seen[p.uid]){seen[p.uid]=1;out.push(p)}
+  });
+  return out;
+}
+function wwUserWolfSelfKillOrder(w){
+  return !!((w&&w.log)||[]).some(function(e){
+    return e&&e.k==='wolf'&&e.isUser&&Number(e.d)===Number(w.day)&&/(?:自刀|刀自己|刀队友|卖队友)/.test(String(e.text||''));
+  });
+}
+function wwBlockBlindWolfSelfKill(w,target,logic){
+  if(!w||!target||!wwIsWolf(target))return false;
+  var plan=String(logic||'');
+  if(!/(?:自刀|刀队友|卖队友)/.test(plan))return true;
+  if(!/(?:做局|抗推|真预|身份|票型|收益|轮次|换)/.test(plan))return true;
+  var seers=wwLivingPublicSeerClaims(w),wolfAlive=wwAlive().filter(wwIsWolf).length;
+  if(Number(w.day)<=2&&wolfAlive>=2&&seers.length&&!wwUserWolfSelfKillOrder(w))return true;
+  return false;
+}
+function wwWolfNightPlanHint(p){
+  var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length,wolfAlive=wwAlive().filter(wwIsWolf).length;
+  return '【自刀/刀队友检查】'+
+    (seers.length?('场上仍有 '+seers.map(wwTag).join('、')+' 以预言家身份活动。'):'当前没有明确的活跃跳预者。')+
+    '自刀不能只为了“证明悍跳位是真的”，还要保留能继续吃票、继续对抗真预的抗推位。选择自己或队友前，判断里必须明确写出：为什么她已没有抗位价值、自刀能换来什么具体票型、狼队还能承受少一人。'+
+    '前几天若其他狼还能打、且仍有人可以抗推真预，优先保留跳预狼；否则改刀好人，把恐惧和刀人用在不同的有效目标上。当前普通狼存活数：'+packAlive+'；狼阵营总人数：'+wolfAlive+'。';
+}
 /* 【改·省调用】一只狼夜里一次搞定三件事：想刀谁、为什么这样刀、给队友留一句悄悄话。
    以前分多次请求，现在合成一次，狼多的时候能省请求。
    返回 {t, note, noKill, logic}；logic 是本次落刀方案的简短判断。 */
@@ -33871,7 +33903,8 @@ async function wwWolfAct(p){
     '\n\n【你是谁】你是 '+(p.seq||'?')+' 号「'+p.name+'」，本局狼人。现在决定今晚刀谁，并给狼队友留一句。'+
     '（自刀或刀队友属特殊战术，要真想清楚）'+
     '\n\n【狼刀做局】别只按“谁和我对立”选刀。先想这刀会让好人误信谁、站错哪边。'+
-    '例：真预已被推、悍跳狼已立住时，可自刀悍跳狼，让好人误认它为真预，并转去票狼人的对立面。'+
+    '自刀或刀队友是极少用的特殊战术，不是默认做法；只有保留她已经换不到票、死亡又能明确改变下一轮站边时才考虑。'+
+    '\n'+wwWolfNightPlanHint(p)+
     '\n\n'+wwGenderLine()+
     (wwFaceOn()?('\n\n【面杀·夜间密会】你们可以在房间里正常商量，仅狼队可见；可写少量括号神态动作。'):'')+
     '\n\n'+wwFactsFor(p)+
@@ -33944,7 +33977,9 @@ async function wwWolfChoose(wolves){
     var m=mates[wi];
     var a=await wwWolfAct(m);
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
-    var t=a.t||(a.noKill?null:rand);            /* 明确说「空刀」就是今晚不杀；没答上来才退回随机 */
+    var blockedSelf=wwBlockBlindWolfSelfKill(w,a.t,a.logic);
+    var t=blockedSelf?(a.noKill?null:rand):(a.t||(a.noKill?null:rand)); /* 明确说「空刀」就是今晚不杀；没答上来才退回随机 */
+    if(blockedSelf&&a.logic)a.logic+='（系统拦下：早期保留抗推位，禁止无明确收益的自刀）';
     w.wolfPicks.push({
       seq:m.seq,name:m.name,uid:m.uid,t:t,noKill:!!(a.noKill&&!a.t),
       think:String((WW_LAST&&WW_LAST.reason)||''),  /* 每只狼一返回就存，避免被下一只狼覆盖 */
@@ -33978,10 +34013,16 @@ async function wwSeerChoose(seer){
 async function wwNightmareChoose(p,pool){
   if(!pool||!pool.length)return null;
   var last=wwPlayerByUid(V.ww.nightmareLast);
-  var sys=wwSysFor(p,'现在轮到你最先释放梦魇。选择一名玩家恐惧，她本夜不能使用技能；也可以空梦。'+
+  var fears=(p.check||[]).filter(function(c){return c&&c.kind==='nightmare'}).map(function(c){
+    var t=wwPlayerByUid(c.uid);return '第'+(c.day||'?')+'夜：'+(t?wwTag(t):'已出局玩家');
+  });
+  var card='【你的梦魇行动卡】\n· 过去恐惧：'+(fears.length?fears.join('；'):'还没有')+
+    '\n· 本夜行动：尚未选择。你现在正在决定本夜唯一一次恐惧。'+
+    (last?'\n· 连续限制：上一夜恐惧了 '+wwTag(last)+'，本夜不能再选她。':'')+
+    '\n· 恐惧只让你选中的那个人本夜技能失效；不要把过去某一夜的恐惧对象误当成今晚已经发生的结果。';
+  var sys=wwSysFor(p,card+'\n\n现在轮到你最先释放梦魇。选择一名玩家恐惧，她本夜不能使用技能；也可以空梦。'+
     '可选：'+pool.map(wwName).join('、')+
     (V.ww.day===1&&!V.ww.nightmareMetWolves?'\n首夜你还不知道狼队友，没有明确目标时通常选择空梦更稳。':'')+
-    (last?'\n你上一夜恐惧的是 '+wwTag(last)+'，今晚不能连续梦她。':'')+
     '\n【输出格式】只输出编号、名字或「空梦」。');
   var txt=await wwCall(sys,'请决定今晚恐惧谁。',40,.85);
   if(/空梦|不梦|跳过|不用/.test(txt))return null;
@@ -35719,58 +35760,6 @@ function wwActHead(title,noMark){
     '</div>';
 }
 /* ---------- 【新】白狼王自爆 ---------- */
-/* ---------- 【新】狼人「掀桌」认输 ----------
-   什么时候能用：场上只剩它一只狼（队友都出局了）。这种局最容易出现「想不出策略、泡在思考里
-   一直硬装」的情况 —— 干脆给它一个体面的出口：公开承认自己是狼、说一段投降演说、当场被处刑。
-   （只有剩下的那最后一只狼、而且它自己觉得翻不了盘，才会走这一步；还有一线希望就照常装。） */
-function wwFlipChance(p){return !!(p&&p.alive&&!p.flipped&&wwIsWolf(p)&&wwAlive().filter(wwIsWolf).length===1)}
-function wwFlipSys(p){
-  var L=[];
-  L.push(String(wwCharBlock(p)||''));
-  L.push('【现在的情况】你是这一局【最后一只狼】（队友都出局了），现在轮到你白天发言。');
-  L.push(wwGenderLine());
-  L.push('【你要决定：继续装，还是掀桌】\n'+
-    '· 掀桌＝公开承认「我就是狼」，说一段投降演说（可以自嘲、可以夸对手、可以不服气、可以吐槽这一局），然后当场认输、被处刑；\n'+
-    '· 什么时候掀：你确实看不到任何翻盘希望——全场已经把你锁死、票肯定拉不回来、你自己马上就要被投出去；\n'+
-    '· 什么时候别掀：还有一线希望（还有人信你、还有好人能被你带偏、你还没被全场锁定）就继续装，别轻易认输；\n'+
-    '· 掀桌只能用一次，掀了就结束。');
-  L.push('【输出】两行：\n第 1 行：只写「掀桌」或「继续装」；\n第 2 行（只有掀桌时才写）：你的投降演说，2~4 句，口语、符合你的人设，可以点名吐槽。不要写旁白、不要 markdown。');
-  return L.filter(function(x){return x}).join('\n\n');
-}
-function wwFlipSaySys(p){
-  return String(wwCharBlock(p)||'')+'\n\n'+wwGenderLine()+
-    '\n\n【现在】你（场上最后一只狼）当场掀桌认输了，所有人都在看着你。'+
-    '说一段投降演说：2~4 句，可以自嘲、可以夸对手、可以不服气、可以吐槽队友太菜或者运气太差。'+
-    '\n【输出】只写你要说的话，不要写名字、不要写旁白、不要 markdown。';
-}
-async function wwFlipTry(gen,p){
-  var w=V.ww;
-  var d='';
-  try{d=String(await wwCall(wwFlipSys(p),'请决定。',wwTokLimit(400),.9)||'')}catch(e){d=''}
-  if(wwStaleG(gen))return false;
-  var lines=String(d).split(/\n+/).map(function(s){return s.trim()}).filter(function(s){return !!s});
-  var first=String(lines[0]||'');
-  if(!/掀桌/.test(first)||/不掀|别掀|先不|继续装/.test(first))return false;
-  /* 投降演说：第一行之后的内容；没写就再要一次 */
-  var sp=String(lines.slice(1).join(' ')).replace(/^【?投降演说】?[：:]?\s*/,'').trim();
-  if(!sp){try{sp=String(await wwCall(wwFlipSaySys(p),'请说。',wwTokLimit(400),.95)||'').trim()}catch(e){sp=''}}
-  if(!sp)sp='……不装了，这局是我输了。';
-  if(wwStaleG(gen))return false;
-  p.flipped=true;
-  w.scene='exec';      /* 【第三批】掀桌＝公开认输后被处刑，也用处刑台那张图 */
-  w.log.push({k:'sys',text:'💥 '+wwTag(p)+'掀桌认输。'});
-  w.log.push({k:'say',who:p.uid,text:'【投降】'+sp});
-  render(true);
-  /* 认输之后：当场被处刑（相当于被票出去，但没有遗言环节） */
-  var wasSheriff=(w.sheriffUid===p.uid);
-  p.alive=false;p.killedBy='flip';
-  w.log.push({k:'vote',text:'投票：'+wwTag(p)+'出局。'});
-  w.rec.push({d:w.day,t:'狼人 '+wwTag(p)+' 掀桌认输（公开身份、投降后被处刑）'});
-  render(true);
-  if(wasSheriff&&wwSheriffOn()&&!w.badgeGone){try{await wwBadgePass()}catch(e){}if(wwStaleG(gen))return true}
-  wwCheckOver();          /* 最后一只狼出局：好人赢，这一局到这里就结束了 */
-  return true;
-}
 /* 今天是不是已经被「自爆」提前结束了 */
 function wwDayCut(){var w=V.ww;return !!(w&&w.dayOver===w.day)}
 function wwKingP(){var a=wwAlive().filter(function(p){return p.role==='wolfking'});return a[0]||null}
@@ -36555,13 +36544,6 @@ async function wwDay(){
     w.speaking=q.uid;      /* 座位表上把正在说话的人点亮 */
     /* 【新】轮到白狼王发言：先让她想想这轮要不要自爆（不自爆就照常发言） */
     if(q.role==='wolfking'&&!w.kingBoom){if(await wwKingTry(gen,q))return;if(wwStaleG(gen))return;}
-    /* 【新】场上的最后一只狼：如果它自己觉得翻不了盘，可以在发言这一步「掀桌」认输
-       （掀桌后当场被处刑、这一局直接结束，不用再硬撑着装好人） */
-    if(!q.isUser&&wwFlipChance(q)){
-      var flipped=await wwFlipTry(gen,q);
-      if(wwStaleG(gen))return;
-      if(flipped)return;
-    }
     if(q.isUser){
       var r=await wwAskSay('轮到你发言：怀疑谁？可报身份。','跳过');
       if(wwStaleG(gen))return;
