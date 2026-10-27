@@ -15540,7 +15540,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀新增「质问与回答记录」和原文核对。程序会区分“角色自称”和“只是提到角色”，例如“梦魇守卫这个板子”不会再被当成跳守卫；已经回答过的问题会留下提问人、回答日期、完整原答和重复追问次数，AI 不能再说对方没解释而没有读过原话。用户被追问时，完整原回答会直接附给所有 AI。AI 发言时也可以先写“【查原文】座位号 第几天 关键词”，让程序取出完整公开原文后重新完成这轮发言，每轮最多查一次。旧版身份盘会自动停用并重建，复制身份盘时也会带上质问与回答记录。
 狼人杀新增「场记 AI」。每个发言轮结束、投票前和白天开始时，最多批量核对一次新增公开发言，不会每句话都调用；它整理谁明确自称了什么、哪些问题是同一主题、哪些已经回答，以及哪些身份声明互相冲突。场记看不到真实身份、夜间私密行动或其他 AI 的思考，每条声明还必须由程序核对原话编号、说话座位和是否为本人直接自称，才会写进公共身份盘。高级设置里可以关闭场记 AI，关掉后自动使用本地规则兜底；复制身份盘会显示场记是否运行、识别条数和最近错误。
 狼人杀策略新增几种高风险玩法：悍跳狼在所有板子都可以根据现场质量自由选择继续悍跳、改普通上警或退水假装好人代跳；退水时要说明假验作废。守墓人石像鬼板子的狼队可以提前安排一只没跳预的狼准备假守墓人，第二天先手抢身份或后手对跳，但同一只狼不能先跳预再改跳守墓。好人可以更大胆地假跳预言家、给后置位上警者发金水后观察退水，也可以在抿到狼队找石像鬼时假跳石像鬼钓狼；这是高风险诈身份，需要准备解释。石像鬼如果已经被投票放逐且伪装失败，可以直接明跳并报出真实验到的神职位置，让狼队接刀。
-狼人杀的判断纪律收紧为“证据分级＋世界线淘汰”：发言长短、语气强硬、预判局势和口癖不再单独算狼点；多名跳预者出现时必须写出主世界线和排除另一条线的理由，不能永久五五开。采信预言家或守墓人的身份后，必须继续使用她们的金水、查杀或阵营结果；已回答的问题自动关闭，只有新事实冲突或真正的新问题才能重新打开。好人还会额外检查长期投安全票、卖掉已经必出的狼队友后长期免检的深水狼。
+狼人杀的判断纪律收紧为“证据分级＋世界线淘汰”：发言长短、语气强硬、预判局势和口癖不再单独算狼点；多名跳预者出现时必须写出主世界线和排除另一条线的理由，不能永久五五开。采信预言家或守墓人的身份后，必须继续使用她们的金水、查杀或阵营结果；只有回答真正解释了核心问题才算“已回答并解决”，只认措辞错、道歉却仍没解释因果的会标成“已回应但未解决”，可以继续作为投票主证据。好人还会额外检查长期投安全票、卖掉已经必出的狼队友后长期免检的深水狼。
+狼人杀进一步区分“聊爆”和“措辞差”：聊爆是发言与规则、验人时间线、票型承诺或技能结果正面冲突，且没有能同时成立的替代解释；确认聊爆且未解决时优先票出，不会因为道歉、反查杀、语气或票型改票。普通口误、用词不准只是措辞差，不能一直拿来定狼。好人可以先自称平民躲刀，之后用“身份很硬”暗跳神，这不叫前后矛盾；发言顺序由警长或系统安排，也不能当狼点。警长票与放逐票是不同阶段，不要求投同一个人。悍跳狼在竞选前会检查首夜验人时间线，首验理由不能用“上警积极、发言、警徽表现”等白天才出现的信息。
 跳预者报过明确查验、不退水并持续攻击另一名跳预者，只应大幅排除“无计划好人代跳”，不能直接算强狼或强预；要继续保留真预／悍跳狼两条主世界线，并用验人、票型或可信神职结果淘汰一边。可信守墓人证明她不是狼时，应落到真预。
 狼人杀准备页的 12 人板子新增「守墓人石像鬼」：3 个普通狼、1 个石像鬼、4 个平民、预言家、女巫、猎人和守墓人。石像鬼属于狼人阵营，但普通狼与石像鬼互不相认，石像鬼不参加普通狼的夜间商量和刀人；她每晚可以查验一名存活玩家的具体身份，普通狼全部出局后才会接刀。守墓人每晚自动得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份；第一夜、平票或无人被放逐时没有结果。两者的查验记录和身份信息只给自己看，并会随中途续局保存。邀请卡、预设配置和角色固定身份也已支持这个新板子。
 狼人杀的观战模式新增「上帝视角」：进入对局后，点牌桌右上角的眼睛按钮，就能在座位上看到每名玩家的具体身份，并在记录区看到夜间谁对谁用了技能；所有狼人夜间交流也会直接显示。再点一次眼睛就关闭。这个视角只在观战模式出现，不会把答案发给其他 AI。女巫现在无论网杀还是面杀都全程不能自救。
@@ -15696,7 +15697,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=77;  /* 77：新增「人机难辨」；76：取消自动认输、自刀检查与梦魇行动记忆 */
+const GUIDE_VER=78;  /* 78：聊爆/措辞、问答未解决、藏身份与悍跳时间线；77：新增「人机难辨」 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32944,6 +32945,8 @@ function wwQuestionTopics(txt){
     ['身份',/(?:身份|猎人|守卫|女巫|梦魇)/],
     ['投票',/(?:投票|票型|归票|投谁)/]
   ],out=[];
+  if(/(?:聊爆|圆不回来|不可能圆|话糙|我接一半|措辞.*(?:错|认))/.test(s)&&/(?:验|查验|查杀|金水|时间线|上警|夜里|白天)/.test(s))
+    return ['聊爆/时间线'];
   defs.forEach(function(x){if(x[1].test(s))out.push(x[0])});
   return out;
 }
@@ -32978,11 +32981,43 @@ function wwAnswerLike(txt){
   return /(?:先说|理由|原因是|因为|我的判断|我在压跳|我压跳|我代跳|我反水|第一|第二|1[，,、]|2[，,、])/.test(String(txt||''))||
     /(?:我是|我跳|我报)[^。！？!?；;\n]{0,12}(?:预言家|女巫|猎人|守卫|守墓人|骑士|白痴)/.test(String(txt||''));
 }
+/* “回答过”不等于“解释成立”。尤其验人时间线这种硬问题，
+   只认一句“话糙/措辞错了”但没有补出新的首夜选人理由，仍然算未解决。 */
+function wwAnswerResolvesText(q,a){
+  q=String(q||'');a=String(a||'');
+  var verifyTimeline=/(?:验|查验|查杀|金水)/.test(q)&&/(?:聊爆|时间线|先后|夜里|晚上|白天|上警|不可能|圆)/.test(q);
+  if(verifyTimeline){
+    var alternative=/(?:盲选|盲验|随便|随手|随机|头像|名字|座位|顺位|靠前|眼缘|第一感觉|开局前|本来就想|原意是|准确说)/.test(a);
+    if(!alternative)return false;
+  }
+  var ackOnly=/(?:话糙|措辞|表达|说错|我认|认账|承认|我接一半)/.test(a);
+  var substance=/(?:因为|理由是|原因是|盲选|盲验|随便|随手|随机|头像|名字|座位|顺位|靠前|眼缘|第一感觉|原意是|准确说)/.test(a);
+  return !ackOnly||substance;
+}
+function wwAnswerRefsResolved(qRefs,aRefs,refs){
+  if(!aRefs||!aRefs.length)return false;
+  var qs=(qRefs||[]).map(function(r){return refs[r]?refs[r].text:''}).join(' ');
+  var aa=aRefs.map(function(r){return refs[r]?refs[r].text:''}).join(' ');
+  return wwAnswerResolvesText(qs,aa);
+}
+function wwQAStatusText(st){
+  return st==='answered'?'已回答并解决':(st==='unresolved'?'已回应但未解决':'未回答');
+}
 function wwQuestionLedger(w){
   var rows=wwPublicEventRows(w),groups=[],map={};
   rows.forEach(function(r){
     var clauses=r.text.split(/[。！？!?；;\n]+/);
     var fullTarget=wwFirstOtherSeat(r.text,r.p.seq);
+    if(/(?:聊爆|圆不回来|不可能圆)/.test(r.text)&&/(?:验|查验|查杀|金水|时间线|上警|夜里|白天)/.test(r.text)&&fullTarget){
+      var hardTarget=null;
+      (w.players||[]).some(function(p){if(p&&Number(p.seq)===fullTarget){hardTarget=p;return true}return false});
+      if(hardTarget){
+        var hardKey=hardTarget.uid+'|聊爆/时间线',hardG=map[hardKey];
+        if(!hardG){hardG={target:hardTarget,topic:'聊爆/时间线',asks:[],answers:[],status:'unanswered'};map[hardKey]=hardG;groups.push(hardG)}
+        if(!hardG.asks.some(function(a){return a.ref===r.ref}))
+          hardG.asks.push({uid:r.uid,seq:r.p.seq,day:r.day,ref:r.ref,text:r.text,idx:r.idx});
+      }
+    }
     clauses.forEach(function(c){
       if(!wwQuestionLike(c))return;
       var ts=wwQuestionSeatIn(c,r.p.seq)||fullTarget;
@@ -33012,7 +33047,9 @@ function wwQuestionLedger(w){
     });
     g.answers=g.answers.slice(-3);
     if(g.answers.length){
-      g.status='answered';
+      var qText=g.asks.map(function(a){return a.text}).join(' ');
+      var aText=g.answers.map(function(a){return a.text}).join(' ');
+      g.status=wwAnswerResolvesText(qText,aText)?'answered':'unresolved';
       var answerAt=Math.min.apply(null,g.answers.map(function(a){return a.idx}));
       g.repeated=g.asks.filter(function(a){return a.idx>answerAt}).length;
     }else g.repeated=0;
@@ -33032,9 +33069,13 @@ function wwQuestionLedgerText(w,p){
       if(!targetP)return;
       var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       var mineAsk=asks.some(function(a){return a.uid===p.uid});
-      if(targetP.uid!==p.uid&&!targetP.isUser&&!mineAsk)return;
       var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
-      L.push('· '+targetP.seq+'号·'+qa.topic+'｜'+(ans.length?'已回答':'未回答')+
+      var st=String(qa.status||'');
+      if(!ans.length)st='unanswered';
+      else if(st==='unresolved'||!wwAnswerRefsResolved(qa.questionRefs||[],qa.answerRefs||[],refs))st='unresolved';
+      else st='answered';
+      if(targetP.uid!==p.uid&&!targetP.isUser&&!mineAsk&&st!=='unresolved')return;
+      L.push('· '+targetP.seq+'号·'+qa.topic+'｜'+wwQAStatusText(st)+
         '｜场记核对'+(asks.length?('｜问过：'+asks.map(function(a){return a.p.seq+'号'}).filter(function(v,i,a){return a.indexOf(v)===i}).join('、')):''));
       if(asks.length){
         var q=asks[asks.length-1];
@@ -33050,10 +33091,10 @@ function wwQuestionLedgerText(w,p){
   if(!useScribe||!L.length){
     wwQuestionLedger(w).forEach(function(g){
       var mine=g.target.uid===p.uid||g.asks.some(function(a){return a.uid===p.uid});
-      if(!mine&&!g.target.isUser)return;
+      if(!mine&&!g.target.isUser&&g.status!=='unresolved')return;
       var askers=[];
       g.asks.forEach(function(a){var n=a.seq+'号';if(askers.indexOf(n)<0)askers.push(n)});
-      L.push('· '+g.target.seq+'号·'+g.topic+'｜'+(g.status==='answered'?'已回答':'未回答')+
+      L.push('· '+g.target.seq+'号·'+g.topic+'｜'+wwQAStatusText(g.status)+
         '｜问过：'+askers.join('、')+(g.repeated?('｜回答后仍重复追问 '+g.repeated+' 次'):''));
       if(g.asks.length)L.push('  问句：'+wwClipSpeech(g.asks[g.asks.length-1].text,100,35));
       if(g.answers.length){
@@ -33064,8 +33105,10 @@ function wwQuestionLedgerText(w,p){
   }
   if(!L.length)return '';
   L.unshift((useScribe&&scribeShown)?'【质问与回答记录（场记 AI 核对原话）】':'【质问与回答记录（本地规则兜底）】');
-  L.push('纪律：标为“已回答”的问题已经关闭，不能再拿同一个旧疑点反复投票。不得说对方“没解释/没交代”；若仍怀疑，必须指出原答里哪一句话与现实、票型或技能结果冲突，或提出一个真正的新问题。');
-  return L.slice(0,14).join('\n');
+  L.push('纪律：只有“已回答并解决”会关闭问题；“已回应但未解决”仍是当前硬疑点，可以继续作为投票主证据。承认措辞不好、道歉、重复原结论或反怀疑别人，都不等于解决因果/时间线冲突；若要把硬疑点降级，必须说出新的、能同时成立的替代解释。');
+  if(L.length<=14)return L.join('\n');
+  var kept=L.slice(0,13);kept.push(L[L.length-1]);
+  return kept.join('\n');
 }
 function wwFullUserAnswers(w){
   var me=(w.players||[]).filter(function(p){return p&&p.isUser})[0],seen={},arr=[];
@@ -33160,17 +33203,18 @@ function wwScribeSys(w,rows){
     '2. “1号守墓人报的狼”“梦魇守卫这个板子”“守墓人我不打”只是在提别人或提规则，绝不能记成说话人自称。\n'+
     '3. quote 必须是对应事件里原样出现的一小段话；quoteRef 必须是该事件的编号。\n'+
     '4. 别人转述、主持人公告和自己的推测都不算身份自称。\n'+
-    '5. 阵营判断、身份真假判断只属于各玩家自己的私人身份盘，不属于公共场记。');
+    '5. 阵营判断、身份真假判断只属于各玩家自己的私人身份盘，不属于公共场记。\n'+
+    '6. “身份很硬”“我有身份”只是软跳神，不是具体身份声明；先自称平民、之后软跳神，可能是躲刀策略，不能自动记成前后冲突。');
   L.push('【问题与回答规则】\n'+
     '1. 把同一个目标、同一主题的追问合并，不按每一句话重复建条目。\n'+
-    '2. 如果目标之前已经用具体理由回答过，status 写 answered，并在 answerRefs 填所有对应回答事件编号。\n'+
-    '3. 只有真正没给出理由时写 unanswered。回答后又被追问，也仍写 answered。\n'+
+    '2. answered 只表示回答直接回应了原问题，并给出具体、能成立的解释；同时填 answerRefs。\n'+
+    '3. 有回应，但只认“话糙、措辞错、我认”，或重复原结论、反怀疑别人，仍没补出能成立的替代解释，status 写 unresolved。完全没回应才写 unanswered。\n'+
     '4. 普通角色提及、反问、情绪发泄不要硬做成新问题。\n'+
     '5. 一段长发言同时提到多人时，target 必须写真正被要求解释/回答的人，不能机械选择最先出现的编号。\n'+
-    '6. 已回答的问题视为关闭；只有出现了与原答直接冲突的新事实，才另记一条明确的新问题。');
+    '6. 只有 answered 会关闭问题；unresolved 仍是硬疑点。若验人时间线倒置，必须看到新的首夜选人理由才算解决，单纯改口称“盲验/看头像/名字”也要能回答为什么原话会写成白天表现。');
   L.push('【只输出一个 JSON 对象，不要 markdown、不要解释】\n'+
     '{"claims":[{"seat":1,"role":"gravekeeper","ref":"D2-P1-1","quote":"我是1号，守墓人"}],'+
-    '"qa":[{"target":7,"topic":"代跳/退水","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"answered"}]}');
+    '"qa":[{"target":7,"topic":"聊爆/时间线","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"unresolved"}]}');
   return L.join('\n\n');
 }
 function wwScribeParse(raw){
@@ -33215,13 +33259,14 @@ function wwScribeApply(w,obj,newRows){
     });
     var targetP=wwPlayerByUidTarget(w,target);
     if(!targetP||!topic||!qRefs.length)return;
-    var status=aRefs.length?'answered':(x.status==='unanswered'?'unanswered':'unanswered');
+    var asked=String(x.status||'');
+    var status=!aRefs.length?'unanswered':(asked==='unresolved'||!wwAnswerRefsResolved(qRefs,aRefs,refs)?'unresolved':'answered');
     var key=target+'|'+topic;
     var old=qa.filter(function(y){return y.key===key})[0];
     if(old){
       qRefs.forEach(function(r){if(old.questionRefs.indexOf(r)<0)old.questionRefs.push(r)});
       aRefs.forEach(function(r){if(old.answerRefs.indexOf(r)<0)old.answerRefs.push(r)});
-      old.status=old.answerRefs.length?'answered':status;
+      old.status=!old.answerRefs.length?'unanswered':(status==='unresolved'||!wwAnswerRefsResolved(old.questionRefs,old.answerRefs,refs)?'unresolved':'answered');
     }else qa.push({key:key,target:target,topic:topic,questionRefs:qRefs,answerRefs:aRefs,status:status});
   });
   var s=w.scribe||wwEmptyScribe();
@@ -33237,7 +33282,7 @@ function wwScribeApply(w,obj,newRows){
     old.answerRefs=old.answerRefs||[];
     (x.questionRefs||[]).forEach(function(r){if(old.questionRefs.indexOf(r)<0)old.questionRefs.push(r)});
     (x.answerRefs||[]).forEach(function(r){if(old.answerRefs.indexOf(r)<0)old.answerRefs.push(r)});
-    old.status=old.answerRefs.length?'answered':x.status;
+    old.status=!old.answerRefs.length?'unanswered':(x.status==='unresolved'||!wwAnswerRefsResolved(old.questionRefs,old.answerRefs,refs)?'unresolved':'answered');
   });
   s.qa=Object.keys(qmap).map(function(k){return qmap[k]}).slice(-40);
   s.seen=s.seen||{};
@@ -33605,7 +33650,7 @@ function wwSysFor(p,task){
 	     r==='gargoyle'?'狼人阵营，但不与普通狼互认、不参加普通狼的夜间刀人。每晚查验一名存活玩家的具体身份；普通狼全部出局后接刀。隐藏身份，利用具体身份信息判断神职和狼坑。':
 	     r==='nightmare'?'狼人阵营。每晚最先单独恐惧一名玩家，使其当晚不能使用技能；不能连续两晚恐惧同一人，也可以空梦。恐惧完成后才与普通狼会合并参加狼刀，首夜恐惧前不认识狼队友。':
 	     r==='wolfking'?'狼队成员。白天可自爆带走一人并立即入夜，限一次；被票前或能炸关键神职时用。':
-     '狼队成员。白天装好人，可悍跳、假金水、假查杀。悍跳时按真实流程编：警上只报昨夜一个结果；死讯后仍是同日，不能凭空多编一轮验人。别反射性查杀对跳者；优先外置位金水拉票，或反踩真预“怕你才查杀”。'));
+     '狼队成员。白天装好人，可悍跳、假金水、假查杀。悍跳前先过时间线：首夜验人发生在任何上警、发言和警徽表现之前，首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能引用“上警积极、发言、警徽表现”等白天信息；每天只新增一夜查验，死讯后仍是同一天。别反射性查杀对跳者；优先外置位金水拉票，或反踩真预“怕你才查杀”。'));
   if(p.anon)L.push('【你这一局匿名】其他玩家只知道你是 '+(p.seq||'?')+' 号，不会拿到你的真实名字。发言时用编号自称，绝不要说出自己的真实名字；就算你的人设里写着名字，也要把它当成只有自己知道的信息。');
   if(wwIsPackWolf(p)||(p.role==='nightmare'&&w.nightmareMetWolves)){
     var mates=wwWolfMates(p).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':((x.role==='nightmare')?'（梦魇）':''))});
@@ -33661,7 +33706,9 @@ function wwSysFor(p,task){
     '证据强弱：主持人事实、可信验人、票型矛盾>具体动机和前后矛盾>语气；话顺、理由齐不能单独定狼。'+
     '首夜验人多为盲选，允许按人设随口说“随便验、看头像或名字、觉得像高玩”；真预和悍跳都要给一句首验理由，别人不能只因理由牵强就定狼。第一天不要踩预言家的验人理由，只从她给出的逻辑本身分析。'+
     '单边神职无对跳或明确反证时，可以先不投她，但这只说明她神职面较大，不证明她归票正确。'+
-    '出现死讯、翻牌或关键改票后重算谁最受益；有新证据才改票。');
+    '出现死讯、翻牌或关键改票后重算谁最受益；有新证据才改票。'+
+    '【聊爆与措辞】聊爆是原话与规则、时间线、查验或技能结果正面冲突，而且当前没有能同时成立的替代解释；确认聊爆且仍未解决时，本轮必须优先票出，不因道歉、反查杀、语气、票型或暗跳神改票。不要滥用“聊爆”：若你明确说某人聊爆/圆不回来，自己也要按硬证据处理，后续改票必须先撤销该判断并说明替代解释。措辞差只是表达不顺、用词不准或口语歧义，解释后不能继续拿同一句定狼。只说“话糙、说错了”但没有补出替代因果，不算解释成立。'+
+    '【身份与票型口径】好人可以先自称平民躲刀，之后用“身份很硬、我有身份”暗跳神；未点明具体神职前只是软跳，不得当作前后矛盾。只有先明确自报某个具体身份、后来又明确否认或改称另一个具体身份，才算硬冲突。发言先后由警长或系统安排，不归玩家选择，不能当狼点。警长票是支持谁当选，放逐票是要求谁出局，两者不要求同号；只有明确承诺两票给同一个人却违反，才算票型矛盾。');
   L.push('【发言风格中立】发言长短、语气强硬、主动施压、反问、预判局势和口癖都不是身份证据。'+
     '“今天肯定有悍跳”“我强势带队”这类话只能算打法，不能从长发言里抠一句就当矛盾。'+
     '只有事实陈述前后冲突、验人时间线错误、票型与承诺相反、技能结果冲突，才算实质矛盾；不要因为一个人解释得多、说话更积极就提高她的狼面。');
@@ -33702,7 +33749,7 @@ var WW_LAST={reason:''};
 var _WWAC=null,_WWRETHINK=0;
 /* 【新·省流】给每个请求加一句「别在心里长篇大论」的提醒，试着压一压思考型的模型花在「思考过程」上的 token。
    效果看模型听不听话；嫌 AI 推理变浅了，在开局设置里切回「照旧」即可（存进 cfg.wwHush，关掉就是 false）。 */
-var WW_HUSH='【别想太久】这是个快节奏的桌游，不是写论文：只做一次简短比较，抓住一条主证据和一条反证就够了。别复述输入、别反复自我推翻、别把同一件事想两遍；有数了就立刻按当前任务规定的字段给出结论：该写票就写票，该写目标、判断、留言就写全，不省字段，不要先写长篇推理。';
+var WW_HUSH='【别想太久】这是个快节奏的桌游，不是写论文：只做一次简短比较，先锁住最硬且仍未解决的一条主证据，再看反证。道歉、语气、票型、暗跳身份或突然反查杀都不能盖过未解决的规则/时间线硬冲突。别复述输入、别反复自我推翻；有数了就立刻按当前任务规定的字段给出结论，不省字段。';
 function wwHushOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwHush===false)}
 function wwScribeOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwScribe===false)}
 async function wwCall(sys,usr,maxtok,temp){
@@ -34193,17 +34240,20 @@ async function wwVoteAI(p,pool){
   var job=wwWolfJobOf(p);
   var gread=wwGargoyleRead(p);
   var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'这只是默认建议，不压过真人玩家的明确指挥或本夜狼队讨论；不要无脑帮队友冲票。'):'';
-  var own=wwIsWolf(p)?wwLastOwnSpeech(p):'';
-  var ownHint=own?('\n你刚才公开发言的首尾是：「'+wwClipSpeech(own,260,100)+'」。把它作为投票起点，但不必被它锁死：'+
-    '听完后面的人、发现新信息、局面策略变了，可以合理改票。不要无理由随机换人，也不要只因为多数人投谁就跟票。'):'';
+  var own=wwLastOwnSpeech(p);
+  var ownHint=own?('\n你刚才公开发言的首尾是：「'+wwClipSpeech(own,260,100)+'」。把它作为投票起点。'+
+    (wwIsWolf(p)
+      ?'听完后面的人、发现新信息、局面策略变了，可以合理改票。不要无理由随机换人，也不要只因为多数人投谁就跟票。'
+      :'如果你刚才说了“解释不清就投她/说不明白不撤”，或公开指认某人“聊爆/圆不回来”，先查质问与回答记录：对方仍是“已回应但未解决”或“未回答”时，本轮必须按承诺投她。只有“已回答并解决”或出现了新的硬证据才能改票，并在判断里写明新证据是什么。')):'';
   var goodHint='\n按狼坑位置投，自行判断归票是否可信。按开局狼数、当前人数最多剩几狼，和是否有定狼已出局'+
     '（自爆/被骑士戳/跳预的全死=至少1狼死）粗估剩余狼数。再分析你想票的候选：若她是狼，队友是谁，'+
     '若她不是狼，是否有更像在狼队的人。票型一边倒时思考狼队是跟票投狼做身份，还是在冲票好人；'+
     '一个人有人保或没人保都不能靠这个定身份。特别检查长期投“安全正确票”、从不承担救队友风险的人；投过一次必出的狼队友只能轻微减分，不能长期免检。'+
     '除主持人公开事实外，只有你暂信真预报的查杀算强证据；'+
-    '别的神职/金水归票，不等于她归票的对象一定是狼，自己分析狼坑。';
+    '别的神职/金水归票，不等于她归票的对象一定是狼，自己分析狼坑。'+
+    '若有人被指出时间线/规则硬冲突且仍为“已回应但未解决”，优先投她；不能改用发言顺序、警长票与放逐票不同、平民后软跳神这类非矛盾理由推翻。';
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
-    (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+ownHint):goodHint)+
+    (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+ownHint):(goodHint+ownHint))+
     '\n【输出格式】只写两行：\n投票：编号或名字（例如「3号」）。\n判断：'+
     (gread
       ? ('必须说明你是否采信上面的石像鬼推理链；如果投'+wwTag(gread.candidate)+'，要给出足以推翻“给已知狼金水”的硬反证。')
@@ -34322,6 +34372,7 @@ function wwJudgePrompt(src,result){
      注意：玩家自己那场「夜间 · 你的房间」（k:'scene'）不会出现在 src.pub 里
      —— 见 wwPublicLog / wwPublicLogRec，那两种只收 sys / say / vote，所以裁判看不到她和凶手互骂的那些话。 */
   if(src.wolf)L.push('【狼队频道（她们夜里偷偷商量的，当时场上好人完全不知道）】\n'+src.wolf);
+  L.push('【复盘纪律】必须区分“聊爆”和“措辞差”：聊爆是原话与规则、验人时间线、票型承诺或技能结果正面冲突，且发言者没有给出能同时成立的替代解释；普通语气、口语歧义、发言靠后或警长票与放逐票不同，不能写成逻辑矛盾。若好人放过了未解决的聊爆，却因这些非矛盾理由出了人，要明确写成本局的真实误判，不能复述狼队的带票话术当事实。');
   L.push('【MVP 硬标准】只选一个，且必须是获胜阵营里贡献最大的人；输方表现再好也不拿 MVP。'+
     '狼人看刀法收益和发言收益；预言家看验报、归票、坐实身份和带队；其他好人看跟票、挡刀和关键信息。'+
     '别只看“刀没刀中”或“验人准不准”。');
@@ -34488,14 +34539,18 @@ function wwDumpQALedger(w){
       if(!tp)return;
       var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
-      L.push('· '+tp.seq+'号 · '+qa.topic+' · 场记 '+(ans.length?'已回答':'未回答'));
+      var st=String(qa.status||'');
+      if(!ans.length)st='unanswered';
+      else if(st==='unresolved'||!wwAnswerRefsResolved(qa.questionRefs||[],qa.answerRefs||[],refs))st='unresolved';
+      else st='answered';
+      L.push('· '+tp.seq+'号 · '+qa.topic+' · 场记 '+wwQAStatusText(st));
       asks.forEach(function(a){L.push('  问 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100))});
       ans.forEach(function(a){L.push('  答 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260))});
     });
   }else{
     wwQuestionLedger(w).forEach(function(g){
       L.push('· '+(g.target.seq?g.target.seq+'号':g.target.name)+' · '+g.topic+' · '+
-        (g.status==='answered'?'已回答':'未回答')+(g.repeated?(' · 回答后重复追问 '+g.repeated+' 次'):''));
+        wwQAStatusText(g.status)+(g.repeated?(' · 回答后重复追问 '+g.repeated+' 次'):''));
       g.asks.forEach(function(a){
         L.push('  问 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100));
       });
@@ -35993,6 +36048,9 @@ async function wwPoliceSpeech(p){
   var later=up.filter(function(x){return x!==p&&Number(x.seq)>Number(p.seq)});
   var earlier=up.filter(function(x){return x!==p&&Number(x.seq)<Number(p.seq)});
   var isJump=(p&&p.role==='seer')||wwWolfJobOf(p)==='jump';
+  var jumpTimelineHint=isJump
+    ?'【验人时间线自检】首夜验人发生在任何上警发言、死讯和白天表现之前；首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能把“上警积极、发言、警徽表现”等白天信息说成首夜选人的原因。每天只报新增的一夜验人。若假验理由或警徽流无法自圆，宁可普通上警或退水，不要为了悍跳硬编到聊爆。'
+    :'';
   var goodUpHint='你是不跳预言家的好人，二选一：①上警听发言：说明目的；'+
     (earlier.length
       ?('前面已有'+earlier.map(wwTag).join('、')+'发言，评价她们的竞选、说想投谁当警长及理由，可指出谁聊爆；')
@@ -36023,7 +36081,7 @@ async function wwPoliceSpeech(p){
     ?'后面还没发言的上警者有：'+later.map(wwNum).join('、')+'。可以条件式给她们压力，但不能当成她们已经跳预。'
     :'你已经是最后一个上警发言者，后面没有其他竞选者了。不要再提“后面谁再跳预言家/后置位预言家报验人”，直接回应已经发过言的竞选者。';
   var base='现在做竞选发言，争取警下支持你当警长。警长票是支持当选，不是把谁投出局。说清身份（可真可假）、打法、当选后的发言顺序和归票方向。'+
-    badgeHint+seerHint+orderHint+
+    badgeHint+jumpTimelineHint+seerHint+orderHint+
     '如果确实还有后置位，可以施压，但只能假设、不能当成已经发生：可说“若后面有人起跳预言家，我看她的验人和警徽流；好人别来抢身份，我不认代跳”。'+
     (others?('其他上警者：'+others+'。'):'')+'提到别人时带编号。';
   var say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
