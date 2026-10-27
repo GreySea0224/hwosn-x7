@@ -5015,7 +5015,7 @@ function toolTraceLabel(name){
     send_sticker:'发表情包',post_moment:'发朋友圈',draw_image:'画图',music_control:'操作音乐',
     invite_game:'邀请玩游戏',start_instruction:'准备分步指令',create_page:'做小网页',
     read_page:'读网页代码',update_page:'改小网页',shape_self:'更新自己',control_tide:'管理潮汐',
-    write_diary:'写日记',read_diary:'读日记'
+    write_diary:'写日记',read_diary:'读日记',game_record_read:'查看战绩详情'
   };
   if(m[n])return m[n];
   if(n.indexOf('mcp_')===0)return '外部 MCP 工具';
@@ -6047,6 +6047,15 @@ function hotRoundCount(){
   const n=Number(cfg&&cfg.hotRounds);
   return (Number.isFinite(n)&&n>0)?Math.min(200,Math.round(n)):20;
 }
+/* 缓存友好：历史起点按 16 条消息对齐。窗口需要前进时只整块跳一次，
+   不会每轮都挪动第一条历史消息，因此同一前缀可以连续命中缓存。 */
+const CTX_HISTORY_BLOCK=16;
+function stableHistoryStart(start,total){
+  start=Math.max(0,Math.round(Number(start)||0));
+  if(start<=0||total<=0)return 0;
+  start=Math.floor(start/CTX_HISTORY_BLOCK)*CTX_HISTORY_BLOCK;
+  return Math.min(start,Math.max(0,total-1));
+}
 /* 发消息时到底带多少聊天记录（热层） */
 function historySlice(){
   const list=ctxMsgs();
@@ -6056,10 +6065,111 @@ function historySlice(){
     if(lim<=0)return list.slice();          /* 0 = 不限制：整段聊天记录全带上 */
     let total=0,start=0;
     for(let i=list.length-1;i>=0;i--){total+=String(list[i].content||'').length+12;if(total>lim){start=i+1;break}}
-    return list.slice(start);
+    return list.slice(stableHistoryStart(start,list.length));
   }
   if(mode==='sum')return list.slice(-4);
-  return list.slice(-(hotRoundCount()*2));
+  const start=Math.max(0,list.length-hotRoundCount()*2);
+  return list.slice(stableHistoryStart(start,list.length));
+}
+/* 游戏战绩在普通聊天里只放缩略版；完整过程留在战绩库，需要时由角色调用工具读取。 */
+function gameRecordStoreSafe(){
+  try{
+    if(window.ROAM_GAME_HELPERS&&typeof window.ROAM_GAME_HELPERS.records==='function')
+      return window.ROAM_GAME_HELPERS.records()||[];
+  }catch(e){}
+  return [];
+}
+function gameRecordResultLine(r){
+  if(!r)return '';
+  if(r.game==='ww')return r.winner==='good'?'好人获胜':(r.winner==='wolf'?'狼人获胜':(r.endText?'平局':'已结束'));
+  if(r.game==='spy')return r.winner==='good'?'平民获胜':'卧底获胜';
+  if(r.game==='turtle')return r.solved?'猜出来了':'看了答案';
+  if(r.game==='murder')return r.solved?'抓到真凶了':'没抓到真凶';
+  if(r.game==='dg')return '答案：'+(r.answer||'');
+  if(r.game==='mq')return '最懂你的是：'+(r.topName||'');
+  if(r.endText)return String(r.endText).replace(/\s+/g,' ').slice(0,120);
+  return r.winner||'已完成';
+}
+function gameRecordCompactText(r,id,cid,fallbackT,brief){
+  if(String(brief||'').trim()){
+    let out=String(brief).trim();
+    if(id&&out.indexOf('game_record_read')<0)out+='\n需要具体发言、投票或行动细节时，可以调用 game_record_read 查看。';
+    if(!id&&out.indexOf('game_record_read')<0)out+='\n这是旧版战绩摘要；完整内容可以到游戏战绩里查看。';
+    return out;
+  }
+  const L=['【游戏战绩 · 缩略版】'];
+  if(id)L.push('记录编号：'+id);
+  if(r){
+    L.push('游戏：'+(r.title||'游戏战绩'));
+    L.push('时间：'+fmtStamp(r.t||fallbackT||Date.now()));
+    const result=gameRecordResultLine(r);if(result)L.push('结果：'+result);
+    const ps=(r.players||[]).map(function(p){return p&&p.name}).filter(Boolean);
+    if(ps.length)L.push('参与者：'+ps.slice(0,8).join('、')+(ps.length>8?' 等':''));
+    const me=(r.players||[]).filter(function(p){return p&&p.cid===cid})[0]||null;
+    if(me&&me.role){
+      const names={wolf:'狼人',wolfking:'白狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
+      L.push('你在这局的身份：'+(names[me.role]||me.role));
+    }
+  }else L.push('这局完整战报已保存在游戏战绩里。');
+  L.push(id?'需要具体发言、投票或行动细节时，可以调用 game_record_read 查看；只是普通聊天就不必调用，也不用把记录编号告诉用户。':'这是旧版战绩，完整内容可以到游戏战绩里查看。');
+  return L.join('\n');
+}
+function gameRecordRefsOfMsg(x,records,includeFiles){
+  const out=[],seen=Object.create(null);
+  const list=records||gameRecordStoreSafe();
+  const byId=function(id){id=String(id||'');for(let i=0;i<list.length;i++){if(list[i]&&String(list[i].id||'')===id)return list[i]}return null};
+  const byTitle=function(title,when){
+    let best=null,bestD=Infinity;
+    list.forEach(function(r){
+      if(!r)return;
+      if(title&&String(r.title||'')!==title)return;
+      const d=Math.abs(Number(r.t||0)-Number(when||0));
+      if(d<bestD){best=r;bestD=d}
+    });
+    return (best&&(bestD<7*86400000||!when))?best:null;
+  };
+  const add=function(id,brief,rec,fallbackT){
+    id=String(id||'');rec=rec||byId(id)||null;
+    if(!id&&rec)id=String(rec.id||'');
+    const key=id||('legacy:'+String(fallbackT||'')+':'+String(brief||'').slice(0,20));
+    if(seen[key])return;
+    if(!id&&!brief&&!rec&&!fallbackT)return;
+    seen[key]=1;
+    out.push({id:id,rec:rec,brief:String(brief||'').trim(),t:Number(fallbackT||(rec&&rec.t)||0)});
+  };
+  const result=x&&x.invite&&x.invite.result;
+  if(result&&result.recId)add(result.recId,x.gameBrief,null,x.t);
+  if(x&&x.gameRec&&x.gameRec.id)add(x.gameRec.id,x.gameBrief,null,x.t);
+  if(includeFiles&&x&&Array.isArray(x.files)){
+    x.files.forEach(function(f){
+      if(!f||!f.rec)return;
+      const rec=f.rec.id?null:byTitle(String(f.name||''),x.t);
+      add(f.rec.id,f.rec.brief||f.rec.sum,rec,x.t);
+    });
+  }
+  if(!out.length&&(x&&(x.recCtx||result||x.gameRec||(includeFiles&&x.files&&x.files.some(function(f){return f&&f.rec}))))){
+    let title=String((result&&result.title)||(x.gameRec&&x.gameRec.title)||'');
+    if(!title&&includeFiles&&x.files){
+      const gf=x.files.filter(function(f){return f&&f.rec})[0];if(gf)title=String(gf.name||'');
+    }
+    const best=byTitle(title,x&&x.t);
+    if(best)add(best.id,'',best,x.t);
+  }
+  return out;
+}
+function gameMsgBlock(x,records,cid){
+  const refs=gameRecordRefsOfMsg(x,records,true);
+  const blocks=refs.map(function(ref){return gameRecordCompactText(ref.rec,ref.id,cid,x&&x.t,ref.brief)});
+  if(blocks.length)return blocks.join('\n\n');
+  if(x&&x.recCtx)return '【游戏战绩 · 旧版】这里曾经分享过一局游戏。为避免每轮重复发送完整战报，正文已收进游戏战绩；需要细节时请到游戏战绩里查看。';
+  return '';
+}
+function gameRecordIdsForChar(cid,all){
+  const records=gameRecordStoreSafe(),ids=Object.create(null);
+  let list=[];
+  try{list=all?(msgsOf(cid)||[]):((ctxAsk&&ctxAsk.msgs)?historySlice():(msgsOf(cid)||[]))}catch(e){list=[]}
+  list.forEach(function(x){gameRecordRefsOfMsg(x,records,true).forEach(function(r){if(r.id)ids[r.id]=1})});
+  return Object.keys(ids);
 }
 /* 组装发给模型的系统提示块。 */
 /* 权限开关：这几个功能（创意 / 电量 / 听歌数据 / 控制音乐 / MCP / 互动玩具）现在「默认关」——
@@ -6377,11 +6487,13 @@ function buildCtxSystem(c,extra){
   return sys;
 }
 /* 把聊天记录转换成接口需要的消息格式。 */
-function buildCtxHistory(){
+function buildCtxHistory(cid){
   const useT=(cfg.timeOn!==false);
+  const gameRecords=gameRecordStoreSafe();
   const hist=historySlice().map(x=>{
     const pre=(useT&&x.role==='user')?('（'+stampOf(x.t)+'）'):'';
-    const fb=fileBlocks(x.files)+((x&&x.recCtx)?('\n\n'+x.recCtx):'');   /* 【新】战绩卡里那一局的完整经过，也读给角色 */
+    const gameBlock=gameMsgBlock(x,gameRecords,cid);
+    const fb=fileBlocks(x.files)+(gameBlock?('\n\n'+gameBlock):'');   /* 战绩只读缩略版，详情按需调用工具 */
     const imgs=msgImgs(x);
     const imgNotes=String((x&&x.imgNotes)||'').trim();
     if(imgs.length||fb||imgNotes){
@@ -6413,7 +6525,7 @@ function buildCtx(c,extra,tailUser){
       if(rbc)branchMainContext=rbc;
     }
   }catch(e){}
-  const hist=buildCtxHistory();
+  const hist=buildCtxHistory(c&&c.id);
   const res=[{role:'system',content:sys.join('\n\n')}].concat(hist);
   /* 【新】自动发消息（角色主动发的那条）：把「这一轮要说的话」当成最后一条用户消息加进来。
      这样下面那段「即时信息」会像平时一样贴在它前面，而不是在对话中间插一条 system——
@@ -8813,6 +8925,7 @@ function memModeCard(M){
     '<p class="dim" style="font-size:12px;margin:0 0 8px">原始聊天记录一直存在本机（现在共 <b>'+total+'</b> 条，总结<b>不会</b>删掉它们）。下面决定「发消息时给角色看什么」：</p>'+
     '<div class="seg">'+btn('auto','自动：近期+总结')+btn('full','完整记录')+btn('sum','只看总结')+'</div>'+
     '<p class="dim" style="font-size:12px;margin:8px 0 0">'+esc(HIST_HINT[mode]||'')+'</p>'+
+    '<p class="dim" style="font-size:11.5px;margin:5px 0 0">为保留缓存命中，历史起点会按整块裁剪，可能比设定多带十几条短消息，但不会每轮改变上下文开头。</p>'+
     '<div class="setrow" style="margin-top:10px">'+
     '<span class="lbl">最近几轮原文（1 轮＝你一句＋它一句）</span>'+
     '<input id="c_hotRounds" type="number" value="'+hotRoundCount()+'">'+
@@ -10004,7 +10117,7 @@ function fileBlocks(list){
   if(!list||!list.length)return '';
   return list.map(f=>{
     const size=fmtSize(f.size);
-    if(f.rec)return (f.rec.label?('【'+f.rec.label+'】\n'):('【'+userPron()+'分享了一局游戏的战绩：「'+f.name+'」】\n'))+(f.text||'');
+    if(f.rec)return '';             /* 游戏战绩统一由 gameMsgBlock 放缩略版，完整正文按需读取 */
     if(f.kind==='text'&&f.text)return '【附件：'+f.name+'（'+size+'，文字文件'+(f.trunc?('，只截取了前 '+FILE_TXT_MAX+' 字'):'')+'）】\n'+f.text;
     return '【附件：'+f.name+'（'+size+'）】这种格式我这边看不到内容，只知道'+userPron()+'发来了这个文件。';
   }).join('\n\n');
@@ -13284,7 +13397,7 @@ function cfgMemInjCardHTML(hm,hbtn){
   '<input id="c_fullLimit" type="number" value="'+((cfg.fullLimit==null)?20000:cfg.fullLimit)+'">'+
   '<span class="unit">字</span></div>'+
   '<button class="pri" style="width:100%;margin-top:10px" onclick="saveMemInj()">保存记忆注入设置</button>'+
-  '<p class="dim" style="font-size:12px;margin:8px 0 0">提示：原始聊天记录永远保留在本机，总结只往记忆里「加」，不会删掉原文。上限填 0 就是不限制长度。<br>旧记忆现在由「记忆宫殿」按需取用（角色页 → 编辑 → 记忆 里可以调条数、建索引、看每轮翻了什么）。</p></div>';
+  '<p class="dim" style="font-size:12px;margin:8px 0 0">提示：原始聊天记录永远保留在本机，总结只往记忆里「加」，不会删掉原文。上限填 0 就是不限制长度。<br>完整记录和自动近期会按 16 条消息整块裁剪，以保留缓存命中，所以实际可能多带十几条短消息；只在跨过整块边界时重建一次缓存。<br>旧记忆现在由「记忆宫殿」按需取用（角色页 → 编辑 → 记忆 里可以调条数、建索引、看每轮翻了什么）。</p></div>';
 }
 /* 设置页：记忆与自动总结卡片。 */
 function cfgAutoSumCardHTML(){
@@ -15415,6 +15528,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-27】
+狼人杀或其他游戏的战绩分享到聊天后，不再每轮把完整战报重复塞进上下文。聊天里只保留时间、结果、参与者等缩略信息；完整发言、投票和行动仍保存在游戏战绩里。只有最近聊天上下文里确实有战绩时，角色才会拿到只读工具 game_record_read；她可以按兴趣主动查看，也会在用户追问细节时查看。没有相关战绩时不会提供这个工具，省下工具说明占用的 token。
 角色聊天里的「思考过程」现在也会记录工具调用。展开胶囊后，可以按实际顺序看到 AI 想了什么、调用了哪个工具、传入什么参数、成功还是失败，以及工具返回了什么。常见的令牌、密码等敏感字段会隐藏，很长的内容会截断。刷新聊天或切换回复版本后，记录仍会保留。模型没有返回思考文字时，也能单独看到工具记录。
 角色使用工具时更主动了：只要当前提供的工具能查证事实、真正完成任务或提高准确性，AI 会直接调用，不再先问一次“要不要我帮你”；只有目标、关键参数不清楚，或操作明显不可逆且依据不足时才会先询问。工具仍受角色设置里的权限开关限制，不会因此擅自打开没授权的工具。
 
@@ -15562,6 +15676,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么赚贝壳：打开「游戏 → 装扮小铺」，日常签到和任务可以领；完成当天背单词计划自动加 30 贝壳，每天一次；狼人杀里你拿到 MVP 会自动加 30 贝壳，同一局只发一次，重选 MVP 不能重复领。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
 · 怎么看角色刚才用了哪些工具：在角色消息上方点「💡 思考过程」展开。里面会按顺序显示思考、工具名称、参数、成功或失败以及返回结果；不需要工具记录时，可以到设置 → 外观与交互关掉「显示思考过程」。
+· 狼人杀战绩分享给角色后会看到什么：聊天里默认只给她缩略战报，不会每轮重复完整过程。如果最近聊天里确实分享过或参加过某局游戏，她才会获得查看战绩详情的工具；刚打完且感兴趣，或你追问具体发言、投票和夜间行动时，她会自己查看。没有相关战绩时不会出现这个工具。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
 · 怎么换主题：打开手机桌面上的「主题」应用。
@@ -15575,7 +15690,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=72;  /* 72：狼人杀悍跳退水、假守墓与好人诈石像鬼；71：思考胶囊显示工具调用记录 */
+const GUIDE_VER=73;  /* 73：战绩默认缩略、详情按需读取；仅在上下文有战绩时提供查看工具 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -15584,7 +15699,7 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 狼人杀战绩分享后，角色能看到哪些内容？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -18998,6 +19113,10 @@ if(P5_toysExec){
 /* execCharTool 是「私聊里用工具」的入口 */
 /* ↓ 这个函数是五层补丁合并后的样子：表情包 → 画图 → 好感度/提示 → 玩具 → 原来的工具分发 */
 execCharTool=function(name,args,cid){
+  if(name==='game_record_read'){
+    try{return window.execGameRecordTool(args,cid)}
+    catch(e){return {ok:false,msg:'读取游戏战绩失败：'+((e&&e.message)||e)}}
+  }
   if(name==='start_instruction'){
     try{return window.execInstructionTool(args,cid)}
     catch(e){return {ok:false,msg:'新建指令失败：'+((e&&e.message)||e)}}
@@ -20042,7 +20161,7 @@ function addArt(id,item){
 function toolStatText(name){
   var n=String(name||'');
   var m={
-    create_page:'正在生成创意…', read_page:'正在查看创意代码…', update_page:'正在修改创意…',
+    create_page:'正在生成创意…', read_page:'正在查看创意代码…', update_page:'正在修改创意…', game_record_read:'正在查看游戏战绩…',
     send_sticker:'正在发表情…', post_moment:'正在发朋友圈…', music_control:'正在操作音乐…',
     invite_game:'正在邀请你玩游戏…', start_instruction:'正在准备分步指令…', draw_image:'正在画图…', toy:'正在玩点小东西…',
     add_todo:'正在记待办…', search_memory:'正在翻旧记忆…', list_long_summaries:'正在读取长期总结…', read_tag:'正在按标签翻记忆…'
@@ -24260,6 +24379,46 @@ function execShapeTool(args,cid){
   return window.SHAPE.control(c,args||{});
 }
 window.execShapeTool=execShapeTool;
+/* 游戏战绩详情：只在当前聊天上下文里出现过战绩时才提供给角色。 */
+var GAME_RECORD_TOOL={type:'function',function:{
+  name:'game_record_read',
+  description:'读取当前聊天里分享过、或你自己亲自参加过的游戏战绩完整过程。普通聊天默认只给你缩略战报，完整发言、投票和行动不会每轮重复发送。用户问具体细节时必须查看；刚打完一局且你确实感兴趣时，也可以主动查看。只是普通聊天、不需要细节时不要调用。',
+  parameters:{type:'object',properties:{
+    ids:{type:'array',items:{type:'string'},maxItems:3,description:'缩略战报里的记录编号，一次最多 3 局。'}
+  },required:['ids']}
+}};
+window.GAME_RECORD_TOOL=GAME_RECORD_TOOL;
+function execGameRecordTool(args,cid){
+  const allowed=gameRecordIdsForChar(cid,true);
+  let ids=[];
+  if(args&&Array.isArray(args.ids))ids=args.ids;
+  else if(args&&args.id!=null)ids=[args.id];
+  ids=ids.map(function(x){return String(x||'').trim()}).filter(function(x,i,a){return x&&a.indexOf(x)===i}).slice(0,3);
+  if(!ids.length)return {ok:false,msg:'没有提供要查看的战绩编号。'};
+  const records=gameRecordStoreSafe(),parts=[];
+  let total=0;
+  ids.forEach(function(id){
+    if(allowed.indexOf(id)<0){parts.push('记录 '+id+' 不在这个聊天可查看的战绩里，已跳过。');return}
+    const rec=records.filter(function(r){return r&&String(r.id||'')===id})[0];
+    if(!rec){parts.push('记录 '+id+' 已找不到，可能已经从战绩里删除。');return}
+    let detail='';
+    try{
+      const mine=!!((rec.players||[]).filter(function(p){return p&&p.cid===cid})[0]);
+      const made=window.ROAM_GAME_HELPERS&&window.ROAM_GAME_HELPERS.make?window.ROAM_GAME_HELPERS.make(rec,mine):null;
+      detail=String((made&&made.detail)||'');
+    }catch(e){}
+    if(!detail){
+      try{detail=JSON.stringify(rec)}catch(e){detail='（这条战绩没有可读的详细正文）'}
+    }
+    const left=Math.max(0,24000-total);
+    if(left<=0)return;
+    const part='【游戏战绩详情 · '+id+'】\n'+detail.slice(0,Math.min(16000,left));
+    parts.push(part);
+    total+=part.length;
+  });
+  return parts.length?{ok:true,msg:parts.join('\n\n')}:{ok:false,msg:'没有找到可查看的战绩。'};
+}
+window.execGameRecordTool=execGameRecordTool;
 /* ↓ 这个函数是四层补丁合并后的样子：基础工具 → 互动玩具 → 画图 → 表情包 */
 toolsFor=function(c){
   var t=[];
@@ -24313,6 +24472,9 @@ toolsFor=function(c){
   /* ↓ MCP：外面工具服务器给的工具（在桌面的「MCP」应用里添加、连上后自动出现在这里） */
   try{
     if(permOn(c,'mcpPerm'))mcpToolDefs(c).forEach(function(x){t.push(x)});
+  }catch(e){}
+  try{
+    if(c&&window.GAME_RECORD_TOOL&&gameRecordIdsForChar(c.id).length)t.push(window.GAME_RECORD_TOOL);
   }catch(e){}
   return t;
 };
@@ -28859,8 +29021,9 @@ function recPut(list){
 try{
   window.ROAM_GAME_HELPERS={
     records:function(){return recStore()},
-    make:function(r){
-      var detail='';try{detail=shareRecText(r,true)}catch(e){}
+    make:function(r,mine){
+      if(mine==null)mine=true;
+      var detail='';try{detail=shareRecText(r,!!mine)}catch(e){}
       return {id:r.id,t:r.t||Date.now(),title:recTitle(r),sub:recSub(r),detail:detail};
     }
   };
@@ -36935,9 +37098,8 @@ window.gameInviteResult=function(cid,inviteId,rec){
   if(!cid||!rec)return;
   try{
     var at=Date.now();
-    /* 这份「完整经过」要一起存着：角色下一轮聊天时，能像读你分享的战报一样读到里面发生了什么 */
-    var txt='';try{txt=shareRecText(rec,true)}catch(e){}
-    if(txt)txt='【你刚打完的一局狼人杀 · 完整经过与结果（这是你自己在场上亲身经历的一局，可以拿来聊）】\n'+txt;
+    /* 聊天里只放短摘要；完整战报留在战绩库，角色需要时自己调用工具查看。 */
+    var brief='';try{brief=gameRecordBriefText(rec,true)}catch(e){}
     /* 谁赢了：你赢了写你的名字；你输了，写赢的那一方里那个角色（优先拉你进房间的那个） */
     var uname='';try{uname=userName()}catch(e){}
     var uw=null;try{uw=recUserWonWW(rec)}catch(e){}
@@ -36971,7 +37133,8 @@ window.gameInviteResult=function(cid,inviteId,rec){
     var result={title:String(rec.title||''),win:winTxt,winName:winName,at:at,recId:rec.id,day:rec.day||1,count:rec.count||''};
     if(hit){
       hit.invite.result=result;
-      if(txt)hit.recCtx=txt;
+      if(brief)hit.gameBrief=brief;
+      try{delete hit.recCtx}catch(e){}
       try{bumpUt(hit)}catch(e){}                       /* 标一下「这条改过」：存的时候才不会被旧副本盖回去 */
       try{saveArrFor(cid,list);scheduleBackup()}catch(e){}
       if(typeof curId!=='undefined'&&curId===cid&&typeof view!=='undefined'&&view==='chat'){renderChat()}
@@ -36985,7 +37148,7 @@ window.gameInviteResult=function(cid,inviteId,rec){
       if(me)g.myRole=me.role||'';
     }catch(e){}
     var m={role:'assistant',content:'🏆 刚打完一局狼人杀：'+winTxt+'，'+fmtTime(at)+' 打完。',t:at,gameRec:g};
-    if(txt)m.recCtx=txt;
+    if(brief)m.gameBrief=brief;
     pushMsgTo(cid,m);
     if(typeof curId!=='undefined'&&curId===cid&&typeof view!=='undefined'&&view==='chat'){renderChat()}
     else if(typeof markUnread==='function'){markUnread(cid)}
@@ -39492,6 +39655,22 @@ function shareSum(r){
     '\n狼人：'+((r.players||[]).filter(function(p){return p.role==='wolf'||p.role==='wolfking'||p.role==='gargoyle'||p.role==='nightmare'}).map(function(p){return p.name}).join('、'));
   return recSub(r);
 }
+/* 普通聊天只带这一小段；完整过程留在游戏战绩里，需要时角色用 game_record_read 查看。 */
+function gameRecordBriefText(r,mine){
+  var L=['【游戏战绩 · 缩略版】'];
+  if(r&&r.id)L.push('记录编号：'+r.id);
+  L.push('游戏：'+recTitle(r));
+  L.push('时间：'+recWhen(r&&r.t));
+  L.push('结果：'+String(shareSum(r)||'').replace(/\n+/g,'；').slice(0,260));
+  var ps=((r&&r.players)||[]).map(function(p){return p&&p.name}).filter(Boolean);
+  if(ps.length)L.push('参与者：'+ps.slice(0,8).join('、')+(ps.length>8?' 等':''));
+  if(r&&r.game==='ww'){
+    var me=((r.players)||[]).filter(function(p){return p&&p.isUser})[0]||null;
+    if(me&&me.role)L.push((mine?'你':'真人玩家')+'的身份：'+(WW_ROLE_NAME[me.role]||me.role));
+  }
+  L.push('完整过程没有放进每轮上下文。如果你刚打完这局、对它感兴趣，或者用户问具体发言、投票、夜间行动等细节，可以调用 game_record_read 查看；不感兴趣就不调用，也不用把记录编号告诉用户。');
+  return L.join('\n');
+}
 function shareRecText(r,mine){
   var L=[],when=recWhen(r&&r.t);
   if(r.game==='spy'){
@@ -39605,7 +39784,7 @@ function shareRec(id){
   var text=shareRecText(rec);
   var bd=recBadge(rec);
   var f={name:recTitle(rec),size:text.length,type:'游戏战绩',kind:'text',text:text,
-    rec:{badge:(bd?bd.text:''),sum:shareSum(rec)}};
+    rec:{id:rec.id,badge:(bd?bd.text:''),sum:shareSum(rec),brief:gameRecordBriefText(rec,false)}};
   attachTextFile(f,(rec.game==='dg'&&rec.thumb)?rec.thumb:'','战报已附上，写完想说的话点发送');
 }
 /* 【新】把一段文字当成「附件」挂到聊天输入框上方（分享战绩 / 单独分享夜戏都走它） */
@@ -39672,7 +39851,7 @@ function shareRecSheet(){
     });
     h+='</div>';
   }
-  h+='<p class="dim" style="font-size:12px;margin:10px 0 0">分享会把这一局的战绩整理成一段文字，先放进输入框；你可以再补几句，然后一起发给她。</p>';
+  h+='<p class="dim" style="font-size:12px;margin:10px 0 0">分享后聊天里默认只带缩略战报，完整过程保存在游戏战绩里；最近上下文有相关战绩时，角色才会获得查看详情的工具。战绩卡会先放进输入框，你可以再补几句，然后一起发给她。</p>';
   h+='<div class="row" style="margin-top:10px"><button class="ghost col" onclick="closeSheet()">关闭</button></div>';
   try{sheetOnly(h)}catch(e){try{showSheet(h)}catch(e2){}}
 }
