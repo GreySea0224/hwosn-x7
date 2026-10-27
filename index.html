@@ -73,6 +73,17 @@ button:disabled{opacity:.45;pointer-events:none}
 .thinkhead.on{color:var(--acc);border-color:var(--acc);background:var(--accdim);box-shadow:0 2px 10px var(--p8accSh,rgba(63,169,216,.18))}
 .thinkhead.on::after{content:'▾';transform:translateY(-1px)}
 .thinkbody{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:12px;padding:10px 12px;margin-top:6px;font-size:12.5px;color:var(--dim);white-space:pre-wrap;word-break:break-word;display:none;animation:pop .16s ease}
+.thinktrace{display:flex;flex-direction:column;gap:7px;white-space:normal}
+.thinktext{white-space:pre-wrap;word-break:break-word;line-height:1.65}
+.thinkstep{border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:color-mix(in srgb,var(--bg) 58%,transparent);white-space:normal}
+.thinkstep-h{display:flex;align-items:center;gap:6px;min-width:0;color:var(--text)}
+.thinkstep-h b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thinkstep-h code{margin-left:2px;flex:1 1 auto;min-width:0;font-size:10.5px;color:var(--meta);background:var(--bg2);padding:1px 5px;border-radius:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thinkstep-status{margin-left:auto;flex:0 0 auto;font-size:10.5px;font-weight:600;color:var(--ok, #2f9d68)}
+.thinkstep.fail .thinkstep-status{color:var(--warn)}
+.thinkkv{display:grid;grid-template-columns:34px minmax(0,1fr);gap:4px 7px;margin-top:6px;font-size:11px;line-height:1.5}
+.thinkkv span{color:var(--meta)}
+.thinkkv pre{margin:0;white-space:pre-wrap;word-break:break-word;font:inherit;color:var(--dim);max-height:160px;overflow:auto}
 .ops{display:flex;gap:7px;margin:7px 0 10px;flex-wrap:wrap}
 .ops.me{justify-content:flex-end}
 .ops button{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);color:var(--dim);font-size:12px;padding:5px 13px;border-radius:999px;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:color .15s ease,border-color .15s ease,background .15s ease,transform .1s ease}
@@ -4979,19 +4990,108 @@ function setBubbleAvatar(el,isMe){
   const ring=(av.frame&&AV_FRAMES[av.frame])?AV_FRAMES[av.frame].ring:'';
   if(ring)el.style.setProperty('--avring',ring);else el.style.removeProperty('--avring');
 }
-/* 追加一条消息的“思考过程”折叠块。 */
+/* 工具日志里的参数和结果按纯文本展示；常见密钥字段会被隐藏，避免把令牌写进聊天。 */
+function toolTraceText(v,max){
+  let s='';
+  if(v==null)s='';
+  else if(typeof v==='string')s=v;
+  else{
+    try{
+      s=JSON.stringify(v,function(k,val){
+        if(/^(token|password|passwd|secret|api[_-]?key|authorization)$/i.test(String(k||'')))return '[已隐藏]';
+        return val;
+      },2);
+    }catch(e){s=String(v)}
+  }
+  max=Math.max(80,Number(max)||1200);
+  if(s.length>max)s=s.slice(0,max).replace(/\s+$/,'')+'\n…（内容较长，已截断）';
+  return s;
+}
+function toolTraceLabel(name){
+  const n=String(name||'');
+  const m={
+    search_memory:'查旧记忆',read_tag:'按标签查记忆',list_long_summaries:'读长期总结',
+    add_todo:'记待办',set_reminder:'设提醒',list_todos:'看待办',complete_todo:'完成待办',
+    send_sticker:'发表情包',post_moment:'发朋友圈',draw_image:'画图',music_control:'操作音乐',
+    invite_game:'邀请玩游戏',start_instruction:'准备分步指令',create_page:'做小网页',
+    read_page:'读网页代码',update_page:'改小网页',shape_self:'更新自己',control_tide:'管理潮汐',
+    write_diary:'写日记',read_diary:'读日记'
+  };
+  if(m[n])return m[n];
+  if(n.indexOf('mcp_')===0)return '外部 MCP 工具';
+  if(n.indexOf('group')===0)return '群聊工具';
+  return n||'工具';
+}
+/* 追加一条消息的“思考过程”折叠块。展开后按实际顺序显示思考和工具调用。 */
 function appendThinkingBlock(box,x){
   const th=document.createElement('div');
   th.className='think';
   const hd=document.createElement('button');
-  hd.type='button';hd.className='thinkhead';hd.innerHTML=ICON.think+'<span>思考过程</span>';
+  hd.type='button';hd.className='thinkhead';hd.innerHTML=ICON.think;
+  const label=document.createElement('span');
+  const trace=Array.isArray(x.toolTrace)?x.toolTrace:[];
+  const toolN=trace.filter(function(e){return e&&e.type==='tool'}).length;
+  label.textContent=toolN?('思考过程 · '+toolN+' 次工具'):'思考过程';
+  hd.appendChild(label);
   const bd=document.createElement('div');
-  bd.className='thinkbody';bd.innerHTML=nl2br(x.reasoning);bd.style.display='none';
+  bd.className='thinkbody';bd.style.display='none';
+  const body=document.createElement('div');
+  body.className='thinktrace';
+  let hasThinking=false;
+  trace.forEach(function(e){
+    if(!e)return;
+    if(e.type==='thinking'){
+      const t=String(e.text||'').trim();
+      if(!t)return;
+      hasThinking=true;
+      const d=document.createElement('div');
+      d.className='thinktext';d.textContent=t;
+      body.appendChild(d);
+      return;
+    }
+    if(e.type!=='tool')return;
+    const ok=e.ok!==false;
+    const d=document.createElement('div');
+    d.className='thinkstep'+(ok?'':' fail');
+    const h=document.createElement('div');
+    h.className='thinkstep-h';
+    const title=document.createElement('b');
+    title.textContent=toolTraceLabel(e.name);
+    h.appendChild(title);
+    const code=document.createElement('code');
+    code.textContent=e.name||'tool';
+    h.appendChild(code);
+    const state=document.createElement('span');
+    state.className='thinkstep-status';
+    state.textContent=ok?'✓ 成功':'✕ 失败';
+    h.appendChild(state);
+    d.appendChild(h);
+    const kv=document.createElement('div');
+    kv.className='thinkkv';
+    const argLabel=document.createElement('span');argLabel.textContent='参数';
+    const argVal=document.createElement('pre');argVal.textContent=toolTraceText(e.args,1000)||'（无）';
+    const resLabel=document.createElement('span');resLabel.textContent='结果';
+    const resVal=document.createElement('pre');resVal.textContent=toolTraceText(e.result,1400)||'（无返回）';
+    kv.appendChild(argLabel);kv.appendChild(argVal);kv.appendChild(resLabel);kv.appendChild(resVal);
+    d.appendChild(kv);
+    body.appendChild(d);
+  });
+  if(!hasThinking&&x.reasoning){
+    const d=document.createElement('div');
+    d.className='thinktext';d.textContent=String(x.reasoning);
+    body.insertBefore(d,body.firstChild);
+  }
+  if(!body.childNodes.length){
+    const d=document.createElement('div');
+    d.className='thinktext';d.textContent='这次没有返回可显示的过程。';
+    body.appendChild(d);
+  }
+  bd.appendChild(body);
   hd.onclick=()=>{
     const on=(bd.style.display==='block');
     bd.style.display=on?'none':'block';
     hd.classList.toggle('on',!on);
-    const sp=hd.querySelector('span');if(sp)sp.textContent=on?'思考过程':'收起思考';
+    label.textContent=on?'思考过程':(toolN?'收起思考 · '+toolN+' 次工具':'收起思考');
   };
   th.appendChild(hd);th.appendChild(bd);box.appendChild(th);
 }
@@ -5117,7 +5217,7 @@ function appendChatMessage(box,x,i){
   /* 每条气泡都补一个 Telegram 小尾巴（分条的那种是每个小气泡都补） */
   ((parts&&parts.length>1)?Array.prototype.slice.call(d.querySelectorAll('.bsub')):[d]).forEach(function(b){addBubbleTail(b)});
   setBubbleAvatar(d,isMe);
-  if(x.role==='assistant'&&x.reasoning)appendThinkingBlock(box,x);
+  if(x.role==='assistant'&&(x.reasoning||(Array.isArray(x.toolTrace)&&x.toolTrace.length)))appendThinkingBlock(box,x);
   box.appendChild(d);                     /* 思考块排在气泡上方 */
   appendMessageMeta(box,x,isMe);
   if(!isMe&&x.instruction)appendInstructionCard(box,x);
@@ -5429,7 +5529,7 @@ function musicChipBind(el,mu){
    场景：点「重新生成」不再是删掉旧回复，而是把旧的留着、新的接着存，
    这一条消息下面会出现「‹ 第x/y版 ›」，可以来回切换挑最喜欢的那版。
    只存最近这一段：等发出下一句（进入下一回合）时，没被选中的版本会自动清掉。 */
-const VER_FIELDS=['content','reasoning','tok','ptok','chit','cmiss','model','visionModel','search','toys','art','music','sticker','instruction','files','img','imgs','imgNotes','imgModel','imgCleared','text','scene'];
+const VER_FIELDS=['content','reasoning','toolTrace','tok','ptok','chit','cmiss','model','visionModel','search','toys','art','music','sticker','instruction','files','img','imgs','imgNotes','imgModel','imgCleared','text','scene'];
 /* 给一条消息的当前样子拍张照（时间 t 和身份 mid 不属于某一版，不拍进去） */
 function snapMsg(m){
   const o={};
@@ -5806,6 +5906,15 @@ function summaryTimeText(cid,x,M){
 function summaryOrderTime(cid,x,M){
   const r=summarySourceRange(cid,x,M);
   return r.end||Number(x&&x.t)||0;
+}
+function summarySortRows(cid,M,rows,mode){
+  const order=(mode==='new'||mode==='old')?mode:'priority';
+  return rows.slice().sort(function(a,b){
+    const ta=summaryOrderTime(cid,a.x,M),tb=summaryOrderTime(cid,b.x,M);
+    if(order==='new')return (tb-ta)||(b.i-a.i);
+    if(order==='old')return (ta-tb)||(a.i-b.i);
+    return (summaryPrio(b.x)-summaryPrio(a.x))||(tb-ta)||(b.i-a.i);
+  });
 }
 function ensureSummaryMeta(cid,M){
   if(!M||!cid)return M;
@@ -6217,6 +6326,12 @@ function buildCtxSystem(c,extra){
     +'注意：直接换行不等于分条——换行只是同一个气泡里换一行；想换气泡，必须写单独一行的 '+BUB_SEP+'。\n'
     +'每个气泡都是一两行完整自然的短句，一次最多可以连发 8 条；不要为了拆而拆、不要从一句话中间切开；讲道理、解释事情、讲故事、列清单、写代码就放在同一个气泡里别拆。\n'
     +'例子——你这样写：\n在的呀\n'+BUB_SEP+'\n刚在忙别的\n'+BUB_SEP+'\n怎么啦\n就等于连发了 3 条短消息。');
+  /* 工具已经由角色权限做过一层授权；这段让模型在职责明确时主动行动，免得只会口头答应。 */
+  try{
+    if(toolsFor(c).length){
+      sys.push('【直接使用工具】当前提供给你的工具，都是用户已经在角色设置里授权给你的能力。只要用工具能查证事实、真正完成事情或让结果更准确，就立刻调用，不用再问用户“要不要我帮你”，也不用等用户补一句“现在调用”。例如要查旧事就直接查记忆，要记提醒、写日记、查待办、发朋友圈、发表情、画图、做或改小网页、控制音乐、使用 MCP 工具时，只要当前意图和关键参数够清楚，就先把工具做完，再用角色自己的口吻告诉她结果。不要只回答“我可以帮你”然后停下来。只有目标含糊、缺少关键参数，或操作明显不可逆且用户没有给出足够依据时才先问清楚。也不要为了显得勤快而乱用工具。');
+    }
+  }catch(e){}
   if(extra)dyn.push(extra);
   /* ↓ 补丁13-A：让角色知道「表情库」 */
   try{
@@ -6423,13 +6538,18 @@ function handleApiJsonResponse(j,opt,raw){
   j=apiJsonGuard(j,raw);
   if(opt.onUsage&&j.usage)opt.onUsage(j.usage);
   const msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
-  if(opt.onReasoning){const rc=pickReasoning(msg);if(rc)opt.onReasoning(rc)}
-  if(opt.tools)return {content:msg.content||'',tool_calls:msg.tool_calls||null};
+  const rc=pickReasoning(msg);
+  if(opt.onReasoning&&rc)opt.onReasoning(rc);
+  if(opt.tools){
+    const ret={content:msg.content||'',tool_calls:msg.tool_calls||null};
+    if(rc)ret.reasoning_content=rc;
+    return ret;
+  }
   return msg.content||'';
 }
 /* 创建流式返回解析器。 */
 function createApiStreamParser(opt){
-  let out='';
+  let out='',reasoning='',toolCalls=[];
   const emit=(line)=>{
     const d=line.slice(5).trim();
     if(d==='[DONE]')return true;
@@ -6437,13 +6557,28 @@ function createApiStreamParser(opt){
       const j=JSON.parse(d);
       if(j.usage&&opt.onUsage)opt.onUsage(j.usage);
       const de=j.choices&&j.choices[0]&&j.choices[0].delta;
-      if(de&&opt.onReasoning){const rc=pickReasoning(de);if(rc)opt.onReasoning(rc)}
+      if(de){
+        const rc=pickReasoning(de);
+        if(rc){reasoning+=rc;if(opt.onReasoning)opt.onReasoning(rc)}
+        const tcs=Array.isArray(de.tool_calls)?de.tool_calls:[];
+        tcs.forEach(function(p,pos){
+          const idx=(p&&Number.isInteger(p.index))?p.index:pos;
+          if(!toolCalls[idx])toolCalls[idx]={id:'',type:'function',function:{name:'',arguments:''}};
+          const tc=toolCalls[idx],fn=p&&p.function;
+          if(p&&p.id)tc.id=String(p.id);
+          if(p&&p.type)tc.type=String(p.type);
+          if(fn){
+            if(fn.name)tc.function.name+=String(fn.name);
+            if(fn.arguments!=null)tc.function.arguments+=String(fn.arguments);
+          }
+        });
+      }
       const c=de&&de.content;
       if(c){out+=c;if(opt.onDelta)opt.onDelta(c)}
     }catch(e){}
     return false;
   };
-  return {emit:emit,getOut:()=>out};
+  return {emit:emit,getOut:()=>out,getReasoning:()=>reasoning,getToolCalls:()=>toolCalls.filter(Boolean)};
 }
 /* 读取流式接口返回，直到结束。 */
 async function readApiStreamText(res,parser){
@@ -6604,6 +6739,7 @@ function makeAssistantMsg(out,reasoning,usage,meta){
   const m={role:'assistant',content:out,t:Date.now()};
   if(parsed.scene)m.scene=parsed.scene;
   if(reasoning)m.reasoning=reasoning;
+  if(meta&&Array.isArray(meta.toolTrace)&&meta.toolTrace.length)m.toolTrace=meta.toolTrace.slice(0,60);
   if(meta&&meta.model)m.model=String(meta.model);
   if(meta&&meta.visionModel)m.visionModel=String(meta.visionModel);
   m.tok=(usage&&usage.completion_tokens)?usage.completion_tokens:estTokens(out);
@@ -7042,7 +7178,7 @@ function orgRangeLabel(x){
   const name=x.kind==='arc'?('《'+x.arcName+'》第 '+(x.from+1)+'~'+x.to+' 条'):('聊天第 '+(x.from+1)+'~'+x.to+' 条');
   return name+' · '+dt+(from?(' · '+from+'…'):'');
 }
-let ORG_SORT='new',ORG_SELECT='',ORG_CTX='';
+let ORG_SORT='new',ORG_SUM_SORT='priority',ORG_SELECT='',ORG_CTX='';
 function orgRangeTime(x){
   const last=x.list[x.list.length-1],first=x.list[0];
   return palaceTime(last)||palaceTime(first)||0;
@@ -7086,7 +7222,7 @@ function orgRangeGroups(ranges){
 }
 function orgCfgDefaults(){
   return {persona:true,scenario:true,style:true,memory:true,core:true,user:true,
-    summaries:8,timeline:12,prefs:12,habits:12,recentChats:0,extra:''};
+    summaries:8,timeline:12,prefs:12,habits:12,recentChats:0,extra:'',sumSort:'priority'};
 }
 function orgCfgNum(v,min,max,d){
   const n=parseInt(v,10);
@@ -7102,6 +7238,7 @@ function orgCfgLoad(id){
   d.habits=orgCfgNum(v.habits,0,50,d.habits);
   d.recentChats=orgCfgNum(v.recentChats,0,200,0);
   d.extra=String(v.extra||'').slice(0,3000);
+  d.sumSort=(['priority','new','old'].indexOf(v.sumSort)>=0)?v.sumSort:'priority';
   return d;
 }
 function orgCfgSave(id,c){
@@ -7116,12 +7253,19 @@ function orgReadSettingsUI(id){
   return {persona:on('persona'),scenario:on('scenario'),style:on('style'),memory:on('memory'),core:on('core'),user:on('user'),
     summaries:num('summaries',0,100,d.summaries),timeline:num('timeline',0,50,d.timeline),
     prefs:num('prefs',0,50,d.prefs),habits:num('habits',0,50,d.habits),
-    recentChats:num('recentChats',0,200,d.recentChats),extra:ex?String(ex.value||'').slice(0,3000):d.extra};
+    recentChats:num('recentChats',0,200,d.recentChats),extra:ex?String(ex.value||'').slice(0,3000):d.extra,
+    sumSort:(['priority','new','old'].indexOf(ORG_SUM_SORT)>=0)?ORG_SUM_SORT:'priority'};
 }
 function orgSetSort(v){
   const id=memCtx.id||curId;
   if(id)orgCfgSave(id,orgReadSettingsUI(id));
   ORG_SORT=v==='old'?'old':'new';
+  orgRender(true);
+}
+function orgSetSummarySort(v){
+  const id=memCtx.id||curId;
+  ORG_SUM_SORT=(['priority','new','old'].indexOf(v)>=0)?v:'priority';
+  if(id)orgCfgSave(id,orgReadSettingsUI(id));
   orgRender(true);
 }
 function orgPickRange(key){
@@ -7205,6 +7349,7 @@ function memoryOrganizerHTML(){
   const list=msgsOf(c.id)||[];
   const ranges=orgRangeList(c.id);
   const opt=orgCfgLoad(c.id);
+  ORG_SUM_SORT=(['priority','new','old'].indexOf(opt.sumSort)>=0)?opt.sumSort:'priority';
   if(ORG_CTX!==c.id){ORG_CTX=c.id;ORG_SELECT='';}
   if(!ranges.some(x=>x.key===ORG_SELECT))ORG_SELECT=ranges[0]?ranges[0].key:'';
   const selected=ranges.find(x=>x.key===ORG_SELECT)||null;
@@ -7215,8 +7360,7 @@ function memoryOrganizerHTML(){
   const base=memBaselineOf(c.id);
   let rows='';
   if(sum.length){
-    const ordered=sum.map((x,i)=>({x:x,i:i})).sort((a,b)=>
-      (summaryPrio(b.x)-summaryPrio(a.x))||(summaryOrderTime(c.id,b.x,M)-summaryOrderTime(c.id,a.x,M))||(b.i-a.i));
+    const ordered=summarySortRows(c.id,M,sum.map((x,i)=>({x:x,i:i})),ORG_SUM_SORT);
     rows=ordered.map(o=>{
       const x=o.x,i=o.i;
       const tag=x.src==='self'?'角色自己整理':(x.src==='summary'?'自动总结':'旧总结');
@@ -7263,7 +7407,13 @@ function memoryOrganizerHTML(){
     '<div class="row"><button class="col" '+(hist.length?'':'disabled')+' onclick="orgUndoLast()">撤回最近一次</button>'+
     '<button class="ghost col" '+(base?'':'disabled')+' onclick="orgClearAll()">清空 AI 总结</button></div></div>'+
     '<div class="card"><div class="ttl" style="font-size:14px">聊天总结全部（'+sum.length+' 条）</div>'+
-      '<p class="dim" style="font-size:12px;margin:0 0 8px">日常自动带入按优先级从高到低选；同分时聊天时间较新的优先。勾选多条后可以在下面合成大总结。</p>'+
+      '<p class="dim" style="font-size:12px;margin:0 0 7px">日常自动带入始终按优先级从高到低选；这里只改变列表的查看顺序。勾选多条后可以在下面合成大总结。</p>'+
+      (sum.length?( '<div class="row" style="margin:0 0 8px;gap:6px;flex-wrap:wrap;align-items:center">'+
+        '<span class="dim" style="font-size:11.5px">排序</span>'+
+        '<button class="'+((ORG_SUM_SORT==='priority')?'pri':'ghost')+'" style="padding:5px 9px;font-size:11.5px" onclick="orgSetSummarySort(\'priority\')">优先级</button>'+
+        '<button class="'+((ORG_SUM_SORT==='new')?'pri':'ghost')+'" style="padding:5px 9px;font-size:11.5px" onclick="orgSetSummarySort(\'new\')">时间：新→旧</button>'+
+        '<button class="'+((ORG_SUM_SORT==='old')?'pri':'ghost')+'" style="padding:5px 9px;font-size:11.5px" onclick="orgSetSummarySort(\'old\')">时间：旧→新</button></div>'+
+        '<p class="dim" style="font-size:11.5px;margin:0 0 8px">当前按'+(ORG_SUM_SORT==='priority'?'优先级显示':(ORG_SUM_SORT==='new'?'来源聊天时间从新到旧显示':'来源聊天时间从旧到新显示'))+'；合成大总结时会自动把选中材料按从早到晚排列。</p>'):'')+
       '<div style="max-height:52vh;overflow:auto">'+rows+'</div>'+
       '<div class="row" style="margin-top:10px"><button class="ghost col" onclick="orgMetaSelectAll(true)">全选</button>'+
       '<button class="ghost col" onclick="orgMetaSelectAll(false)">清空勾选</button></div>'+
@@ -7324,6 +7474,10 @@ async function orgMetaSummarizeSelected(){
   let selected=Array.from(document.querySelectorAll('.org-meta-check:checked')).map(el=>el.value);
   let picked=(M.summaries||[]).filter(x=>selected.indexOf(summarySid(x))>=0);
   if(picked.length<2)return alert('至少要勾选两条总结。');
+  picked.sort(function(a,b){
+    return (summaryOrderTime(id,a,M)-summaryOrderTime(id,b,M))||
+      ((M.summaries||[]).indexOf(a)-(M.summaries||[]).indexOf(b));
+  });
   const covered=Object.create(null);
   picked.forEach(x=>{if(x.meta)summaryDescendants(M,x,covered)});
   picked=picked.filter(x=>!covered[summarySid(x)]);
@@ -13171,7 +13325,7 @@ function cfgLookCardHTML(){
   '<div class="col"><b>开发者模式</b><div class="dim" style="font-size:12px">打开后，消息下面才显示 token 统计（默认隐藏）</div></div>'+
   '<input type="checkbox" id="c_dev" '+(cfg.dev?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
-  '<div class="col"><b>显示思考过程</b><div class="dim" style="font-size:12px">角色气泡里那个「💡 思考过程」小按钮。关掉就不显示它了（思考内容也一起收起来）</div></div>'+
+  '<div class="col"><b>显示思考过程</b><div class="dim" style="font-size:12px">角色气泡里那个「💡 思考过程」小按钮。关掉就不显示它了（思考内容和工具调用记录也一起收起来）</div></div>'+
   '<input type="checkbox" id="c_showthink" '+((cfg.showThink!==false)?'checked':'')+'></div>'+
   '<div class="row" style="align-items:center;margin-top:12px">'+
   '<div class="col"><b>全局自动发消息</b><div class="dim" style="font-size:12px">关掉后所有角色（含群聊）都不主动</div></div>'+
@@ -15255,15 +15409,20 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-24 */
+   最后更新：2026-10-27 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-10-27】
+角色聊天里的「思考过程」现在也会记录工具调用。展开胶囊后，可以按实际顺序看到 AI 想了什么、调用了哪个工具、传入什么参数、成功还是失败，以及工具返回了什么。常见的令牌、密码等敏感字段会隐藏，很长的内容会截断。刷新聊天或切换回复版本后，记录仍会保留。模型没有返回思考文字时，也能单独看到工具记录。
+角色使用工具时更主动了：只要当前提供的工具能查证事实、真正完成任务或提高准确性，AI 会直接调用，不再先问一次“要不要我帮你”；只有目标、关键参数不清楚，或操作明显不可逆且依据不足时才会先询问。工具仍受角色设置里的权限开关限制，不会因此擅自打开没授权的工具。
 
 【最近更新 · 2026-10-25】
 狼人杀新增「AI身份盘」。程序会自动从公开发言、验人、票型和规则时间线整理硬事实，每个 AI 再补充自己的阵营与特殊身份判断，并随本局存档继续保留；发言、投票和夜间行动都会参考这份精简身份盘，减少想到过又忘掉的情况。赛后点「复制整局文字」会附带身份盘和最近改判，也可以单点「复制身份盘」只复制这部分方便测试。身份盘不会给 AI 读取真实身份，声明也不等于翻牌。
 狼人杀新增「质问与回答记录」和原文核对。程序会区分“角色自称”和“只是提到角色”，例如“梦魇守卫这个板子”不会再被当成跳守卫；已经回答过的问题会留下提问人、回答日期、完整原答和重复追问次数，AI 不能再说对方没解释而没有读过原话。用户被追问时，完整原回答会直接附给所有 AI。AI 发言时也可以先写“【查原文】座位号 第几天 关键词”，让程序取出完整公开原文后重新完成这轮发言，每轮最多查一次。旧版身份盘会自动停用并重建，复制身份盘时也会带上质问与回答记录。
 狼人杀新增「场记 AI」。每个发言轮结束、投票前和白天开始时，最多批量核对一次新增公开发言，不会每句话都调用；它整理谁明确自称了什么、哪些问题是同一主题、哪些已经回答，以及哪些身份声明互相冲突。场记看不到真实身份、夜间私密行动或其他 AI 的思考，每条声明还必须由程序核对原话编号、说话座位和是否为本人直接自称，才会写进公共身份盘。高级设置里可以关闭场记 AI，关掉后自动使用本地规则兜底；复制身份盘会显示场记是否运行、识别条数和最近错误。
+狼人杀策略新增几种高风险玩法：悍跳狼在所有板子都可以根据现场质量自由选择继续悍跳、改普通上警或退水假装好人代跳；退水时要说明假验作废。守墓人石像鬼板子的狼队可以提前安排一只没跳预的狼准备假守墓人，第二天先手抢身份或后手对跳，但同一只狼不能先跳预再改跳守墓。好人可以更大胆地假跳预言家、给后置位上警者发金水后观察退水，也可以在抿到狼队找石像鬼时假跳石像鬼钓狼；这是高风险诈身份，需要准备解释。石像鬼如果已经被投票放逐且伪装失败，可以直接明跳并报出真实验到的神职位置，让狼队接刀。
 狼人杀准备页的 12 人板子新增「守墓人石像鬼」：3 个普通狼、1 个石像鬼、4 个平民、预言家、女巫、猎人和守墓人。石像鬼属于狼人阵营，但普通狼与石像鬼互不相认，石像鬼不参加普通狼的夜间商量和刀人；她每晚可以查验一名存活玩家的具体身份，普通狼全部出局后才会接刀。守墓人每晚自动得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份；第一夜、平票或无人被放逐时没有结果。两者的查验记录和身份信息只给自己看，并会随中途续局保存。邀请卡、预设配置和角色固定身份也已支持这个新板子。
 狼人杀的观战模式新增「上帝视角」：进入对局后，点牌桌右上角的眼睛按钮，就能在座位上看到每名玩家的具体身份，并在记录区看到夜间谁对谁用了技能；所有狼人夜间交流也会直接显示。再点一次眼睛就关闭。这个视角只在观战模式出现，不会把答案发给其他 AI。女巫现在无论网杀还是面杀都全程不能自救。
 狼队首夜分工新增真人代排：你自己是狼时，可以先选「我来安排全队」，按座位给每只狼指定悍跳、冲锋、倒钩或深水；也可以选「让狼队自己分配」。分工只是默认打法，狼队夜间频道里的真人指令优先级最高，其次是狼队这一夜的讨论，最后才是分工标签；AI 不能因为自己是深水狼等标签就拒绝用户要求它改跳、改刀或改票。石像鬼 AI 留遗言时，如果确实验到神职，会用“重点留意某号、夜里优先确认某号”这类隐晦方式给狼队递话，不会直接自曝或凭空编验人。
@@ -15402,6 +15561,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么让角色写或读日记：先确认角色设置里的「互动玩具」已打开。写私密日记时，在聊天里明确说“写一篇只给你自己看的私密日记”；角色会用 private=true 保存。互动页只显示角色、锁标记和时间，不显示正文。让它翻以前写的日记时，说“看看你自己最近写的日记”；它会先拿目录，再选一篇读取。私密正文不会自动显示在聊天里。
 · 怎么赚贝壳：打开「游戏 → 装扮小铺」，日常签到和任务可以领；完成当天背单词计划自动加 30 贝壳，每天一次；狼人杀里你拿到 MVP 会自动加 30 贝壳，同一局只发一次，重选 MVP 不能重复领。
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
+· 怎么看角色刚才用了哪些工具：在角色消息上方点「💡 思考过程」展开。里面会按顺序显示思考、工具名称、参数、成功或失败以及返回结果；不需要工具记录时，可以到设置 → 外观与交互关掉「显示思考过程」。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
 · 怎么换主题：打开手机桌面上的「主题」应用。
@@ -15415,7 +15575,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=70;  /* 70：狼人杀场记 AI 与原文校验；69：质问回答、原文核对与旧身份盘重建 */
+const GUIDE_VER=72;  /* 72：狼人杀悍跳退水、假守墓与好人诈石像鬼；71：思考胶囊显示工具调用记录 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -15424,7 +15584,7 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -19466,10 +19626,11 @@ askAndAppend=async function(freeCid,opts){
     const ui=setupAskUI(box,!onScreen,c);
     const sendBtn=ui.sendBtn,stopBtn=ui.stopBtn,liveThink=ui.liveThink,a=ui.a,thinkOn=ui.thinkOn;
     window.P5CHATSTAT=ui.setStat||null;      /* 【新】这一轮里，工具可以改胶囊上的字 */
-    let ok=false;let usage=null;let reasoning='';let out='';
+    let ok=false;let usage=null;let reasoning='';let out='';let toolTrace=[];
     const answerMeta=()=>({
       model:String(usedModel||modelOf(c)||cfg.model||''),
-      visionModel:visionUsed?String(c.visionModel||''):''
+      visionModel:visionUsed?String(c.visionModel||''):'',
+      toolTrace:toolTrace.slice()
     });
     const tp=thinkParams(c);
     curAbort=new AbortController();
@@ -19487,6 +19648,7 @@ askAndAppend=async function(freeCid,opts){
         const loopBase={signal:sig,temp:tp.temp,maxtok:tp.maxtok,tools:tools,onModel:m=>{usedModel=m}};
         let r=(await toolLoop(c,baseCtx,Object.assign({},loopBase,{forceTool:tideReq?'control_tide':''})))||{};
         let usedTools=(r.usedTools||[]).slice();
+        toolTrace=(r.toolTrace||[]).slice();
         reasoning=r.reasoning||'';usage=r.usage||null;out=r.finalText||'';
         if(!out){
           /* 【修复·重要】以前这里什么情况都说「不要调用工具，直接说话」。可只要第一轮没吐字
@@ -19498,7 +19660,8 @@ askAndAppend=async function(freeCid,opts){
             try{
               const r2=(await toolLoop(c,baseCtx,Object.assign({},loopBase,{forceTool:tideReq?'control_tide':''})))||{};
               reasoning=r2.reasoning||reasoning;usage=r2.usage||usage;out=r2.finalText||'';
-              usedTools=usedTools.concat(r2.usedTools||[]);r=r2;
+              usedTools=usedTools.concat(r2.usedTools||[]);
+              toolTrace=toolTrace.concat(r2.toolTrace||[]);r=r2;
             }catch(e){if(e&&e.name==='AbortError')throw e}   /* 这一遍再失败就算了，继续往下走兜底 */
           }
           if(!out&&!tideReq){
@@ -19517,6 +19680,7 @@ askAndAppend=async function(freeCid,opts){
             reasoning=r3.reasoning||reasoning;usage=r3.usage||usage;
             if(r3.finalText)out=r3.finalText;
             usedTools=usedTools.concat(r3.usedTools||[]);
+            toolTrace=toolTrace.concat(r3.toolTrace||[]);
           }catch(e){if(e&&e.name==='AbortError')throw e}
         }
         if(tideReq&&!tideDone()){
@@ -19889,19 +20053,28 @@ function toolStatText(name){
   if(n)return '正在用工具（'+n+'）…';
   return '正在用工具…';
 }
-async function pushToolResults(msgs2,resp,c){
+async function pushToolResults(msgs2,resp,c,trace){
   var used=[];
-  msgs2.push({role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls});
+  var assistantMsg={role:'assistant',content:resp.content||null,tool_calls:resp.tool_calls};
+  var roundReasoning=pickReasoning(resp);
+  if(roundReasoning)assistantMsg.reasoning_content=roundReasoning;
+  msgs2.push(assistantMsg);
   for(var i=0;i<resp.tool_calls.length;i++){
     var tc=resp.tool_calls[i];
     var args={};
     try{args=JSON.parse(tc.function.arguments||'{}')}catch(e){args={}}
+    var started=Date.now();
+    var entry={type:'tool',name:String(tc.function&&tc.function.name||''),args:toolTraceText(args,1600),ok:false,result:'正在执行…',t:started};
+    if(trace&&trace.push)trace.push(entry);
     /* 【新】开始跑工具了：胶囊上写清楚在干什么 */
     try{if(window.P5CHATSTAT)window.P5CHATSTAT(toolStatText(tc.function.name))}catch(e){}
     var r;
     try{r=await Promise.resolve(execCharTool(tc.function.name,args,c.id))}
     catch(e){r={ok:false,msg:'工具执行出错：'+((e&&e.message)||e)}}
     if(r==null)r={ok:false,msg:'没有返回'};
+    entry.ok=r.ok!==false;
+    entry.result=toolTraceText(r,2200)||'（无返回）';
+    entry.ms=Date.now()-started;
     used.push({name:String(tc.function&&tc.function.name||''),args:args,result:r});
     msgs2.push({role:'tool',tool_call_id:tc.id,content:JSON.stringify(r)});
     /* 【改】工具干完以后**不要**马上把字改回「思考中…」。
@@ -19915,7 +20088,8 @@ toolLoop=async function(c,ctx,opt){
     opt=opt||{};
     var tools=opt.tools||toolsFor(c);
     var msgs2=ctx.slice();
-    if(!tools.length)return {finalText:'',reasoning:'',usage:null,messages:msgs2,didTool:false,usedTools:[]};
+    var toolTrace=[];
+    if(!tools.length)return {finalText:'',reasoning:'',usage:null,messages:msgs2,didTool:false,usedTools:[],toolTrace:toolTrace};
     /* 「做一个网页」要写一大段代码，给它多一点输出空间，免得网页写到一半被截断。
        其它情况一点都不变（这只是「最多能写多长」的上限，不是必须写满）。 */
     var mtLoop=opt.maxtok;
@@ -19949,7 +20123,9 @@ toolLoop=async function(c,ctx,opt){
         else throw e;
       }
       if(forcePending)forcePending=false;
-      if(!resp)return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool,usedTools:usedTools};
+      if(!resp)return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool,usedTools:usedTools,toolTrace:toolTrace};
+      var roundReasoning=pickReasoning(resp);
+      if(roundReasoning)toolTrace.push({type:'thinking',text:roundReasoning,t:Date.now()});
       if(!resp.tool_calls||!resp.tool_calls.length){
         /* 【新】它这一轮一个字都没说、也没去干活（推理模型偶尔会这样）：
            别就这么结束，提醒一句再来一次，免得你那边「什么都没发生」。 */
@@ -19959,7 +20135,7 @@ toolLoop=async function(c,ctx,opt){
         }
         var tail=String(resp.content||'');
         var merged=preText?(tail?(preText.replace(/[\s\u3000]+$/,'')+'\n'+tail):preText):tail;
-        return {finalText:merged,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool,usedTools:usedTools};
+        return {finalText:merged,reasoning:reasoning,usage:usage,messages:msgs2,didTool:didTool,usedTools:usedTools,toolTrace:toolTrace};
       }
       didTool=true;
       /* 【重要修复】它有时候会在同一条回复里「一边说话、一边调工具」——
@@ -19968,11 +20144,11 @@ toolLoop=async function(c,ctx,opt){
          而它自己以为已经说过了，后面就不会再说一遍——结果你只看到卡片或表情包，那半句话没了。
          现在把这段文字留下来，和后面的回复一起发出去。 */
       if(String(resp.content||'').trim())preText+=(preText?'\n':'')+String(resp.content).trim();
-      var justUsed=await pushToolResults(msgs2,resp,c);
+      var justUsed=await pushToolResults(msgs2,resp,c,toolTrace);
       usedTools=usedTools.concat(justUsed||[]);
       if(view==='tools'&&toolTab==='todo')safeL(function(){renderTodo()});
     }
-    return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:true,usedTools:usedTools};
+    return {finalText:preText,reasoning:reasoning,usage:usage,messages:msgs2,didTool:true,usedTools:usedTools,toolTrace:toolTrace};
   }catch(e){
     /* ↓ 补丁13-A：模型不支持「发表情」工具时，退回到不用表情的正常聊天 */
     var t=(opt&&opt.tools)||null;
@@ -21113,6 +21289,12 @@ callAPI=async function(msgs,opt){
       var parser=createApiStreamParser(oo);
       markModel();
       var streamOut=await readApiStreamText(res,parser);
+      if(oo.tools){
+        var streamRet={content:streamOut,tool_calls:parser.getToolCalls()};
+        var streamReasoning=parser.getReasoning();
+        if(streamReasoning)streamRet.reasoning_content=streamReasoning;
+        return streamRet;
+      }
       return streamOut;
     }
     /* 非流式 / 不带工具：补丁4-A 的五次重试（换模型、去掉温度等） */
@@ -32029,6 +32211,8 @@ function wwFactsFor(p){
       (w.players.some(function(x){return x.role==='gargoyle'})?'本局另有一只石像鬼，但普通狼不知道她是谁。':''));
     var gh=wwGargoyleInference(p)||wwGargoyleHuntHint(p);
     if(gh)L.push(gh);
+    var gkh=wwGravekeeperCounterHint(p);
+    if(gkh)L.push(gkh);
     if(w.night&&w.night.feared)L.push('· 最近这一夜梦魇恐惧的是 '+wwName(w.night.feared)+'。');
     var myJob=wwWolfJobOf(p);
     if(myJob)L.push('【你的狼队分工：'+WW_WOLF_JOB_NAME[myJob]+'】'+wwWolfJobHelp(myJob));
@@ -32193,11 +32377,17 @@ function wwClassicProxyBoard(){
 function wwClassicProxyHint(p){
   if(!wwSheriffOn()||!wwClassicProxyBoard()||!p||p.isUser||wwIsWolf(p))return '';
   var board=wwBoardLabel(V.ww.board);
+  var extra='';
+  if(V.ww.board==='gravegargoyle'){
+    extra='\n【守墓人石像鬼 · 好人的额外打法】\n'+
+      '· 守墓人板子可以更积极地考虑一次压跳：上警后假装预言家，给后置位上警者发金水或给可疑位发查杀，观察谁急着接话、谁像小狼在找“大狼”的递话，再说明自己是好人代跳、假验作废并退水。收益是逼真预和狼队暴露视角；风险是被集火，所以必须有清楚的退出计划。\n'+
+      '· 如果已经抿到狼队在找石像鬼，或者你愿意替真神挡刀，好人可以积极考虑假装自己像石像鬼，用一句“我可能是大狼”“夜里别急着动我”之类的暧昧话递假信号，诱导小狼误以为你是盟友甚至误刀你。这是高风险诈狼，不是让自己真变成狼；被好人追问时要有“我是在钓狼”的解释，不能每轮都挂在嘴边，也不能同时再穿预言家的身份。';
+  }
   return '【'+board+' · 好人压跳是常规操作】这一板的好人常在警上暂时跳预言家、给后置位金水或给可疑位查杀，'+
     '用来占位、施压、观察反应或替真预挡刀，随后再退水；这属于合理的压跳/代跳，不是“爱秀怪操作”。'+
     '不能只因为她上过警、发过假验或后来退水就直接定狼和冲票。'+
     '判断要看：退水时是否说明假验作废、真预出现后是否让位并跟真预归票、压跳期间有没有故意搅乱好人视角、退水后是否继续认真盘票。'+
-    '好人应当理解和支持这条路线；当然狼也可能穿同样的衣服，所以保留判断，不无条件认好。';
+    '好人应当理解和支持这条路线；当然狼也可能穿同样的衣服，所以保留判断，不无条件认好。'+extra;
 }
 /* 石像鬼和普通狼互不相认：狼队要能从公开信息里谨慎识别“大狼”的递话。 */
 function wwGargoyleHuntHint(p){
@@ -32212,6 +32402,18 @@ function wwGargoyleHuntHint(p){
     '而“给狼金水”可能是在向狼队列信号，并不是真的认那个位置为好人。'+
     '但好人也可能故意做出类似动作，所以不能只凭一次发金水认定；看她递的信息是否精准命中狼、是否没有伤害狼队、后续是否按好人视角归票。'+
     '拿不准时不要带头把疑似大狼票出去或夜里刀她；先按潜在盟友保护并继续用公开信息验证，别当众喊破她的身份。';
+}
+/* 守墓人板子的狼队反制：不是强制动作，但要让普通狼知道“先发假守墓/后手对跳”这条路。
+   真守墓只有被放逐者阵营这一条信息，没有能立刻翻牌自证的技能，所以狼队可以用发言和票型对跳。 */
+function wwGravekeeperCounterHint(p){
+  var w=V.ww;
+  if(!w||w.board!=='gravegargoyle'||!wwIsPackWolf(p))return '';
+  return '【守墓人板子 · 狼队反制思路】\n'+
+    '· 第一天夜里可以在狼队频道提前约定：如果第二天不想让守墓人轻松控场，安排一只没有跳预的狼准备假跳守墓人。\n'+
+    '· 第二天若担心真守墓还活着：发言顺序在真守墓之前时，可以先手自称守墓人，报一个与公开放逐信息不冲突的查验方向，先发制人抢身份；真守墓已经先跳时，后置位的狼可以对跳，逼好人比较两人的时间线、票型和说话动机。\n'+
+    '· 守墓人没有当场翻牌自证的能力；承担假守墓的冲锋狼可以坚定自称守墓人，不要因为对方先报了一个结果就立刻缩。对跳要给出一条完整、可坚持的验人和站边逻辑。\n'+
+    '· 绝对不要让同一只狼先跳预言家、再改跳守墓人；两个身份同时上身等于自己承认在说谎。已经跳过预的狼不要再抢守墓人身份。\n'+
+    '· 这只是可选战术：如果真守墓已经形成强时间线、狼队承担不起第二个焦点，或者假守墓会直接送轮次，就放弃。';
 }
 /* 石像鬼板子的基础推理不能只丢给模型自由发挥，否则它很容易只跟着公开舆论走。
    这里只使用普通狼本来就掌握的两类信息：
@@ -33738,7 +33940,9 @@ async function wwLastWords(p){
       (godHits.length
         ?('\n你验到了神职：'+godHits.join('、')+'。请隐晦地把这些位置递给狼队，例如放进你“最不放心、建议夜里重点留意/优先确认”的判断里；不要直接说“我是石像鬼”或“我验到X是预言家”这种明示。')
         :'\n如果没验到神，就不要硬编或假装验到；可以留下真实阵营判断和模糊线索。')+
-      '\n目标是让狼队听懂、好人拿不到直接翻牌式的确证；表达要自然，别为了递话把遗言写成一串暗号。';
+      '\n'+(p.killedBy==='vote'&&godHits.length
+        ?('你已经被投票放逐、伪装基本装不下去了：这种情况下可以直接承认自己是石像鬼，并把真实验到的神职位置直说给狼队，例如“我是石像鬼，X号是预言家，夜里先刀她”。不要编造没有验到的身份，也不要把普通狼队友一起报出来。')
+        :'目标是让狼队听懂、好人拿不到直接翻牌式的确证；表达要自然，别为了递话把遗言写成一串暗号。');
   }
   var sys=wwSysFor(p,task);
   return (await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+wwTag(p)+' 没留下什么。）';
@@ -35536,7 +35740,7 @@ async function wwPoliceDecide(p){
 }
 /* 上警之后的竞选发言 */
 function wwJumpCanAdapt(p){
-  return !!(V.ww&&V.ww.board==='gravegargoyle'&&p&&wwWolfJobOf(p)==='jump');
+  return !!(p&&wwWolfJobOf(p)==='jump');
 }
 async function wwPoliceSpeech(p){
   var up=wwPoliceUpP(),others=up.filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、');
@@ -35548,7 +35752,7 @@ async function wwPoliceSpeech(p){
       ?('前面已有'+earlier.map(wwTag).join('、')+'发言，评价她们的竞选、说想投谁当警长及理由，可指出谁聊爆；')
       :'你是第一个发言，就诚实说本想先听但暂时没信息；')+
     '明确说自己是好人，可退水。②好人代跳：直接假跳预言家，不必说“我是来听发言”；'+
-    '可给可信者金水，或给可疑者、后置位上警者假查杀试探。目标反应像狼、真预明显接受代跳且继续装能挡刀或带票，才留下；'+
+    '可给可信者金水，尤其可以试着给后置位上警者发金水观察小狼是否误以为这是石像鬼递话，也可以给可疑者假查杀试探。目标反应像狼、真预明显接受代跳且继续装能挡刀或带票，才留下；'+
     '真预反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真预归票。'+
     (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后置位金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'');
   var priorSeer=wwKnightClaims().map(wwPlayerByUid).filter(function(x){
@@ -35589,7 +35793,7 @@ async function wwPoliceWater(p){
   if(jumpRole&&!adaptJump)return false;
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
   var jumpHint=adaptJump
-    ?'\n你是本板原定的悍跳狼。如果听完前置位后已经放弃悍跳、改成普通上警观察，或继续留在警上只会送狼，可以正常退水；没报过假验就不必硬编。'
+    ?'\n你是原定的悍跳狼，但分工不是硬命令。听完前置位后可自由选择：继续跳、改成普通上警观察，或直接退水假装好人代跳。若已经报了假验，退水时必须明确说假验作废并让位；若还没报假验，只说明放弃竞选即可。可信度不足、强跳会送狼时可以退，别为了完成分工硬撑。'
     :'';
   var proxyHint=(!wwIsWolf(p)&&p.role!=='seer')
     ?'\n如果你只是上警听发言，目的完成且没有明确留警收益，通常退水。如果你是好人代跳：真预明显接受代跳且继续装能挡刀或带票，才不退；真预反驳、试探没收获、目标更像好人，或继续装可能被骑士决斗，就退水。退水后要让其他好人知道你是代跳、假验作废。'
