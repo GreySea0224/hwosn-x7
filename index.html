@@ -15528,7 +15528,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-28】
-狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。AI 投票请求失败时会自动重试，仍失败则按她刚才公开的票向补票；公布前会检查所有应投票者是否都有有效票，不会再出现只显示用户一张票却直接结算的情况。中文数字座位和“我乃十二号……真预言家也”这类跳预说法也会被识别；判断时会明确记住“女巫毒死不等于狼”。
+狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。AI 投票请求失败时会自动重试，仍失败则按她刚才公开的票向补票；公布前会检查所有应投票者是否都有有效票，不会再出现只显示用户一张票却直接结算的情况。中文数字座位和“我乃十二号……真预言家也”这类跳预说法也会被识别；判断时会明确记住“女巫毒死不等于狼”。真预言家 AI 每次发言后还会把公开报出的目标和结果与自己的私有查验卡核对；报错或漏报时会自动重写，仍不一致则强制改成准确结果，之前说过的“今晚准备验谁”不会再被冒充成已经发生的查验。
 
 【最近更新 · 2026-10-27】
 游戏新增「人机难辨」：你可以拉现有角色参加，缺的位置由系统随机 AI 人设补满；所有参赛者只显示玩家编号并匿名轮流聊天。你的任务是把话说得像 AI，电脑角色则要模仿普通真人。聊天开始前可以选择“有话题”或“自由聊”；关闭话题后，整局都不会出现话题提示。聊完后每人秘密投出“最像真人”和“最像 AI”各一人，票数相同时可以并列；同一个人同时拿到两项时，优先保留“最像 AI”，另一个称号顺延给其他得票最高者。你成为最像 AI 就赢，成为最像真人就输，两边都没选你就是没输没赢；AI 成为最像真人则那个 AI 赢。默认建议 5 人 3 轮，可在准备页调整人数、轮数、参与角色、记忆范围、话题自定义和话题开关。
@@ -15700,7 +15700,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=81;  /* 81：投票完整性、中文跳预识别与毒药判断；80：跳预承诺检查 */
+const GUIDE_VER=82;  /* 82：预言家报验校验与计划/结果分离；81：投票完整性 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32804,11 +32804,14 @@ function wwClaimIdentityRoles(txt,speakerSeq){
       var p5=new RegExp('身份(?:我)?(?:摊开|摆明|说)[^。！？!?；;\\n]{0,16}(?:是|为)?(?:真)?'+plain+name);
       var p6=new RegExp('(?:直接说|直说|先说|报一下|说下|说清楚)[^。！？!?；;\\n]{0,6}身份[^。！？!?；;\\n]{0,10}(?:是|为|就是)?(?:真)?'+plain+name);
       var p7=new RegExp('(?:我|本人)\\s*乃\\s*(\\d{1,2})\\s*号[^。！？!?；;\\n]{0,20}(?:真)?'+plain+name);
+      var p8=new RegExp('^\\s*(?:我)?\\s*(\\d{1,2})\\s*号[\\s，,：:]+[^。！？!?；;\\n]{0,20}[，,：:]\\s*(?:真)?'+plain+name);
       var m1=clause.match(p1),m2=clause.match(p2);
       var m7=clause.match(p7);
+      var m8=clause.match(p8);
       var selfSeat=!!((m1&&(!speakerSeq||Number(m1[1])===Number(speakerSeq)))||
         (m2&&(!speakerSeq||Number(m2[1])===Number(speakerSeq)))||
-        (m7&&(!speakerSeq||Number(m7[1])===Number(speakerSeq))));
+        (m7&&(!speakerSeq||Number(m7[1])===Number(speakerSeq)))||
+        (m8&&(!speakerSeq||Number(m8[1])===Number(speakerSeq))));
       if(selfSeat||p3.test(clause)||p4.test(clause)||p5.test(clause)||p6.test(clause)){
         seen[role]=1;out.push(role);
       }
@@ -32835,6 +32838,7 @@ function wwIdentityChecks(txt){
 /* 只取“说话人自己在报验人”，避免把“她验了X、你验了Y”误记成当前玩家的查验。 */
 function wwOwnSeerChecks(txt){
   var keep=String(txt||'').split(/[。！？!?；;\n]+/).filter(function(c){
+    if(/(?:今晚|今夜|明晚|准备|打算|计划|警徽流|如果|要是|若|将验)/.test(c))return false;
     if(/(?:她|他|你|别人|有人|被)[^。！？!?；;\n]{0,16}(?:报|验|摸|发)[^。！？!?；;\n]{0,24}(?:金水|查杀|好人|狼人)/.test(c))return false;
     return true;
   });
@@ -32989,7 +32993,7 @@ function wwPublicIdentityData(w){
     var p=byUid[e.who],txt=String(e.text||'').replace(/^【竞选发言】/,'').replace(/^【遗言】/,'');
     if(!p||!txt)return;
     var roles=wwClaimIdentityRoles(txt,p.seq);
-    var checks=(roles.indexOf('seer')>=0||roles.indexOf('gravekeeper')>=0)?wwIdentityChecks(txt):[];
+    var checks=roles.indexOf('seer')>=0?wwOwnSeerChecks(txt):(roles.indexOf('gravekeeper')>=0?wwIdentityChecks(txt):[]);
     roles.forEach(function(role){
       data[role]=data[role]||{};
       var row=data[role][p.uid]||{p:p,checks:[],day:Number(e.d)||0};
@@ -33611,6 +33615,64 @@ function wwTakeTitle(p,raw){
   }
   return t;
 }
+function wwLatestPrivateSeerCheck(p){
+  var w=V.ww;
+  if(!w||!p||p.role!=='seer')return null;
+  var a=(p.check||[]).filter(function(c){return c&&!c.kind&&Number(c.day)===Number(w.day)});
+  return a.length?a[a.length-1]:null;
+}
+function wwReportedSeerChecks(txt){
+  var w=V.ww,day=Number(w&&w.day)||1;
+  var clauses=String(txt||'').split(/[。！？!?；;\n]+/).filter(function(c){
+    if(/(?:今晚|今夜|明晚|准备|打算|计划|警徽流|如果|要是|若|将验)/.test(c))return false;
+    var dm=c.match(/第\s*(\d+)\s*夜/);
+    if(dm&&Number(dm[1])!==day)return false;
+    return /(?:昨晚|昨夜|第\s*\d+\s*夜|报验|查验结果|验人结果|我验|我查验|我摸)/.test(c);
+  });
+  var out=wwOwnSeerChecks(clauses.join('。')),seen={};
+  out.forEach(function(x){seen[x.seq+'|'+x.result]=1});
+  clauses.forEach(function(c){
+    var re=/(\d{1,2})\s*号[^。！？!?；;\n]{0,12}?(金水|查杀|好人|狼人)/g,m;
+    while((m=re.exec(c))){
+      var seq=Number(m[1]),result=/金水|好人/.test(m[2])?'金水':'查杀',key=seq+'|'+result;
+      if(seq&&!seen[key]){seen[key]=1;out.push({seq:seq,result:result})}
+    }
+  });
+  return out;
+}
+function wwSeerSpeechMatches(p,say){
+  var c=wwLatestPrivateSeerCheck(p);
+  if(!c)return true;
+  var t=wwPlayerByUid(c.uid);
+  if(!t)return true;
+  var want=c.isWolf?'查杀':'金水';
+  var got=wwReportedSeerChecks(say);
+  var hit=got.some(function(x){return Number(x.seq)===Number(t.seq)&&x.result===want});
+  var conflict=got.some(function(x){return Number(x.seq)!==Number(t.seq)});
+  return hit&&!conflict;
+}
+async function wwGuardSeerSpeech(p,sys,say){
+  var c=wwLatestPrivateSeerCheck(p);
+  if(!c||wwSeerSpeechMatches(p,say))return say;
+  var t=wwPlayerByUid(c.uid);
+  if(!t)return say;
+  var fact='第 '+(Number(c.day)||Number(V.ww.day)||1)+' 夜你验的是 '+wwTag(t)+' · '+t.name+'，结果是【'+(c.isWolf?'狼人（查杀）':'好人（金水）')+'】。';
+  var ask='【预言家私有查验纠正】你刚才准备公开说：“'+String(say||'').slice(0,700)+'”。'+
+    fact+'这是唯一真实结果；之前说的“今晚准备验谁”只是计划，不是已经发生的查验。'+
+    '请保持角色口吻，按原任务格式重写完整发言，必须明确报出这个座位和结果；如果原计划和实际不同，如实说明改验。不要报成另一个号。';
+  var fixed='';
+  try{
+    p._lastSayTitle='';
+    var cr=wwTakeTitle(p,String(await wwCall(sys,ask,wwSayMax(),.65)||'').trim());
+    var cb=wwTakeIdentityBoard(p,cr);cr=cb.text;
+    var csp=wwSplitDraft(cr);
+    fixed=wwStripLead(csp.say||'');
+    if(csp.draft)p.scratch=csp.draft;
+    if(fixed&&wwSeerSpeechMatches(p,fixed))return fixed;
+  }catch(e){}
+  p._lastSayTitle='报验'+wwTag(t)+(c.isWolf?'查杀':'金水');
+  return '我是预言家。'+fact+'之前警徽流只是计划，不是查验结果，这轮以这条真实结果为准。';
+}
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
 async function wwSpeak(p,sys){
@@ -33642,7 +33704,9 @@ async function wwSpeak(p,sys){
     if(!sp.draft&&sp2.draft)sp.draft=sp2.draft;
   }
   if(sp.draft)p.scratch=sp.draft;
-  return wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）'));
+  var out=wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）'));
+  if(p&&!p.isUser&&p.role==='seer')out=await wwGuardSeerSpeech(p,sys,out);
+  return out;
 }
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
 function wwPlayerByUid(uid){var a=V.ww.players;for(var i=0;i<a.length;i++){if(a[i].uid===uid)return a[i]}return null}
@@ -33836,7 +33900,7 @@ function wwSysFor(p,task){
   L.push(wwGenderLine());   /* 【新】不知道性别就按女生：别默认大家都男的 */
   L.push('【你是谁 / 你的身份】你是 '+wwName(p)+'（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwName(p)+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'无特殊能力。听发言盘 1~2 个狼和理由，独立投票；被怀疑时用时间线自证。':
-     r==='seer'?'每晚验一人。报清每夜验人、金水/查杀和归票；被质疑时正面回答最关键的问题，有把握就给出可验证信息，不靠长篇口语化时间线自证。通常首轮起跳。':
+     r==='seer'?'每晚验一人。报验前先核对私有验人结果卡：公开说过的“今晚准备验谁”只是计划，不是结果；实际改验就明确说改验。必须按座位号报出当夜真实目标和金水/查杀。被质疑时正面回答最关键的问题，通常首轮起跳。':
      r==='witch'?'解药、毒药各一次，同夜只用一瓶。女巫全程不能自救。有守卫时首夜可救人；不乱毒，少暴露。被怀疑时只讲真实药况和救人时机，别为了圆场编药。':
      r==='hunter'?'被刀或被票可开枪；被毒不能开枪。平时藏身份；自己快被推出、且亮枪能改变票型时，及时报猎人。':
      r==='knight'?'每局可决斗一次。自己发言时可以决斗；所有人发言结束、投票前还会再得到一次考虑机会。警长竞选和平票 PK 不能决斗。命中狼人则对方立即出局、白天结束；命中好人则你自己出局、白天继续。别在没证据时乱戳。':
