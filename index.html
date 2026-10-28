@@ -32432,14 +32432,14 @@ function wwFactsFor(p){
     (alive.length&&p?(alive.some(function(x){return x===p})?'（'+wwTag(p)+' 就是你自己）':''):'')+
     (dead.length?('\n· 已经出局的人：'+dead.map(function(x){
       /* 【改】夜里出局的**不写死因**：主持人只报「谁出局了」，不会说哪个是被女巫毒的、哪个是被狼刀的。
-         白天出局的那两种（投票放逐 / 猎人开枪）本来就是公开的，照旧写明。 */
+         白天只公开“被投票放逐 / 被带走 / 自爆后出局”这些可见事件，不替玩家确认技能来源或职业。 */
       /* 【修】补上「掀桌认输」这种白天出局：以前它落到默认分支、被写成「夜里出局」，
          AI 会以为这个人是半夜死的（其实记录里明明写着当场处刑）。 */
       var how='夜里出局';
       if(x.killedBy==='vote')how='白天被投票放逐';
-      else if(x.killedBy==='shot')how='被猎人开枪带走';
-      else if(x.killedBy==='boom')how='白天出局（白狼王自爆）';
-      else if(x.killedBy==='wolfking')how='被狼王带走';
+      else if(x.killedBy==='shot')how='白天被带走';
+      else if(x.killedBy==='boom')how='白天自爆后出局';
+      else if(x.killedBy==='wolfking')how='白天被带走';
       else if(x.killedBy==='flip')how='白天掀桌认输后被处刑';
       return wwName(x)+'（'+how+'）';
     }).join('、')+'\n  （夜里出局只报“出局”，死因自行判断）'):'')+
@@ -34036,7 +34036,9 @@ function wwSysFor(p,task){
   L.push('【跳预世界线】多名跳预者时列出 1～2 条世界线，用验人、退水、'+(wwSheriffOn()?'警徽处理、':'')+'票型和夜间结果淘汰。'+
     '明确查验、不退水并持续攻击对跳者，只排除无计划代跳，仍保留真预/悍跳狼两种可能；可信守墓人证明其为好时落到真预。'+
     '真预也可以强跳、预判或鼓励代跳；认了某人的预/守墓身份，就必须使用她的金水、查杀或阵营结果。'+
-    '程序列出的“漏报查验、双线金水、自踩金水”直接采用：双线金水不能只因发言差就投，自踩金水按硬异常处理。');
+    '程序列出的“漏报查验、双线金水、自踩金水”直接采用：双线金水不能只因发言差就投，自踩金水按硬异常处理。'+
+    '警徽流分支数、给对跳者留退水口、首验理由包装和先跳后跳都只是话术，不单独证明身份；先跳者不知道谁会反跳，没预留退水口很正常。'+
+    '完整分支只核对能否执行和是否兑现；跳预者白天已出局时，“今晚验X”没有发生，接徽人不能反推X阵营。');
   if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。'+
     '票型不是身份定论：狼会冲好人，也会卖队友做身份。不能因为“狼公开推过她”就反推她是好人，也不能因为“她投过狼”就直接洗白。');
   L.push('【代跳与首验】首验可盲选；理由牵强只是弱理由，引用白天信息解释首夜选人则是硬矛盾。'+
@@ -36074,8 +36076,8 @@ async function wwHunterCheck(p){
   var gen=wwGenNow();
   if(!p||p.role!=='hunter'||p.killedBy==='poison')return;
   if(p.fearedDay&&Number(p.fearedDay)===Number(w.day)){
-    w.log.push({k:'sys',text:'🔫 '+wwTag(p)+'被梦魇封印，无法开枪。'});
-    render(true);
+    w.rec.push({d:w.day,t:'猎人 '+wwTag(p)+' 被梦魇封印，无法发动技能'});
+    if(p.isUser)try{toast('你被梦魇封印，无法发动技能')}catch(e){}
     return;
   }
   var pool=wwAlive();if(!pool.length)return;
@@ -36092,13 +36094,14 @@ async function wwHunterCheck(p){
   }
   if(tgt&&tgt.alive){
     tgt.alive=false;tgt.killedBy='shot';
-    w.log.push({k:'sys',text:'💥 '+wwTag(p)+'开枪带走'+wwTag(tgt)+'。'});
+    w.log.push({k:'sys',text:'💥 '+wwTag(p)+'出局前带走了'+wwTag(tgt)+'。'});
     w.rec.push({d:w.day,t:'猎人开枪带走：'+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
     wwFx(tgt.uid,'hit',2200);        /* 被带走的人头像上闪一下中枪特效 */
     await wwWolfKingDeathCheck(tgt);
     if(wwStaleG(gen))return;
   }else{
-    w.log.push({k:'sys',text:'🔫 '+wwTag(p)+'未开枪。'});
+    w.rec.push({d:w.day,t:'猎人 '+wwTag(p)+' 选择不发动技能'});
+    if(p.isUser)try{toast('你选择不发动技能')}catch(e){}
   }
   render(true);
 }
@@ -36136,7 +36139,7 @@ async function wwWolfKingDeathCheck(p){
   }
   if(tgt&&tgt.alive&&tgt!==p){
     tgt.alive=false;tgt.killedBy='wolfking';
-    w.log.push({k:'sys',text:'💥 '+wwTag(p)+'狼王出局，带走'+wwTag(tgt)+'。'});
+    w.log.push({k:'sys',text:'💥 '+wwTag(p)+'出局前带走了'+wwTag(tgt)+'。'});
     w.rec.push({d:w.day,t:'狼王 '+wwTag(p)+' 出局，发动技能带走 '+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
     try{wwBgmKillSfx()}catch(e){}
     wwFx(tgt.uid,'hit',2200);
@@ -36489,10 +36492,10 @@ async function wwPoliceSpeech(p){
   });
   var badgeHint=wwWolfJobOf(p)==='jump'
     ?(wwJumpCanAdapt(p)
-      ?'你原本的狼队分工是悍跳狼，但这不是硬命令。先听前置位发言：如果疑似石像鬼已经给狼金水、递出明确信息，或当前起跳收益低、强跳会送狼，你可以改打普通上警发言，不报假验并准备退水。若仍决定悍跳，才明确自称预言家，报昨夜验人结果、自然的首验理由和警徽流两个分支；判断要以实际发言和局面为准，不要为了完成分工机械起跳。'
-      :'你是悍跳狼，这一轮必须明确自称预言家，报昨夜验人结果和一句自然的首验理由（可编成盲验、看头像或名字、眼缘、觉得像高玩等），并把警徽流两个分支说清楚：今晚验A，A是好就让A本人接徽；A是狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。不能改报别的身份，不能提退水。')
+      ?'你原本的狼队分工是悍跳狼，但这不是硬命令。先听前置位发言：如果疑似石像鬼已经给狼金水、递出明确信息，或当前起跳收益低、强跳会送狼，你可以改打普通上警发言，不报假验并准备退水。若仍决定悍跳，才明确自称预言家，报昨夜验人结果、自然的首验理由和一项可执行的警徽处理；判断要以实际发言和局面为准，不要为了完成分工机械起跳。'
+      :'你是悍跳狼，这一轮必须明确自称预言家，报昨夜验人结果和一句自然的首验理由（可编成盲验、看头像或名字、眼缘、觉得像高玩等），并说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽，不必堆额外分支。不能改报别的身份，不能提退水。')
     :(isJump
-      ?'如果你报预言家身份，第一轮要报昨夜验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再把警徽流两个分支说清楚：今晚验A，A是好就让A本人接徽；A是狼就交给已知金水或最信的好人，没有合适接徽人就撕徽。可以按自己的打法调整，别为了套格式编造信息。'
+      ?'如果你报预言家身份，第一轮要报昨夜验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽，不必堆额外分支。可以按自己的打法调整，别为了套格式编造信息。'
       :(wwIsWolf(p)
         ?'如果不跳预言家，只说自己的真实身份或可信的衣服、为什么适合拿警徽，别硬报验人结果。'
         :goodUpHint));
