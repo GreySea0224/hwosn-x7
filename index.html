@@ -33940,6 +33940,8 @@ function wwPublicLog(maxN,detail){
 function wwAfterBlock(){
   var w=V.ww,L=[],lines=[],me=wwMe();
   if((w.rec||[]).length)L.push('【夜里的行动（这局结束了，现在全部公开）】\n'+w.rec.map(function(x){return '第 '+x.d+' 天 · '+x.t}).join('\n'));
+  var fearLedger=wwFearLedgerText(w.rec);
+  if(fearLedger)L.push(fearLedger);
   w.log.forEach(function(e){
     if(e.k==='sys')lines.push('主持人：'+wwPublicSysText(e.text,me));
     else if(e.k==='vote')lines.push('投票：'+e.text);
@@ -33950,6 +33952,56 @@ function wwAfterBlock(){
   });
   if(lines.length)L.push('【白天发生过的事】\n'+lines.slice(-80).join('\n'));
   return L.join('\n\n');
+}
+/* 恐惧履历按“第几夜”整理，避免 AI 把“曾经被恐”误当成“昨晚被恐”，
+   也避免把总共两次恐惧误写成连续两晚。 */
+function wwFearLedgerText(rec){
+  var by={},seqs=[];
+  (rec||[]).forEach(function(x){
+    var t=String((x&&x.t)||''),m=t.match(/^梦魇恐惧了\s*(\d{1,2})\s*号/);
+    if(!m)return;
+    var seq=Number(m[1]),day=Number(x.d)||0;
+    if(!seq||!day)return;
+    if(!by[seq]){by[seq]=[];seqs.push(seq)}
+    if(by[seq].indexOf(day)<0)by[seq].push(day);
+  });
+  if(!seqs.length)return '';
+  seqs.sort(function(a,b){return a-b});
+  return '【梦魇恐惧履历（程序按夜核对）】\n'+seqs.map(function(seq){
+    var days=by[seq].sort(function(a,b){return a-b}),consecutive=false;
+    for(var i=1;i<days.length;i++){if(days[i]-days[i-1]===1)consecutive=true}
+    return '· '+seq+'号：第 '+days.join('、')+' 夜，共 '+days.length+' 次'+
+      (days.length>1?(consecutive?'（其中有相邻夜连续恐惧）':'（没有相邻夜连续恐惧）'):'');
+  }).join('\n');
+}
+function wwFearHistoryText(p,w){
+  if(!p||!w||!p.seq)return '';
+  var days={},out=[];
+  (w.rec||[]).forEach(function(x){
+    var t=String((x&&x.t)||''),m=t.match(/^梦魇恐惧了\s*(\d{1,2})\s*号/);
+    if(!m||Number(m[1])!==Number(p.seq))return;
+    var day=Number(x.d)||0;if(day)days[day]=1;
+  });
+  Object.keys(days).map(Number).sort(function(a,b){return a-b}).forEach(function(d){out.push('第 '+d+' 夜')});
+  if(!out.length)return '';
+  return '【你的恐惧履历（只有你知道）】你被恐惧过的夜晚：'+out.join('、')+
+    '。未被列出的夜晚没有被恐惧；恐惧只影响对应那一夜，不延续到下一夜。'+
+    '如果旧草稿纸或身份盘写了“昨晚被恐”，以这份带夜晚编号的履历为准，不要把旧状态搬到今天。';
+}
+function wwGuardHistoryText(p,w){
+  if(!p||p.role!=='guard'||!w)return '';
+  var rows=[];
+  (w.rec||[]).forEach(function(x){
+    var t=String((x&&x.t)||''),d=Number(x.d)||0,m;
+    if(!d)return;
+    if(/^守卫被梦魇恐惧/.test(t))rows.push({day:d,text:'被梦魇恐惧，无法守人'});
+    else if((m=t.match(/^守卫守了\s*(\d{1,2})\s*号/)))rows.push({day:d,text:'守了 '+m[1]+'号'});
+    else if(/^守卫今晚没有守人/.test(t))rows.push({day:d,text:'选择不守人'});
+  });
+  if(!rows.length)return '';
+  rows.sort(function(a,b){return a.day-b.day});
+  return '【你的守卫行动履历（只有你知道）】\n'+rows.map(function(x){return '第 '+x.day+' 夜：'+x.text}).join('\n')+
+    '\n判断别人的“昨晚被恐”时，先确认她指的是哪一夜，再和这份履历按同一夜核对。';
 }
 /* 【缓存友好】这个函数只返回「不变的那部分」（你是谁、身份、打法、硬规矩）。
    每轮会变的（验人结果、用药、场上名单、公开记录、事实清单、草稿纸、本轮任务）
@@ -33991,6 +34043,10 @@ function wwSysFor(p,task){
     });
     if(wl.length)dyn.push('你自己做过的夜间操作（只有你知道，别人不一定知道）：\n'+wl.join('\n'));
   }
+  if(r==='guard'){
+    var guardHistory=wwGuardHistoryText(p,w);
+    if(guardHistory)dyn.push(guardHistory);
+  }
   if(r==='gravekeeper'){
     var gl=(p.check||[]).filter(function(c){return c.kind==='grave'});
     if(gl.length)dyn.push('你的守墓记录（按夜晚）：\n'+gl.map(function(c){var t=wwPlayerByUid(c.uid);return '第 '+(c.day||'?')+' 夜：'+(t?wwName(t):'?')+' 是'+(c.isWolf?'狼人':'好人')}).join('\n'));
@@ -34003,7 +34059,9 @@ function wwSysFor(p,task){
     var nml=(p.check||[]).filter(function(c){return c.kind==='nightmare'});
     if(nml.length)dyn.push('你释放过的梦魇（按夜晚）：\n'+nml.map(function(c){var t=wwPlayerByUid(c.uid);return '第 '+(c.day||'?')+' 夜：'+(t?wwName(t):'?')}).join('\n'));
   }
-  if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))dyn.push('你被梦魇恐惧了：这一夜的技能不能发动；如果你在本夜或紧接着的白天出局，猎人枪也不能开。');
+  var fearHistory=wwFearHistoryText(p,w);
+  if(fearHistory)dyn.push(fearHistory);
+  if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))dyn.push('【本夜恐惧状态】第 '+w.day+' 夜你被梦魇恐惧，这一夜技能不能发动；如果紧接这个白天出局，猎人枪也不能开。它只影响第 '+w.day+' 夜，不是持续状态。');
   dyn.push(wwBoardLine());
   dyn.push('【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog());
   dyn.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
@@ -34017,6 +34075,7 @@ function wwSysFor(p,task){
     '可以对还没发言的后置位施压或试探，但要用假设句；不能把对方尚未作出的身份声明和验人结果当成事实。'+
     '警徽流可以传递验人信息。常见打法是：验A，A是好就让A接徽；A是狼就把徽交给已知金水或可信好人，没有合适接徽人就撕徽。她死后实际接徽人要和生前报的分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。');
   L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
+    '有人声称“昨晚被恐”时，先按当前白天定位到她说的具体第几夜；不同夜晚的恐惧不能拼成同一夜矛盾，自己曾经被恐也不等于昨晚被恐。'+
     (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
   L.push('【总规则】只把主持人公告、自身身份和技能结果当事实；他人身份、验人、遗言可假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
@@ -34712,6 +34771,8 @@ function wwJudgePrompt(src,result){
   L.push('【本局】'+src.count+' 人局 · '+result);
   L.push('【每个人这一局的真实身份】\n'+src.roles);
   if(src.night)L.push('【夜里的行动（只有上帝视角能看到）】\n'+src.night);
+  if(src.fear)L.push(src.fear);
+  if(src.fear)L.push('【恐惧时间线硬核对】同一目标只有相邻两夜都被恐惧，才能写“连续恐惧”；中间隔了别的目标，只能写“两次恐惧”或“再次恐惧”。有人声称“昨晚被恐”时，必须和同一夜的恐惧记录核对，不同夜的经历不能写成同夜冲突。');
   L.push('【守卫规则】每夜守一人（含自己），不能连续两夜守同一人；只挡狼刀，同守同救会死。评 MVP 时不得把违规连守当作有效操作。');
   /* 【新】提醒裁判：空刀 / 收刀是正常战术，那一晚就是没人死，不是程序出错 */
   L.push('（提醒：记录里出现【空刀】或【收刀】，意思是狼队那一晚决定不杀人 / 到了房门口又放过对方 —— 这是正常战术，不是程序出错；那一晚确实没有人被刀死。）');
@@ -34740,6 +34801,7 @@ async function wwJudge(result){
     count:w.count,
     roles:w.players.map(function(p){return wwNum(p)+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
     night:(w.rec||[]).length?w.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'',
+    fear:wwFearLedgerText(w.rec),
     pub:wwPublicLog(240,true),
     wolf:wwWolfChannelText(60)
   };
@@ -34788,6 +34850,7 @@ async function wwJudgeRec(rec,result){
     count:rec.count||((rec.players||[]).length),
     roles:(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
     night:(rec.rec||[]).length?rec.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'',
+    fear:wwFearLedgerText(rec.rec),
     pub:wwPublicLogRec(rec,240),
     wolf:wwWolfChannelRec(rec,60)
   };
