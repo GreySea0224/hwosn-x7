@@ -15528,7 +15528,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-28】
-狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。
+狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。
 
 【最近更新 · 2026-10-27】
 游戏新增「人机难辨」：你可以拉现有角色参加，缺的位置由系统随机 AI 人设补满；所有参赛者只显示玩家编号并匿名轮流聊天。你的任务是把话说得像 AI，电脑角色则要模仿普通真人。聊天开始前可以选择“有话题”或“自由聊”；关闭话题后，整局都不会出现话题提示。聊完后每人秘密投出“最像真人”和“最像 AI”各一人，票数相同时可以并列；同一个人同时拿到两项时，优先保留“最像 AI”，另一个称号顺延给其他得票最高者。你成为最像 AI 就赢，成为最像真人就输，两边都没选你就是没输没赢；AI 成为最像真人则那个 AI 赢。默认建议 5 人 3 轮，可在准备页调整人数、轮数、参与角色、记忆范围、话题自定义和话题开关。
@@ -15700,7 +15700,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=79;  /* 79：场记 AI 生成 2～3 句发言摘要；78：聊爆/措辞与问答未解决 */
+const GUIDE_VER=80;  /* 80：漏报查验、双线金水与自踩金水检查；79：场记 AI 发言摘要 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32504,6 +32504,8 @@ function wwFactsFor(p){
       '未轮到不等于心虚。'+
       (w.speaking?('当前：'+wwTag(wwPlayerByUid(w.speaking))+'。'):''));
   }
+  var seerAudit=wwSeerCommitmentText(w);
+  if(seerAudit)L.push(seerAudit);
   var identityRead=wwIdentityContext(p);
   if(identityRead)L.push(identityRead);
   return L.join('\n');
@@ -32803,7 +32805,7 @@ function wwIdentityChecks(txt){
   var out=[],seen={};
   function add(seq,result){
     seq=Number(seq);
-    result=/金水/.test(result)?'金水':(/查杀|狼/.test(result)?'查杀':'好人');
+    result=/金水|好人/.test(result)?'金水':'查杀';
     var k=seq+'|'+result;
     if(seq&&!seen[k]){seen[k]=1;out.push({seq:seq,result:result})}
   }
@@ -32814,6 +32816,154 @@ function wwIdentityChecks(txt){
     if(d)add(d[1],d[2]);
   });
   return out;
+}
+/* 只取“说话人自己在报验人”，避免把“她验了X、你验了Y”误记成当前玩家的查验。 */
+function wwOwnSeerChecks(txt){
+  var keep=String(txt||'').split(/[。！？!?；;\n]+/).filter(function(c){
+    if(/(?:她|他|你|别人|有人|被)[^。！？!?；;\n]{0,16}(?:报|验|摸|发)[^。！？!?；;\n]{0,24}(?:金水|查杀|好人|狼人)/.test(c))return false;
+    return true;
+  });
+  return wwIdentityChecks(keep.join('。'));
+}
+function wwOwnVoteIntentTargets(txt){
+  var out=[],seen={};
+  String(txt||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    if(/(?:别|不要|不|不会)[^，,]{0,5}(?:票|投)/.test(c))return;
+    var re=/(?:我|这轮|本轮|这边)[^。！？!?；;\n]{0,18}(?:票|投)(?:给|落|走)?\s*(\d{1,2})\s*号/g,m;
+    while((m=re.exec(c))){var n=Number(m[1]);if(n&&!seen[n]){seen[n]=1;out.push(n)}}
+  });
+  return out;
+}
+function wwSeerRefDay(ref){
+  var m=String(ref||'').match(/^D(\d+)-/);
+  return m?Number(m[1])||0:0;
+}
+function wwVoteHistoryRows(w){
+  var day=1,out=[];
+  ((w&&w.log)||[]).forEach(function(e){
+    if(!e)return;
+    if(e.k==='sys'){
+      var dm=String(e.text||'').match(/^第\s*(\d+)\s*天/);
+      if(dm)day=Number(dm[1])||day;
+      return;
+    }
+    if(e.k!=='vote'||!/^投票[：:]/.test(String(e.text||'')))return;
+    String(e.text||'').split(/\n+/).forEach(function(line){
+      var m=line.match(/(.+?)\s*→\s*(\d{1,2})\s*号/);
+      if(!m)return;
+      var target=Number(m[2]),re=/(\d{1,2})\s*号/g,mm;
+      while((mm=re.exec(m[1]))){
+        var voter=Number(mm[1]);
+        if(voter&&target&&!out.some(function(x){return x.day===day&&x.voter===voter&&x.target===target}))
+          out.push({day:day,voter:voter,target:target});
+      }
+    });
+  });
+  return out;
+}
+/* 公开跳预承诺账：漏报新查验、双线金水、自踩金水都只用公开信息计算。 */
+function wwSeerCommitmentLedger(w){
+  var rows=wwPublicEventRows(w),claims={},bySeq={};
+  (w&&w.players||[]).forEach(function(p){if(p&&p.seq)bySeq[p.seq]=p});
+  function addClaim(p,day,ref){
+    if(!p||!p.seq)return;
+    var old=claims[p.uid];
+    if(!old||day<old.day)claims[p.uid]={p:p,day:day||1,ref:ref||''};
+  }
+  ((w&&w.scribe&&w.scribe.claims)||[]).forEach(function(x){
+    if(!x||x.role!=='seer')return;
+    addClaim(bySeq[Number(x.seat)],wwSeerRefDay(x.ref)||1,x.ref);
+  });
+  rows.forEach(function(r){
+    if(wwClaimIdentityRoles(r.text,r.p.seq).indexOf('seer')>=0)addClaim(r.p,r.day,r.ref);
+  });
+  var out=[],latestChecks={},checksBySeat={};
+  Object.keys(claims).forEach(function(uid){
+    var c=claims[uid],p=c.p,seen={},checks=[],missing=[],retractedDay=0;
+    var myRows=rows.filter(function(r){return r.uid===uid&&r.day>=c.day});
+    myRows.forEach(function(r){
+      if(retractedDay||!/(?:我|本人)[^。！？!?；;\n]{0,16}(?:退水|代跳|压跳|假验)[^。！？!?；;\n]{0,24}(?:作废|不算|是好人)/.test(r.text))return;
+      retractedDay=r.day;
+    });
+    myRows.filter(function(r){return r.day<=c.day}).forEach(function(r){
+      wwOwnSeerChecks(r.text).forEach(function(x){
+        var key=x.seq+'|'+x.result;
+        if(seen[key])return;
+        seen[key]=1;checks.push({seq:x.seq,result:x.result,day:r.day,ref:r.ref});
+      });
+    });
+    checksBySeat[p.seq]=checks;
+    var currentRows=myRows.filter(function(r){return r.day===Number(w.day)});
+    var hasCurrentSaid=currentRows.length||!!(w.spoke&&w.spoke[uid]);
+    for(var d=c.day+1;d<=Number(w.day);d++){
+      if(retractedDay&&d>=retractedDay)break;
+      var dayRows=myRows.filter(function(r){return r.day===d});
+      if(!dayRows.length&&!(d===Number(w.day)&&hasCurrentSaid))continue;
+      var blocked=dayRows.some(function(r){return /(?:梦魇|恐惧)[^。！？!?；;\n]{0,24}(?:不能验|没验|验不了|技能失效)/.test(r.text)});
+      var before={};checks.forEach(function(x){before[x.seq+'|'+x.result]=1});
+      var added=false;
+      dayRows.forEach(function(r){
+        wwOwnSeerChecks(r.text).forEach(function(x){
+          var key=x.seq+'|'+x.result;
+          if(before[key]||seen[key])return;
+          seen[key]=1;added=true;checks.push({seq:x.seq,result:x.result,day:d,ref:r.ref});
+        });
+      });
+      checksBySeat[p.seq]=checks;
+      if(!added&&!blocked)missing.push(d);
+    }
+    latestChecks[p.seq]=checks;
+    out.push({p:p,day:c.day,ref:c.ref,checks:checks,missing:missing,retractedDay:retractedDay});
+  });
+  return {claims:out,checksBySeat:checksBySeat,votes:wwVoteHistoryRows(w)};
+}
+function wwSeerCommitmentText(w){
+  var a=wwSeerCommitmentLedger(w),L=[],bySeat={};
+  a.claims.forEach(function(c){
+    bySeat[c.p.seq]=c;
+    if(c.retractedDay)return;
+    var got=c.checks.slice(-4).map(function(x){return 'D'+x.day+' '+x.seq+'号'+x.result}).join('、')||'暂无可核对结果';
+    if(c.missing.length){
+      L.push('· '+wwTag(c.p)+'：D'+c.day+' 起跳预；已报 '+got+'；D'+c.missing.join('、D')+' 已发言但没有新增一夜查验【漏报查验】');
+    }
+  });
+  var goodBy={};
+  Object.keys(a.checksBySeat).forEach(function(seat){
+    (a.checksBySeat[seat]||[]).forEach(function(x){
+      if(x.result!=='金水'&&x.result!=='好人')return;
+      goodBy[x.seq]=goodBy[x.seq]||[];
+      if(!goodBy[x.seq].some(function(y){return y.seat===Number(seat)}))
+        goodBy[x.seq].push({seat:Number(seat),day:x.day});
+    });
+  });
+  Object.keys(goodBy).forEach(function(seq){
+    var src=goodBy[seq].filter(function(x){var c=bySeat[x.seat];return c&&!c.retractedDay});
+    if(src.length<2)return;
+    L.push('· '+seq+'号 被 '+src.map(function(x){return x.seat+'号(D'+x.day+')'}).join('、')+
+      ' 同时报为金水【双线金水】；在这些跳预世界线里都是好人，不能只因发言差就投她。');
+  });
+  var said={};
+  a.claims.forEach(function(c){
+    if(c.retractedDay)return;
+    var golds={};
+    (c.checks||[]).forEach(function(x){if(x.result==='金水'||x.result==='好人')golds[x.seq]=x.day});
+    wwPublicEventRows(w).filter(function(r){return r.uid===c.p.uid&&r.day>c.day}).forEach(function(r){
+      wwOwnVoteIntentTargets(r.text).forEach(function(seq){
+        if(!golds[seq])return;
+        var key=c.p.seq+'|'+r.day+'|'+seq;
+        if(said[key])return;said[key]=1;
+        L.push('· '+wwTag(c.p)+' 在 D'+r.day+' 公开发言要投自己的金水 '+seq+'号【自踩金水】');
+      });
+    });
+    (a.votes||[]).forEach(function(v){
+      if(v.voter!==c.p.seq||!golds[v.target])return;
+      var key=c.p.seq+'|'+v.day+'|'+v.target;
+      if(said[key])return;said[key]=1;
+      L.push('· '+wwTag(c.p)+' 在 D'+v.day+' 实际票投自己的金水 '+v.target+'号【自踩金水】');
+    });
+  });
+  if(!L.length)return '';
+  return '【跳预承诺账（程序核对公开事实）】\n'+L.join('\n');
 }
 function wwPublicIdentityData(w){
   var data={},byUid={};
@@ -33740,7 +33890,8 @@ function wwSysFor(p,task){
     '发言位次由警长或系统安排，不是玩家选择。警长票＝支持当选，放逐票＝要求出局，二者不要求同号；违背明确承诺才算票型矛盾。');
   L.push('【跳预世界线】多名跳预者时列出 1～2 条世界线，用验人、退水、'+(wwSheriffOn()?'警徽处理、':'')+'票型和夜间结果淘汰。'+
     '明确查验、不退水并持续攻击对跳者，只排除无计划代跳，仍保留真预/悍跳狼两种可能；可信守墓人证明其为好时落到真预。'+
-    '真预也可以强跳、预判或鼓励代跳；认了某人的预/守墓身份，就必须使用她的金水、查杀或阵营结果。');
+    '真预也可以强跳、预判或鼓励代跳；认了某人的预/守墓身份，就必须使用她的金水、查杀或阵营结果。'+
+    '程序列出的“漏报查验、双线金水、自踩金水”直接采用：双线金水不能只因发言差就投，自踩金水按硬异常处理。');
   if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。');
   L.push('【代跳与首验】首验可盲选；理由牵强只是弱理由，引用白天信息解释首夜选人则是硬矛盾。'+
     '好人可假跳预、假给金水或查杀，但必须说明假验作废并退出；不能仅因退水定狼，也不能因代跳退水直接洗白。');
@@ -34273,6 +34424,8 @@ async function wwVoteAI(p,pool){
     '除主持人公开事实外，只有你暂信真预报的查杀算强证据；'+
     '别的神职/金水归票，不等于她归票的对象一定是狼，自己分析狼坑。'+
     '若有人被指出时间线/规则硬冲突且仍为“已回应但未解决”，优先投她；不能改用发言顺序、警长票与放逐票不同、平民后软跳神这类非矛盾理由推翻。';
+  var seerAudit=wwSeerCommitmentText(w);
+  if(seerAudit)goodHint+='\n投票硬检查：\n'+seerAudit;
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
     (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+ownHint):(goodHint+ownHint))+
     '\n【输出格式】只写两行：\n投票：编号或名字（例如「3号」）。\n判断：'+
@@ -34591,6 +34744,8 @@ function wwDumpIdentityBoard(w){
   L.push('【场记状态】'+(sc&&sc.ran?('已核对 · 第 '+(sc.updatedDay||'?')+' 天 · 身份声明 '+((sc.claims||[]).length)+' 条 · 问答 '+((sc.qa||[]).length)+' 条 · 发言摘要 '+((w.log||[]).filter(function(x){return x&&x.k==='say'&&String(x.sum||'').trim()}).length)+' 条'):'尚未核对，使用本地规则兜底')+(sc&&sc.error?(' · 最近错误：'+sc.error):''));
   L.push('【程序整理的公开身份线索】');
   L.push(wwPublicIdentityText(w));
+  var seerAudit=wwSeerCommitmentText(w);
+  if(seerAudit)L.push(seerAudit);
   var qaDump=wwDumpQALedger(w);
   if(qaDump){L.push('');L.push(qaDump)}
   L.push('');
