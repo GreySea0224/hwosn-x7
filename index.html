@@ -15528,7 +15528,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-28】
-狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。AI 投票请求失败时会自动重试，仍失败则按她刚才公开的票向补票；公布前会检查所有应投票者是否都有有效票，不会再出现只显示用户一张票却直接结算的情况。中文数字座位和“我乃十二号……真预言家也”这类跳预说法也会被识别；判断时会明确记住“女巫毒死不等于狼”。真预言家 AI 每次发言后还会把公开报出的目标和结果与自己的私有查验卡核对；报错或漏报时会自动重写，仍不一致则强制改成准确结果，之前说过的“今晚准备验谁”不会再被冒充成已经发生的查验。
+狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。AI 投票请求失败时会自动重试，仍失败则按她刚才公开的票向补票；公布前会检查所有应投票者是否都有有效票，不会再出现只显示用户一张票却直接结算的情况。中文数字座位和“我乃十二号……真预言家也”这类跳预说法也会被识别；判断时会明确记住“女巫毒死不等于狼”。真预言家 AI 每次发言后还会把公开报出的目标和结果与自己的私有查验卡核对；报错或漏报时会自动重写，仍不一致则强制改成准确结果，之前说过的“今晚准备验谁”不会再被冒充成已经发生的查验。程序会保留“先归X，不结束下一轮归Y”这类跨天条件计划，即使发言者已出局也不会忘；狼公开保护某人的共边关系会作为复核线索，但不能反过来直接判断被保护者身份。存活不超过五人时，投票前会提示先计算“如果投错，是否会让村民或神职归零直接输”。
 
 【最近更新 · 2026-10-27】
 游戏新增「人机难辨」：你可以拉现有角色参加，缺的位置由系统随机 AI 人设补满；所有参赛者只显示玩家编号并匿名轮流聊天。你的任务是把话说得像 AI，电脑角色则要模仿普通真人。聊天开始前可以选择“有话题”或“自由聊”；关闭话题后，整局都不会出现话题提示。聊完后每人秘密投出“最像真人”和“最像 AI”各一人，票数相同时可以并列；同一个人同时拿到两项时，优先保留“最像 AI”，另一个称号顺延给其他得票最高者。你成为最像 AI 就赢，成为最像真人就输，两边都没选你就是没输没赢；AI 成为最像真人则那个 AI 赢。默认建议 5 人 3 轮，可在准备页调整人数、轮数、参与角色、记忆范围、话题自定义和话题开关。
@@ -15700,7 +15700,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=82;  /* 82：预言家报验校验与计划/结果分离；81：投票完整性 */
+const GUIDE_VER=83;  /* 83：跨天条件票、共边关系与终局风险；82：报验校验 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32506,6 +32506,10 @@ function wwFactsFor(p){
   }
   var seerAudit=wwSeerCommitmentText(w);
   if(seerAudit)L.push(seerAudit);
+  var condVote=wwConditionalVoteText(w);
+  if(condVote)L.push(condVote);
+  var protectRel=wwProtectionRelationText(w);
+  if(protectRel)L.push(protectRel);
   var identityRead=wwIdentityContext(p);
   if(identityRead)L.push(identityRead);
   return L.join('\n');
@@ -32879,6 +32883,57 @@ function wwVoteHistoryRows(w){
     });
   });
   return out;
+}
+function wwExileRows(w){
+  return ((w&&w.rec)||[]).map(function(x){
+    var m=String(x&&x.t||'').match(/被放逐[：:]\s*(\d{1,2})\s*号/);
+    return m?{day:Number(x.d)||0,seq:Number(m[1])}:null;
+  }).filter(Boolean);
+}
+/* 记录“先归X，不结束再归Y”这类跨天公共计划。条件一旦触发，即使原话者已经出局也不能忘。 */
+function wwConditionalVoteText(w){
+  if(!w)return '';
+  var rows=wwPublicEventRows(w),exiles=wwExileRows(w),out=[];
+  rows.forEach(function(r){
+    var re=/(?:归|票|投|下|出)\s*(\d{1,2})\s*号?[^。！？!?；;\n]{0,26}?(?:结束不了|没结束|不结束|若还没结束|如果还没结束)[^。！？!?；;\n]{0,24}?(?:归|票|投|下|出)\s*(\d{1,2})\s*号?/g,m;
+    while((m=re.exec(r.text))){
+      var a=Number(m[1]),b=Number(m[2]),pa=wwPlayerByUidTarget(w,a),pb=wwPlayerByUidTarget(w,b);
+      if(!pa||!pb)continue;
+      var exiled=exiles.some(function(x){return x.day===r.day&&x.seq===a});
+      var bOut=exiles.some(function(x){return x.seq===b});
+      if(!exiled||bOut||Number(w.day)<=r.day||w.over)continue;
+      out.push('· '+r.p.seq+'号在 D'+r.day+'（'+r.ref+'）公开约定：先归'+a+'号，若游戏没结束，下一轮归'+b+'号。'+
+        a+'号已在当天被放逐，局仍未结束；因此 '+b+'号必须优先按本人发言视角和逻辑复核，不能把这条跨天承诺忘掉或换成无关理由。');
+    }
+  });
+  out=out.filter(function(x,i,a){return a.indexOf(x)===i}).slice(-3);
+  return out.length?('【跨天条件归票（程序核对公开原话）】\n'+out.join('\n')):'';
+}
+/* “X在保Y”只能作为共边线索；X即使后来是狼，也不能直接反推Y一定狼或一定好。 */
+function wwProtectionRelationText(w){
+  if(!w)return '';
+  var out=[],seen={};
+  wwPublicEventRows(w).forEach(function(r){
+    var clauses=r.text.split(/[。！？!?；;\n]+/);
+    clauses.forEach(function(c){
+      if(/(?:不保|不硬保|没保|不护|不捞)/.test(c))return;
+      var re=/(\d{1,2})\s*号[^。！？!?；;\n]{0,12}?(?:像|疑似|可能|大概率|明显)?(?:在|是)?(?:保|护|捞)\s*(\d{1,2})\s*号/g,m;
+      while((m=re.exec(c))){
+        var a=Number(m[1]),b=Number(m[2]),pa=wwPlayerByUidTarget(w,a),pb=wwPlayerByUidTarget(w,b);
+        if(!pa||!pb||pa===pb||pa.alive||!pb.alive)continue;
+        var key=a+'|'+b;
+        if(seen[key])continue;seen[key]=1;
+        out.push('· '+r.p.seq+'号 D'+r.day+' 曾指出“'+a+'号像在保护'+b+'号”（'+r.ref+'）。'+a+'号已出局；'+
+          '这只提高'+b+'号的复核优先级，不能因为'+a+'号可能是狼就反推'+b+'号必狼或必好，仍要看'+b+'号自己的发言视角与逻辑。');
+      }
+    });
+  });
+  return out.length?('【公开共边关系（程序核对，不是身份结论）】\n'+out.slice(-3).join('\n')):'';
+}
+function wwEndgameRiskText(w){
+  if(!w||w.count!==12||wwAlive().length>5)return '';
+  return '【终局风险】当前只剩 '+wwAlive().length+' 人。投票前先按自己的世界线计算：若候选是好人，她出局后是否会让村民或神职归零、直接输。'+
+    '这是关键票时，必须优先比较其发言视角、动机和硬逻辑；票型相撞、被狼踩过、投过狼或一句口风变化都不是身份定论。';
 }
 /* 公开跳预承诺账：漏报新查验、双线金水、自踩金水都只用公开信息计算。 */
 function wwSeerCommitmentLedger(w){
@@ -33971,7 +34026,8 @@ function wwSysFor(p,task){
     '明确查验、不退水并持续攻击对跳者，只排除无计划代跳，仍保留真预/悍跳狼两种可能；可信守墓人证明其为好时落到真预。'+
     '真预也可以强跳、预判或鼓励代跳；认了某人的预/守墓身份，就必须使用她的金水、查杀或阵营结果。'+
     '程序列出的“漏报查验、双线金水、自踩金水”直接采用：双线金水不能只因发言差就投，自踩金水按硬异常处理。');
-  if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。');
+  if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。'+
+    '票型不是身份定论：狼会冲好人，也会卖队友做身份。不能因为“狼公开推过她”就反推她是好人，也不能因为“她投过狼”就直接洗白。');
   L.push('【代跳与首验】首验可盲选；理由牵强只是弱理由，引用白天信息解释首夜选人则是硬矛盾。'+
     '好人可假跳预、假给金水或查杀，但必须说明假验作废并退出；不能仅因退水定狼，也不能因代跳退水直接洗白。');
   var proxyBoard=wwClassicProxyHint(p);
@@ -34506,6 +34562,8 @@ async function wwVoteAI(p,pool){
     '若有人被指出时间线/规则硬冲突且仍为“已回应但未解决”，优先投她；不能改用发言顺序、警长票与放逐票不同、平民后软跳神这类非矛盾理由推翻。';
   var seerAudit=wwSeerCommitmentText(w);
   if(seerAudit)goodHint+='\n投票硬检查：\n'+seerAudit;
+  var endRisk=wwEndgameRiskText(w);
+  if(endRisk)goodHint+='\n'+endRisk;
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
     (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+ownHint):(goodHint+ownHint))+
     '\n【输出格式】只写两行：\n投票：编号或名字（例如「3号」）。\n判断：'+
@@ -34849,6 +34907,10 @@ function wwDumpIdentityBoard(w){
   L.push(wwPublicIdentityText(w));
   var seerAudit=wwSeerCommitmentText(w);
   if(seerAudit)L.push(seerAudit);
+  var condVote=wwConditionalVoteText(w);
+  if(condVote)L.push(condVote);
+  var protectRel=wwProtectionRelationText(w);
+  if(protectRel)L.push(protectRel);
   var qaDump=wwDumpQALedger(w);
   if(qaDump){L.push('');L.push(qaDump)}
   L.push('');
