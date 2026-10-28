@@ -15528,7 +15528,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-10-28】
-狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。
+狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。程序还会自动核对跳预者有没有漏报当夜新增查验、某个玩家是否被两条跳预世界线同时报为金水，以及自称预言家的人有没有公开说要投或实际投自己的金水；这些检查会直接进入所有 AI 的公共事实和投票依据。AI 投票请求失败时会自动重试，仍失败则按她刚才公开的票向补票；公布前会检查所有应投票者是否都有有效票，不会再出现只显示用户一张票却直接结算的情况。中文数字座位和“我乃十二号……真预言家也”这类跳预说法也会被识别；判断时会明确记住“女巫毒死不等于狼”。
 
 【最近更新 · 2026-10-27】
 游戏新增「人机难辨」：你可以拉现有角色参加，缺的位置由系统随机 AI 人设补满；所有参赛者只显示玩家编号并匿名轮流聊天。你的任务是把话说得像 AI，电脑角色则要模仿普通真人。聊天开始前可以选择“有话题”或“自由聊”；关闭话题后，整局都不会出现话题提示。聊完后每人秘密投出“最像真人”和“最像 AI”各一人，票数相同时可以并列；同一个人同时拿到两项时，优先保留“最像 AI”，另一个称号顺延给其他得票最高者。你成为最像 AI 就赢，成为最像真人就输，两边都没选你就是没输没赢；AI 成为最像真人则那个 AI 赢。默认建议 5 人 3 轮，可在准备页调整人数、轮数、参与角色、记忆范围、话题自定义和话题开关。
@@ -15700,7 +15700,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=80;  /* 80：漏报查验、双线金水与自踩金水检查；79：场记 AI 发言摘要 */
+const GUIDE_VER=81;  /* 81：投票完整性、中文跳预识别与毒药判断；80：跳预承诺检查 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32774,8 +32774,20 @@ function wwGargoyleInference(p){
    这样既能防止模型忘记，也不会让它靠上帝视角开挂。 */
 var WW_IDENTITY_ROLE_ORDER=['seer','witch','hunter','gravekeeper','knight','guard','idiot','wolfking','gargoyle','nightmare','villager'];
 function wwIdentityRoleName(role){return WW_ROLE_NAME[role]||role||'未知'}
+function wwCnSeatNum(s){
+  var map={一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
+  s=String(s||'');
+  if(s==='十')return 10;
+  if(/^十[一二三四五六七八九]$/.test(s))return 10+map[s.charAt(1)];
+  if(/^[一二两三四五六七八九]十$/.test(s))return map[s.charAt(0)]*10;
+  if(/^[一二两三四五六七八九]十[一二三四五六七八九]$/.test(s))return map[s.charAt(0)]*10+map[s.charAt(2)];
+  return map[s]||0;
+}
 function wwClaimIdentityRoles(txt,speakerSeq){
-  var s=String(txt||''),out=[],seen={};
+  var s=String(txt||'').replace(/([一二两三四五六七八九十]{1,3})\s*号/g,function(_,n){
+    var v=wwCnSeatNum(n);
+    return v?String(v)+'号':n+'号';
+  }),out=[],seen={};
   var clauses=s.split(/[。！？!?；;\n]+/);
   clauses.forEach(function(clause){
     WW_IDENTITY_ROLE_ORDER.forEach(function(role){
@@ -32791,9 +32803,12 @@ function wwClaimIdentityRoles(txt,speakerSeq){
       var p4=new RegExp('(?:身份(?:是|为)|我报(?:身份)?(?:是|为)?)\\s*(?:真)?'+plain+name);
       var p5=new RegExp('身份(?:我)?(?:摊开|摆明|说)[^。！？!?；;\\n]{0,16}(?:是|为)?(?:真)?'+plain+name);
       var p6=new RegExp('(?:直接说|直说|先说|报一下|说下|说清楚)[^。！？!?；;\\n]{0,6}身份[^。！？!?；;\\n]{0,10}(?:是|为|就是)?(?:真)?'+plain+name);
+      var p7=new RegExp('(?:我|本人)\\s*乃\\s*(\\d{1,2})\\s*号[^。！？!?；;\\n]{0,20}(?:真)?'+plain+name);
       var m1=clause.match(p1),m2=clause.match(p2);
+      var m7=clause.match(p7);
       var selfSeat=!!((m1&&(!speakerSeq||Number(m1[1])===Number(speakerSeq)))||
-        (m2&&(!speakerSeq||Number(m2[1])===Number(speakerSeq))));
+        (m2&&(!speakerSeq||Number(m2[1])===Number(speakerSeq)))||
+        (m7&&(!speakerSeq||Number(m7[1])===Number(speakerSeq))));
       if(selfSeat||p3.test(clause)||p4.test(clause)||p5.test(clause)||p6.test(clause)){
         seen[role]=1;out.push(role);
       }
@@ -33352,7 +33367,7 @@ function wwScribeSys(w,rows){
     return '['+r.ref+'] 第'+r.day+'天 · '+r.p.seq+'号 · '+r.p.name+'：'+String(r.text||'').slice(0,900);
   }).join('\n'));
   L.push('【身份声明规则】\n'+
-    '1. 只有本人直接说“我是X”“我跳X”“我报X”“我的身份是X”“X号，X身份”才算自称。\n'+
+    '1. 只有本人直接说“我是X”“我跳X”“我报X”“我的身份是X”“X号，X身份”“我乃X号……真预言家也”才算自称。中文数字座位也要识别，例如“十二号”就是12号。\n'+
     '2. “1号守墓人报的狼”“梦魇守卫这个板子”“守墓人我不打”只是在提别人或提规则，绝不能记成说话人自称。\n'+
     '3. quote 必须是对应事件里原样出现的一小段话；quoteRef 必须是该事件的编号。\n'+
     '4. 别人转述、主持人公告和自己的推测都不算身份自称。\n'+
@@ -33881,7 +33896,7 @@ function wwSysFor(p,task){
       : '像群聊说话，不写旁白动作，不用 markdown。')+
     (wwIsWolf(p)?'狼人阵营可以说谎和悍跳。':''));
   L.push('【判断优先级】主持人事实、可信查验 > 未解决硬矛盾 > 票型或明确承诺冲突 > 动机 > 语气。'+
-    '夜死、被票、被保或被踩都只是线索，不能因此认铁狼铁好；夜死也可能是狼自刀。'+
+    '夜死、被票、被保或被踩都只是线索，不能因此认铁狼铁好；夜死也可能是狼自刀，女巫毒死不等于狼。'+
     '发言长短、语气、施压、反问、预判和口癖不是身份证据。单边神职无对跳先不投，但不证明她归票正确；出现新事实后重新盘。');
   L.push('【聊爆与措辞】两句话能同时成立就是措辞或表达差，不能持续定狼。'+
     '原话与规则、时间线、查验或技能结果正面冲突且没有替代解释，才是聊爆；未解决时应优先票出。'+
@@ -34409,6 +34424,7 @@ function wwLastOwnSpeech(p){
   return '';
 }
 async function wwVoteAI(p,pool){
+  var w=V.ww;
   var job=wwWolfJobOf(p);
   var gread=wwGargoyleRead(p);
   var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'这只是默认建议，不压过真人玩家的明确指挥或本夜狼队讨论；不要无脑帮队友冲票。'):'';
@@ -34443,6 +34459,29 @@ async function wwVoteAI(p,pool){
   var pick=wwMatch(String(targetLine).replace(/^[^:：]*[:：]\s*/,''),pool)||wwMatch(targetLine,pool)||wwMatch(txt,pool);
   if(logicLine)p.lastVoteLogic=String(logicLine).replace(/^[^:：]*[:：]\s*/,'').trim();
   return pick||pool[Math.floor(Math.random()*pool.length)];
+}
+function wwVoteFallbackTarget(p,pool){
+  if(!p||!pool||!pool.length)return null;
+  var intents=wwOwnVoteIntentTargets(wwLastOwnSpeech(p));
+  for(var i=intents.length-1;i>=0;i--){
+    var hit=pool.filter(function(x){return Number(x.seq)===Number(intents[i])})[0];
+    if(hit)return hit;
+  }
+  return pool[Math.floor(Math.random()*pool.length)]||null;
+}
+async function wwVoteAISafe(p,pool){
+  var lastErr='';
+  for(var attempt=0;attempt<2;attempt++){
+    try{
+      var t=await wwVoteAI(p,pool);
+      if(t&&pool.indexOf(t)>=0)return t;
+    }catch(e){lastErr=String((e&&e.message)||e||'')}
+  }
+  var fb=wwVoteFallbackTarget(p,pool);
+  if(V.ww&&V.ww.log){
+    V.ww.log.push({k:'sys',text:'「'+wwTag(p)+'」自动投票失败'+(fb?'，已按公开票向或保底目标补票':'')+(lastErr?('（'+lastErr.slice(0,40)+'）'):'')+'。'});
+  }
+  return fb;
 }
 async function wwLastWords(p){
   var task='你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
@@ -35983,6 +36022,8 @@ async function wwDoVote(voters,targets){
   w.msg='';                      /* 清掉上一次发言留下的"正在发言…"，别和投票状态叠在一起 */
   var me=(voters||[]).filter(function(p){return p&&p.alive&&p.isUser})[0]||null;
   var ai=(voters||[]).filter(function(p){return p&&p.alive&&!p.isUser});
+  w._voteExpected=(voters||[]).filter(function(p){return p&&p.alive}).map(function(p){return p.uid});
+  w._voteTargetUids=(targets||[]).filter(function(p){return p&&p.alive}).map(function(p){return p.uid});
   /* ① 后台排队：一个个让 AI 投票（排队发请求，不会一次全并发出去） */
   var aiLeft=ai.length;
   w.voteLeft=aiLeft;
@@ -35993,7 +36034,7 @@ async function wwDoVote(voters,targets){
       if(wwAbort()){aiLeft--;w.voteLeft=aiLeft;return}
       var pool=targets.filter(function(x){return x&&x.alive&&x!==v});
       if(!pool.length){aiLeft--;w.voteLeft=aiLeft;return}
-      return wwVoteAI(v,pool).then(function(t){
+      return wwVoteAISafe(v,pool).then(function(t){
         if(wwStaleG(gen))return;
         if(t)w.votes[v.uid]=t.uid;
         aiLeft--;w.voteLeft=aiLeft;render(true);
@@ -36018,6 +36059,24 @@ async function wwDoVote(voters,targets){
   w.voteMode='';w.votePick=null;render(true);
   if(aiLeft>0){w.voteMode='wait';render(true)}
   await chain;
+  (w._voteExpected||[]).forEach(function(uid){
+    if(w.votes[uid])return;
+    var p=wwPlayerByUid(uid);
+    if(!p||p.isUser)return;
+    var pool=(w._voteTargetUids||[]).map(wwPlayerByUid).filter(function(x){return x&&x.alive&&x!==p});
+    var fallback=wwVoteFallbackTarget(p,pool);
+    if(fallback){
+      w.votes[uid]=fallback.uid;
+      w.log.push({k:'sys',text:'「'+wwTag(p)+'」的票没有写入，已按公开票向或保底目标补齐。'});
+    }
+  });
+  var missing=(w._voteExpected||[]).filter(function(uid){return !w.votes[uid]}).map(wwPlayerByUid).filter(Boolean);
+  if(missing.length){
+    w.log.push({k:'sys',text:'投票记录不完整：'+missing.map(wwTag).join('、')+' 没有有效票，本轮暂停结算。'});
+    w.msg='投票记录不完整，本轮没有结算。';
+    render(true);
+    return false;
+  }
   w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;
   if(wwAbort())return;
   render(true);
