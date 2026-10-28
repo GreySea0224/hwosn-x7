@@ -15527,6 +15527,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-10-28】
+狼人杀的场记 AI 现在会为每条公开发言写一条约 60～140 字的 2～3 句事实摘要，保留怀疑对象、理由、验人、警徽流、投票承诺、问题和未解决矛盾。较早的发言给 AI 看时优先使用这条摘要，最近几条仍保留原文节选，需要时可继续查完整原文；界面收起时显示的一行短标题仍然只负责界面显示，不再替代给 AI 看的摘要。为减少重复上下文，固定判断规则合并成了更短的决策优先级，身份盘每次最多 6 行，问答记录优先只带未解决疑点和当前玩家相关内容，公开发言上下文上限也同步收紧。
+
 【最近更新 · 2026-10-27】
 游戏新增「人机难辨」：你可以拉现有角色参加，缺的位置由系统随机 AI 人设补满；所有参赛者只显示玩家编号并匿名轮流聊天。你的任务是把话说得像 AI，电脑角色则要模仿普通真人。聊天开始前可以选择“有话题”或“自由聊”；关闭话题后，整局都不会出现话题提示。聊完后每人秘密投出“最像真人”和“最像 AI”各一人，票数相同时可以并列；同一个人同时拿到两项时，优先保留“最像 AI”，另一个称号顺延给其他得票最高者。你成为最像 AI 就赢，成为最像真人就输，两边都没选你就是没输没赢；AI 成为最像真人则那个 AI 赢。默认建议 5 人 3 轮，可在准备页调整人数、轮数、参与角色、记忆范围、话题自定义和话题开关。
 狼人杀已取消“AI 自动掀桌认输”。即使只剩最后一只狼，也必须继续正常发言、投票和夜间行动，不会再额外发起认输请求。此前历史记录里已有的掀桌结果只作为旧战绩显示。
@@ -15697,7 +15700,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=78;  /* 78：聊爆/措辞、问答未解决、藏身份与悍跳时间线；77：新增「人机难辨」 */
+const GUIDE_VER=79;  /* 79：场记 AI 生成 2～3 句发言摘要；78：聊爆/措辞与问答未解决 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -32884,7 +32887,7 @@ function wwIdentityContext(p){
   if(!w||!p)return '';
   var L=['【身份盘 · 程序整理（只根据公开声明，不是真实身份）】',wwPublicIdentityText(w)];
   if(p.readBoard&&Number(p.readBoardVer||0)>=2){
-    L.push('【你上一轮亲手整理的身份判断（私有，可修订）】\n'+wwClipSpeech(p.readBoard,760,240));
+    L.push('【你上一轮亲手整理的身份判断（私有，可修订）】\n'+wwClipSpeech(p.readBoard,650,180));
     L.push('继续沿用它；只有出现新证据才改判。不要因为本轮新发言热闹就把前面的大结论忘掉。');
   }else{
     L.push('【你的身份盘还没有建立】本轮先整理重要位置；没有证据的身份写“未知”，不要硬填。');
@@ -32900,7 +32903,7 @@ function wwTakeIdentityBoard(p,raw){
   var t=String(raw||'');
   var m=t.match(/(?:【身份盘】|身份盘\s*[：:])\s*([\s\S]*?)(?=\n\s*(?:【草稿纸】|草稿纸\s*[：:]|【发言】|发言\s*[：:])|$)/);
   if(!m)return {text:t,board:''};
-  var board=String(m[1]||'').trim().slice(0,1200);
+  var board=String(m[1]||'').trim().slice(0,900);
   t=t.replace(m[0],'').trim();
   if(p&&board&&!/^无变化[。.]?$/.test(board)){
     p.readBoardVer=2;
@@ -33074,16 +33077,16 @@ function wwQuestionLedgerText(w,p){
       if(!ans.length)st='unanswered';
       else if(st==='unresolved'||!wwAnswerRefsResolved(qa.questionRefs||[],qa.answerRefs||[],refs))st='unresolved';
       else st='answered';
-      if(targetP.uid!==p.uid&&!targetP.isUser&&!mineAsk&&st!=='unresolved')return;
+      if(st!=='unresolved'&&targetP.uid!==p.uid&&!mineAsk)return;
       L.push('· '+targetP.seq+'号·'+qa.topic+'｜'+wwQAStatusText(st)+
         '｜场记核对'+(asks.length?('｜问过：'+asks.map(function(a){return a.p.seq+'号'}).filter(function(v,i,a){return a.indexOf(v)===i}).join('、')):''));
       if(asks.length){
         var q=asks[asks.length-1];
-        L.push('  问句：'+wwClipSpeech(q.text,100,35));
+        L.push('  问句：'+wwClipSpeech(q.text,80,25));
       }
       if(ans.length){
         var a=ans[ans.length-1];
-        L.push('  原答：'+a.p.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,260,100)+'」');
+        L.push('  原答：'+a.p.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,180,60)+'」');
       }
     });
     scribeShown=L.length>0;
@@ -33091,23 +33094,23 @@ function wwQuestionLedgerText(w,p){
   if(!useScribe||!L.length){
     wwQuestionLedger(w).forEach(function(g){
       var mine=g.target.uid===p.uid||g.asks.some(function(a){return a.uid===p.uid});
-      if(!mine&&!g.target.isUser&&g.status!=='unresolved')return;
+      if(!mine&&g.status!=='unresolved')return;
       var askers=[];
       g.asks.forEach(function(a){var n=a.seq+'号';if(askers.indexOf(n)<0)askers.push(n)});
       L.push('· '+g.target.seq+'号·'+g.topic+'｜'+wwQAStatusText(g.status)+
         '｜问过：'+askers.join('、')+(g.repeated?('｜回答后仍重复追问 '+g.repeated+' 次'):''));
-      if(g.asks.length)L.push('  问句：'+wwClipSpeech(g.asks[g.asks.length-1].text,100,35));
+      if(g.asks.length)L.push('  问句：'+wwClipSpeech(g.asks[g.asks.length-1].text,80,25));
       if(g.answers.length){
         var a=g.answers[g.answers.length-1];
-        L.push('  原答：'+a.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,210,80)+'」');
+        L.push('  原答：'+a.seq+'号第'+a.day+'天「'+wwClipSpeech(a.text,180,60)+'」');
       }
     });
   }
   if(!L.length)return '';
   L.unshift((useScribe&&scribeShown)?'【质问与回答记录（场记 AI 核对原话）】':'【质问与回答记录（本地规则兜底）】');
   L.push('纪律：只有“已回答并解决”会关闭问题；“已回应但未解决”仍是当前硬疑点，可以继续作为投票主证据。承认措辞不好、道歉、重复原结论或反怀疑别人，都不等于解决因果/时间线冲突；若要把硬疑点降级，必须说出新的、能同时成立的替代解释。');
-  if(L.length<=14)return L.join('\n');
-  var kept=L.slice(0,13);kept.push(L[L.length-1]);
+  if(L.length<=12)return L.join('\n');
+  var kept=L.slice(0,11);kept.push(L[L.length-1]);
   return kept.join('\n');
 }
 function wwFullUserAnswers(w){
@@ -33169,7 +33172,7 @@ function wwSearchPublicRaw(w,query){
 }
 /* ---------- 场记 AI：只整理公开信息，不参与游戏，也看不到真实身份 ---------- */
 function wwEmptyScribe(){
-  return {version:1,ran:false,claims:[],qa:[],seen:{},updatedDay:0,phase:'',error:''};
+  return {version:2,ran:false,claims:[],qa:[],seen:{},updatedDay:0,phase:'',error:''};
 }
 function wwCloneScribe(s){
   try{return JSON.parse(JSON.stringify(s||wwEmptyScribe()))}catch(e){return wwEmptyScribe()}
@@ -33212,9 +33215,16 @@ function wwScribeSys(w,rows){
     '4. 普通角色提及、反问、情绪发泄不要硬做成新问题。\n'+
     '5. 一段长发言同时提到多人时，target 必须写真正被要求解释/回答的人，不能机械选择最先出现的编号。\n'+
     '6. 只有 answered 会关闭问题；unresolved 仍是硬疑点。若验人时间线倒置，必须看到新的首夜选人理由才算解决，单纯改口称“盲验/看头像/名字”也要能回答为什么原话会写成白天表现。');
+  L.push('【发言摘要规则】\n'+
+    '1. 给每条新增公开发言写一条 summaries，ref 必须对应这条发言。\n'+
+    '2. 摘要 60～140 个汉字，写成 2～3 句；极短发言可写 30～80 字。不能只复述标题。\n'+
+    '3. 必须保留这条发言里的事实：怀疑/信任谁及理由、自称和验人结果、警徽流、票往谁、明确承诺、提出的问题、承认或未解决的核心矛盾。\n'+
+    '4. 数字、座位号、身份名和金水/查杀结果必须准确；没有的内容不要补，不判断身份真假，不写语气模仿和旁白。\n'+
+    '5. 长发言优先保留会影响下一步判断的信息，删掉寒暄、口癖和重复铺陈。');
   L.push('【只输出一个 JSON 对象，不要 markdown、不要解释】\n'+
     '{"claims":[{"seat":1,"role":"gravekeeper","ref":"D2-P1-1","quote":"我是1号，守墓人"}],'+
-    '"qa":[{"target":7,"topic":"聊爆/时间线","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"unresolved"}]}');
+    '"qa":[{"target":7,"topic":"聊爆/时间线","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"unresolved"}],'+
+    '"summaries":[{"ref":"D2-P1-1","text":"1号自称守墓人。她怀疑7号跟风推守卫，要求7号解释；本轮票投7号。"}]}');
   return L.join('\n\n');
 }
 function wwScribeParse(raw){
@@ -33239,7 +33249,7 @@ function wwScribeAllowedRole(w,role){
   return !!(b[role]||role==='villager');
 }
 function wwScribeApply(w,obj,newRows){
-  var refs=wwScribeRefMap(w),claims=[],qa=[];
+  var refs=wwScribeRefMap(w),claims=[],qa=[],summaries=[];
   (Array.isArray(obj&&obj.claims)?obj.claims:[]).forEach(function(x){
     if(!x)return;
     var seat=Number(x.seat),role=String(x.role||''),ref=String(x.ref||''),quote=String(x.quote||'').trim();
@@ -33268,6 +33278,17 @@ function wwScribeApply(w,obj,newRows){
       aRefs.forEach(function(r){if(old.answerRefs.indexOf(r)<0)old.answerRefs.push(r)});
       old.status=!old.answerRefs.length?'unanswered':(status==='unresolved'||!wwAnswerRefsResolved(old.questionRefs,old.answerRefs,refs)?'unresolved':'answered');
     }else qa.push({key:key,target:target,topic:topic,questionRefs:qRefs,answerRefs:aRefs,status:status});
+  });
+  (Array.isArray(obj&&obj.summaries)?obj.summaries:[]).forEach(function(x){
+    if(!x)return;
+    var ref=String(x.ref||''),row=refs[ref];
+    var text=String(x.text||'').replace(/\s+/g,' ').trim().slice(0,220);
+    if(!row||!row.e||text.length<12)return;
+    if(summaries.some(function(y){return y.ref===ref}))return;
+    summaries.push({ref:ref,text:text});
+    row.e.sum=text;
+    row.e.sumBy='scribe';
+    row.e.sumDay=Number(w.day)||0;
   });
   var s=w.scribe||wwEmptyScribe();
   var ck={};s.claims=(s.claims||[]).concat(claims).filter(function(x){
@@ -33306,7 +33327,7 @@ async function wwScribeTick(w,phase){
   var oldMsg=w.msg;
   w.msg='📝 场记正在核对公开发言…';render(true);
   try{
-    var txt=String(await wwCall(wwScribeSys(w,rows),'请整理这些新增公开事件。',900,.25)||'');
+    var txt=String(await wwCall(wwScribeSys(w,rows),'请整理这些新增公开事件。',1800,.25)||'');
     if(wwStaleG(gen)||w.stopped||(w.over&&phase!=='finish')){w.scribeBusy=false;return}
     var obj=wwScribeParse(txt);
     if(!obj)throw new Error('场记返回格式不正确');
@@ -33402,14 +33423,14 @@ function wwSpeakTask(p,base){
   }catch(e){}
   if(wwIsWolf(p))return plain+
     '\n如需核对旧原文，第一行只写“【查原文】座位号 第几天 关键词”；程序会给出原文后让你重答，每轮最多一次。'+
-    '\n【输出】'+titleAsk+'再写【身份盘】：最多 8 行，只写重要的身份判断；格式用“编号：阵营/像什么身份｜高/中/低｜一条证据”。'+
-    '阵营和具体职业分开写，没证据就写未知；没有变化就只写“无变化”。'+multiSeerAsk+
+    '\n【输出】'+titleAsk+'再写【身份盘】：最多 6 行，只写最关键 4 名玩家和主世界线；格式“编号：阵营/像什么身份｜高/中/低｜一条证据”。'+
+    '阵营和具体职业分开写，没证据写未知；旧行无变化就只写“无变化”。'+multiSeerAsk+
     '再写【草稿纸】：只有你看得到，写装身份、拉票、保谁、推谁。'+
     '再写【发言】：说给大家听，不能泄露草稿纸。';
   return plain+
     '\n如需核对旧原文，第一行只写“【查原文】座位号 第几天 关键词”；程序会给出原文后让你重答，每轮最多一次。'+
-    '\n【输出】'+titleAsk+'再写【身份盘】：最多 8 行，只写重要的身份判断；格式用“编号：阵营/像什么身份｜高/中/低｜一条证据”。'+
-    '阵营和具体职业分开写，没证据就写未知；没有变化就只写“无变化”。'+multiSeerAsk+
+    '\n【输出】'+titleAsk+'再写【身份盘】：最多 6 行，只写最关键 4 名玩家和主世界线；格式“编号：阵营/像什么身份｜高/中/低｜一条证据”。'+
+    '阵营和具体职业分开写，没证据写未知；旧行无变化就只写“无变化”。'+multiSeerAsk+
     '再写【草稿纸】：只有你看得到，写怀疑谁、信谁、觉得谁是神、想投谁。'+
     '再写【发言】：说给大家听。';
 }
@@ -33565,19 +33586,24 @@ function wwPublicLog(maxN,detail){
         txt=(/^【遗言】/.test(raw)?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'：'+raw.replace(/^【遗言】/,''):wwName(p)+'：'+raw);
       }else{
         var current=(dayAbs<0||abs>=dayAbs),last=(ri>=rows.length-3),head,tail;
-        var summary=wwCleanTitle(e.title||wwAutoTitle(raw),raw);
-        if(wwHushOn()){
-          head=last?300:(current?150:68);
-          tail=last?90:(current?60:30);
+        var scribeSum=String(e.sum||'').trim();
+        if(scribeSum&&!last){
+          txt=wwName(p)+'【场记摘要：'+scribeSum+'】';
         }else{
-          head=last?480:(current?220:86);
-          tail=last?130:(current?82:38);
+          var summary=scribeSum||wwCleanTitle(e.title||wwAutoTitle(raw),raw);
+          if(wwHushOn()){
+            head=last?300:(current?150:68);
+            tail=last?90:(current?60:30);
+          }else{
+            head=last?480:(current?220:86);
+            tail=last?130:(current?82:38);
+          }
+          if(/^【遗言】/.test(raw)){head+=120;tail+=60}
+          raw=wwClipSpeech(raw,head,tail);
+          txt=(/^【遗言】/.test(raw)
+            ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw.replace(/^【遗言】/,'')
+            :wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw);
         }
-        if(/^【遗言】/.test(raw)){head+=120;tail+=60}
-        raw=wwClipSpeech(raw,head,tail);
-        txt=(/^【遗言】/.test(raw)
-          ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【摘要：'+summary+'】：'+raw.replace(/^【遗言】/,'')
-          :wwName(p)+'【摘要：'+summary+'】：'+raw);
       }
     }
     /* 【注意】只收 sys / say / vote 三类：
@@ -33588,7 +33614,7 @@ function wwPublicLog(maxN,detail){
   var out=body.join('\n');
   if(detail)return out||'（没有过程记录）';
   /* 留总长度上限，防止 12 人局越到后面每个请求越像滚雪球。 */
-  var cap=wwHushOn()?7200:10500,scale=1;
+  var cap=wwHushOn()?6000:9000,scale=1;
   while(out.length>cap&&scale>.28){
     scale-=.12;
     body=[];
@@ -33599,14 +33625,19 @@ function wwPublicLog(maxN,detail){
       if(e.k!=='say')return;
       var p=wwPlayerByUid(e.who);raw=String(e.text||'');
       var current=(dayAbs<0||abs>=dayAbs),last=(ri>=rows.length-3);
-      var summary=wwCleanTitle(e.title||wwAutoTitle(raw),raw);
-      head=Math.round((last?480:(current?220:86))*scale);
-      tail=Math.round((last?130:(current?82:38))*scale);
-      if(/^【遗言】/.test(raw)){head+=100;tail+=50}
-      raw=wwClipSpeech(raw,head,tail);
-      txt=(/^【遗言】/.test(raw)
-        ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【摘要：'+summary+'】：'+raw.replace(/^【遗言】/,'')
-        :wwName(p)+'【摘要：'+summary+'】：'+raw);
+      var scribeSum=String(e.sum||'').trim();
+      if(scribeSum&&!last){
+        txt=wwName(p)+'【场记摘要：'+scribeSum+'】';
+      }else{
+        var summary=scribeSum||wwCleanTitle(e.title||wwAutoTitle(raw),raw);
+        head=Math.round((last?480:(current?220:86))*scale);
+        tail=Math.round((last?130:(current?82:38))*scale);
+        if(/^【遗言】/.test(raw)){head+=100;tail+=50}
+        raw=wwClipSpeech(raw,head,tail);
+        txt=(/^【遗言】/.test(raw)
+          ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw.replace(/^【遗言】/,'')
+          :wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw);
+      }
       body.push(txt);
     });
     out=body.join('\n');
@@ -33694,35 +33725,25 @@ function wwSysFor(p,task){
     '警徽流可以传递验人信息。常见打法是：验A，A是好就让A接徽；A是狼就把徽交给已知金水或可信好人，没有合适接徽人就撕徽。她死后实际接徽人要和生前报的分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。');
   L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
     (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
-  L.push('【硬规矩】主持人公布的结果、自身能力和身份才是事实；他人发言、遗言、报身份可为假。你是 '+(p.seq||'?')+' 号，别投自己。'+
+  L.push('【总规则】只把主持人公告、自身身份和技能结果当事实；他人身份、验人、遗言可假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
       ? '面杀可写少量括号动作，不用 markdown。'
       : '像群聊说话，不写旁白动作，不用 markdown。')+
     (wwIsWolf(p)?'狼人阵营可以说谎和悍跳。':''));
-  L.push('【判断纪律】只有主持人公告、自己的身份和技能结果算已证实；别人报的身份、验人、遗言都可能是假的。'+
-    '夜里死、被票出、被保或被踩都只是线索，不能说成铁狼、铁好；'+(wwSheriffOn()?'确定是真预的警徽才有可信度。':'')+
-    '夜死也可能是狼自刀，定狼出局（自爆/被骑士戳/所有跳预都死＝至少死一狼）可盘狼队剩余数量和真预在哪边，'+
-    '不能以此认定站过狼的都是狼。狼会卖队友、倒钩、'+(wwSheriffOn()?'给好人警徽或':'')+'金水做身份。'+
-    '证据强弱：主持人事实、可信验人、票型矛盾>具体动机和前后矛盾>语气；话顺、理由齐不能单独定狼。'+
-    '首夜验人多为盲选，允许按人设随口说“随便验、看头像或名字、觉得像高玩”；真预和悍跳都要给一句首验理由，别人不能只因理由牵强就定狼。第一天不要踩预言家的验人理由，只从她给出的逻辑本身分析。'+
-    '单边神职无对跳或明确反证时，可以先不投她，但这只说明她神职面较大，不证明她归票正确。'+
-    '出现死讯、翻牌或关键改票后重算谁最受益；有新证据才改票。'+
-    '【聊爆与措辞】聊爆是原话与规则、时间线、查验或技能结果正面冲突，而且当前没有能同时成立的替代解释；确认聊爆且仍未解决时，本轮必须优先票出，不因道歉、反查杀、语气、票型或暗跳神改票。不要滥用“聊爆”：若你明确说某人聊爆/圆不回来，自己也要按硬证据处理，后续改票必须先撤销该判断并说明替代解释。措辞差只是表达不顺、用词不准或口语歧义，解释后不能继续拿同一句定狼。只说“话糙、说错了”但没有补出替代因果，不算解释成立。'+
-    '【身份与票型口径】好人可以先自称平民躲刀，之后用“身份很硬、我有身份”暗跳神；未点明具体神职前只是软跳，不得当作前后矛盾。只有先明确自报某个具体身份、后来又明确否认或改称另一个具体身份，才算硬冲突。发言先后由警长或系统安排，不归玩家选择，不能当狼点。警长票是支持谁当选，放逐票是要求谁出局，两者不要求同号；只有明确承诺两票给同一个人却违反，才算票型矛盾。');
-  L.push('【发言风格中立】发言长短、语气强硬、主动施压、反问、预判局势和口癖都不是身份证据。'+
-    '“今天肯定有悍跳”“我强势带队”这类话只能算打法，不能从长发言里抠一句就当矛盾。'+
-    '只有事实陈述前后冲突、验人时间线错误、票型与承诺相反、技能结果冲突，才算实质矛盾；不要因为一个人解释得多、说话更积极就提高她的狼面。');
-  L.push('【跳预世界线】场上有多名跳预者时，必须列出当前最可信的一到两条世界线，并用验人、退水说明'+(wwSheriffOn()?'、警徽处理':'')+'、票型和夜间结果给每条线打分，淘汰明显更费劲的世界线；不能永久把所有跳预者当五五开。'+
-    '报过明确查验、不退水，还持续攻击另一名跳预者，会显著降低“无计划好人代跳”的概率；但这只排除了代跳路线，不等于狼面。此时应保留“真预 / 悍跳狼”两种主要可能，再靠验人、票型、夜间结果和可信神职结果淘汰一边；若可信守墓人已证明她是好人，就应落到真预，而不是继续用“可能是狼”维持怀疑。'+
-    '反过来，真预也可以首置位强势起跳、预判狼队会悍跳、鼓励好人压跳；这些行为本身不是狼点。'+
-    '若你暂认某人的预言家或守墓人身份，就必须把她的金水、查杀或阵营结果纳入世界线；不能一边认身份、一边把她的有效结果全部忽略。');
-  if(!wwIsWolf(p))L.push('【好人协作纪律】不要把“两个人互相挑措辞、改票”直接当成狼坑；先看谁从好人互打中获利，谁在关键轮次被真正放过。'+
-    '投过一次狼队友只能轻微增加好人面，不能长期免检，尤其当那一票发生在队友已经必出、没有风险的时候。'+
-    '多个 AI 重复同一个理由，不算多份独立证据；不要把沉默、跟票或发言风格当成比神职结果更硬的证据。');
-  L.push('【滴滴代跳与退水】好人为诈身份或挡刀，可以假跳预言家、发假金水或假查杀；但要有退出计划。'+
-    '跳预者主动退水，很可能是好人代跳中止，不能只凭退水就直接定狼；也不等于铁好，要结合退水时机和后续行为，防狼借退水洗白。'+
-    '代跳者退水后，其之前报的金水、查杀不再按可信验人算，应明确视为假验作废，并转听真预归票。'+
-    '真预识破代跳后可以接受配合、暂不抢跳；分不清代跳和狼时，看验人、退水说明和后续归票。');
+  L.push('【判断优先级】主持人事实、可信查验 > 未解决硬矛盾 > 票型或明确承诺冲突 > 动机 > 语气。'+
+    '夜死、被票、被保或被踩都只是线索，不能因此认铁狼铁好；夜死也可能是狼自刀。'+
+    '发言长短、语气、施压、反问、预判和口癖不是身份证据。单边神职无对跳先不投，但不证明她归票正确；出现新事实后重新盘。');
+  L.push('【聊爆与措辞】两句话能同时成立就是措辞或表达差，不能持续定狼。'+
+    '原话与规则、时间线、查验或技能结果正面冲突且没有替代解释，才是聊爆；未解决时应优先票出。'+
+    '承认“话糙、说错”却没给出替代因果，不算解释成立；说别人聊爆后要改票，必须先撤销判断并说明替代解释。');
+  L.push('【身份与票型】平民可以藏神，之后说“身份很硬、我有身份”是软跳，不是具体身份矛盾；只有明确报具体神职后又改报另一具体神职，才是硬冲突。'+
+    '发言位次由警长或系统安排，不是玩家选择。警长票＝支持当选，放逐票＝要求出局，二者不要求同号；违背明确承诺才算票型矛盾。');
+  L.push('【跳预世界线】多名跳预者时列出 1～2 条世界线，用验人、退水、'+(wwSheriffOn()?'警徽处理、':'')+'票型和夜间结果淘汰。'+
+    '明确查验、不退水并持续攻击对跳者，只排除无计划代跳，仍保留真预/悍跳狼两种可能；可信守墓人证明其为好时落到真预。'+
+    '真预也可以强跳、预判或鼓励代跳；认了某人的预/守墓身份，就必须使用她的金水、查杀或阵营结果。');
+  if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。');
+  L.push('【代跳与首验】首验可盲选；理由牵强只是弱理由，引用白天信息解释首夜选人则是硬矛盾。'+
+    '好人可假跳预、假给金水或查杀，但必须说明假验作废并退出；不能仅因退水定狼，也不能因代跳退水直接洗白。');
   var proxyBoard=wwClassicProxyHint(p);
   if(proxyBoard)L.push(proxyBoard);
   if(p.scratch)dyn.push('【你自己的草稿纸（上一轮你亲手写的，只有你看得到，别人不知道）】\n'+p.scratch+'\n（可以继续沿用，也可以改主意——但改主意要有新的理由。）');
@@ -34567,7 +34588,7 @@ function wwDumpIdentityBoard(w){
   var tag=function(p){return p?((p.seq?p.seq+'号 · ':'')+p.name):'？'};
   L.push('【AI身份盘】');
   var sc=w.scribe||null;
-  L.push('【场记状态】'+(sc&&sc.ran?('已核对 · 第 '+(sc.updatedDay||'?')+' 天 · 身份声明 '+((sc.claims||[]).length)+' 条 · 问答 '+((sc.qa||[]).length)+' 条'):'尚未核对，使用本地规则兜底')+(sc&&sc.error?(' · 最近错误：'+sc.error):''));
+  L.push('【场记状态】'+(sc&&sc.ran?('已核对 · 第 '+(sc.updatedDay||'?')+' 天 · 身份声明 '+((sc.claims||[]).length)+' 条 · 问答 '+((sc.qa||[]).length)+' 条 · 发言摘要 '+((w.log||[]).filter(function(x){return x&&x.k==='say'&&String(x.sum||'').trim()}).length)+' 条'):'尚未核对，使用本地规则兜底')+(sc&&sc.error?(' · 最近错误：'+sc.error):''));
   L.push('【程序整理的公开身份线索】');
   L.push(wwPublicIdentityText(w));
   var qaDump=wwDumpQALedger(w);
