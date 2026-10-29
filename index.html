@@ -3315,6 +3315,14 @@ async function rawPut(id,text){try{await idbPut(id,text,'rawlog');return true}ca
 /* ---------- 基础 ---------- */
 const curChar=()=>chars.find(c=>c.id===curId)||null;
 const modelOf=c=>(c&&c.model)||(cfg&&cfg.model);
+function chatInputHint(c){
+  const text=String((c&&c.inputHint)||'').trim();
+  return text?text.slice(0,60):'说点什么…';
+}
+function applyChatInputHint(c){
+  const inp=document.getElementById('inp');
+  if(inp)inp.placeholder=chatInputHint(c||curChar());
+}
 const THINK_LEVELS=[
   {v:0,label:'快答',hint:'直接、简洁地回答，不要过度思考、不要长篇大论。'},
   {v:1,label:'正常',hint:''},
@@ -3530,6 +3538,7 @@ function loadChar(id){
   mem=Object.assign(EMPTY_MEM(),load(LS.mem(id),null)||{});
   memCtx={id:id,obj:mem};
   clearUnread(id);
+  try{applyChatInputHint(curChar())}catch(e){}
   scheduleAuto(false);
 }
 /* ---------- 弹层：可逐层返回 ---------- */
@@ -3734,6 +3743,7 @@ function draw(){
   $('#title').textContent={chat:'聊天',roles:'角色',me:'我的资料',tools:'应用',cfg:'设置'}[view]||'深蓝海域';
   const c=curChar();
   const inChat=!!(view==='chat'&&c);
+  if(inChat)try{applyChatInputHint(c)}catch(e){}
   const whoEl=$('#who');
   if(whoEl){
     whoEl.style.removeProperty('display');
@@ -8957,6 +8967,8 @@ function charBaseFieldsHTML(c){
   '<option value="2"'+(c.think===2?'selected':'')+'>深想（多想一会，更深入）</option>'+
   '</select>'+
   '<label class="f">等待回复时显示的文字（聊天里那个小气泡）</label><input id="e_thinktxt" placeholder="默认是「思考中…」，可以写「鲸鱼正在输入…」" value="'+esc(c.thinkText||'')+'">'+
+  '<label class="f">底部输入框提示文字</label><input id="e_inputhint" maxlength="60" placeholder="默认是「说点什么…」" value="'+esc(c.inputHint||'')+'">'+
+  '<p class="dim" style="font-size:11.5px;margin:6px 0 0">只影响这个角色的聊天输入框。留空就显示默认的「说点什么…」，最多 60 个字。</p>'+
   '<label class="f">开场白（第一次进聊天自动发）</label><textarea id="e_greeting">'+esc(c.greeting||'')+'</textarea>'+
   '<label class="f">单独指定模型（留空用默认）</label><input id="e_model" value="'+esc(c.model||'')+'">'+
   '<label class="f">看图模型（可选，留空就沿用原来的发图方式）</label><input id="e_vision_model" value="'+esc(c.visionModel||'')+'" placeholder="例如：deepseek-v4.1-flash">'+
@@ -9267,6 +9279,7 @@ function applyCharInputs(id){
   c.examples=v('e_examples').trim();
   let th=parseInt(v('e_think'),10);c.think=([0,1,2].indexOf(th)>=0)?th:1;
   c.thinkText=String(v('e_thinktxt')||'').trim();   /* 自定义「思考中」气泡文字，留空就用默认 */
+  c.inputHint=String(v('e_inputhint')||'').trim().slice(0,60);   /* 当前角色专属的底部输入框提示 */
   c.greeting=v('e_greeting').trim();
   c.model=v('e_model').trim();
   c.visionModel=v('e_vision_model').trim();
@@ -16427,6 +16440,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么把聊天界面换成液态玻璃：打开桌面上的「主题」应用，在顶部预览下面找到「聊天界面质感」，点「液态玻璃」。它会立即生效并自动保存；想恢复现在的样子就点「经典」。这个选项只影响聊天页。
 · 怎么把聊天文字改成白色：打开桌面上的「主题」应用，在「聊天界面质感」下面找到「聊天文字颜色」，点「白色」。想恢复按主题自动配色就点「跟随主题」；这个设置只改聊天区的文字。
 · 怎么搜索聊天记录：点聊天右上角「⋯」打开角色设定，切到「记忆」标签，在「聊天记录与总结」里点「查找这个角色的聊天记录」。输入关键词后点搜索结果，就能跳到对应消息。
+· 怎么改底部输入框的提示文字：点聊天右上角「⋯」，在角色设定的基础信息里找到「底部输入框提示文字」，填写后保存。留空就恢复默认的「说点什么…」；每个角色可以设置不同的提示。
 · 怎么设密码：设置 → 隐私角色。
 
 【回答用户时的规矩】
@@ -16437,7 +16451,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=87;  /* 87：聊天记录搜索移到角色记忆页 */
+const GUIDE_VER=88;  /* 88：角色可自定义底部输入框提示文字 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
