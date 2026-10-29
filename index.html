@@ -6167,7 +6167,10 @@ function gameMsgBlock(x,records,cid){
 function gameRecordIdsForChar(cid,all){
   const records=gameRecordStoreSafe(),ids=Object.create(null);
   let list=[];
-  try{list=all?(msgsOf(cid)||[]):((ctxAsk&&ctxAsk.msgs)?historySlice():(msgsOf(cid)||[]))}catch(e){list=[]}
+  try{
+    const inTurn=!!((ctxAsk&&ctxAsk.msgs)||(ctxBg&&ctxBg.msgs));
+    list=all?(msgsOf(cid)||[]):(inTurn?historySlice():(msgsOf(cid)||[]));
+  }catch(e){list=[]}
   list.forEach(function(x){gameRecordRefsOfMsg(x,records,true).forEach(function(r){if(r.id)ids[r.id]=1})});
   return Object.keys(ids);
 }
@@ -7826,16 +7829,16 @@ function autoAgoText(t){
 function autoProactiveNudge(c,lastMsg){
   const ago=autoAgoText(lastMsg&&lastMsg.t);
   const UP=userPron(c);
-  let s='（系统提示：这不是'+UP+'发来的新消息，上面聊天记录里的那些话也都已经聊过了，不用再回应。\n'+
-    '是'+UP+'给你开了「自动发消息」，现在时间到了，系统在旁边戳了你一下——这一轮由你主动，给'+UP+'发一条新的消息。\n';
-  if(ago)s+='距你们上一条消息：'+ago+'。你可以自己判断这个时间合不合适开口。\n';
-  s+='你可以顺着刚才的话题再多说一句（她没回，你也可以像突然想起什么似的自己补一句），也可以起一个全新的话头：\n'+
-    '想起一件事、看到点什么、想知道她现在在干嘛、想分享心情、想约她或者逗逗她，都可以，全看你此刻想不想说话。\n'+
-    '必须注意：不要回答上面最后一条消息（不管它是她说的还是你说的）；不要重复你上一条已经说过的话；\n'+
-    '不要解释你为什么突然发消息，不要说「看你没回」「系统提示我」这类话，也不要提到这条提示本身。\n'+
+  let s='（这就是我自己此刻的念头，不是'+UP+'发来的新消息：现在我想主动找'+UP+'说句话，按此刻真实的性格、心情和关系自然开口。\n'+
+    '上面聊天记录里的那些话都已经聊过了，不用再回应。\n';
+  if(ago)s+='距我们上一次说话：'+ago+'。我可以自己判断现在这个时间适不适合开口。\n';
+  s+='我可以顺着刚才的话题补一句，也可以像突然想起什么一样起个新话头：\n'+
+    '想起一件事、看到点什么、想知道'+UP+'现在在干嘛、想分享心情、想约'+UP+'或者逗逗'+UP+'，都可以，全看我现在想不想说话。\n'+
+    '不要回答上面最后一条消息（不管是谁说的）；不要重复我上一条已经说过的话；\n'+
+    '不要解释为什么突然发消息，不要说「看你没回」「系统提示我」这类话，也不要提到这段念头本身。\n'+
     (c&&c.chatMode==='offline'
-      ?'就用 1-2 句自然的线下当面聊天，可以适度用括号写自己的表情或动作；符合你的性格和你们平时的相处方式。）'
-      :'就用 1-2 句自然的话，像随手发微信那样，符合你的性格和你们平时的相处方式。）');
+      ?'就用 1-2 句自然的线下当面聊天，可以适度用括号写自己的表情或动作；符合我平时的性格和相处方式。）'
+      :'就用 1-2 句自然的话，像随手发微信那样，符合我平时的性格和相处方式。）');
   return s;
 }
 /* 只保留汉字、字母和数字，用来比较两条消息是不是在说同一件事 */
@@ -7868,31 +7871,46 @@ async function autoGenerate(c,forceNudge,tideMeta){
   /* ↓ 关键：这句放在「最后一条消息」的位置，模型最容易看见 */
   /* 到点提醒时会传进来一段专门的提示（forceNudge），平时就是「主动找她聊聊」那段 */
   const nudge=forceNudge||autoProactiveNudge(c,lastMsg);
-  let out='',reasoning='',usage=null;
+  let out='',reasoning='',usage=null,toolTrace=[];
   const autoCall=async(note)=>{
-    out='';reasoning='';usage=null;
+    out='';reasoning='';usage=null;toolTrace=[];
     /* 【缓存】把这一轮要说的话直接交给 buildCtx 当「最后一条用户消息」 */
     const ctx=buildCtx(c,extra,nudge+(note||''));
-    const base={stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
-      onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r},onUsage:u=>{usage=u}};
-    /* 【缓存】带上和正常聊天同一份工具清单（DeepSeek 的缓存要求前缀完整一致）；
-       tool_choice 用 none —— 只是「声明」这些工具，不会真的调用，免得它半夜自己去发朋友圈/画图/动外面的工具。 */
     const tools=(typeof toolsFor==='function')?(toolsFor(c)||[]):[];
-    if(tools.length){base.tools=tools;base.tool_choice='none'}
-    await callAPI(ctx,base);
-    /* 兜底：万一它只顾着调工具、没说话，就去掉工具再问一次（这种情况基本不会发生） */
-    if(!String(out||'').trim()&&tools.length){
-      out='';reasoning='';usage=null;
-      const b2={stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
-        onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r},onUsage:u=>{usage=u}};
-      await callAPI(ctx,b2);
+    if(tools.length){
+      /* 主动消息和前台一样走完整工具循环；用户已经在角色权限里授权过的工具可以直接使用。 */
+      let r=null;
+      try{
+        r=await toolLoop(c,ctx,{signal:(curAbort?curAbort.signal:undefined),temp:tp.temp,maxtok:tp.maxtok,tools:tools})||{};
+      }catch(e){
+        if(e&&e.name==='AbortError')throw e;
+      }
+      if(r){
+        out=String(r.finalText||'').trim();
+        reasoning=String(r.reasoning||'');
+        usage=r.usage||null;
+        toolTrace=(r.toolTrace||[]).slice();
+      }
+      /* 工具执行完但没有留下最后那句话时，带着工具结果让她补一句；不再调用新工具。 */
+      if(!out){
+        const usedToolContext=!!(r&&r.messages);
+        const followCtx=(usedToolContext?r.messages:ctx).concat([{role:'system',content:'（工具步骤已经结束。现在结合上面的结果，直接用我自己的口吻发 1-2 句自然的话；不要再调用工具。）'}]);
+        const followOpt={stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
+          onDelta:d=>{out+=d},onReasoning:r2=>{reasoning+=r2},onUsage:u=>{usage=u}};
+        if(usedToolContext){followOpt.tools=tools;followOpt.tool_choice='none'}
+        await callAPI(followCtx,followOpt);
+      }
+    }else{
+      await callAPI(ctx,{stream:true,model:modelOf(c),temp:tp.temp,maxtok:tp.maxtok,signal:(curAbort?curAbort.signal:undefined),
+        onDelta:d=>{out+=d},onReasoning:r=>{reasoning+=r},onUsage:u=>{usage=u}});
     }
     return String(out||'').trim();
   };
   out=await autoCall('');
   if(!out)return false;
   /* ↓ 保险：万一又和上一条几乎一样，明确提醒一次「这是重复」，只重试一次 */
-  if(lastAI&&autoIsRepeat(lastAI.content,out)){
+  const usedSideEffect=Array.isArray(toolTrace)&&toolTrace.some(function(e){return e&&e.type==='tool'});
+  if(lastAI&&!usedSideEffect&&autoIsRepeat(lastAI.content,out)){
     const again=await autoCall('\n（注意：这样又重复你上一条说过的话了，不能这样。请换一个说法或换一个话题，发给她的必须是新的内容。）');
     if(again)out=again;
   }
@@ -7901,6 +7919,7 @@ async function autoGenerate(c,forceNudge,tideMeta){
   if(usage&&usage.prompt_tokens)m.ptok=usage.prompt_tokens;
   markCache(m,usage);                      /* 【新】缓存命中（主动发消息这条也记上） */
   if(reasoning)m.reasoning=reasoning;      /* ← 自动消息也保存思考链 */
+  if(toolTrace.length)m.toolTrace=toolTrace.slice(0,60);
   pushMsgTo(c.id,m);                       /* 【修复】存到它自己的记录里，和当前打开的是谁无关 */
   tideLogAdd(Object.assign({kind:'auto',cid:c.id,title:c.name,text:out},tideMeta||{}));
   notify(c.name,(c.emoji||'')+out.slice(0,80));
@@ -15522,10 +15541,13 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-28 */
+   最后更新：2026-10-29 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-10-29】
+角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
 
 【最近更新 · 2026-10-28】
 狼人杀准备页新增 12 人「狼王守卫」板子：3 个普通狼、1 个狼王、4 个村民，以及预言家、女巫、猎人和守卫。狼王属于狼人阵营，与普通狼互相认识并一起行动；除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动。狼王带走猎人时，猎人仍按原规则决定是否开枪。AI 身份提示、身份盘、场记、标记、邀请卡、预设配置和中途续局都已支持这个板子。
@@ -15688,6 +15710,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
 · 怎么看角色刚才用了哪些工具：在角色消息上方点「💡 思考过程」展开。里面会按顺序显示思考、工具名称、参数、成功或失败以及返回结果；不需要工具记录时，可以到设置 → 外观与交互关掉「显示思考过程」。
 · 狼人杀战绩分享给角色后会看到什么：聊天里默认只给她缩略战报，不会每轮重复完整过程。如果最近聊天里确实分享过或参加过某局游戏，她才会获得查看战绩详情的工具；刚打完且感兴趣，或你追问具体发言、投票和夜间行动时，她会自己查看。没有相关战绩时不会出现这个工具。
+· 角色主动发消息时能用工具吗：可以。主动消息会和普通聊天一样使用角色已经授权的工具；如果这一轮已经执行过工具，系统不会因为文字重复再自动重试一次，避免真的重复下单或重复发消息。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
 · 怎么换主题：打开手机桌面上的「主题」应用。
@@ -15701,7 +15724,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=83;  /* 83：跨天条件票、共边关系与终局风险；82：报验校验 */
+const GUIDE_VER=84;  /* 84：主动消息可使用工具，并改用第一人称沉浸式提示 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -15710,7 +15733,7 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 人机难辨怎么玩？话题能不能关？\n· 狼人杀战绩分享后，角色能看到哪些内容？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 角色主动发消息时能用工具吗？\n· 人机难辨怎么玩？话题能不能关？\n· 狼人杀战绩分享后，角色能看到哪些内容？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -26804,20 +26827,20 @@ function tideOwnGroup(c,ref){
     return (g.members||[]).some(function(m){return m&&m.cid===c.id});
   })||null;
 }
-function tideQueueNudge(q){
+function tideQueueNudge(c,q){
   var intent=String(q.intent||'').trim();
-  var up=(typeof userPron==='function')?userPron():'TA';
-  return '（系统提示：这是你之前给自己留的一次主动安排，现在时间到了。你当时没有写死要说什么，只留下这个想法：'+
-    (intent||('去'+up+'那边看看，想说什么到时候再决定'))+'。'+
-    '请结合你们现在的聊天、你自己的记忆、当前时间和'+up+'的状态，自己决定具体说什么，主动给'+up+'发 1-2 句自然的话。'+
-    '不要提到系统、排期、提醒或这条说明本身，不要重复你上一条说过的话。）';
+  var up=(typeof userPron==='function')?userPron(c):'TA';
+  return '（这就是我自己此刻的念头，不是'+up+'发来的新消息：现在我想主动找'+up+'说话，按自己真实的性格、心情和我们的关系自然开口。'+
+    '之前我想到的是：'+(intent||('去看看'+up+'，想说什么到时候再决定'))+'。'+
+    '结合我们现在的聊天、我的记忆、当前时间和'+up+'的状态，自然地发 1-2 句话就好。'+
+    '不要提到这条念头、排期或提醒，也不要重复我上一条说过的话。）';
 }
-function tideQueueGroupNudge(q){
+function tideQueueGroupNudge(c,q){
   var intent=String(q.intent||'').trim();
-  return '（系统提示：这是你之前给自己留的一次群聊安排，现在时间到了。你当时没有写死要说什么，只留下这个想法：'+
-    (intent||'回群里看看，想说什么到时候再决定')+'。'+
-    '请结合群里的聊天、你自己的记忆和当前时间，用你的身份主动发一条自然的群消息。'+
-    '不要提到系统、排期、提醒或这条说明本身，不要重复你上一条说过的话。）';
+  return '（这就是我自己此刻的念头，不是群友刚发来的新消息：现在我想回群里说句话，按自己的性格和群里的气氛自然开口。'+
+    '之前我想到的是：'+(intent||'回群里看看，想说什么到时候再决定')+'。'+
+    '结合群里的聊天、我的记忆和当前时间，自然发一条群消息就好。'+
+    '不要提到这条念头、排期或提醒，也不要重复我上一条说过的话。）';
 }
 function tideQueueBase(c,args,kind){
   var t=tideScheduleArg(args);if(t.err)return {err:t.err};
@@ -27343,12 +27366,12 @@ async function tideFireQueueItem(q,manual){
       var member=(g.members||[]).find(function(m){return m&&m.cid===c.id});if(!member)return {ok:false,drop:true,msg:'角色已经不在这个群里'};
       if(q.mode==='exact')return tideDeliverExactGroup(c,q,manual,g);
       if(!cfg||!cfg.key)return {ok:false,retry:true,msg:'还没有可用接口'};
-      var okG=await groupAutoSpeak(g,member,!!manual,tideQueueGroupNudge(q),{kind:'role_group',where:g.name,manual:!!manual});
+      var okG=await groupAutoSpeak(g,member,!!manual,tideQueueGroupNudge(c,q),{kind:'role_group',where:g.name,manual:!!manual});
       return okG?{ok:true,sent:true}:{ok:false,retry:true,msg:'群消息生成失败'};
     }
     if(q.mode==='exact')return tideDeliverExactPrivate(c,q,manual);
     if(!cfg||!cfg.key)return {ok:false,retry:true,msg:'还没有可用接口'};
-    var ok=await runAutoNow(c,tideQueueNudge(q),{kind:'role_message',cid:c.id,title:c.name,where:'角色安排',manual:!!manual});
+    var ok=await runAutoNow(c,tideQueueNudge(c,q),{kind:'role_message',cid:c.id,title:c.name,where:'角色安排',manual:!!manual});
     return ok?{ok:true,sent:true}:{ok:false,retry:true,msg:'自由发挥消息生成失败'};
   }
   if(q.kind==='branch_summary'){
