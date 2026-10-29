@@ -281,6 +281,22 @@ nav button .dot.on{display:block;animation:pulse 1.6s infinite}
 .thm-dmini i{display:block;width:22px;height:22px;border-radius:7px}
 .thm-dmini i.s{background:linear-gradient(160deg,#63b0ff,#0a6fd6);box-shadow:0 3px 8px rgba(0,0,0,.2)}
 .thm-dmini i.g{background:linear-gradient(150deg,rgba(255,255,255,.62),rgba(255,255,255,.22));border:1px solid rgba(255,255,255,.8);box-shadow:0 3px 8px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.9);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+/* 【新】聊天界面质感：两张小预览卡（经典 / 液态玻璃） */
+.thm-cmini{position:relative;display:block;width:100%;height:56px;border-radius:13px;overflow:hidden;background:linear-gradient(160deg,var(--bg2),color-mix(in srgb,var(--accdim) 42%,var(--bg2)));border:1px solid var(--lg-edge-soft,var(--line));box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
+.thm-cmini::before{content:'';position:absolute;inset:0;background:radial-gradient(48% 58% at 84% 18%,color-mix(in srgb,var(--acc) 18%,transparent),transparent 76%);pointer-events:none}
+.thm-cmini i{position:absolute;display:block;height:13px;border-radius:999px;border:1px solid var(--line);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.thm-cmini .ca{left:9px;top:10px;width:42%;background:var(--panel)}
+.thm-cmini .cm{right:9px;top:27px;width:46%;background:var(--bubme)}
+.thm-cmini .ci{left:9px;right:9px;bottom:5px;height:7px;background:color-mix(in srgb,var(--panel) 72%,transparent)}
+.thm-cmini.liquid .ca,.thm-cmini.liquid .cm{height:15px;border-color:color-mix(in srgb,var(--txt) 20%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.66),0 4px 10px rgba(5,15,25,.15);backdrop-filter:blur(2px) brightness(1.06) saturate(1.2);-webkit-backdrop-filter:blur(2px) brightness(1.06) saturate(1.2)}
+.thm-cmini.liquid .ca{left:8px;top:8px;width:43%;background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.02)),color-mix(in srgb,var(--panel) 16%,transparent)}
+.thm-cmini.liquid .cm{right:8px;top:27px;width:48%;background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.025)),linear-gradient(135deg,color-mix(in srgb,var(--acc) 18%,transparent),color-mix(in srgb,var(--panel) 15%,transparent))}
+.thm-cmini.liquid .ci{background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.01)),color-mix(in srgb,var(--panel) 12%,transparent);border:1px solid color-mix(in srgb,var(--txt) 14%,transparent);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.thm-prev.liquid{position:relative;overflow:hidden;background:radial-gradient(42% 46% at 14% 12%,color-mix(in srgb,var(--acc) 24%,transparent),transparent 78%),radial-gradient(46% 42% at 90% 88%,color-mix(in srgb,var(--acc2) 18%,transparent),transparent 78%),var(--grad)}
+.thm-prev.liquid .thm-prev-card{background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.015)),color-mix(in srgb,var(--panel) 16%,transparent);border-color:color-mix(in srgb,var(--txt) 18%,transparent);box-shadow:0 12px 32px rgba(5,15,25,.16),inset 0 1px 0 rgba(255,255,255,.58);backdrop-filter:blur(4px) brightness(1.06) saturate(1.2);-webkit-backdrop-filter:blur(4px) brightness(1.06) saturate(1.2)}
+.thm-prev.liquid .thm-prev-bub{background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.018)),color-mix(in srgb,var(--panel) 16%,transparent);border-color:color-mix(in srgb,var(--txt) 18%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.50),0 5px 14px rgba(5,15,25,.10);backdrop-filter:blur(3px) brightness(1.06) saturate(1.2);-webkit-backdrop-filter:blur(3px) brightness(1.06) saturate(1.2)}
+.thm-prev.liquid .thm-prev-bub.me{background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.02)),linear-gradient(135deg,color-mix(in srgb,var(--acc) 15%,transparent),color-mix(in srgb,var(--panel) 14%,transparent));border-color:color-mix(in srgb,var(--acc) 35%,transparent)}
+.thm-prev.whitechat .thm-prev-bub{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.58)}
 /* ---------- 锁屏大字：调节区的「竖屏手机」预览 + 滑块行 ----------
    预览按真锁屏的比例缩放：竖屏、状态栏、日期、撑满宽度的大时间、底部两个圆钮 + 手势条。
    字号由脚本按「数字大约占屏宽 93%」算出来（和真锁屏 lockFitTime 一个算法）。 */
@@ -1059,7 +1075,7 @@ i.md-em{font-style:italic;color:var(--txt)}
 
 /* 输入区：一个胶囊，＋ 收在里面，右边是 ↑ */
 #composer{padding:8px 12px calc(env(safe-area-inset-bottom) + 10px);background:var(--bg);border-top:1px solid var(--line);display:flex}
-#composer #cbox{flex:1;display:flex;align-items:flex-end;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:5px 6px 5px 5px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+#composer #cbox{flex:1;display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:5px 6px 5px 5px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
 #composer #cbox button{width:34px;height:34px;border-radius:50%;flex:0 0 auto;padding:0}
 #composer #plus{background:transparent;border:0;color:var(--meta)}
 #composer #plus:active{background:var(--bg2)}
@@ -1104,6 +1120,7 @@ nav button.on .ind{width:16px}
 
 /* ---------- 查找聊天记录（新增） ---------- */
 header .hact svg{display:block;width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+header .hback svg{display:block;width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #hsearch{display:flex;align-items:center;justify-content:center}
 .findres{max-height:52vh;overflow-y:auto;margin-top:10px}
 .sresrow{padding:9px 10px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg2);cursor:pointer}
@@ -1266,16 +1283,246 @@ html.nothink #msgs .bub .think{display:none!important}
    默认就是一个小小的灰色时间字，没有底、不显眼。
    聊天页开了背景图时，<html> 上会带一个 chatwall 标记（见 applyWall），
    这时才给时间套上圆角小底——背景图再花也能看清。 */
-#msgs .tsep{text-align:center;margin:15px 0 3px;user-select:none}
-#msgs .tsep>span{display:inline-block;font-size:11.5px;line-height:1.5;letter-spacing:.3px;font-variant-numeric:tabular-nums;color:var(--meta);opacity:.8}
+#msgs .tsep{text-align:center;margin:22px 0 10px;user-select:none}
+#msgs .tsep>span{display:inline-block;font-size:10.5px;line-height:1.5;letter-spacing:.3px;font-variant-numeric:tabular-nums;color:var(--meta);opacity:.72}
 #msgs .tsep.scene>span{font-style:italic;letter-spacing:.5px}
 #msgs .tsep.scene>span:before{content:"◌ ";font-style:normal;opacity:.7}
-html.chatwall #msgs .tsep>span{padding:3px 11px;opacity:1;background:var(--panel);border:1px solid var(--line);border-radius:999px;box-shadow:0 1px 6px rgba(0,0,0,.14)}
+html.chatwall #msgs .tsep>span{padding:4px 12px;opacity:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.14)}
 #msgs .tsep:first-child{margin-top:4px}
 /* 时间条后面第一条消息靠紧一点，看得出「这条时间条管的是下面这一组」 */
-#msgs .tsep+.bub{margin-top:6px}
+#msgs .tsep+.bub{margin-top:12px}
 /* 老版本塞进气泡里的时间（p6time）不再显示 */
 #msgs .bub .p6time{display:none!important}
+
+/* ---------- 液态玻璃聊天界面 ----------
+   只给聊天页使用：气泡和输入区会轻微透出后面的聊天背景，
+   再用一层柔光、细亮边和背景模糊做出玻璃的层次。
+   颜色都从当前主题变量里取，所以深海、浅色、黑白等主题都能一起用。 */
+html.liquidchat{
+  --lg-edge:color-mix(in srgb,var(--txt) 20%,transparent);
+  --lg-edge-soft:color-mix(in srgb,var(--txt) 12%,transparent);
+  --lg-glass:color-mix(in srgb,var(--panel) 16%,transparent);
+  --lg-glass-soft:color-mix(in srgb,var(--panel) 10%,transparent);
+  --lg-shadow:0 8px 22px rgba(5,15,25,.14),inset 0 1px 0 rgba(255,255,255,.56),inset 0 -1px 0 rgba(0,0,0,.08)
+}
+#liquidGlassLayer{display:none;position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
+html.liquidchat header{
+  position:relative;
+  gap:8px;
+  background:transparent;
+  border-bottom:0;
+  box-shadow:none;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none
+}
+html.liquidchat header::after{display:none}
+html.liquidchat header .hcol{
+  height:40px;
+  padding:0 12px;
+  border-radius:20px;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.008)),color-mix(in srgb,var(--panel) 11%,transparent);
+  border:1px solid color-mix(in srgb,var(--txt) 9%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 3px 10px rgba(5,15,25,.035);
+  backdrop-filter:blur(2px) brightness(1.035) saturate(116%);
+  -webkit-backdrop-filter:blur(2px) brightness(1.035) saturate(116%)
+}
+html.liquidchat header .hcol h1{text-align:center;font-size:17px;font-weight:600;letter-spacing:.2px;text-shadow:none}
+html.liquidchat header .hcol .who{flex:0 0 auto;max-width:100%;text-align:center;font-size:10.5px;color:color-mix(in srgb,var(--meta) 82%,transparent)}
+html.liquidchat header .hback{
+  width:40px;height:40px;flex:0 0 40px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0;padding:0;font-size:24px;line-height:1;color:color-mix(in srgb,var(--txt) 76%,transparent);
+  border-radius:50%;
+  background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.008));
+  border:1px solid color-mix(in srgb,var(--txt) 9%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 3px 9px rgba(5,15,25,.035);
+  backdrop-filter:blur(2px) brightness(1.035) saturate(116%);
+  -webkit-backdrop-filter:blur(2px) brightness(1.035) saturate(116%)
+}
+html.liquidchat header .hact{
+  width:40px;height:40px;flex:0 0 40px;
+  align-self:center;
+  background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.009));
+  border:1px solid color-mix(in srgb,var(--txt) 9%,transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 3px 9px rgba(5,15,25,.035);
+  backdrop-filter:blur(2px) brightness(1.035) saturate(116%);
+  -webkit-backdrop-filter:blur(2px) brightness(1.035) saturate(116%)
+}
+html.liquidchat #main{
+  background-image:
+    radial-gradient(46% 28% at 12% 8%,color-mix(in srgb,var(--acc) 9%,transparent),transparent 72%),
+    radial-gradient(42% 30% at 92% 86%,color-mix(in srgb,var(--acc2) 6%,transparent),transparent 74%)
+}
+html.liquidchat #msgs .bub:not(.multi):not(.gsys),
+html.liquidchat #msgs .bub.multi .bsub{
+  color:var(--txt);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.018) 42%,transparent 76%),
+    var(--lg-glass);
+  border:1px solid var(--lg-edge)!important;
+  box-shadow:var(--lg-shadow)!important;
+  backdrop-filter:blur(3px) brightness(1.06) saturate(125%);
+  -webkit-backdrop-filter:blur(3px) brightness(1.06) saturate(125%)
+}
+html.liquidchat #msgs .bub.me:not(.multi),
+html.liquidchat #msgs .bub.multi.me .bsub{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.02) 44%,transparent 78%),
+    linear-gradient(135deg,color-mix(in srgb,var(--acc) 13%,transparent),color-mix(in srgb,var(--panel) 13%,transparent));
+  border-color:color-mix(in srgb,var(--acc) 38%,var(--lg-edge))!important
+}
+html.liquidchat #msgs .bub.ai:not(.multi),
+html.liquidchat #msgs .bub.multi.ai .bsub{
+  border-color:transparent!important;
+  box-shadow:0 8px 20px rgba(5,15,25,.10)!important
+}
+html.liquidchat #msgs .tsep>span{
+  padding:4px 12px;
+  opacity:.78;
+  color:color-mix(in srgb,var(--meta) 82%,transparent);
+  background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(255,255,255,.01)),color-mix(in srgb,var(--panel) 7%,transparent);
+  border:1px solid var(--lg-edge-soft);
+  border-radius:8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.32),0 3px 10px rgba(5,15,25,.045);
+  backdrop-filter:blur(2px) brightness(1.05) saturate(120%);
+  -webkit-backdrop-filter:blur(2px) brightness(1.05) saturate(120%)
+}
+html.liquidchat #msgs .tok.meta{
+  color:color-mix(in srgb,var(--txt) 62%,transparent);
+  text-shadow:0 1px 5px rgba(0,0,0,.16)
+}
+html.liquidchat #picked{
+  background:color-mix(in srgb,var(--bg) 54%,transparent);
+  border-top:1px solid var(--lg-edge-soft);
+  backdrop-filter:blur(18px) saturate(140%);
+  -webkit-backdrop-filter:blur(18px) saturate(140%)
+}
+html.liquidchat #composer{
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.01)),color-mix(in srgb,var(--bg) 28%,transparent);
+  border-top:1px solid var(--lg-edge-soft);
+  box-shadow:0 -8px 24px rgba(5,15,25,.07);
+  backdrop-filter:blur(5px) brightness(1.04) saturate(125%);
+  -webkit-backdrop-filter:blur(5px) brightness(1.04) saturate(125%)
+}
+html.liquidchat #composer #cbox{
+  align-items:center;
+  background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.015)),var(--lg-glass);
+  border:1px solid var(--lg-edge);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.56),0 7px 20px rgba(5,15,25,.09);
+  backdrop-filter:blur(3px) brightness(1.06) saturate(125%);
+  -webkit-backdrop-filter:blur(3px) brightness(1.06) saturate(125%)
+}
+html.liquidchat #composer #plus{
+  align-self:center;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.03));
+  border:1px solid var(--lg-edge-soft);
+  color:var(--txt)
+}
+html.liquidchat #composer #send{
+  align-self:center;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(145deg,rgba(255,255,255,.20),rgba(255,255,255,.035)),var(--lg-glass-soft);
+  border:1px solid var(--lg-edge);
+  color:var(--acc);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.54),0 5px 14px rgba(5,15,25,.09);
+  backdrop-filter:blur(3px) brightness(1.05) saturate(125%);
+  -webkit-backdrop-filter:blur(3px) brightness(1.05) saturate(125%)
+}
+html.liquidchat #composer textarea::placeholder{color:color-mix(in srgb,var(--txt) 52%,transparent)}
+html.liquidchat #composer #send:disabled{background:var(--lg-glass-soft);color:var(--meta);box-shadow:none}
+/* 【新】聊天文字颜色：白色适合深色壁纸；跟随主题时仍用各主题原来的字色。 */
+html.chatwhite #msgs .bub:not(.gsys),
+html.chatwhite #msgs .bub:not(.gsys) .md-h,
+html.chatwhite #msgs .bub:not(.gsys) .md-quote,
+html.chatwhite #msgs .bub:not(.gsys) .md-s,
+html.chatwhite #msgs .bub:not(.gsys) b.hl,
+html.chatwhite #msgs .bub:not(.gsys) strong.hl,
+html.chatwhite #msgs .bub:not(.gsys) code.hl,
+html.chatwhite #msgs .bub:not(.gsys) .md-a,
+html.chatwhite #msgs .bub:not(.gsys) .thinkbody{
+  color:#fff!important;
+  text-shadow:0 1px 3px rgba(0,0,0,.58)
+}
+html.chatwhite #msgs .bub:not(.gsys) .thinkhead,
+html.chatwhite #msgs .bub:not(.gsys) .thinkhead.on{color:rgba(255,255,255,.78)!important}
+html.chatwhite #msgs .tsep>span,
+html.chatwhite #msgs .tok.meta,
+html.chatwhite #msgs .tchip,
+html.chatwhite #msgs .tchip b,
+html.chatwhite #msgs .tchip .sg{
+  color:rgba(255,255,255,.84)!important;
+  text-shadow:0 1px 3px rgba(0,0,0,.52)
+}
+/* WebGL 能正常启动时，气泡和输入框的表面交给统一光学层绘制。
+   这里只留一个很浅的外阴影，文字和按钮仍然是原来的 DOM 元素。 */
+html.liquidwebgl header,
+html.liquidwebgl #main,
+html.liquidwebgl #picked,
+html.liquidwebgl #composer{position:relative;z-index:2}
+html.liquidwebgl header .hcol,
+html.liquidwebgl header .hback,
+html.liquidwebgl header .hact{
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important
+}
+html.liquidwebgl #composer{
+  background:transparent!important;
+  border-top:0;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important
+}
+html.liquidwebgl #main{
+  background-image:none;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14px);
+  mask-image:linear-gradient(180deg,transparent 0,#000 14px)
+}
+html.liquidwebgl #msgs .bub:not(.multi):not(.gsys),
+html.liquidwebgl #msgs .bub.multi .bsub{
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:0 8px 20px rgba(5,15,25,.12)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important
+}
+html.liquidwebgl #msgs .bub.ai:not(.multi),
+html.liquidwebgl #msgs .bub.multi.ai .bsub{box-shadow:none!important}
+html.liquidwebgl #msgs .bub.withav::before{border-color:transparent!important}
+html.liquidwebgl.p6light #msgs .bub:not(.multi):not(.gsys),
+html.liquidwebgl.p6light #msgs .bub.multi .bsub{text-shadow:0 1px 2px rgba(255,255,255,.28)}
+html.liquidwebgl:not(.p6light) #msgs .bub:not(.multi):not(.gsys),
+html.liquidwebgl:not(.p6light) #msgs .bub.multi .bsub{text-shadow:0 1px 2px rgba(0,0,0,.34)}
+html.liquidwebgl #msgs .tsep>span{
+  background:transparent;
+  border-color:transparent;
+  box-shadow:0 5px 14px rgba(5,15,25,.10);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none
+}
+html.liquidwebgl #composer #cbox{
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:0 8px 22px rgba(5,15,25,.12)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important
+}
+html.liquidwebgl #liquidGlassLayer{display:block}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  html.liquidchat header,
+  html.liquidchat #composer,
+  html.liquidchat #composer #cbox,
+  html.liquidchat #msgs .bub:not(.multi):not(.gsys),
+  html.liquidchat #msgs .bub.multi .bsub{
+    background:linear-gradient(145deg,color-mix(in srgb,var(--panel) 88%,var(--bg)),var(--panel))
+  }
+}
 
 /* ---------- 【新】邀请卡 / 战绩卡：「入场券」（深酒红＋描金；票边是真缺口，透出后面的聊天背景） ---------- */
 .gtk{position:relative;margin:9px 0 10px 38px;cursor:pointer;-webkit-tap-highlight-color:transparent;
@@ -1309,7 +1556,7 @@ html.chatwall #msgs .tsep>span{padding:3px 11px;opacity:1;background:var(--panel
 </style>
 </head>
 <body>
-<header><div class="hcol"><h1 id="title">聊天</h1><span class="who" id="who"></span></div><button class="hact" id="hsearch" type="button" aria-label="查找聊天记录" title="查找聊天记录" onclick="openFind()" style="display:none"><svg viewBox="0 0 24 24"><circle cx="10.6" cy="10.6" r="6.2"/><path d="m15.2 15.2 4.6 4.6"/></svg></button><button class="hact" id="hact" type="button" aria-label="更多">⋯</button></header>
+<header><div class="hcol"><h1 id="title">聊天</h1><span class="who" id="who"></span></div><button class="hact" id="hact" type="button" aria-label="更多">⋯</button></header>
 <main id="main"></main>
 <div id="picked"><img id="thumb" alt=""><span id="thumbs"></span><span id="fchip" class="filechip" style="display:none"></span><button id="pickedX" onclick="clearPicked()">✕</button></div>
 <div id="composer"><div id="cbox"><button id="plus" title="发送图片或文件" aria-label="发送图片或文件"><svg viewBox="0 0 24 24"><path d="M12 5.2v13.6M5.2 12h13.6"/></svg></button><textarea id="inp" rows="1" placeholder="说点什么…"></textarea><button id="stop" style="display:none" aria-label="停止"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.4"/></svg></button><button id="send" aria-label="发送" disabled><svg viewBox="0 0 24 24"><path d="M12 19V5.4"/><path d="M5.8 11.6 12 5.4l6.2 6.2"/></svg></button></div></div>
@@ -1419,6 +1666,15 @@ const THEMES={
   ink:{label:'墨夜（暗紫黑）',v:{'--bg':'#0b0b0e','--bg2':'#131319','--panel':'#191920','--line':'#2b2b35','--txt':'#e9e9ee','--dim':'#8f8f9a','--meta':'#9b9ba7','--acc':'#9b8cff','--acc2':'#c3b8ff','--accdim':'#2a2450','--accline':'#4a3f86','--warn':'#e07070','--grad':'linear-gradient(160deg,#1a1a22 0%,#0b0b0e 60%)','--shadow':'0 1px 2px rgba(0,0,0,.4)','--bubme':'#3a2f7a'}},
   dusk:{label:'暮紫（暗紫）',v:{'--bg':'#0f0d15','--bg2':'#161320','--panel':'#1b1826','--line':'#2a2536','--txt':'#eae4f8','--dim':'#9488b6','--meta':'#a196c0','--acc':'#a97cf0','--acc2':'#cda6f9','--accdim':'#33245c','--accline':'#5b4694','--warn':'#e07070','--grad':'linear-gradient(160deg,#1d1830 0%,#0f0d15 60%)','--shadow':'0 1px 2px rgba(0,0,0,.3)','--bubme':'#432c73'}}
 };
+/* 只在「聊天」页且选了液态玻璃时挂标记；其它页面保持原来的顶栏和背景。 */
+function applyChatSkin(){
+  try{
+    const on=!!(cfg&&cfg.chatStyle==='liquid'&&view==='chat');
+    document.documentElement.classList.toggle('liquidchat',on);
+    document.documentElement.classList.toggle('chatwhite',!!(cfg&&cfg.chatText==='white'));
+    if(window.ChatGlass)window.ChatGlass.setEnabled(on);
+  }catch(e){}
+}
 function applyTheme(){
   const t=THEMES[(cfg&&cfg.theme)]||THEMES.light;   /* 【改】读不到主题时也按「浅色」兜底 */
   const r=document.documentElement.style;
@@ -1468,6 +1724,8 @@ function applyTheme(){
   try{lkFxApply()}catch(e){}
   /* ↓ 补丁14：手机外壳的玻璃质感 + 桌面重画 */
   if(window.syncGlass)window.syncGlass();       /* 补丁14 装上之前没有这层，所以要先判断 */
+  try{applyChatSkin()}catch(e){}
+  try{if(window.ChatGlass)window.ChatGlass.refreshBackground()}catch(e){}
   if(view==='home'&&window.renderHome)try{window.renderHome()}catch(e){}
 }
 
@@ -1510,7 +1768,383 @@ function applyWall(){
   }catch(e){}
   try{applyLockWall()}catch(e){}   /* 【新增】锁屏那张壁纸一起刷新 */
   try{if(window.homeWallTone)window.homeWallTone()}catch(e){}   /* 【新】桌面文字按壁纸深浅自动换色（补丁14提供） */
+  try{if(window.ChatGlass)window.ChatGlass.refreshBackground()}catch(e){}
 }
+
+/* ---------- 聊天页液态玻璃光学层 ----------
+   参考技术方案的做法：所有气泡共用一张“当前背景”纹理，
+   按各元素在屏幕上的位置取局部画面，再用一份 Shader 统一做
+   圆角裁切、轻微折射、低频波纹和左上／右下高光。
+   文字、图片和按钮仍是原来的网页元素；这一层只画在它们后面。 */
+var ChatGlass=(function(){
+  var W=window,D=document;
+  var canvas=null,gl=null,program=null,bgTex=null,buf=null;
+  var uni={},aPos=-1;
+  var bgCanvas=D.createElement('canvas');
+  var bgCtx=bgCanvas.getContext('2d',{alpha:false});
+  var enabled=false,bgReady=false,raf=0,bgToken=0,listening=false;
+  var dpr=1,vw=0,vh=0;
+
+  var VERT=[
+    'attribute vec2 aPos;',
+    'void main(){gl_Position=vec4(aPos,0.0,1.0);}'
+  ].join('\n');
+  var FRAG=[
+    'precision mediump float;',
+    'uniform sampler2D uBg;',
+    'uniform vec2 uResolution;',
+    'uniform vec4 uRect;',
+    'uniform float uRadius;',
+    'uniform float uRefract;',
+    'uniform float uWave;',
+    'uniform float uBlur;',
+    'uniform float uSaturation;',
+    'uniform float uBrightness;',
+    'uniform vec3 uTint;',
+    'uniform float uTintAmt;',
+    'float roundBox(vec2 p,vec2 b,float r){',
+    '  vec2 q=abs(p)-b+vec2(r);',
+    '  return length(max(q,0.0))+min(max(q.x,q.y),0.0)-r;',
+    '}',
+    'vec4 sampleGlass(vec2 uv){',
+    '  vec2 px=vec2(uBlur)/uResolution;',
+    '  vec2 lo=vec2(0.0),hi=vec2(1.0);',
+    '  vec4 c=texture2D(uBg,clamp(uv,lo,hi))*0.36;',
+    '  c+=texture2D(uBg,clamp(uv+vec2(px.x,0.0),lo,hi))*0.16;',
+    '  c+=texture2D(uBg,clamp(uv-vec2(px.x,0.0),lo,hi))*0.16;',
+    '  c+=texture2D(uBg,clamp(uv+vec2(0.0,px.y),lo,hi))*0.16;',
+    '  c+=texture2D(uBg,clamp(uv-vec2(0.0,px.y),lo,hi))*0.16;',
+    '  return c;',
+    '}',
+    'void main(){',
+    '  vec2 halfSize=max(uRect.zw*0.5,vec2(1.0));',
+    '  vec2 center=uRect.xy+halfSize;',
+    '  vec2 local=(gl_FragCoord.xy-center)/halfSize;',
+    '  float sd=roundBox(gl_FragCoord.xy-center,halfSize,uRadius);',
+    '  float aa=max(2.0,uRadius*0.08);',
+    '  float alpha=1.0-smoothstep(-aa,0.0,sd);',
+    '  if(alpha<=0.002) discard;',
+    '  float radius=length(local);',
+    '  vec2 dir=normalize(local+vec2(0.0001,0.0002));',
+    '  float edgeZone=smoothstep(0.20,1.0,radius);',
+    '  float wave=sin(local.y*4.6+1.7*sin(local.x*3.9))+0.55*cos(local.x*5.4-local.y*2.8);',
+    '  vec2 warp=dir*(uRefract*(0.14+0.86*edgeZone))/uResolution;',
+    '  warp+=vec2(cos(local.y*4.1),sin(local.x*4.8))*wave*uWave*0.22/uResolution;',
+    '  vec2 uv=gl_FragCoord.xy/uResolution+warp;',
+    '  vec3 col=sampleGlass(uv).rgb;',
+    '  float lum=dot(col,vec3(0.299,0.587,0.114));',
+    '  col=mix(vec3(lum),col,uSaturation);',
+    '  col*=uBrightness;',
+    '  col=mix(col,uTint,uTintAmt);',
+    '  float top=smoothstep(0.86,1.0,local.y)*smoothstep(0.72,0.15,abs(local.x));',
+    '  float shine=top*0.04;',
+    '  col+=vec3(shine);',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),alpha);',
+    '}'
+  ].join('\n');
+
+  function colorRGB(s){
+    s=String(s||'').trim();
+    var m=s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if(m){
+      var h=m[1];
+      if(h.length===3)h=h.charAt(0)+h.charAt(0)+h.charAt(1)+h.charAt(1)+h.charAt(2)+h.charAt(2);
+      var n=parseInt(h,16);
+      return [((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255];
+    }
+    m=s.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+    if(m)return [Math.min(1,Number(m[1])/255),Math.min(1,Number(m[2])/255),Math.min(1,Number(m[3])/255)];
+    return null;
+  }
+  function colorAlpha(s,a){
+    var c=colorRGB(s);
+    return c?('rgba('+Math.round(c[0]*255)+','+Math.round(c[1]*255)+','+Math.round(c[2]*255)+','+a+')'):s;
+  }
+  function compile(type,src){
+    var sh=gl.createShader(type);
+    gl.shaderSource(sh,src);
+    gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)){
+      try{console.warn('液态玻璃 Shader 编译失败：'+gl.getShaderInfoLog(sh))}catch(e){}
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  }
+  function makeProgram(){
+    var vs=compile(gl.VERTEX_SHADER,VERT),fs=compile(gl.FRAGMENT_SHADER,FRAG);
+    if(!vs||!fs)return false;
+    program=gl.createProgram();
+    gl.attachShader(program,vs);gl.attachShader(program,fs);
+    gl.linkProgram(program);
+    gl.deleteShader(vs);gl.deleteShader(fs);
+    if(!gl.getProgramParameter(program,gl.LINK_STATUS)){
+      try{console.warn('液态玻璃 Shader 链接失败：'+gl.getProgramInfoLog(program))}catch(e){}
+      program=null;
+      return false;
+    }
+    aPos=gl.getAttribLocation(program,'aPos');
+    ['uBg','uResolution','uRect','uRadius','uRefract','uWave','uBlur','uSaturation','uBrightness','uTint','uTintAmt']
+      .forEach(function(k){uni[k]=gl.getUniformLocation(program,k)});
+    buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+    bgTex=gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D,bgTex);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.useProgram(program);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0,0,0,0);
+    return true;
+  }
+  function ensureGL(){
+    if(gl&&program&&bgTex)return true;
+    if(!canvas){
+      canvas=D.createElement('canvas');
+      canvas.id='liquidGlassLayer';
+      canvas.setAttribute('aria-hidden','true');
+      D.body.appendChild(canvas);
+      canvas.addEventListener('webglcontextlost',function(e){
+        try{e.preventDefault()}catch(er){}
+        D.documentElement.classList.remove('liquidwebgl');
+        gl=null;program=null;bgTex=null;bgReady=false;
+      });
+      canvas.addEventListener('webglcontextrestored',function(){
+        if(enabled){bgReady=false;refreshBackground()}
+      });
+    }
+    try{
+      gl=canvas.getContext('webgl',{alpha:true,antialias:true,depth:false,stencil:false,premultipliedAlpha:false,powerPreference:'low-power'})||
+         canvas.getContext('experimental-webgl');
+    }catch(e){gl=null}
+    if(!gl)return false;
+    if(!makeProgram()){gl=null;program=null;return false}
+    return true;
+  }
+  function resizeCanvas(){
+    var nextDpr=Math.max(1,Math.min(1.6,Number(W.devicePixelRatio)||1));
+    vw=Math.max(1,W.innerWidth||D.documentElement.clientWidth||360);
+    vh=Math.max(1,W.innerHeight||D.documentElement.clientHeight||780);
+    var nw=Math.max(1,Math.round(vw*nextDpr)),nh=Math.max(1,Math.round(vh*nextDpr));
+    var changed=!canvas||canvas.width!==nw||canvas.height!==nh;
+    dpr=nextDpr;
+    if(changed&&canvas){
+      canvas.width=nw;canvas.height=nh;
+      bgCanvas.width=nw;bgCanvas.height=nh;
+      bgReady=false;
+    }
+    return changed;
+  }
+  function paintBase(){
+    if(!bgCtx)return;
+    var w=bgCanvas.width,h=bgCanvas.height;
+    bgCtx.setTransform(1,0,0,1,0,0);
+    bgCtx.globalAlpha=1;
+    bgCtx.clearRect(0,0,w,h);
+    var cs=getComputedStyle(D.documentElement);
+    var bg=cs.getPropertyValue('--bg').trim()||'#e7ebf1';
+    var acc=cs.getPropertyValue('--acc').trim()||'#3fa9d8';
+    var acc2=cs.getPropertyValue('--acc2').trim()||acc;
+    bgCtx.fillStyle=bg;bgCtx.fillRect(0,0,w,h);
+    var g1=bgCtx.createRadialGradient(w*.12,h*.08,0,w*.12,h*.08,Math.max(w,h)*.58);
+    g1.addColorStop(0,colorAlpha(acc,.14));g1.addColorStop(1,colorAlpha(acc,0));
+    bgCtx.fillStyle=g1;bgCtx.fillRect(0,0,w,h);
+    var g2=bgCtx.createRadialGradient(w*.92,h*.86,0,w*.92,h*.86,Math.max(w,h)*.52);
+    g2.addColorStop(0,colorAlpha(acc2,.10));g2.addColorStop(1,colorAlpha(acc2,0));
+    bgCtx.fillStyle=g2;bgCtx.fillRect(0,0,w,h);
+  }
+  function uploadTexture(){
+    if(!gl||!bgCtx||!bgTex)return;
+    gl.bindTexture(gl.TEXTURE_2D,bgTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,bgCanvas);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    bgReady=true;
+    schedule();
+  }
+  function drawCover(img,opacity){
+    try{
+      var iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;
+      if(!iw||!ih)return false;
+      var w=bgCanvas.width,h=bgCanvas.height;
+      var k=Math.max(w/iw,h/ih),dw=iw*k,dh=ih*k;
+      bgCtx.globalAlpha=Math.max(.05,Math.min(1,Number(opacity)||1));
+      bgCtx.drawImage(img,(w-dw)/2,(h-dh)/2,dw,dh);
+      bgCtx.globalAlpha=1;
+      return true;
+    }catch(e){try{bgCtx.globalAlpha=1}catch(er){};return false}
+  }
+  function refreshBackground(){
+    if(!enabled)return;
+    if(!ensureGL()){D.documentElement.classList.remove('liquidwebgl');return}
+    resizeCanvas();
+    paintBase();
+    bgReady=false;
+    var token=++bgToken;
+    var w=null;
+    try{w=wallCfg()}catch(e){}
+    var url=(w&&w.cOn&&w.cImg)?String(w.cImg):'';
+    if(!url){uploadTexture();return}
+    uploadTexture();   /* 底图先立即可用；聊天壁纸解码完成后再替换成完整背景 */
+    var op=(w&&w.cOp)||.45;
+    var img=new Image();
+    if(!/^data:/i.test(url))img.crossOrigin='anonymous';
+    img.onload=function(){
+      if(!enabled||token!==bgToken)return;
+      drawCover(img,op);
+      uploadTexture();
+    };
+    img.onerror=function(){if(enabled&&token===bgToken)uploadTexture()};
+    img.src=url;
+  }
+  function targetColor(el){
+    var cs=getComputedStyle(D.documentElement);
+    var panel=colorRGB(cs.getPropertyValue('--panel'))||[1,1,1];
+    var acc=colorRGB(cs.getPropertyValue('--acc'))||panel;
+    if(el&&el.classList&&el.classList.contains('hcol'))return {rgb:panel,amt:.035,ref:2.8,wave:.9};
+    if(el&&el.classList&&(el.classList.contains('hact')||el.classList.contains('hback')))return {rgb:panel,amt:.03,ref:2.0,wave:.7};
+    if(el&&el.id==='cbox')return {rgb:panel,amt:.055,ref:3.2,wave:1.2};
+    if(el&&el.classList&&el.classList.contains('me'))return {rgb:acc,amt:.065,ref:4.5,wave:1.5};
+    if(el&&el.classList&&el.classList.contains('tsep'))return {rgb:panel,amt:.045,ref:2.0,wave:.8};
+    return {rgb:panel,amt:.075,ref:4.8,wave:1.6};
+  }
+  function drawTarget(el){
+    var r=el.getBoundingClientRect();
+    if(r.width<3||r.height<3||r.bottom<=0||r.top>=vh||r.right<=0||r.left>=vw)return;
+    var cs=getComputedStyle(el);
+    var radius=Math.max(
+      parseFloat(cs.borderTopLeftRadius)||0,
+      parseFloat(cs.borderTopRightRadius)||0,
+      parseFloat(cs.borderBottomRightRadius)||0,
+      parseFloat(cs.borderBottomLeftRadius)||0
+    );
+    radius=Math.min(radius*dpr,Math.min(r.width,r.height)*dpr*.5);
+    var st=targetColor(el);
+    gl.uniform4f(uni.uRect,r.left*dpr,(vh-r.bottom)*dpr,r.width*dpr,r.height*dpr);
+    gl.uniform1f(uni.uRadius,radius);
+    gl.uniform1f(uni.uRefract,st.ref*dpr);
+    gl.uniform1f(uni.uWave,st.wave*dpr);
+    gl.uniform1f(uni.uBlur,1.6*dpr);
+    gl.uniform1f(uni.uSaturation,1.18);
+    gl.uniform1f(uni.uBrightness,1.07);
+    gl.uniform3f(uni.uTint,st.rgb[0],st.rgb[1],st.rgb[2]);
+    gl.uniform1f(uni.uTintAmt,st.amt);
+    gl.drawArrays(gl.TRIANGLES,0,6);
+  }
+  function setScissor(r){
+    if(!r||r.width<=0||r.height<=0)return false;
+    var x=Math.max(0,Math.floor(r.left*dpr));
+    var y=Math.max(0,Math.floor((vh-r.bottom)*dpr));
+    var right=Math.min(canvas.width,Math.ceil(r.right*dpr));
+    var top=Math.min(canvas.height,Math.ceil((vh-r.top)*dpr));
+    var w=Math.max(0,right-x),h=Math.max(0,top-y);
+    if(!w||!h)return false;
+    gl.scissor(x,y,w,h);
+    return true;
+  }
+  function draw(){
+    raf=0;
+    if(!enabled||!gl||!program||!bgReady)return;
+    if(resizeCanvas()){refreshBackground();return}
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0,0,canvas.width,canvas.height);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,bgTex);
+    gl.uniform1i(uni.uBg,0);
+    gl.uniform2f(uni.uResolution,canvas.width,canvas.height);
+    var mainEl=D.getElementById('main'),headerEl=D.querySelector('header'),composerEl=D.getElementById('composer');
+    var mainRect=mainEl?mainEl.getBoundingClientRect():null;
+    var headerRect=headerEl?headerEl.getBoundingClientRect():null;
+    var composerRect=composerEl?composerEl.getBoundingClientRect():null;
+    var nodes=D.querySelectorAll('header .hcol,header .hback,header .hact,#msgs .bub:not(.multi):not(.gsys),#msgs .bub.multi .bsub,#msgs .tsep>span,#composer #cbox');
+    gl.enable(gl.SCISSOR_TEST);
+    for(var i=0;i<nodes.length;i++){
+      var el=nodes[i];
+      if(!el||el.hidden)continue;
+      if(el.closest&&el.closest('#modal'))continue;
+      var clip=mainRect;
+      if(el.closest&&el.closest('header'))clip=headerRect;
+      else if(el.closest&&el.closest('#composer'))clip=composerRect;
+      if(!setScissor(clip))continue;
+      drawTarget(el);
+    }
+    gl.disable(gl.SCISSOR_TEST);
+  }
+  function schedule(){
+    if(!enabled||raf)return;
+    raf=requestAnimationFrame(draw);
+  }
+  function setEnabled(on){
+    enabled=!!on;
+    if(!enabled){
+      if(raf){cancelAnimationFrame(raf);raf=0}
+      if(gl){try{gl.viewport(0,0,canvas.width,canvas.height);gl.clear(gl.COLOR_BUFFER_BIT)}catch(e){}}
+      D.documentElement.classList.remove('liquidwebgl');
+      return;
+    }
+    if(!ensureGL()){
+      D.documentElement.classList.remove('liquidwebgl');
+      return;
+    }
+    if(!D.documentElement.classList.contains('liquidwebgl')){
+      try{gl.viewport(0,0,canvas.width,canvas.height);gl.clear(gl.COLOR_BUFFER_BIT)}catch(e){}
+    }
+    D.documentElement.classList.add('liquidwebgl');
+    refreshBackground();
+    requestAnimationFrame(function(){
+      schedule();
+      requestAnimationFrame(schedule);
+    });
+    setTimeout(schedule,180);
+    setTimeout(schedule,420);
+  }
+  function bindOnce(){
+    if(listening)return;
+    listening=true;
+    W.addEventListener('resize',function(){if(enabled){resizeCanvas();refreshBackground()}},{passive:true});
+    W.addEventListener('orientationchange',function(){if(enabled)setTimeout(refreshBackground,250)},{passive:true});
+    if(W.visualViewport){
+      W.visualViewport.addEventListener('resize',function(){if(enabled)schedule()},{passive:true});
+      W.visualViewport.addEventListener('scroll',function(){if(enabled)schedule()},{passive:true});
+    }
+    D.addEventListener('scroll',function(e){
+      if(enabled&&e.target&&e.target.id==='main')schedule();
+    },true);
+    D.addEventListener('input',function(){if(enabled)schedule()},true);
+    D.addEventListener('load',function(e){
+      if(enabled&&e.target&&String(e.target.tagName||'').toUpperCase()==='IMG')schedule();
+    },true);
+    if(W.ResizeObserver&&!W.__chatGlassResize){
+      W.__chatGlassResize=new ResizeObserver(function(){if(enabled)schedule()});
+      var m=D.getElementById('main');
+      if(m)W.__chatGlassResize.observe(m);
+    }
+    if(W.MutationObserver&&!W.__chatGlassMutation){
+      var mh=D.getElementById('main');
+      if(mh){
+        W.__chatGlassMutation=new MutationObserver(function(){if(enabled)schedule()});
+        W.__chatGlassMutation.observe(mh,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden']});
+      }
+    }
+  }
+  bindOnce();
+  return {
+    setEnabled:setEnabled,
+    refresh:function(){if(enabled)schedule()},
+    refreshBackground:refreshBackground
+  };
+})();
+window.ChatGlass=ChatGlass;
+
 /* 设置页：背景图卡片 */
 function cfgWallCardHTML(){
   const w=wallCfg();
@@ -2885,6 +3519,12 @@ function closeSheet(){
   /* ↓ 补丁6-C：弹层里也一样处理一遍 */
   try{slimText(document.getElementById('sheet'))}catch(e){}
 }
+function closeAllSheets(){
+  try{
+    let guard=0;
+    while($('#modal').classList.contains('on')&&guard++<20)closeSheet();
+  }catch(e){}
+}
 /* 把弹层变成铺满整屏（给「记忆宫殿」当独立小应用用） */
 function sheetFull(on){
   try{
@@ -3030,6 +3670,7 @@ function updateDots(){
 /* ---------- 视图 ---------- */
 function go(v){
   view=v;
+  try{applyChatSkin()}catch(e){}
   if(v==='chat')chatFollow=true;   /* 每次进聊天页都回到最新消息，不在上次滚到的位置停住 */
   $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===(v==='me'?'cfg':v)));
   $('#composer').style.display=(v==='chat')?'flex':'none';
@@ -3042,12 +3683,10 @@ function go(v){
   /* 进聊天页就贴到最新一条消息（图片/表情晚点才撑开也能跟上） */
   if(v==='chat')try{pinChatBottom(true)}catch(e){}
 }
-/* 顶栏第二行的小字：角色 · 模型 · 自动发消息状态 */
+/* 顶栏第二行：只显示角色当前状态；没有当天状态就留空。 */
 function topStatus(c){
-  const a=(c&&c.auto)||{};
-  const auto=a.on?('自动发消息 开'):'自动发消息 已关';
-  let mk=null;try{mk=maskForChar(c)}catch(e){}
-  return [c&&c.name,mk?('面具 · '+mk.name):'',auto].filter(Boolean).join(' · ');
+  let own='';try{own=characterStatusText(c)||''}catch(e){}
+  return own;
 }
 /* 非聊天页显示的一行说明 */
 function viewHint(v){
@@ -3062,7 +3701,10 @@ function draw(){
   const c=curChar();
   const inChat=!!(view==='chat'&&c);
   const whoEl=$('#who');
-  if(whoEl)whoEl.textContent=inChat?topStatus(c):viewHint(view);
+  if(whoEl){
+    whoEl.style.removeProperty('display');
+    whoEl.textContent=inChat?topStatus(c):viewHint(view);
+  }
   const hact=$('#hact');
   if(hact)hact.style.display=inChat?'':'none';
   const hsearch=$('#hsearch');           /* 新增：查找聊天记录按钮，只在聊天页显示 */
@@ -3081,7 +3723,11 @@ function draw(){
 /* 消息区是否自动跟随到底部：用户手动上滑后暂停，滑回底部再继续 */
 let chatFollow=true,actFollow=true,groupFollow=true;
 const nearBottom=el=>!el||el.scrollHeight-el.scrollTop-el.clientHeight<80;
-const scrollDown=()=>{const m=$('#main');if(m&&chatFollow)m.scrollTop=m.scrollHeight};
+const scrollDown=()=>{
+  const m=$('#main');
+  if(m&&chatFollow)m.scrollTop=m.scrollHeight;
+  try{if(window.ChatGlass)window.ChatGlass.refresh()}catch(e){}
+};
 const scrollActDown=()=>{const b=document.getElementById('amsgs');if(b&&actFollow)b.scrollTop=b.scrollHeight};
 /* ---------- 进聊天页时，稳稳停在最新一条消息上 ----------
    从桌面（点角色头像、或点「聊天」应用）进聊天时，消息里的图片、表情、
@@ -3093,6 +3739,7 @@ function pinChatBottom(force){
     if(force)chatFollow=true;      /* 刚进聊天页：这一次一定要贴到底 */
     if(!chatFollow)return;         /* 她在往上翻旧消息时，别抢滚动条 */
     m.scrollTop=m.scrollHeight;
+    try{if(window.ChatGlass)window.ChatGlass.refresh()}catch(e){}
   };
   at();
   requestAnimationFrame(at);
@@ -3103,7 +3750,10 @@ function watchChatBottom(){
   const box=document.getElementById('msgs');
   if(!box||!window.ResizeObserver)return;
   try{
-    if(!window._chatRO)window._chatRO=new ResizeObserver(()=>{if(chatFollow)scrollDown()});
+    if(!window._chatRO)window._chatRO=new ResizeObserver(()=>{
+      if(chatFollow)scrollDown();
+      try{if(window.ChatGlass)window.ChatGlass.refresh()}catch(e){}
+    });
     window._chatRO.disconnect();
     window._chatRO.observe(box);
   }catch(e){}
@@ -5844,6 +6494,7 @@ function renderChat(){
       });
     }
   }catch(e){}
+  try{if(window.ChatGlass)window.ChatGlass.refresh()}catch(e){}
 }
 
 function viewImg(src){
@@ -8942,6 +9593,7 @@ function memModeCard(M){
     : '自动总结：<b>关</b>（去「设置 → 记忆与自动总结」里打开）');
   return collap('hist','聊天记录与总结',
     '<p class="dim" style="font-size:12px;margin:0 0 8px">原始聊天记录一直存在本机（现在共 <b>'+total+'</b> 条，总结<b>不会</b>删掉它们）。下面决定「发消息时给角色看什么」：</p>'+
+    '<div class="row" style="margin:0 0 10px"><button class="pri col" onclick="openFind(\''+esc(gc.id)+'\')">🔍 查找这个角色的聊天记录</button></div>'+
     '<div class="seg">'+btn('auto','自动：近期+总结')+btn('full','完整记录')+btn('sum','只看总结')+'</div>'+
     '<p class="dim" style="font-size:12px;margin:8px 0 0">'+esc(HIST_HINT[mode]||'')+'</p>'+
     '<p class="dim" style="font-size:11.5px;margin:5px 0 0">为保留缓存命中，历史起点会按整块裁剪，可能比设定多带十几条短消息，但不会每轮改变上下文开头。</p>'+
@@ -13002,7 +13654,7 @@ function vocabHTML(){
 window.vocabHTML=vocabHTML;
 
 /* ================= 查找聊天记录 ================= */
-let findHits=[],findTimer=null;
+let findHits=[],findTimer=null,findScopeId='';
 function escRe(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 function findPlain(x){
   if(!x)return '';
@@ -13019,9 +13671,12 @@ function findMark(text,kw){
   else if(t.length>200)cut=t.slice(0,200)+'…';
   return esc(cut).replace(new RegExp(escRe(esc(kw)),'gi'),m=>'<mark>'+m+'</mark>');
 }
-function openFind(){
+function openFind(cid){
+  findScopeId=String(cid||'');
+  let target=null;
+  try{target=findScopeId?((chars||[]).find(c=>c&&String(c.id)===findScopeId)||null):null}catch(e){}
   showSheet('<div class="ttl">🔍 查找聊天记录</div>'+
-    '<p class="dim" style="font-size:12px;margin:0 0 8px">在所有角色的聊天里找，从新到旧排。</p>'+
+    '<p class="dim" style="font-size:12px;margin:0 0 8px">'+(target?('在「'+esc(target.name||'角色')+'」的聊天里搜索，从新到旧排。'):'在所有角色的聊天里找，从新到旧排。')+'</p>'+
     '<input id="findQ" placeholder="输入关键词" oninput="findRun()" autocomplete="off">'+
     '<div class="findres" id="findRes"></div>');
   findRun();
@@ -13036,6 +13691,7 @@ function findRunNow(){
   const low=kw.toLowerCase();
   const hits=[];
   (chars||[]).forEach(c=>{
+    if(findScopeId&&String(c.id)!==findScopeId)return;
     let arr=[];try{arr=load(LS.msg(c.id),[])||[]}catch(e){arr=[]}
     (arr||[]).forEach((m,i)=>{
       const tx=findPlain(m);
@@ -13052,7 +13708,7 @@ function findRunNow(){
 }
 function findGoto(i){
   const h=findHits[i];if(!h)return;
-  closeSheet();
+  closeAllSheets();
   findJump(h.cid,h.idx);
 }
 function findJump(cid,idx){
@@ -15462,6 +16118,8 @@ function fixCfg(){
   if(!cfg.fs)cfg.fs=15;
   if(cfg.deskStyle!=='retro')cfg.deskStyle='glass';   /* 【改】桌面 UI 风格：'glass' 玻璃（默认）/ 'retro' 复古 */
   if(cfg.deskText!=='white'&&cfg.deskText!=='dark')cfg.deskText='auto';   /* 【新】桌面文字颜色：'auto' 自动（默认）/ 'white' 白 / 'dark' 深 */
+  if(cfg.chatStyle!=='liquid')cfg.chatStyle='classic';   /* 【新】聊天界面质感：'classic' 经典（默认）/ 'liquid' 液态玻璃 */
+  if(cfg.chatText!=='white')cfg.chatText='auto';   /* 【新】聊天文字：'auto' 跟随主题（默认）/ 'white' 白字 */
   if(cfg.autoSumEvery==null)cfg.autoSumEvery=30;
   if(cfg.autoSum==null)cfg.autoSum=false;
   if(cfg.summaryInject==null)cfg.summaryInject=10;
@@ -15549,6 +16207,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
 狼人杀新增「复制精简战报」和「保存战绩长图」：默认只整理身份公开、夜间行动、公开发言、投票和裁判复盘，不再夹带 AI 身份盘、质问记录、草稿纸、夜间密会或思考过程；可以勾选是否额外加入狼队夜间交流，完整调试版复制仍然保留。AI 也新增了发言先后禁令，不得把谁先发言、谁后发言、谁还没轮到、谁一直没说话或谁后置位起跳当成狼面或好人面；这条只用于内部自检，不会让角色在公开发言里朗读规则。
+「主题」应用新增“聊天界面质感”选项：可以选“经典”或“液态玻璃”。液态玻璃会让聊天顶栏、消息气泡、时间和输入框半透明地透出聊天背景，并带背景取样、轻微折射和柔光；只影响聊天页，不改变聊天内容、头像、特殊卡片、其它应用或锁屏。下面还有“聊天文字颜色”，可选“跟随主题”或“白色”。选择都会立即生效并自动保存，想恢复原样就到「主题」里切换。
 
 【最近更新 · 2026-10-28】
 狼人杀准备页新增 12 人「狼王守卫」板子：3 个普通狼、1 个狼王、4 个村民，以及预言家、女巫、猎人和守卫。狼王属于狼人阵营，与普通狼互相认识并一起行动；除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动。狼王带走猎人时，猎人仍按原规则决定是否开枪。AI 身份提示、身份盘、场记、标记、邀请卡、预设配置和中途续局都已支持这个板子。
@@ -15635,7 +16294,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【聊天（点 Dock 上的「聊天」，或点桌面上那个圆形头像）】
 底部输入框打字发送；左下角「＋」可以发图片、发文件。
 如果聊天模型不能直接看图，可以在角色设置的「看图模型」里填一个支持图片的模型（例如 deepseek-v4.1-flash）。发图后，系统先让看图模型把画面和文字读成一段文字说明，再交给原来的聊天模型继续聊。这属于「视觉转述 / 多模态识图」，不只是 OCR；OCR 通常只会抄文字，看图模型还能描述人物、动作、场景和界面。
-顶栏左边「‹」是回桌面；右上角放大镜是查找聊天记录；「⋯」是打开这个角色的设定（人设、权限、记忆都在里面）。这个角色使用面具时，标题下方的状态行会显示“面具 · 面具名”；要换面具或取消面具，去桌面第二页的「面具管理 → 分配角色」。
+顶栏左边「‹」是回桌面；「⋯」是打开这个角色的设定（人设、权限、记忆都在里面）。聊天记录搜索已经收进角色编辑的「记忆 → 聊天记录与总结」，默认搜索当前角色。这个角色使用面具时，标题下方的状态行会显示“面具 · 面具名”；要换面具或取消面具，去桌面第二页的「面具管理 → 分配角色」。
 聊天模式在角色设置最上方。线上模式默认不写括号旁白；线下模式允许括号表情/动作，并可用场景灰字交代地点或互动背景。切换按钮点一下就会保存。
 想改「快答 / 正常 / 深想」，要去角色设定里改——聊天页顶上那排按钮已经取消了，别让她去找。
 生成的时候可以点「停止」；也能让角色重说一遍、换一个版本。
@@ -15668,7 +16327,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 番外：给角色写一段小故事。
 · 洄游：记录角色在聊天窗口以外亲身经历的事，比如玩游戏、写番外、做塔罗解读、在分身窗口用 MCP。记录以角色自己为“我”来理解。每个角色可以单独设置：每条新记录都交给主聊天、累积到指定条数再交、每天固定时间交，或者完全关闭；还能单独勾选这个角色能看见游戏、番外、塔罗、分身中的哪几类。经历记录页有一个“只看角色”下拉框，可以只看某一个角色的记录。交给主聊天时先只有摘要，角色可以自己选择查看哪些详情，也可以看完不回复；处理过的摘要会压成很短的个人记忆留在角色身上，详情仍在洄游里。关闭是默认设置，不会偷偷调用接口。浏览器关闭时不会后台处理，固定时间和每日总结会在下次打开 App 时补做。
 · 角色分身窗口：可以从「洄游 → 角色与分身」创建，也可以在一个角色下面创建多个分身。分身有独立聊天、独立工具权限，默认复制本体的人设和记忆快照，不复制主窗口聊天气泡。还可以选择让分身在生成时参考主窗口当前完整上下文，这时分身聊天顶部只显示“主窗口记忆已同步”的时间。分身窗口使用 MCP 时，活动只留在分身自己的活动区，按设置每天总结成第一人称记录进入洄游；主角色自己使用 MCP 不会重复记录。分身设置会显示今天记录了几条 MCP 活动、当前待总结条数和上次总结结果；点“现在总结一次”可以立刻处理，不用等到每日时间。
-· 主题：换主题色、字体、字号、锁屏样式、背景图。
+· 主题：换主题色、字体、字号、聊天界面质感、聊天文字颜色、锁屏样式、背景图。
 · 记忆宫殿：把旧聊天归档，需要时按关键词、按时间、按标签翻出来。
 · 小工具：骰子、塔罗、随机这类小玩意。
 
@@ -15715,6 +16374,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
 · 怎么换主题：打开手机桌面上的「主题」应用。
+· 怎么把聊天界面换成液态玻璃：打开桌面上的「主题」应用，在顶部预览下面找到「聊天界面质感」，点「液态玻璃」。它会立即生效并自动保存；想恢复现在的样子就点「经典」。这个选项只影响聊天页。
+· 怎么把聊天文字改成白色：打开桌面上的「主题」应用，在「聊天界面质感」下面找到「聊天文字颜色」，点「白色」。想恢复按主题自动配色就点「跟随主题」；这个设置只改聊天区的文字。
+· 怎么搜索聊天记录：点聊天右上角「⋯」打开角色设定，切到「记忆」标签，在「聊天记录与总结」里点「查找这个角色的聊天记录」。输入关键词后点搜索结果，就能跳到对应消息。
 · 怎么设密码：设置 → 隐私角色。
 
 【回答用户时的规矩】
@@ -15725,7 +16387,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=84;  /* 84：主动消息可使用工具，并改用第一人称沉浸式提示 */
+const GUIDE_VER=87;  /* 87：聊天记录搜索移到角色记忆页 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -15768,7 +16430,7 @@ function ensureGuideRole(){
 }
 /* 启动：读取配置和角色，补默认字段，载入上次角色。 */
 function loadInitialState(){
-  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'light',deskStyle:'glass',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
+  cfg=load(LS.cfg,{base:'https://api.openai.com/v1',key:'',model:'gpt-4o-mini',temp:.85,maxtok:900,ctx:30,theme:'light',deskStyle:'glass',chatStyle:'classic',chatText:'auto',fs:15,autoOn:true,notify:false,arcTop:5,autoSum:false,autoSumEvery:30,wholeLimit:20000,timeOn:true,bkEvery:0,
     histMode:'auto',fullLimit:20000,sumWrite:'append',summaryInject:10,userName:'',userGender:'',userEmoji:'🙂',userAvatar:'',userNote:'',
     userIcon:'',userFrame:'',userStatus:'',statusAuto:true});
   fixCfg();
@@ -16463,6 +17125,10 @@ function thmHTML(){
   return ''+
   '<div class="fic-top"><div class="fic-pill"><b>主题</b><span class="fic-sep">｜</span><span class="fic-q">外观、字体、锁屏、背景</span></div></div>'+
   thmPrevHTML()+
+  '<div class="thm-sec">聊天界面质感</div>'+
+  thmChatStyleHTML()+
+  '<div class="thm-sec">聊天文字颜色</div>'+
+  thmChatTextHTML()+
   '<div class="thm-sec">主题色</div>'+
   (darks.length?thmSwatchesHTML(darks,curTheme):'')+
   (lights.length?('<div style="height:10px"></div>'+thmSwatchesHTML(lights,curTheme)):'')+
@@ -16490,7 +17156,7 @@ function thmPrevHTML(){
   try{const c=curChar();if(c&&c.name)nm=c.name}catch(e){}
   const t=new Date();
   const hm=(t.getHours()<10?'0':'')+t.getHours()+':'+(t.getMinutes()<10?'0':'')+t.getMinutes();
-  return '<div class="thm-prev">'+
+  return '<div class="thm-prev'+((cfg&&cfg.chatStyle==='liquid')?' liquid':'')+((cfg&&cfg.chatText==='white')?' whitechat':'')+'">'+
     '<div class="thm-prev-top"><span>'+hm+'</span><span>深蓝海域</span></div>'+
     '<div class="thm-prev-card"><div class="thm-prev-t">'+esc(nm)+'</div>'+
     '<div class="thm-prev-b">'+
@@ -16524,6 +17190,33 @@ function thmSizeHTML(fs){
       'oninput="thmSetSize(this.value,0)" onchange="thmSetSize(this.value,1)"></div>'+
     '<div class="thm-sample"><div class="thm-prev-t">预览</div>'+
     '<p>她推开门，风铃叮当响了一声——今天也要好好的。</p></div>';
+}
+/* 【新】聊天界面质感：经典保持原样；液态玻璃让气泡、顶栏和输入区透出背景。 */
+function thmChatStyleHTML(){
+  const cur=(cfg&&cfg.chatStyle==='liquid')?'liquid':'classic';
+  const opt=(k,n,h)=>'<button type="button" class="thm-dopt'+(k===cur?' on':'')+'" onclick="thmSetChatStyle(\''+k+'\')">'+
+    '<span class="thm-cmini '+k+'"><i class="ca"></i><i class="cm"></i><i class="ci"></i></span>'+
+    '<span class="thm-dnm">'+n+'</span><span class="thm-dhint">'+h+'</span></button>';
+  return '<div class="thm-dopts">'+
+    opt('classic','经典','现在使用的清晰聊天气泡')+
+    opt('liquid','液态玻璃','半透明、折射、波纹和柔光')+
+    '</div><p class="fic-sub">'+esc(
+      cur==='liquid'
+        ?'现在是「液态玻璃」：气泡和输入框会从同一张聊天背景取样，做轻微折射、低频波纹和方向高光，壁纸纹理仍然清楚可见；只影响聊天页，其它应用保持原样。'
+        :'现在是「经典」：保留原来的清晰底色和扁平气泡。切成液态玻璃后，可以继续换主题色、字体和聊天背景，它们会一起生效。'
+    )+'</p>';
+}
+/* 【新】聊天文字颜色：跟随主题 / 固定白色。 */
+function thmChatTextHTML(){
+  const cur=(cfg&&cfg.chatText==='white')?'white':'auto';
+  return '<div class="thm-chips">'+
+    '<button type="button" class="thm-chip'+(cur==='auto'?' on':'')+'" onclick="thmSetChatText(\'auto\')">跟随主题</button>'+
+    '<button type="button" class="thm-chip'+(cur==='white'?' on':'')+'" onclick="thmSetChatText(\'white\')">白色</button>'+
+    '</div><p class="fic-sub">'+esc(
+      cur==='white'
+        ?'现在是「白色」：消息正文、时间、代币统计和聊天工具条会改成白字，并带一点深色阴影，适合深色或明暗变化大的聊天背景。'
+        :'现在是「跟随主题」：文字颜色仍由当前主题决定。浅色主题通常是深色字，深色主题通常是浅色字。'
+    )+'</p>';
 }
 /* 【新】桌面 UI 风格：复古（彩色方块）/ 玻璃（半透明磨砂玻璃） */
 function thmDeskHTML(){
@@ -16610,6 +17303,19 @@ function thmWallRow(tag,label,hint,w){
 }
 
 /* ---------- 交互（全部即时生效） ---------- */
+/* 【新】切聊天界面质感：存进配置，立即切换；从桌面打开主题时先只更新预览。 */
+function thmSetChatStyle(k){
+  cfg.chatStyle=(k==='liquid')?'liquid':'classic';
+  save(LS.cfg,cfg);
+  try{applyChatSkin()}catch(e){}
+  thmRender();
+}
+function thmSetChatText(k){
+  cfg.chatText=(k==='white')?'white':'auto';
+  save(LS.cfg,cfg);
+  try{applyChatSkin()}catch(e){}
+  thmRender();
+}
 /* 【新】切桌面 UI 风格：存进配置 → 让桌面外壳重新上样式 → 重画这一页（那个小勾才会动） */
 function thmSetDesk(k){
   cfg.deskStyle=(k==='glass')?'glass':'retro';
@@ -22688,10 +23394,10 @@ function headName(){
   var nm=String(c.name||'角色');
   if(t)t.textContent=nm;
   if(w){
-    var a=c.auto||{};
     var own='';
     try{if(typeof characterStatusText==='function')own=characterStatusText(c)}catch(e){}
-    w.textContent=(own?('状态：'+own+' · '):'')+'自动发消息 '+(a.on?'开':'关')+' · 联网搜索 '+((c.search&&c.search.on)?'开':'关');
+    w.textContent=own||'';
+    w.style.display=own?'':'none';
   }
 }
 window.headName=headName;   /* 挂到全局：主程序里的 draw 要用 */
@@ -22857,9 +23563,10 @@ function headRefresh(){
   var t=document.getElementById('title'),w=document.getElementById('who');
   if(t)t.textContent=String(c.name||'角色');
   if(w){
-    var a=c.auto||{},s=c.search||{};
-    w.innerHTML='自动发消息 '+(a.on?'<i class="on">开</i>':'<i>关</i>')+
-      '<span class="sep">·</span>联网搜索 '+(s.on?'<i class="on">开</i>':'<i>关</i>');
+    var own='';
+    try{if(typeof characterStatusText==='function')own=characterStatusText(c)}catch(e){}
+    w.textContent=own||'';
+    w.style.display=own?'':'none';
   }
 }
 window.headRefresh=headRefresh;   /* 挂到全局：主程序里的 draw 要用 */
@@ -28838,7 +29545,8 @@ W.updateDots=function(){
   var hd=D.querySelector('header');
   if(hd){
     var hb=D.createElement('button');
-    hb.id='hback';hb.className='hback';hb.type='button';hb.setAttribute('aria-label','返回桌面');hb.textContent='‹';
+    hb.id='hback';hb.className='hback';hb.type='button';hb.setAttribute('aria-label','返回桌面');
+    hb.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.8 7.8 12l7.2 7.2"/></svg>';
     hb.onclick=function(){go('home')};
     hd.insertBefore(hb,hd.firstChild);
   }
