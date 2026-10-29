@@ -16279,6 +16279,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
 狼人杀新增「复制精简战报」和「保存战绩长图」：默认只整理身份公开、夜间行动、公开发言、投票和裁判复盘，不再夹带 AI 身份盘、质问记录、草稿纸、夜间密会或思考过程；可以勾选是否额外加入狼队夜间交流，完整调试版复制仍然保留。AI 也新增了发言先后禁令，不得把谁先发言、谁后发言、谁还没轮到、谁一直没说话或谁后置位起跳当成狼面或好人面；这条只用于内部自检，不会让角色在公开发言里朗读规则。
+狼人杀策略继续补强：仍在公开穿预的悍跳狼每天必须编出并交代新一夜的金水/查杀；无梦魇板不能用“被恐没验”逃避查验，有梦魇板也必须对准上一轮公开计划。深水狼和“摸鱼选手”可以话说得短，但每轮必须给明确票向和一条实质理由，队友被冲时要回应或拆火。狼队还会按公开神职声明整理屠神进度，终局会优先找尚未公开的神职，不再只因警徽盲目刀警长；只剩三人时，狼 AI 必须主动抢一件没人能证明的神职身份，能从死者行为和刀口判断死者像守卫、女巫、猎人等身份时，就穿那件“死无对证”的衣服，不再只报村民等死。被票出玩家最后一票若偏离当天主目标投向仍存活的玩家，也会作为下一次夜间刀人的“疑似指刀”候选。
 「主题」应用新增“聊天界面质感”选项：可以选“经典”或“液态玻璃”。液态玻璃会让聊天顶栏、消息气泡、时间和输入框半透明地透出聊天背景，并带背景取样、轻微折射和柔光；只影响聊天页，不改变聊天内容、头像、特殊卡片、其它应用或锁屏。下面还有“聊天文字颜色”，可选“跟随主题”或“白色”。选择都会立即生效并自动保存，想恢复原样就到「主题」里切换。
 
 【最近更新 · 2026-10-28】
@@ -33133,7 +33134,7 @@ var WW_WOLF_JOB_HELP={
   jump:'优先抢预言家身份，像真预一样报昨夜验人结果。不能只写“按顺序归票”。不要反射性查杀对跳者，优先给外置位发金水拉票，或反踩真预“怕你才查杀”；编验人必须遵守真实时间线。',
   charge:'明面帮悍跳狼或队友冲锋，但不要拉全队无脑同票；队友暴露时要会切割。',
   hook:'倒钩：表面站好人，按局势选一种：①常规——反悍跳、抬你判断的真预；②阴阳——明面反悍跳，关键时刻票好人；③垫飞——用大量低质好话猛抬真预。别机械固定反调，必要时可票暴露队友，也别公开保狼。',
-  deep:'低调藏好，按公共逻辑独立投票，不无脑救队友，也别和狼队抱团同票。'
+  deep:'低调藏好，按公共逻辑独立投票，不无脑救队友，也别和狼队抱团同票。低调不等于划水：每轮至少给出明确票向和一条实质理由；队友被查杀或被冲时要回应质疑、拆一处火力，不能只复述“她是好人”。'
 };
 function wwWolfJobHelp(role){
   if(role==='jump'&&wwSheriffOn())return WW_WOLF_JOB_HELP.jump+
@@ -33144,14 +33145,14 @@ var WW_WOLF_JOB_VOTE={
   jump:'先保预言家面，必要时切割队友，别拉全队冲票。',
   charge:'可以冲锋，但别让全狼队投成同一种票型。',
   hook:'按当前倒钩打法独立投：常规/阴阳可在关键时刻票好人，必要时票暴露队友，别公开保狼。',
-  deep:'优先藏身份，跟随可信公共逻辑投票，不无脑救队友。'
+  deep:'优先藏身份，跟随可信公共逻辑投票，不无脑救队友。每轮至少给出明确票向和一条独立理由；队友被冲时必须做一次有效回应或反打，不能整轮只表态。'
 };
 var WW_PICKS=[['random','随机'],['villager','村民'],['seer','预言家'],['witch','女巫'],['hunter','猎人'],['knight','骑士'],['guard','守卫'],['gravekeeper','守墓人'],['idiot','白痴'],['wolfking','白狼王'],['wolfkingdeath','狼王'],['gargoyle','石像鬼'],['nightmare','梦魇'],['wolf','狼人']];
 /* NPC：每个都有短人设、只读自己的一条，不读任何角色记忆，用来凑人数又保留明显口吻差异。 */
 var WW_NPC_NAMES=['摸鱼选手','深夜不睡','柠檬不酸','干饭第一名','键盘侠阿伟','路过的风景','香菜退散','开麦就困','打工人小张','月亮不睡','一杯冰美式','网不太好'];
 var WW_NPC_FACES=['🐟','🦉','🍋','🍜','🎧','🌿','🥬','🐧','☕','🌙','🧋','📶'];
 var WW_NPC_PERSONAS={
-  '摸鱼选手':'慵懒佛系，短句多，常说“先放这儿”；不抢节奏，但投票时很干脆。',
+  '摸鱼选手':'慵懒佛系，短句多，常说“先放这儿”；不抢节奏，但投票和关键判断必须给明确票向与至少一条实质理由，可以短，不能整轮空着。',
   '深夜不睡':'夜猫子式兴奋，爱突然抛新假设和追问，语速偏快，偶尔被自己的想法逗笑。',
   '柠檬不酸':'爱摆名侦探架势，常说“线索对不上”，先装帅再给判断；被质疑会立刻接招。',
   '干饭第一名':'语气豪爽，生活化吐槽多，饿了会催；平时直来直去，关键判断会突然认真。',
@@ -34481,6 +34482,7 @@ function wwSpeakTask(p,base){
     '即便角色平时爱打比方，这一局也少用比喻；不要说“记账、账本、复印、档案、考试、法庭”这类口癖，直接说谁、哪句话、为什么。'+
     (face?'面杀可写少量括号动作、神态，只写真实观察。':'像群聊，不写旁白动作。')+
     '不骂人、不靠发誓喊冤、不用 markdown。';
+  if(wwIsWolf(p))plain+=wwWolfEndgameClaimHint(p);
   var titleAsk='先写【标题】：单独一行，最多 12 字。标题会被用户看见，必须客观概括公开说了什么、站了谁，不判断身份和动机；狼也不能暴露身份或写出“装作村民、装好人、潜伏”等真实意图。例：站边1号 / 查杀1号 / 这轮划水 / 无信息发言。';
   if(((p&&p.role==='seer')||wwWolfJobOf(p)==='jump')&&V.ww&&Number(V.ww.day)===1){
     titleAsk=wwSheriffOn()
@@ -34576,6 +34578,68 @@ async function wwGuardSeerSpeech(p,sys,say){
   p._lastSayTitle='报验'+wwTag(t)+(c.isWolf?'查杀':'金水');
   return '我是预言家。'+fact+'之前警徽流只是计划，不是查验结果，这轮以这条真实结果为准。';
 }
+function wwActivePublicSeerClaim(p,w){
+  if(!p||!w)return null;
+  var a=wwSeerCommitmentLedger(w).claims||[];
+  for(var i=0;i<a.length;i++)if(a[i]&&a[i].p&&a[i].p.uid===p.uid)return a[i];
+  return null;
+}
+function wwLastPlannedSeerTarget(p,w){
+  if(!p||!w)return null;
+  var old=[];
+  wwPublicEventRows(w).forEach(function(r){
+    if(r&&r.uid===p.uid&&Number(r.day)<Number(w.day))old.push(String(r.text||''));
+  });
+  for(var i=old.length-1;i>=0;i--){
+    var m=old[i].match(/(?:今晚|今夜|明晚|准备|计划|改验)[^。！？!?；;\n]{0,18}?(?:验|摸)\s*(\d{1,2})\s*号/);
+    if(!m)continue;
+    var seq=Number(m[1]);
+    var arr=w.players||[];
+    for(var j=0;j<arr.length;j++)if(Number(arr[j].seq)===seq)return arr[j];
+  }
+  return null;
+}
+function wwWolfSeerNeedsReport(p,w,say){
+  if(!p||!w||!wwIsWolf(p))return false;
+  var c=wwActivePublicSeerClaim(p,w);
+  if(!c||c.retractedDay||Number(w.day)<=Number(c.day))return false;
+  var s=String(say||'');
+  if(/(?:退水|代跳|压跳|假验)[^。！？!?；;\n]{0,24}(?:作废|不算|退出|让位)/.test(s))return false;
+  var old={};(c.checks||[]).forEach(function(x){old[Number(x.seq)+'|'+x.result]=1});
+  var fresh=wwReportedSeerChecks(s).filter(function(x){return !old[Number(x.seq)+'|'+x.result]});
+  if(fresh.length)return false;
+  var blocked=/(?:昨晚|昨夜|第\s*\d+\s*夜)[^。！？!?；;\n]{0,36}(?:被恐|恐惧)[^。！？!?；;\n]{0,24}(?:没验|不能验|验不了|没结果|技能没发动)/.test(s);
+  if(blocked&&wwBoard(w.count,w).nightmare){
+    var planned=wwLastPlannedSeerTarget(p,w);
+    if(!planned||wwMentionsSeq(s,planned.seq)||/(?:改验|不验|没验原定|转验)/.test(s))return false;
+  }
+  return true;
+}
+async function wwGuardWolfSeerSpeech(p,sys,say){
+  var w=V.ww;
+  if(!wwWolfSeerNeedsReport(p,w,say))return say;
+  var planned=wwLastPlannedSeerTarget(p,w);
+  var hint=planned?('你上一轮公开说过要验 '+wwTag(planned)+'；优先沿用这个目标。'):'上一轮没有可沿用的明确验人计划，自己选一个目标编。';
+  var fearOption=wwBoard(w.count,w).nightmare
+    ?'也可以明确改验或声称被恐没结果，但必须和上一轮计划对得上。'
+    :'本板没有梦魇，不能声称“被梦魇恐惧”，必须报一个金水或查杀。';
+  try{
+    var ask='【悍跳狼每日查验硬检查】你仍在公开穿预言家，还没有退水。今天只说别人、不交代昨夜查验会直接自爆。'+
+      hint+'现在必须报第 '+w.day+' 夜新增查验：给一个具体座位和“金水/查杀”，并让结果与你之前的世界线一致。'+fearOption+'不能沉默跳过。'+
+      '保持原人设和原立场，重写完整公开发言；不要暴露自己是狼，不要解释这条检查。之前发言：'+String(say||'').slice(0,900);
+    var fixed=String(await wwCall(sys,ask,wwSayMax(),.7)||'').trim();
+    fixed=wwTakeTitle(p,fixed);
+    fixed=wwTakeIdentityBoard(p,fixed).text;
+    var sp=wwSplitDraft(fixed);fixed=wwStripLead(sp.say||'');
+    if(sp.draft)p.scratch=sp.draft;
+    if(fixed&&!wwWolfSeerNeedsReport(p,w,fixed))return fixed;
+  }catch(e){}
+  var pool=wwAlive().filter(function(x){return x&&x!==p&&!wwIsWolf(x)});
+  var tgt=(planned&&planned.alive)?planned:(planned||pool[0]||wwAlive().filter(function(x){return x!==p})[0]);
+  if(!tgt)return say;
+  p._lastSayTitle='报验'+wwTag(tgt)+'金水';
+  return '补一条正事：我昨晚验的是 '+wwTag(tgt)+'，金水。之前说的安排有变化，以这条真实结果为准。'+String(say||'');
+}
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
 async function wwSpeak(p,sys){
@@ -34609,6 +34673,7 @@ async function wwSpeak(p,sys){
   if(sp.draft)p.scratch=sp.draft;
   var out=wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）'));
   if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
+  if(p&&!p.isUser&&wwIsWolf(p))out=await wwGuardWolfSeerSpeech(p,sys,out);
   if(p&&!p.isUser&&p.role==='seer')out=await wwGuardSeerSpeech(p,sys,out);
   return out;
 }
@@ -34867,7 +34932,9 @@ function wwSysFor(p,task){
 	     r==='nightmare'?'狼人阵营。每晚最先单独恐惧一名玩家，使其当晚不能使用技能；不能连续两晚恐惧同一人，也可以空梦。恐惧完成后才与普通狼会合并参加狼刀，首夜恐惧前不认识狼队友。':
 	     r==='wolfking'?'狼队成员。白天可自爆带走一人并立即入夜，限一次；被票前或能炸关键神职时用。':
 	     r==='wolfkingdeath'?'狼队成员，和普通狼互相认识、一起商量并刀人。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以不发动。平时优先隐藏身份；即将出局时衡量带走跳出的关键神职或能改变胜负的人，别为了泄愤带走低价值目标。':
-     '狼队成员。白天装好人，可悍跳、假金水、假查杀。悍跳前先过时间线：首夜验人发生在任何上警、发言和警徽表现之前，首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能引用“上警积极、发言、警徽表现”等白天信息；每天只新增一夜查验，死讯后仍是同一天。别反射性查杀对跳者；优先外置位金水拉票，或反踩真预“怕你才查杀”。'));
+     '狼队成员。白天装好人，可悍跳、假金水、假查杀。悍跳前先过时间线：首夜验人发生在任何上警、发言和警徽表现之前，首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能引用“上警积极、发言、警徽表现”等白天信息；每天只新增一夜查验，死讯后仍是同一天。'+
+     '如果你仍在公开穿预且没有退水，从第二个白天开始每天必须报新一夜的金水/查杀或明确改验；'+(wwBoard(w.count,w).nightmare?'想用“被恐没验”就明确说出来并保持前后一致，':'本板没有梦魇，绝对不能声称被梦魇恐惧，必须编出一个可继续圆世界线的验人结果，')+'绝不能整轮只聊票型漏掉查验。'+
+     '别反射性查杀对跳者；优先外置位金水拉票，或反踩真预“怕你才查杀”。'));
   if(p.anon)L.push('【你这一局匿名】其他玩家只知道你是 '+(p.seq||'?')+' 号，不会拿到你的真实名字。发言时用编号自称，绝不要说出自己的真实名字；就算你的人设里写着名字，也要把它当成只有自己知道的信息。');
   if(wwIsPackWolf(p)||(p.role==='nightmare'&&w.nightmareMetWolves)){
     var mates=wwWolfMates(p).map(function(x){return wwNum(x)+x.name+((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':((x.role==='nightmare')?'（梦魇）':'')))});
@@ -35144,7 +35211,7 @@ async function wwWolfPickJob(p,allowed,idx,total){
   var rules=['悍跳狼：抢预、做预面，别反射查杀对跳者。',
     '冲锋狼：明面帮队友冲，但别全队同票。',
     '倒钩狼：表面站好人，可与队友对立，必要时票队友。',
-    '深水狼：低调藏身，独立判断，不无脑救队友。'].join('\n');
+    '深水狼：低调藏身，独立判断，不无脑救队友；但每轮必须给明确票向和实质理由，队友被冲时要有效回应，不能纯划水。'].join('\n');
   var sys=wwSysFor(p,'狼队按座位顺序定分工（第 '+(idx+1)+'/'+total+' 个）。已选：'+chosen+'。\n'+
     '你只能从：'+wwWolfJobNames(allowed)+' 中选一个。\n'+rules+
     '\n【输出格式】只输出一个分工名称。');
@@ -35234,12 +35301,80 @@ function wwBlockBlindWolfSelfKill(w,target,logic){
   if(Number(w.day)<=2&&wolfAlive>=2&&seers.length&&!wwUserWolfSelfKillOrder(w))return true;
   return false;
 }
+function wwPublicGodGapData(w){
+  var b=wwBoard(w&&w.count,w),gods=[],claimed={};
+  ['seer','witch','hunter','guard','gravekeeper','knight','idiot'].forEach(function(k){if(b[k])gods.push(k)});
+  ((w&&w.log)||[]).forEach(function(e){
+    if(!e||e.k!=='say'||!e.who)return;
+    var p=wwPlayerByUid(e.who),roles=p?wwClaimIdentityRoles(e.text,p.seq):[];
+    roles.forEach(function(role){
+      if(gods.indexOf(role)<0)return;
+      claimed[role]=claimed[role]||{role:role,players:[]};
+      if(!claimed[role].players.some(function(x){return x.uid===p.uid}))claimed[role].players.push(p);
+    });
+  });
+  return {gods:gods,claimed:claimed,never:gods.filter(function(k){return !claimed[k]})};
+}
+function wwPublicGodGapText(w,p){
+  if(!w||!p||!wwIsWolf(p)||wwAlive().length>6)return '';
+  var d=wwPublicGodGapData(w);
+  if(!d.never.length)return '';
+  var declared=d.gods.filter(function(k){return d.claimed[k]}).map(function(k){
+    return WW_ROLE_NAME[k]+'（'+d.claimed[k].players.map(function(x){return wwTag(x)+(x.alive?'':'·已出局')}).join('、')+'）';
+  }).join('、')||'暂无';
+  var open=d.never.map(function(k){return WW_ROLE_NAME[k]}).join('、');
+  return '【屠神盘 · 公开推断】本板神职：'+d.gods.map(function(k){return WW_ROLE_NAME[k]}).join('、')+
+    '。公开自称过：'+declared+'。从未被公开认领的神职：'+open+'。'+
+    '终局刀人先比较这些未明神；不要只因某人有警徽就默认优先刀。若你根据发言、票型或刀口判断某个已死/在场玩家像是其中一张神牌，优先验证或处理她；若杀掉她可能直接屠神，她的优先级高于普通控场位。公开声明可能为假，仍需结合行为判断。';
+}
+function wwWolfEndgameClaimHint(p){
+  var w=V.ww;
+  if(!w||!p||!wwIsWolf(p)||wwAlive().length>3)return '';
+  var d=wwPublicGodGapData(w);
+  if(!d.never.length)return '';
+  var open=d.never.map(function(k){return WW_ROLE_NAME[k]||k}).join('、');
+  var why=d.never.length===1
+    ?'按公开神职盘，唯一从未被公开认领的神是【'+(WW_ROLE_NAME[d.never[0]]||d.never[0])+'】。'
+    :'按公开神职盘，仍未被公开认领的神职有【'+open+'】。你要结合哪个死者最像其中某张牌、谁一直没有对应身份线，选一个最像“死无对证”的身份穿。';
+  var claim=d.never.length===1
+    ?('必须主动跳【'+(WW_ROLE_NAME[d.never[0]]||d.never[0])+'】')
+    :('必须从【'+open+'】里选一张最像已死神职的牌主动穿');
+  return '\n【终局抢神衣】'+why+'你不是这张牌，但终局只剩 '+wwAlive().length+
+    ' 人，若票可能压到你，报村民硬扛通常等于等死。轮到你发言时，除非已有能直接反杀对方的硬证据，否则'+claim+'，把此前自称村民解释成藏身份；'+
+    (d.never.indexOf('hunter')>=0?'如果选择猎人，要明确报枪、给枪口方向，逼摇摆好人承担“推出真枪还是放过假枪”的风险。':'要给出这张神牌的可用信息或技能立场。')+
+    '真神可能当场对跳，要说她是在抢衣服，并用你一路的票向、归票和对方矛盾反打。不能只报“我村民，没什么好藏的”。'+
+    '如果某个已死玩家很像某个未公开的神职、而场上没人能证明她的身份，优先穿那件“死无对证”的衣服。'+
+    '这是内部策略：公开发言里不要提“公开神职盘、未明神、死无对证、系统提示、策略建议”，直接用角色口吻跳身份和反打。';
+}
+function wwWolfLastVoteKnifeHint(p,w){
+  if(!w||!p||!wwIsWolf(p)||w.board!=='gravegargoyle')return '';
+  var rows=wwVoteHistoryRows(w),last={},cand=[];
+  rows.forEach(function(r){last[r.voter]=r});
+  (w.players||[]).forEach(function(q){
+    if(!q||q.alive||q.killedBy!=='vote')return;
+    var r=last[q.seq];if(!r)return;
+    var tp=null;(w.players||[]).forEach(function(x){if(x&&Number(x.seq)===Number(r.target))tp=x});
+    if(!tp||!tp.alive)return;
+    var counts={},top=0,topSeq=0;
+    rows.filter(function(x){return x.day===r.day}).forEach(function(x){counts[x.target]=(counts[x.target]||0)+1});
+    Object.keys(counts).forEach(function(k){if(counts[k]>top){top=counts[k];topSeq=Number(k)}});
+    if(Number(r.target)!==topSeq)cand.push({day:r.day,from:q,to:tp,top:topSeq});
+  });
+  if(!cand.length)return '';
+  cand.sort(function(a,b){return b.day-a.day});
+  return '【出局玩家最后一票 · 疑似指刀】\n'+cand.slice(0,3).map(function(x){
+    return '· 第 '+x.day+' 天：'+wwTag(x.from)+'最后一票投 '+wwTag(x.to)+'，与当天票数最多的 '+x.top+'号不同，且'+wwTag(x.to)+'仍活着。';
+  }).join('\n')+
+  '\n被票出的队友或疑似大狼如果救不了自己，最后一票突然点向非主目标，可能是在用票指刀。它不是硬命令，可能只是抗议或乱票；但今夜必须把该目标列入刀人比较，尤其她像尚未找出的神、杀掉后能完成屠边时。';
+}
 function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length,wolfAlive=wwAlive().filter(wwIsWolf).length;
-  return '【自刀/刀队友检查】'+
+  var base='【自刀/刀队友检查】'+
     (seers.length?('场上仍有 '+seers.map(wwTag).join('、')+' 以预言家身份活动。'):'当前没有明确的活跃跳预者。')+
     '自刀不能只为了“证明悍跳位是真的”，还要保留能继续吃票、继续对抗真预的抗推位。选择自己或队友前，判断里必须明确写出：为什么她已没有抗位价值、自刀能换来什么具体票型、狼队还能承受少一人。'+
     '前几天若其他狼还能打、且仍有人可以抗推真预，优先保留跳预狼；否则改刀好人，把恐惧和刀人用在不同的有效目标上。当前普通狼存活数：'+packAlive+'；狼阵营总人数：'+wolfAlive+'。';
+  var god=wwPublicGodGapText(w,p),sig=wwWolfLastVoteKnifeHint(p,w);
+  return base+(god?'\n'+god:'')+(sig?'\n'+sig:'');
 }
 /* 【改·省调用】一只狼夜里一次搞定三件事：想刀谁、为什么这样刀、给队友留一句悄悄话。
    以前分多次请求，现在合成一次，狼多的时候能省请求。
