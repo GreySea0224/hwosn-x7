@@ -1372,7 +1372,7 @@ html.liquidchat #msgs .bub.multi.me .bsub{
   background:
     linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.02) 44%,transparent 78%),
     linear-gradient(135deg,color-mix(in srgb,var(--acc) 13%,transparent),color-mix(in srgb,var(--panel) 13%,transparent));
-  border-color:color-mix(in srgb,var(--acc) 38%,var(--lg-edge))!important
+  border-color:transparent!important
 }
 html.liquidchat #msgs .bub.ai:not(.multi),
 html.liquidchat #msgs .bub.multi.ai .bsub{
@@ -1486,7 +1486,7 @@ html.liquidwebgl #main{
 }
 html.liquidwebgl #msgs .bub:not(.multi):not(.gsys),
 html.liquidwebgl #msgs .bub.multi .bsub{
-  background:transparent!important;
+  background:color-mix(in srgb,var(--panel) 3%,transparent)!important;
   border-color:transparent!important;
   box-shadow:0 8px 20px rgba(5,15,25,.12)!important;
   backdrop-filter:none!important;
@@ -1494,7 +1494,10 @@ html.liquidwebgl #msgs .bub.multi .bsub{
 }
 html.liquidwebgl #msgs .bub.ai:not(.multi),
 html.liquidwebgl #msgs .bub.multi.ai .bsub{box-shadow:none!important}
-html.liquidwebgl #msgs .bub.withav::before{border-color:transparent!important}
+html.liquidchat #msgs .bub.withav:not(.avaem)::before{
+  border-color:transparent!important;
+  background-color:transparent
+}
 html.liquidwebgl.p6light #msgs .bub:not(.multi):not(.gsys),
 html.liquidwebgl.p6light #msgs .bub.multi .bsub{text-shadow:0 1px 2px rgba(255,255,255,.28)}
 html.liquidwebgl:not(.p6light) #msgs .bub:not(.multi):not(.gsys),
@@ -2083,6 +2086,11 @@ var ChatGlass=(function(){
     if(!enabled||raf)return;
     raf=requestAnimationFrame(draw);
   }
+  function refreshNow(){
+    if(!enabled)return;
+    if(raf){cancelAnimationFrame(raf);raf=0}
+    draw();
+  }
   function setEnabled(on){
     enabled=!!on;
     if(!enabled){
@@ -2140,6 +2148,7 @@ var ChatGlass=(function(){
   return {
     setEnabled:setEnabled,
     refresh:function(){if(enabled)schedule()},
+    refreshNow:refreshNow,
     refreshBackground:refreshBackground
   };
 })();
@@ -3006,12 +3015,36 @@ function nowText(){
   const d=new Date(),w='日一二三四五六'[d.getDay()];
   return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 星期'+w+' '+fmtTime(d.getTime());
 }
+function cleanCharacterStatusText(raw){
+  let t=String(raw==null?'':raw).trim();
+  if(!t)return '';
+  t=t.replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/i,'').trim();
+  const a=t.indexOf('{'),b=t.lastIndexOf('}');
+  if(a>=0&&b>a){
+    try{
+      const o=JSON.parse(t.slice(a,b+1));
+      if(o&&typeof o.status==='string')t=o.status;
+    }catch(e){}
+  }
+  t=t.replace(/^\s*\{\s*["']?status["']?\s*:\s*/i,'')
+    .replace(/^\s*["']?status["']?\s*[:：]\s*/i,'')
+    .replace(/^\s*(?:当前状态|角色状态|状态)\s*[:：]\s*/i,'')
+    .replace(/^\s*["']/,'')
+    .replace(/["']\s*\}?\s*$/,'')
+    .replace(/\\[nr]/g,' ')
+    .replace(/\\"/g,'"')
+    .replace(/<[^>]+>/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+  if(!t||/^[\[{]/.test(t))return '';
+  return t.slice(0,60);
+}
 function characterStatusText(c){
   const s=c&&c.selfStatus;
-  const text=String((s&&s.text)||'').trim();
+  const text=cleanCharacterStatusText((s&&s.text)||'');
   const at=Number(s&&s.at)||0;
   if(!text||!at||Date.now()-at>24*60*60*1000)return '';
-  return text.slice(0,100);
+  return text;
 }
 function latestUserContent(cid){
   try{
@@ -6494,7 +6527,12 @@ function renderChat(){
       });
     }
   }catch(e){}
-  try{if(window.ChatGlass)window.ChatGlass.refresh()}catch(e){}
+  try{
+    if(window.ChatGlass){
+      if(window.ChatGlass.refreshNow)window.ChatGlass.refreshNow();
+      else window.ChatGlass.refresh();
+    }
+  }catch(e){}
 }
 
 function viewImg(src){
@@ -27672,7 +27710,7 @@ function tideParseSelfOutput(raw,key,type){
   }
   var plain=tideCleanSelfText(s);
   if(!plain||/[|｜]{3,}/.test(plain))return '';
-  if(type==='status')return plain.length<=120?plain.replace(/\s+/g,' '):'';
+  if(type==='status')return cleanCharacterStatusText(plain);
   if(type==='diary')return plain.length>=20?plain:'';
   if(plain.length<80)return '';
   var cues=0;
@@ -27775,7 +27813,7 @@ async function tideRunSelfRoutine(c,r,manual){
       try{MEMC={}}catch(e){}
       tideLogAdd({kind:'role_review',cid:c.id,title:c.name,text:'更新了动态认知',manual:!!manual,where:'角色日常'});
     }else{
-      c.selfStatus={text:String(out).replace(/\s+/g,' ').slice(0,100),at:now,source:'self-routine'};
+      c.selfStatus={text:cleanCharacterStatusText(out),at:now,source:'self-routine'};
       save(LS.chars,chars);
       tideLogAdd({kind:'role_status',cid:c.id,title:c.name,text:'当前状态：'+c.selfStatus.text,manual:!!manual,where:'角色日常'});
     }
