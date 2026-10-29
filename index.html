@@ -6790,6 +6790,15 @@ function gameRecordResultLine(r){
   if(r.endText)return String(r.endText).replace(/\s+/g,' ').slice(0,120);
   return r.winner||'已完成';
 }
+/* 狼人杀名称表在后面的游戏脚本里才初始化；这里必须安全读取，不能让角色日常因战绩摘要而报错。 */
+function wwRoleLabel(role){
+  const fallback={wolf:'狼人',wolfking:'白狼王',wolfkingdeath:'狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
+  try{
+    const map=window.WW_ROLE_NAME;
+    if(map&&map[role])return String(map[role]);
+  }catch(e){}
+  return fallback[role]||String(role||'未知');
+}
 function gameRecordCompactText(r,id,cid,fallbackT,brief){
   if(String(brief||'').trim()){
     let out=String(brief).trim();
@@ -6797,9 +6806,9 @@ function gameRecordCompactText(r,id,cid,fallbackT,brief){
       const ps=(r.players||[]),userP=ps.filter(function(p){return p&&p.isUser})[0]||null;
       const selfP=cid?(ps.filter(function(p){return p&&p.cid===cid})[0]||null):null;
       if(userP&&userP.role)out=out.replace(/^(?:你的身份|真人玩家的身份)[：:].*$/gm,
-        '用户「'+(userP.name||userName())+'」'+(userP.seq?('（'+userP.seq+'号）'):'')+'在这局的身份：'+(WW_ROLE_NAME[userP.role]||userP.role));
+        '用户「'+(userP.name||userName())+'」'+(userP.seq?('（'+userP.seq+'号）'):'')+'在这局的身份：'+wwRoleLabel(userP.role));
       if(selfP&&selfP.role&&out.indexOf('角色「'+(selfP.name||'你')+'」')<0)
-        out+='\n角色「'+(selfP.name||'你')+'」'+(selfP.seq?('（'+selfP.seq+'号）'):'')+'在这局的身份：'+(WW_ROLE_NAME[selfP.role]||selfP.role);
+        out+='\n角色「'+(selfP.name||'你')+'」'+(selfP.seq?('（'+selfP.seq+'号）'):'')+'在这局的身份：'+wwRoleLabel(selfP.role);
       if(out.indexOf('身份说明：用户与当前角色是两位不同玩家')<0)
         out+='\n身份说明：用户与当前角色是两位不同玩家，以上两项分别对应。';
     }
@@ -25221,9 +25230,9 @@ function execGameRecordTool(args,cid){
     const selfP=ps.filter(function(p){return p&&p.cid===cid})[0]||null;
     const who=function(p){return p?(((p.seq?p.seq+'号 · ':'')+p.name)):'未知玩家'};
     const identityCtx=['【身份对照（很重要，先读这一段）】'];
-    if(userP)identityCtx.push('· 用户「'+who(userP)+'」在这局的身份是【'+(WW_ROLE_NAME[userP.role]||userP.role)+'】。');
+    if(userP)identityCtx.push('· 用户「'+who(userP)+'」在这局的身份是【'+wwRoleLabel(userP.role)+'】。');
     else identityCtx.push('· 这局没有标记出用户座位。');
-    if(selfP)identityCtx.push('· 当前角色你「'+who(selfP)+'」在这局的身份是【'+(WW_ROLE_NAME[selfP.role]||selfP.role)+'】。');
+    if(selfP)identityCtx.push('· 当前角色你「'+who(selfP)+'」在这局的身份是【'+wwRoleLabel(selfP.role)+'】。');
     else identityCtx.push('· 当前角色你在这局没有参赛。');
     identityCtx.push('记录里的 isUser:true 只代表用户，不代表你；不要把用户的身份当成角色自己的身份。');
     detail=identityCtx.join('\n')+'\n\n'+detail;
@@ -29900,7 +29909,7 @@ function recSub(r){
        你参与的局就写你那一局的身份（狼人 / 预言家 / 女巫 / 猎人 / 白痴 / 村民），旁观局写「旁观」。 */
     var me=null,ps=(r.players)||[],i2;
     for(i2=0;i2<ps.length;i2++){if(ps[i2]&&ps[i2].isUser){me=ps[i2];break}}
-    var mine=me?('你是'+((WW_ROLE_NAME&&WW_ROLE_NAME[me.role])||'好人')):(r.mode==='watch'?'旁观':'你参与');
+    var mine=me?('你是'+(me.role?wwRoleLabel(me.role):'好人')):(r.mode==='watch'?'旁观':'你参与');
     /* 【改】就写「狼人杀几局 · 你是谁」，不加日期 —— 那行本来就放不下，加了日期就会被截断。 */
     return '狼人杀'+(r.count||'')+'人局 · '+mine;
   }
@@ -33116,7 +33125,8 @@ var WW_IC_CLAW='<svg viewBox="0 0 24 24">'+
  '<circle cx="14.1" cy="20" r="1.15"/><circle cx="18.9" cy="17.4" r="0.85"/><circle cx="15.9" cy="22.2" r="0.6"/>'+
  '</svg>';
 var WW_IC_HIT='<svg viewBox="0 0 24 24"><path d="M12 2.6l2.2 5.6 5.9-1.4-4.1 4.4 4.1 4.4-5.9-1.4L12 21.4l-2.2-5.8-5.9 1.4 4.1-4.4-4.1-4.4 5.9 1.4z"/></svg>';
-var WW_ROLE_NAME={wolf:'狼人',wolfking:'白狼王',wolfkingdeath:'狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
+var WW_ROLE_NAME=Object.freeze({wolf:'狼人',wolfking:'白狼王',wolfkingdeath:'狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'});
+window.WW_ROLE_NAME=WW_ROLE_NAME;
 var WW_ROLE_EMOJI={wolf:'🐺',wolfking:'👑',wolfkingdeath:'🐺',villager:'👤',seer:'🔮',witch:'🧪',hunter:'🔫',guard:'🛡️',idiot:'🃏',knight:'⚔️',gravekeeper:'⚰️',gargoyle:'🗿',nightmare:'😈'};
 var WW_WOLF_JOB_NAME={jump:'悍跳狼',charge:'冲锋狼',hook:'倒钩狼',deep:'深水狼'};
 var WW_WOLF_JOB_HELP={
