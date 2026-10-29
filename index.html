@@ -6782,6 +6782,16 @@ function gameRecordResultLine(r){
 function gameRecordCompactText(r,id,cid,fallbackT,brief){
   if(String(brief||'').trim()){
     let out=String(brief).trim();
+    if(r&&r.game==='ww'){
+      const ps=(r.players||[]),userP=ps.filter(function(p){return p&&p.isUser})[0]||null;
+      const selfP=cid?(ps.filter(function(p){return p&&p.cid===cid})[0]||null):null;
+      if(userP&&userP.role)out=out.replace(/^(?:你的身份|真人玩家的身份)[：:].*$/gm,
+        '用户「'+(userP.name||userName())+'」'+(userP.seq?('（'+userP.seq+'号）'):'')+'在这局的身份：'+(WW_ROLE_NAME[userP.role]||userP.role));
+      if(selfP&&selfP.role&&out.indexOf('角色「'+(selfP.name||'你')+'」')<0)
+        out+='\n角色「'+(selfP.name||'你')+'」'+(selfP.seq?('（'+selfP.seq+'号）'):'')+'在这局的身份：'+(WW_ROLE_NAME[selfP.role]||selfP.role);
+      if(out.indexOf('身份说明：用户与当前角色是两位不同玩家')<0)
+        out+='\n身份说明：用户与当前角色是两位不同玩家，以上两项分别对应。';
+    }
     if(id&&out.indexOf('game_record_read')<0)out+='\n需要具体发言、投票或行动细节时，可以调用 game_record_read 查看。';
     if(!id&&out.indexOf('game_record_read')<0)out+='\n这是旧版战绩摘要；完整内容可以到游戏战绩里查看。';
     return out;
@@ -6794,11 +6804,12 @@ function gameRecordCompactText(r,id,cid,fallbackT,brief){
     const result=gameRecordResultLine(r);if(result)L.push('结果：'+result);
     const ps=(r.players||[]).map(function(p){return p&&p.name}).filter(Boolean);
     if(ps.length)L.push('参与者：'+ps.slice(0,8).join('、')+(ps.length>8?' 等':''));
+    const names={wolf:'狼人',wolfking:'白狼王',wolfkingdeath:'狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
+    const userP=(r.players||[]).filter(function(p){return p&&p.isUser})[0]||null;
     const me=(r.players||[]).filter(function(p){return p&&p.cid===cid})[0]||null;
-    if(me&&me.role){
-      const names={wolf:'狼人',wolfking:'白狼王',wolfkingdeath:'狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
-      L.push('你在这局的身份：'+(names[me.role]||me.role));
-    }
+    if(userP&&userP.role)L.push('用户「'+(userP.name||userName())+'」'+(userP.seq?('（'+userP.seq+'号）'):'')+'在这局的身份：'+(names[userP.role]||userP.role));
+    if(me&&me.role)L.push('角色「'+(me.name||'你')+'」'+(me.seq?('（'+me.seq+'号）'):'')+'在这局的身份：'+(names[me.role]||me.role));
+    if(userP&&me)L.push('身份说明：用户与当前角色是两位不同玩家，以上两项分别对应。');
   }else L.push('这局完整战报已保存在游戏战绩里。');
   L.push(id?'需要具体发言、投票或行动细节时，可以调用 game_record_read 查看；只是普通聊天就不必调用，也不用把记录编号告诉用户。':'这是旧版战绩，完整内容可以到游戏战绩里查看。');
   return L.join('\n');
@@ -25190,6 +25201,17 @@ function execGameRecordTool(args,cid){
     if(!detail){
       try{detail=JSON.stringify(rec)}catch(e){detail='（这条战绩没有可读的详细正文）'}
     }
+    const ps=(rec.players||[]);
+    const userP=ps.filter(function(p){return p&&p.isUser})[0]||null;
+    const selfP=ps.filter(function(p){return p&&p.cid===cid})[0]||null;
+    const who=function(p){return p?(((p.seq?p.seq+'号 · ':'')+p.name)):'未知玩家'};
+    const identityCtx=['【身份对照（很重要，先读这一段）】'];
+    if(userP)identityCtx.push('· 用户「'+who(userP)+'」在这局的身份是【'+(WW_ROLE_NAME[userP.role]||userP.role)+'】。');
+    else identityCtx.push('· 这局没有标记出用户座位。');
+    if(selfP)identityCtx.push('· 当前角色你「'+who(selfP)+'」在这局的身份是【'+(WW_ROLE_NAME[selfP.role]||selfP.role)+'】。');
+    else identityCtx.push('· 当前角色你在这局没有参赛。');
+    identityCtx.push('记录里的 isUser:true 只代表用户，不代表你；不要把用户的身份当成角色自己的身份。');
+    detail=identityCtx.join('\n')+'\n\n'+detail;
     const left=Math.max(0,24000-total);
     if(left<=0)return;
     const part='【游戏战绩详情 · '+id+'】\n'+detail.slice(0,Math.min(16000,left));
@@ -34896,7 +34918,10 @@ function wwSysFor(p,task){
     '警徽流分支数、给对跳者留退水口、首验理由包装和先跳后跳都只是话术，不单独证明身份；先跳者不知道谁会反跳，没预留退水口很正常。'+
     '完整分支只核对能否执行和是否兑现；跳预者白天已出局时，“今晚验X”没有发生，接徽人不能反推X阵营。');
   if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。'+
-    '票型不是身份定论：狼会冲好人，也会卖队友做身份。不能因为“狼公开推过她”就反推她是好人，也不能因为“她投过狼”就直接洗白。');
+    '票型不是身份定论：狼会冲好人，也会卖队友做身份。不能因为“狼公开推过她”就反推她是好人，也不能因为“她投过狼”就直接洗白。'+
+    '\n【好人硬检查】“狼不会这么送、查杀太顺、没必要冒这个险”只能算弱概率，不能单独排除某条世界线；狼也不知道预言家当夜会验谁，误撞和配合失误都可能发生。'+
+    (wwBoard(w.count,w).nightmare?'报被梦魇恐惧导致当夜没有验人或技能结果，本身不是狼点；没有同夜记录或规则矛盾时，不能只因为没有结果就票她，更不能把“没报出结果”当查验造假。':'')+
+    '候选若是单边报出猎人、守卫等无对跳神职，不能仅凭发言差、站错边、旧票型或没结果投她；必须有规则、时间线或技能结果的硬冲突，否则先保留。');
   L.push('【代跳与首验】首验可盲选；理由牵强只是弱理由，引用白天信息解释首夜选人则是硬矛盾。'+
     '好人可假跳预、假给金水或查杀，但必须说明假验作废并退出；不能仅因退水定狼，也不能因代跳退水直接洗白。');
   var proxyBoard=wwClassicProxyHint(p);
@@ -35428,7 +35453,10 @@ async function wwVoteAI(p,pool){
     '一个人有人保或没人保都不能靠这个定身份。特别检查长期投“安全正确票”、从不承担救队友风险的人；投过一次必出的狼队友只能轻微减分，不能长期免检。'+
     '除主持人公开事实外，只有你暂信真预报的查杀算强证据；'+
     '别的神职/金水归票，不等于她归票的对象一定是狼，自己分析狼坑。'+
-    '若有人被指出时间线/规则硬冲突且仍为“已回应但未解决”，优先投她；不能改用发言顺序、警长票与放逐票不同、平民后软跳神这类非矛盾理由推翻。';
+    '若有人被指出时间线/规则硬冲突且仍为“已回应但未解决”，优先投她；不能改用发言顺序、警长票与放逐票不同、平民后软跳神这类非矛盾理由推翻。'+
+    '\n投票前再查一次：单边无对跳的猎人、守卫等神职，不能只靠发言差、站错边或旧票型投；必须列出规则、时间线或技能结果的硬冲突。'+
+    '“狼不会这么送/查杀太顺”不是硬证据，不能单独排除另一条世界线。'+
+    (wwBoard(w.count,w).nightmare?'梦魇守卫板里，报被恐导致当夜没有结果是中性事实，不能只凭“没给结果”投她。':'');
   var seerAudit=wwSeerCommitmentText(w);
   if(seerAudit)goodHint+='\n投票硬检查：\n'+seerAudit;
   var endRisk=wwEndgameRiskText(w);
@@ -38668,7 +38696,7 @@ window.gameInviteResult=function(cid,inviteId,rec){
   try{
     var at=Date.now();
     /* 聊天里只放短摘要；完整战报留在战绩库，角色需要时自己调用工具查看。 */
-    var brief='';try{brief=gameRecordBriefText(rec,true)}catch(e){}
+    var brief='';try{brief=gameRecordBriefText(rec,true,cid)}catch(e){}
     /* 谁赢了：你赢了写你的名字；你输了，写赢的那一方里那个角色（优先拉你进房间的那个） */
     var uname='';try{uname=userName()}catch(e){}
     var uw=null;try{uw=recUserWonWW(rec)}catch(e){}
@@ -41250,7 +41278,7 @@ function shareSum(r){
   return recSub(r);
 }
 /* 普通聊天只带这一小段；完整过程留在游戏战绩里，需要时角色用 game_record_read 查看。 */
-function gameRecordBriefText(r,mine){
+function gameRecordBriefText(r,mine,cid){
   var L=['【游戏战绩 · 缩略版】'];
   if(r&&r.id)L.push('记录编号：'+r.id);
   L.push('游戏：'+recTitle(r));
@@ -41260,7 +41288,12 @@ function gameRecordBriefText(r,mine){
   if(ps.length)L.push('参与者：'+ps.slice(0,8).join('、')+(ps.length>8?' 等':''));
   if(r&&r.game==='ww'){
     var me=((r.players)||[]).filter(function(p){return p&&p.isUser})[0]||null;
-    if(me&&me.role)L.push((mine?'你':'真人玩家')+'的身份：'+(WW_ROLE_NAME[me.role]||me.role));
+    if(me&&me.role)L.push('用户「'+(me.name||userName())+'」'+(me.seq?('（'+me.seq+'号）'):'')+'在这局的身份：'+(WW_ROLE_NAME[me.role]||me.role));
+    if(cid){
+      var selfP=((r.players)||[]).filter(function(p){return p&&p.cid===cid})[0]||null;
+      if(selfP&&selfP.role)L.push('角色「'+(selfP.name||cid)+'」'+(selfP.seq?('（'+selfP.seq+'号）'):'')+'在这局的身份：'+(WW_ROLE_NAME[selfP.role]||selfP.role));
+      else if(mine)L.push('当前角色在这局没有参赛');
+    }
   }
   L.push('完整过程没有放进每轮上下文。如果你刚打完这局、对它感兴趣，或者用户问具体发言、投票、夜间行动等细节，可以调用 game_record_read 查看；不感兴趣就不调用，也不用把记录编号告诉用户。');
   return L.join('\n');
