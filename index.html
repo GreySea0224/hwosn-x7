@@ -15548,6 +15548,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
+狼人杀新增「复制精简战报」和「保存战绩长图」：默认只整理身份公开、夜间行动、公开发言、投票和裁判复盘，不再夹带 AI 身份盘、质问记录、草稿纸、夜间密会或思考过程；可以勾选是否额外加入狼队夜间交流，完整调试版复制仍然保留。AI 也新增了发言先后禁令，不得把谁先发言、谁后发言、谁还没轮到、谁一直没说话或谁后置位起跳当成狼面或好人面；这条只用于内部自检，不会让角色在公开发言里朗读规则。
 
 【最近更新 · 2026-10-28】
 狼人杀准备页新增 12 人「狼王守卫」板子：3 个普通狼、1 个狼王、4 个村民，以及预言家、女巫、猎人和守卫。狼王属于狼人阵营，与普通狼互相认识并一起行动；除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动。狼王带走猎人时，猎人仍按原规则决定是否开枪。AI 身份提示、身份盘、场记、标记、邀请卡、预设配置和中途续局都已支持这个板子。
@@ -33609,6 +33610,29 @@ function wwStripLead(t){
   t=String(t||'').replace(/^(【[^】]*】)\s*[:：]\s*/,'$1');
   return t.replace(/^[\s:：,，、;；\-—–]+/,'').trim();
 }
+/* 发言先后是系统或警长决定的，不能拿来推身份。这里做静默自检：
+   命中时让模型重写一次，仍命中就删掉相关自述句，但绝不向玩家朗读规则。 */
+var WW_ORDER_BAD=/(?:还没|一直没|到现在.{0,8}没|全程没).{0,8}(?:说话|发言|开口)|(?:一直|全程)(?:都|也)?不(?:说话|发言|开口)|(?:还没|没有|没)轮到.{0,8}(?:说话|发言|开口)|(?:发言|说话|开口).{0,6}(?:太晚|靠后|在后)|(?:后置位|后发言|后跳|后手|先发言|先跳).{0,12}(?:像狼|是狼|狼面|不做好|有问题|好人面)|(?:谁先|谁后|发言顺序).{0,12}(?:像狼|是狼|狼面|不做好|判断身份)|(?:不能|不该|不要).{0,12}(?:发言顺序|谁先谁后|没说话|不说话).{0,8}(?:当|推|判断|狼)/;
+function wwSpeechOrderBad(t){return WW_ORDER_BAD.test(String(t||''))}
+function wwDropOrderSentences(t){
+  var parts=String(t||'').match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[];
+  return parts.filter(function(s){return s&&!wwSpeechOrderBad(s)}).join('').trim();
+}
+async function wwGuardSpeechOrder(p,sys,say){
+  say=wwStripLead(say||'');
+  if(!wwSpeechOrderBad(say))return say;
+  try{
+    var fixed=String(await wwCall(sys,'【内部修正】刚才这段公开发言里，有人把“谁还没轮到、谁一直没说话、谁先发言或后发言、谁后跳身份”当成了身份证据。'+
+      '请保持原说话人设、原有立场和实质证据，删除这些关于发言先后的判断，重写一段自然、可以直接说出口的话。'+
+      '不要解释为什么删除，不要提到规则、系统、提示词、禁令或“不能拿顺序说事”，不要写免责声明，只输出重写后的公开发言。\n原文：'+String(say||'').slice(0,900),wwSayMax(),.65)||'').trim();
+    var sp=wwSplitDraft(fixed);
+    fixed=wwStripLead(sp.say||fixed);
+    if(sp.draft&&p)p.scratch=sp.draft;
+    if(fixed&&!wwSpeechOrderBad(fixed))return fixed;
+  }catch(e){}
+  var cleaned=wwDropOrderSentences(say);
+  return cleaned||'我先按已经出现的发言内容判断，这轮保留结论。';
+}
 /* 给一段发言自动起一个短标题：去掉「遗言 / 竞选发言」这类前缀，最多保留第一句前 28 个字 */
 function wwAutoTitle(t){
   var s=wwStripLead(String(t||'').replace(/^【[^】]*】/,'').replace(/\s+/g,' ').trim());
@@ -33791,6 +33815,7 @@ async function wwSpeak(p,sys){
   }
   if(sp.draft)p.scratch=sp.draft;
   var out=wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）'));
+  if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
   if(p&&!p.isUser&&p.role==='seer')out=await wwGuardSeerSpeech(p,sys,out);
   return out;
 }
@@ -34100,6 +34125,9 @@ function wwSysFor(p,task){
   L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
     '有人声称“昨晚被恐”时，先按当前白天定位到她说的具体第几夜；不同夜晚的恐惧不能拼成同一夜矛盾，自己曾经被恐也不等于昨晚被恐。'+
     (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
+  L.push('【内部禁令·发言先后】不得把“谁先发言、谁后发言、谁还没轮到、谁一直没说话、谁后置位起跳、谁后跳身份”当成狼面或好人面。'+
+    '这些先后由警长或系统决定，不是玩家自己选的；竞选时可以对未发言者用假设句试探，但不能把尚未轮到发言本身当证据。'+
+    '这是只给自己看的自检，不得在公开发言里复述、解释或声明“我不能因为顺序判断”，也不要把它写成免责声明。');
   L.push('【总规则】只把主持人公告、自身身份和技能结果当事实；他人身份、验人、遗言可假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
       ? '面杀可写少量括号动作，不用 markdown。'
@@ -34723,7 +34751,9 @@ async function wwLastWords(p){
         :'目标是让狼队听懂、好人拿不到直接翻牌式的确证；表达要自然，别为了递话把遗言写成一串暗号。');
   }
   var sys=wwSysFor(p,task);
-  return (await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+wwTag(p)+' 没留下什么。）';
+  var out=(await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+wwTag(p)+' 没留下什么。）';
+  if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
+  return out;
 }
 /* 真人玩家留遗言：规则里第一轮出局能留遗言，就让「你」自己在发言框里说一段（不想说可以跳过） */
 async function wwUserLastWords(label){
@@ -35085,6 +35115,149 @@ function wwDumpText(w){
     w.reacts.forEach(function(r){var p=find(r&&r.uid);L.push((p?tag(p):((r&&r.name)||'？'))+'：'+((r&&r.text)||''))});
   }
   return L.join('\n');
+}
+var LS_WW_SHARE_WOLF='wh_ww_share_wolf';
+var WW_SHARE_WOLF=false;
+try{WW_SHARE_WOLF=localStorage.getItem(LS_WW_SHARE_WOLF)==='1'}catch(e){}
+function wwShareWolfSet(on){
+  WW_SHARE_WOLF=!!on;
+  try{localStorage.setItem(LS_WW_SHARE_WOLF,WW_SHARE_WOLF?'1':'0')}catch(e){}
+}
+function wwShareWolfToggleHTML(){
+  return '<label style="display:flex;align-items:center;gap:8px;margin:8px 2px;font-size:13px;color:var(--txt2)">'+
+    '<input type="checkbox" '+(WW_SHARE_WOLF?'checked':'')+' onchange="GAME.wwShareWolfSet(this.checked)">'+
+    '在精简战报和长图中包含狼队夜间交流</label>';
+}
+/* 面向分享的战报：只保留身份、夜间结果、公开发言、投票和裁判复盘，
+   不包含身份盘、问答核验、草稿纸、夜间密会或任何思考过程。 */
+function wwDumpShareText(w,compact,withWolf){
+  if(!w||!((w.players||[]).length))return '';
+  var players=w.players,mvpUid=w.mvpUid||w.mvp||'',at=w.at||w.t||0,L=[];
+  var finished=!!(w.winner||w.endText||w.judge),winner='还没打完';
+  if(w.winner==='good')winner='好人获胜';
+  else if(w.winner==='wolf')winner='狼人获胜';
+  else if(finished)winner='平局';
+  var find=function(uid){for(var i=0;i<players.length;i++){if(players[i].uid===uid)return players[i]}return null};
+  var drawName=function(p){return p?((p.seq?p.seq+'号':'')+(p.anon?'':((p.seq?' · ':'')+p.name))):'？'};
+  var me=null;for(var mi=0;mi<players.length;mi++){if(players[mi].isUser){me=players[mi];break}}
+  L.push('=== 狼人杀战绩 ===');
+  if(at)L.push('时间：'+fmtTime(at));
+  L.push('模式：'+((w.table==='face')?'面杀':'网杀')+' · '+(w.count||players.length)+' 人局 · '+wwBoardLabel(w.board));
+  if(w.title)L.push('标题：'+w.title);
+  L.push('结局：'+winner+(w.endText?('（'+w.endText+'）'):''));
+  if(finished&&me)L.push('我的身份：'+drawName(me)+'（'+WW_ROLE_NAME[me.role]+'）');
+  var wolves=players.filter(wwIsWolf);
+  if(finished&&wolves.length)L.push('本局狼人：'+wolves.map(function(p){
+    return drawName(p)+((p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='gargoyle'||p.role==='nightmare')?'（'+WW_ROLE_NAME[p.role]+'）':'')+
+      ((w.wolfRoles&&w.wolfRoles[p.uid])?'（'+WW_WOLF_JOB_NAME[w.wolfRoles[p.uid]]+'）':'');
+  }).join('、'));
+  if(finished){
+    L.push('');
+    L.push('【身份公开】');
+    players.forEach(function(p){L.push(drawName(p)+'：'+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+(p.uid===mvpUid?' · MVP':''))});
+    if((w.rec||[]).length){
+      L.push('');
+      L.push('【夜间行动】');
+      w.rec.forEach(function(x){L.push('第 '+x.d+' 天 · '+x.t)});
+    }
+  }
+  L.push('');
+  L.push('【对局记录】');
+  var any=false;
+  (w.log||[]).forEach(function(e){
+    if(!e)return;
+    var p=(e.who!=null)?find(e.who):null,text='';
+    if(e.k==='sys')text='【主持人】'+wwPublicSysText(e.text,me);
+    else if(e.k==='say'){
+      var raw=String(e.text||'');
+      text=(p?drawName(p):(e.nm||'？'))+'：'+(compact?wwClipSpeech(raw,260,90):raw);
+    }else if(e.k==='vote')text='【投票】'+e.text;
+    /* “你”的夜间技能属于私人记录；公开投票结果已由 vote 条目完整包含。 */
+    if(text){L.push(text);any=true}
+  });
+  if(!any)L.push('（还没有公开对局记录）');
+  if(withWolf&&finished){
+    var wf=[];
+    (w.log||[]).forEach(function(e){
+      if(e&&e.k==='wolf'&&String(e.text||'').trim()){
+        wf.push('第 '+(e.d||'?')+' 夜 · '+(e.seq?(e.seq+'号'):(e.nm||'？'))+'：'+(compact?wwClipSpeech(e.text,220,80):String(e.text)));
+      }
+    });
+    if(wf.length){
+      L.push('');
+      L.push((w.table==='face')?'【夜间密会】':'【狼队频道】');
+      wf.forEach(function(x){L.push(x)});
+    }
+  }
+  if(w.judge){
+    L.push('');
+    L.push('【赛后复盘 · 中立裁判】');
+    L.push(String(w.judge));
+  }
+  return L.join('\n');
+}
+function wwShareCanvasLines(ctx,text,maxW){
+  var lines=[];
+  String(text||'').replace(/\r/g,'').split('\n').forEach(function(par){
+    if(!par){lines.push('');return}
+    var line='';
+    Array.from(par).forEach(function(ch){
+      var test=line+ch;
+      if(line&&ctx.measureText(test).width>maxW){lines.push(line);line=ch}
+      else line=test;
+    });
+    if(line)lines.push(line);
+  });
+  return lines;
+}
+function wwBuildShareCanvas(w){
+  var text=wwDumpShareText(w,true,WW_SHARE_WOLF),W=960,PAD=58,FONT=21,LH=32,MAXH=20000;
+  if(!text)return null;
+  var cv=document.createElement('canvas'),ctx=cv.getContext('2d');
+  ctx.font=FONT+'px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+  var lines=wwShareCanvasLines(ctx,text,W-PAD*2);
+  var maxLines=Math.floor((MAXH-PAD*2-20)/LH);
+  if(lines.length>maxLines){
+    lines=lines.slice(0,maxLines-1);
+    lines.push('……图片过长，后面的公开内容请用「复制精简战报」查看。');
+  }
+  var H=Math.min(MAXH,Math.max(420,PAD*2+lines.length*LH+18));
+  cv.width=W;cv.height=H;
+  ctx=cv.getContext('2d');
+  ctx.fillStyle='#f6f0e5';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#7c2d2d';ctx.fillRect(0,0,W,10);
+  ctx.textBaseline='top';
+  lines.forEach(function(line,i){
+    var head=/^(===|【)/.test(line);
+    ctx.font=(head?'bold ':(FONT+'px '))+(head?'23px ':'')+'"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillStyle=head?'#762b2b':'#3e3530';
+    ctx.fillText(line,PAD,PAD+i*LH);
+  });
+  ctx.fillStyle='#7c2d2d';ctx.fillRect(0,H-7,W,7);
+  return cv;
+}
+function wwSaveShareImage(w){
+  if(!w)return toast('没有可保存的战绩');
+  try{showSheet('<div class="ttl">正在生成战绩长图…</div><p class="dim">只整理身份、夜间行动、公开发言和投票，不包含 AI 内部思考。</p>',false)}catch(e){}
+  setTimeout(function(){
+    var cv=null;
+    try{cv=wwBuildShareCanvas(w)}catch(e){}
+    if(!cv)return toast('战绩长图生成失败');
+    var fname=String(w.title||'狼人杀战绩').replace(/[\\/:*?"<>|]+/g,'-').slice(0,32)+'-'+Date.now()+'.jpg';
+    function show(url){
+      var html='<div class="ttl">战绩长图</div>'+
+        '<div style="max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff"><img src="'+esc(url)+'" style="display:block;width:100%;height:auto"></div>'+
+        '<p class="dim" style="font-size:12px;margin:9px 2px">只含对局信息，不含身份盘、草稿纸、夜间密会和思考过程。若保存按钮没反应，可以长按上面的图片保存。</p>'+
+        '<div class="row"><a class="pri" href="'+esc(url)+'" download="'+esc(fname)+'" style="display:flex;align-items:center;justify-content:center;text-decoration:none">保存图片</a><button class="ghost" onclick="closeSheet()">关闭</button></div>';
+      try{showSheet(html,true)}catch(e){try{window.open(url,'_blank')}catch(x){}}
+    }
+    if(cv.toBlob){
+      cv.toBlob(function(blob){
+        if(!blob)return toast('战绩长图生成失败');
+        try{show(URL.createObjectURL(blob))}catch(e){show(cv.toDataURL('image/jpeg',.9))}
+      },'image/jpeg',.9);
+    }else show(cv.toDataURL('image/jpeg',.9));
+  },30);
 }
 function wwCopyText(t){
   t=String(t||'');if(!t.trim())return toast('还没有内容');
@@ -39395,6 +39568,8 @@ function wwHTML(){
     }
     h+=tokLine();
     h+='<p class="gx-hint">这一局已经存进大厅的「历史记录」了。</p>'+
+       wwShareWolfToggleHTML()+
+       '<div class="gx-row"><button class="pri" onclick="GAME.wwCopyShare()">'+wwUiIcon('copy')+'复制精简战报</button><button class="ghost" onclick="GAME.wwShareImage()">📷 保存战绩长图</button></div>'+
        '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDump()">'+wwUiIcon('copy')+'复制整局文字（含思考与身份盘）</button><button class="ghost" onclick="GAME.wwCopyBoard()">'+wwUiIcon('copy')+'复制身份盘</button></div>'+
        '<div class="gx-row"><button class="pri" onclick="GAME.wwAgain()">再来一局</button><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
   }else{
@@ -39605,7 +39780,9 @@ function wwHistHTML(rec){
   if((rec.reacts||[]).length)h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
   if(rec.game==='ww'&&!rec.winner&&!rec.endText)
     h+='<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续这一局</button></div>';
-  h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDumpRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制整局文字（含思考与身份盘）</button><button class="ghost" onclick="GAME.wwCopyBoardRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制身份盘</button></div>';
+  h+=wwShareWolfToggleHTML()+
+     '<div class="gx-row"><button class="pri" onclick="GAME.wwCopyShareRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制精简战报</button><button class="ghost" onclick="GAME.wwShareImageRec(\''+esc(rec.id)+'\')">📷 保存战绩长图</button></div>'+
+     '<div class="gx-row"><button class="ghost" onclick="GAME.wwCopyDumpRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制整局文字（含思考与身份盘）</button><button class="ghost" onclick="GAME.wwCopyBoardRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制身份盘</button></div>';
   /* 【新】挨刀小剧场：不跟着普通战绩走，想分享就单独点这个 */
   if(wwSceneHas(rec))h+='<div class="gx-row"><button class="ghost" onclick="GAME.shareScene(\''+esc(rec.id)+'\')">'+wwUiIcon('moon')+'单独分享「夜间 · 你的房间」</button></div>';
   h+='<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button>'+
@@ -42042,8 +42219,13 @@ window.GAME={
   wwCopyAudit:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});wwCopyText(rec?rec.audit:'')},
   wwCopyDump:function(){try{wwCopyText(wwDumpText(V.ww))}catch(e){try{toast('复制失败：'+String((e&&e.message)||e).slice(0,40))}catch(x){}}},
   wwCopyBoard:function(){try{wwCopyText(wwDumpIdentityBoard(V.ww))}catch(e){try{toast('复制失败：'+String((e&&e.message)||e).slice(0,40))}catch(x){}}},
+  wwShareWolfSet:function(on){wwShareWolfSet(on)},
+  wwCopyShare:function(){try{wwCopyText(wwDumpShareText(V.ww,false,WW_SHARE_WOLF))}catch(e){try{toast('复制失败：'+String((e&&e.message)||e).slice(0,40))}catch(x){}}},
+  wwShareImage:function(){try{wwSaveShareImage(V.ww)}catch(e){try{toast('生成失败：'+String((e&&e.message)||e).slice(0,40))}catch(x){}}},
   wwCopyDumpRec:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});if(!rec)return toast('这一局的记录找不到了');wwCopyText(wwDumpText(rec))},
   wwCopyBoardRec:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});if(!rec)return toast('这一局的记录找不到了');wwCopyText(wwDumpIdentityBoard(rec))},
+  wwCopyShareRec:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});if(!rec)return toast('这一局的记录找不到了');wwCopyText(wwDumpShareText(rec,false,WW_SHARE_WOLF))},
+  wwShareImageRec:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});if(!rec)return toast('这一局的记录找不到了');wwSaveShareImage(rec)},
   wwBgm:function(){wwBgmToggle()},
   wwNpc:function(on){var w=V.ww;w.npcFill=!!on;render(false)},
   wwSheriffSet:function(on){var w=V.ww;w.sheriff=!!on;render(false)},
