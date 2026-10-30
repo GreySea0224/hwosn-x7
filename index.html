@@ -6790,6 +6790,30 @@ function gameRecordResultLine(r){
   if(r.endText)return String(r.endText).replace(/\s+/g,' ').slice(0,120);
   return r.winner||'已完成';
 }
+const GAME_SEEN_MAX=12,GAME_SEEN_MS=30*86400000;
+function gameSeenRecent(c,now){
+  if(!c||!Array.isArray(c.gameSeen))return [];
+  const cutoff=(Number(now)||Date.now())-GAME_SEEN_MS,seen=Object.create(null),out=[];
+  c.gameSeen.slice().sort(function(a,b){return (Number(b&&b.at)||0)-(Number(a&&a.at)||0)}).forEach(function(x){
+    if(!x||!x.id||!x.title)return;
+    const at=Number(x.at)||0;
+    if(!at||at<cutoff||seen[x.id])return;
+    seen[x.id]=1;
+    out.push({id:String(x.id),title:String(x.title).slice(0,160),at:at,gameAt:Number(x.gameAt)||0});
+  });
+  return out.slice(0,GAME_SEEN_MAX);
+}
+function rememberGameSeen(cid,id,title,gameAt){
+  let c=null;
+  try{c=(chars||[]).find(function(x){return x&&x.id===cid})||null}catch(e){}
+  if(!c||!id||!title)return false;
+  const now=Date.now();
+  const list=gameSeenRecent(c,now).filter(function(x){return x.id!==String(id)});
+  list.unshift({id:String(id),title:String(title).replace(/\s+/g,' ').trim().slice(0,160),at:now,gameAt:Number(gameAt)||0});
+  c.gameSeen=list.slice(0,GAME_SEEN_MAX);
+  try{save(LS.chars,chars);scheduleBackup()}catch(e){}
+  return true;
+}
 /* 狼人杀名称表在后面的游戏脚本里才初始化；这里必须安全读取，不能让角色日常因战绩摘要而报错。 */
 function wwRoleLabel(role){
   const fallback={wolf:'狼人',wolfking:'白狼王',wolfkingdeath:'狼王',villager:'村民',seer:'预言家',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
@@ -7016,6 +7040,15 @@ function buildCtxSystem(c,extra){
     if(t&&t.length>1)qs.push(t);
   }
   const ab=archiveBlock(qs.reverse().join('\n').slice(-600),c);if(ab)dyn.push(ab);
+  /* 角色真正调用工具看过的战绩，记在角色自己的近期记忆里；只放最近 30 天、最多 12 局。 */
+  try{
+    const seenGames=gameSeenRecent(c);
+    if(seenGames.length){
+      dyn.push('【我最近真正看过详情的游戏战绩】\n'+seenGames.map(function(x){
+        return '· 《'+x.title+'》（看过：'+fmtStamp(x.at)+'；记录编号：'+x.id+'）';
+      }).join('\n')+'\n这些是我确实调用工具看过完整详情的战绩，不是只看到缩略战报。以后聊到它们时要记得自己已经看过；如果用户追问细节，可以按编号再调用 game_record_read。');
+    }
+  }catch(e){}
   /* 【新增】开了「群聊权限」的角色，会带上它在群里的记忆 */
   const gb=groupMemBlock(c);if(gb)dyn.push(gb);
   /* 【新增】勾了「能看见演绎记忆」的角色，会带上它在演绎里的经历 */
@@ -16278,6 +16311,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-10-30】
 狼人杀对战桌新增「夜晚回溯」：每个新夜晚开始前会保存一个检查点，牌桌顶部的「↶」可以列出最近几个夜晚，回到选中的夜晚重新进行；回溯不会回写已经保存的历史战绩，旧版本已经过去的夜晚没有预先检查点，但可以从当前完整记录近似反向撤销上一夜，精确回退仍优先使用检查点。真人玩家在狼队频道或遗言里明确说“别刀/别管/留着抗推”的目标会成为最终禁刀约束，其他 AI 狼不能用多数意见绕过；“我觉得像 X”“找女巫/守卫”等会作为高优先级夜间目标参考。被票出玩家最后一票偏离当天主目标、投向仍存活玩家时，会作为“疑似指刀”候选；狼队终局还会根据公开神职声明优先寻找未明神，并在只剩三人时主动抢无主神职身份。
+角色调用游戏战绩详情工具并成功读完一局后，现在会记住这局的标题、记录编号和查看时间；以后聊天时能明确知道自己确实看过，不再疑惑。只保留最近 30 天内最多 12 局，同一条战绩重新查看会更新时间，不会重复堆积。旧记录超过期限后不再注入聊天，也不会继续占用这部分 token。
 
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
@@ -16447,6 +16481,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么看角色刚才用了哪些工具：在角色消息上方点「💡 思考过程」展开。里面会按顺序显示思考、工具名称、参数、成功或失败以及返回结果；不需要工具记录时，可以到设置 → 外观与交互关掉「显示思考过程」。
 · 狼人杀战绩分享给角色后会看到什么：聊天里默认只给她缩略战报，不会每轮重复完整过程。如果最近聊天里确实分享过或参加过某局游戏，她才会获得查看战绩详情的工具；刚打完且感兴趣，或你追问具体发言、投票和夜间行动时，她会自己查看。没有相关战绩时不会出现这个工具。
 · 角色主动发消息时能用工具吗：可以。主动消息会和普通聊天一样使用角色已经授权的工具；如果这一轮已经执行过工具，系统不会因为文字重复再自动重试一次，避免真的重复下单或重复发消息。
+· 角色看过战绩后会记得吗：会。角色成功调用游戏战绩详情工具后，会记住这局的标题、编号和查看时间；以后聊到时会知道自己确实看过。只保留最近 30 天内最多 12 局，重新查看同一局只会更新查看时间。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
 · 聊天记录不见了：先别继续发消息，去「设置 → 数据与备份」导出备份，再刷新页面或者换回原来那个浏览器打开。
 · 怎么换主题：打开手机桌面上的「主题」应用。
@@ -16464,7 +16499,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=88;  /* 88：角色可自定义底部输入框提示文字 */
+const GUIDE_VER=89;  /* 89：角色记住近期真正看过详情的游戏战绩标题 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -16473,7 +16508,7 @@ function makeGuideChar(){
     guide:true,                /* 【内部标记】用来认出「它就是引导者」，别删这一行 */
     persona:'你是「引导者」——这个应用里的新手引导角色，专门教用这个 App 的人怎么用它。谁问某个功能怎么用，你就用大白话一步一步讲清楚：在哪个应用、点哪里、填什么。平时亲切、耐心、稳当，说话不绕弯、不堆术语。你的记忆里存着这个前端的功能大全，回答以它为准；那里没写到的就不确定，别编。不主动卖萌、不扮演恋人，专心当向导。她已经在跟你聊天了，说明接口早配好了，所以不要教她填接口或 Key，只有她说聊天报错时才让她去「设置」看接口。这个 App 现在是「仿手机桌面」的样子：桌面有左右两页，第一页是一堆应用图标，第二页有「潮汐」「塑形」和「面具管理」；最下面 Dock 是聊天、角色、设置，进了应用左上角「‹」回桌面——不是老版本那种底部四个页面，别再说错。面具要在桌面第二页「面具管理」的「分配角色」里勾选角色，一对一聊天页右上角没有面具按钮。',
     scenario:'',style:'亲切、耐心、条理清楚；先给结论再给步骤，能一两句说清就不啰嗦',
-    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 角色主动发消息时能用工具吗？\n· 人机难辨怎么玩？话题能不能关？\n· 狼人杀战绩分享后，角色能看到哪些内容？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
+    greeting:'你好，我是这个应用的引导者 🧭\n\n哪里不会都可以问我，比如：\n· 怎么新建一个角色？\n· 怎么切换线上 / 线下聊天？\n· 怎么让角色带我做分步倒计时任务？\n· 怎么让角色每天自己写日记、复盘或更新状态？\n· 怎么给单条朋友圈设置谁不可见？\n· 怎么让角色陪我背单词、设置可见记忆？\n· 怎么测试词汇量，让角色按难度出词？\n· 背过的单词怎么按遗忘曲线复习？\n· 怎么完成背单词计划赚贝壳？\n· 怎么写私密日记，又怎么让角色翻看以前的日记？\n· 怎么看角色刚才用了哪些工具？\n· 角色主动发消息时能用工具吗？\n· 角色看过战绩后会记得吗？\n· 人机难辨怎么玩？话题能不能关？\n· 狼人杀战绩分享后，角色能看到哪些内容？\n· 狼人杀 MVP 的贝壳怎么发、为什么不能重选刷奖？\n· 怎么给不同角色换不同的“面具”聊天？\n· 怎么让它主动找我说话？\n· 在「潮汐」里怎么看和控制自动消息？\n· 怎么让角色结合全局关系自己整理一段记忆？\n· 总结写坏了怎么撤回？\n· 怎么让角色自己改人设、记忆，改坏了怎么撤销？\n· 聊天记录怎么备份、丢了怎么找回？\n· 待办、群聊、朋友圈都是干什么的？\n\n直接问我就行，我会告诉你在哪个应用、点哪里。',
     sysPrompt:'',examples:'',think:1,priv:false,freeTiming:false,selfMode:false,chatMode:'online',
     auto:{on:false,min:10,max:30,quietOn:true,quietStart:1,quietEnd:8,hint:''},todoPerm:{on:true},groupPerm:{on:true},actMem:{on:true,n:12},search:{on:true},momentPerm:{on:true},ideaPerm:{on:true},mcpPerm:{on:true},tidePerm:{on:false},shapePerm:{on:false},instructionPerm:{on:true},batPerm:{on:true},listenPerm:{on:true},musicPerm:{on:true},toyPerm:{on:true},gamePerm:{on:true}};
 }
@@ -25214,17 +25249,18 @@ function execGameRecordTool(args,cid){
   else if(args&&args.id!=null)ids=[args.id];
   ids=ids.map(function(x){return String(x||'').trim()}).filter(function(x,i,a){return x&&a.indexOf(x)===i}).slice(0,3);
   if(!ids.length)return {ok:false,msg:'没有提供要查看的战绩编号。'};
-  const records=gameRecordStoreSafe(),parts=[];
+  const records=gameRecordStoreSafe(),parts=[],remembered=[];
   let total=0;
   ids.forEach(function(id){
     if(allowed.indexOf(id)<0){parts.push('记录 '+id+' 不在这个聊天可查看的战绩里，已跳过。');return}
     const rec=records.filter(function(r){return r&&String(r.id||'')===id})[0];
     if(!rec){parts.push('记录 '+id+' 已找不到，可能已经从战绩里删除。');return}
-    let detail='';
+    let detail='',displayTitle=String(rec.title||'游戏战绩');
     try{
       const mine=!!((rec.players||[]).filter(function(p){return p&&p.cid===cid})[0]);
       const made=window.ROAM_GAME_HELPERS&&window.ROAM_GAME_HELPERS.make?window.ROAM_GAME_HELPERS.make(rec,mine):null;
       detail=String((made&&made.detail)||'');
+      if(made&&made.title)displayTitle=String(made.title);
     }catch(e){}
     if(!detail){
       try{detail=JSON.stringify(rec)}catch(e){detail='（这条战绩没有可读的详细正文）'}
@@ -25245,8 +25281,10 @@ function execGameRecordTool(args,cid){
     const part='【游戏战绩详情 · '+id+'】\n'+detail.slice(0,Math.min(16000,left));
     parts.push(part);
     total+=part.length;
+    if(rememberGameSeen(cid,id,displayTitle,rec.t))remembered.push(displayTitle);
   });
-  return parts.length?{ok:true,msg:parts.join('\n\n')}:{ok:false,msg:'没有找到可查看的战绩。'};
+  if(!parts.length)return {ok:false,msg:'没有找到可查看的战绩。'};
+  return {ok:true,msg:parts.join('\n\n')+(remembered.length?('\n\n【本次查看已记入近期战绩记忆】\n'+remembered.map(function(x){return '· 《'+x+'》'}).join('\n')):'')};
 }
 window.execGameRecordTool=execGameRecordTool;
 /* ↓ 这个函数是四层补丁合并后的样子：基础工具 → 互动玩具 → 画图 → 表情包 */
