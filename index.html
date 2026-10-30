@@ -16271,15 +16271,18 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-29 */
+   最后更新：2026-10-30 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-10-30】
+狼人杀对战桌新增「夜晚回溯」：每个新夜晚开始前会保存一个检查点，牌桌顶部的「↶」可以列出最近几个夜晚，回到选中的夜晚重新进行；回溯不会回写已经保存的历史战绩，旧版本已经过去的夜晚没有预先检查点，但可以从当前完整记录近似反向撤销上一夜，精确回退仍优先使用检查点。真人玩家在狼队频道或遗言里明确说“别刀/别管/留着抗推”的目标会成为最终禁刀约束，其他 AI 狼不能用多数意见绕过；“我觉得像 X”“找女巫/守卫”等会作为高优先级夜间目标参考。被票出玩家最后一票偏离当天主目标、投向仍存活玩家时，会作为“疑似指刀”候选；狼队终局还会根据公开神职声明优先寻找未明神，并在只剩三人时主动抢无主神职身份。
+
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
 狼人杀新增「复制精简战报」和「保存战绩长图」：默认只整理身份公开、夜间行动、公开发言、投票和裁判复盘，不再夹带 AI 身份盘、质问记录、草稿纸、夜间密会或思考过程；可以勾选是否额外加入狼队夜间交流，完整调试版复制仍然保留。AI 也新增了发言先后禁令，不得把谁先发言、谁后发言、谁还没轮到、谁一直没说话或谁后置位起跳当成狼面或好人面；这条只用于内部自检，不会让角色在公开发言里朗读规则。
-狼人杀策略继续补强：仍在公开穿预的悍跳狼每天必须编出并交代新一夜的金水/查杀；无梦魇板不能用“被恐没验”逃避查验，有梦魇板也必须对准上一轮公开计划。深水狼和“摸鱼选手”可以话说得短，但每轮必须给明确票向和一条实质理由，队友被冲时要回应或拆火。狼队还会按公开神职声明整理屠神进度，终局会优先找尚未公开的神职，不再只因警徽盲目刀警长；只剩三人时，狼 AI 必须主动抢一件没人能证明的神职身份，能从死者行为和刀口判断死者像守卫、女巫、猎人等身份时，就穿那件“死无对证”的衣服，不再只报村民等死。被票出玩家最后一票若偏离当天主目标投向仍存活的玩家，也会作为下一次夜间刀人的“疑似指刀”候选。
+狼人杀策略继续补强：仍在公开穿预的悍跳狼每天必须编出并交代新一夜的金水/查杀；无梦魇板不能用“被恐没验”逃避查验，有梦魇板也必须对准上一轮公开计划。深水狼和“摸鱼选手”可以话说得短，但每轮必须给明确票向和一条实质理由，队友被冲时要回应或拆火。狼队还会按公开神职声明整理屠神进度，终局会优先找尚未公开的神职，不再只因警徽盲目刀警长；只剩三人时，狼 AI 必须主动抢一件没人能证明的神职身份，能从死者行为和刀口判断死者像守卫、女巫、猎人等身份时，就穿那件“死无对证”的衣服，不再只报村民等死。被票出玩家最后一票若偏离当天主目标投向仍存活的玩家，也会作为下一次夜间刀人的“疑似指刀”候选。真人玩家在狼队频道或遗言里明确写下的“别刀/别管/留着抗推”目标会作为最终硬约束，其他 AI 狼不能用多数意见绕过去；真人遗言里“我觉得像 X”“找女巫/守卫”等内容也会作为高优先级夜间目标参考。
 「主题」应用新增“聊天界面质感”选项：可以选“经典”或“液态玻璃”。液态玻璃会让聊天顶栏、消息气泡、时间和输入框半透明地透出聊天背景，并带背景取样、轻微折射和柔光；只影响聊天页，不改变聊天内容、头像、特殊卡片、其它应用或锁屏。下面还有“聊天文字颜色”，可选“跟随主题”或“白色”。选择都会立即生效并自动保存，想恢复原样就到「主题」里切换。
 
 【最近更新 · 2026-10-28】
@@ -29814,6 +29817,7 @@ var MEMC={};
 /* ---------- 对局记录（存在本地，跟着备份走） ---------- */
 var LS_GAME='wh_gamerec';
 var LS_WWSAVE='wh_wwsave';      /* 狼人杀：没打完那一局的进度（只留最近一份，换局就覆盖） */
+var LS_WWREWIND='wh_wwrewind';  /* 最近几个夜晚开始前的检查点，只给回溯用 */
 function recStore(){try{var a=load(LS_GAME,[]);return Array.isArray(a)?a:[]}catch(e){return []}}
 function recPut(list){
   try{
@@ -35178,9 +35182,9 @@ function wwWolfChannelText(max){
   }).join('\n');
 }
 function wwWolfCommandRule(){
-  return '【狼队执行优先级】本夜真人玩家在狼队频道里的明确安排最高；本夜没有新指令时，优先听狼队这一夜形成的讨论和多数策略；最后才是“悍跳/冲锋/倒钩/深水”等分工标签。'+
+  return '【狼队执行优先级】本夜真人玩家在狼队频道里的明确安排最高；真人已经出局时，遗言里的狼队安排仍然最高，不能因为作者出局就忽略；本夜没有新指令时，优先听狼队这一夜形成的讨论和多数策略；最后才是“悍跳/冲锋/倒钩/深水”等分工标签。'+
     '分工只是默认打法，不是禁令或角色限制。多句真人指令冲突时，以本夜时间最新的那句为准。'+
-    '真人要求你跳预、改刀、改票、退水或按指定方式配合时，要优先执行，不能因为自己是“深水狼”等标签就拒绝。';
+    '真人要求你跳预、改刀、改票、退水、禁刀某人或按指定方式配合时，要优先执行，不能因为自己是“深水狼”等标签就拒绝，也不能被其他 AI 狼的多数意见覆盖。';
 }
 function wwWolfJobOf(p){var w=V.ww;return (w&&w.wolfRoles&&p)?String(w.wolfRoles[p.uid]||''):''}
 function wwWolfJobNames(a){return (a||[]).map(function(k){return WW_WOLF_JOB_NAME[k]||k}).join('、')}
@@ -35367,14 +35371,76 @@ function wwWolfLastVoteKnifeHint(p,w){
   }).join('\n')+
   '\n被票出的队友或疑似大狼如果救不了自己，最后一票突然点向非主目标，可能是在用票指刀。它不是硬命令，可能只是抗议或乱票；但今夜必须把该目标列入刀人比较，尤其她像尚未找出的神、杀掉后能完成屠边时。';
 }
+function wwUserWolfDirectiveRows(w){
+  var me=(w&&w.players||[]).filter(function(p){return p&&p.isUser})[0]||null;
+  var out=[];
+  ((w&&w.log)||[]).forEach(function(e){
+    if(!e)return;
+    if(e.k==='wolf'&&e.isUser&&String(e.text||'').trim())
+      out.push({d:e.d||0,text:String(e.text||'').trim(),kind:'狼队频道'});
+    else if(me&&e.k==='say'&&e.who===me.uid&&/^【遗言】/.test(String(e.text||'')))
+      out.push({d:e.d||0,text:String(e.text||'').replace(/^【遗言】/,'').trim(),kind:'遗言'});
+  });
+  return out;
+}
+function wwWolfForbiddenMap(w){
+  var banned={},rows=wwUserWolfDirectiveRows(w);
+  rows.forEach(function(row){
+    var t=row.text,m,re=/(?:别刀|不要刀|不许刀|别杀|不要杀|别管|不要动|留着|保住)[^。！？!?；;\n]{0,10}?(\d{1,2})\s*号/g;
+    while((m=re.exec(t))){
+      var p=wwPlayerByUidTarget(w,Number(m[1]));
+      if(p)banned[p.uid]=true;
+    }
+    if(/(?:别管|别刀|不要刀|留着)[^。！？!?；;\n]{0,16}(?:真预|预言家)/.test(t)){
+      wwLivingPublicSeerClaims(w).forEach(function(p){banned[p.uid]=true});
+    }
+    var allow=/(?:改刀|现在刀|优先刀|直接刀)\s*(\d{1,2})\s*号/g;
+    while((m=allow.exec(t))){
+      var q=wwPlayerByUidTarget(w,Number(m[1]));
+      if(q)delete banned[q.uid];
+    }
+  });
+  return banned;
+}
+function wwWolfUserPreferenceText(w){
+  var rows=wwUserWolfDirectiveRows(w),out=[];
+  rows.forEach(function(row){
+    var t=row.text,m,re=/(?:我觉得像|像是|像|优先刀|先刀|先找|重点找|找)\s*(\d{1,2})\s*号?/g;
+    while((m=re.exec(t))){
+      var p=wwPlayerByUidTarget(w,Number(m[1]));
+      if(p&&p.alive&&!out.some(function(x){return x.uid===p.uid}))out.push(p);
+    }
+    var roleRe=/(\d{1,2})\s*号?[^。！？!?；;\n]{0,10}(?:像|是|指|优先)[^。！？!?；;\n]{0,8}(?:女巫|守卫|猎人|预言家|守墓人)/g;
+    while((m=roleRe.exec(t))){
+      var q=wwPlayerByUidTarget(w,Number(m[1]));
+      if(q&&q.alive&&!out.some(function(x){return x.uid===q.uid}))out.push(q);
+    }
+  });
+  return out.length?('【真人给出的目标倾向（最高优先级参考）】'+out.map(wwTag).join('、')+
+    '：真人根据发言或身份判断点到的候选。不是绝对硬令时，也要优先和守卫、女巫、最后未明神的收益一起比较，不要直接忽略。'):'';
+}
+function wwUserWolfDirectiveText(w){
+  var rows=wwUserWolfDirectiveRows(w);
+  if(!rows.length)return '';
+  var banned=wwWolfForbiddenMap(w),names=[];
+  Object.keys(banned).forEach(function(uid){
+    var p=null;(w.players||[]).some(function(x){if(x&&x.uid===uid){p=x;return true}return false});
+    if(p&&p.alive)names.push(wwTag(p));
+  });
+  return '【真人玩家狼队指令（最高优先级，最终刀口必须服从）】\n'+
+    rows.slice(-4).map(function(x){return '· '+(x.d?('第'+x.d+'夜 '):'')+x.kind+'：'+x.text}).join('\n')+
+    (names.length?('\n【本夜硬禁止刀】'+names.join('、')+'。这些位置是真人明确要求留下/别管/用于白天抗推的；AI 狼不能用自己的威胁判断或多数意见覆盖。除非真人后来明确说改刀该位置。'):'')+
+    '\n如果真人要求“注意守卫/找神”，不要只看警徽；先比较守卫、女巫和最后未明神的位置。'+
+    (wwWolfUserPreferenceText(w)?('\n'+wwWolfUserPreferenceText(w)):'');
+}
 function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length,wolfAlive=wwAlive().filter(wwIsWolf).length;
   var base='【自刀/刀队友检查】'+
     (seers.length?('场上仍有 '+seers.map(wwTag).join('、')+' 以预言家身份活动。'):'当前没有明确的活跃跳预者。')+
     '自刀不能只为了“证明悍跳位是真的”，还要保留能继续吃票、继续对抗真预的抗推位。选择自己或队友前，判断里必须明确写出：为什么她已没有抗位价值、自刀能换来什么具体票型、狼队还能承受少一人。'+
     '前几天若其他狼还能打、且仍有人可以抗推真预，优先保留跳预狼；否则改刀好人，把恐惧和刀人用在不同的有效目标上。当前普通狼存活数：'+packAlive+'；狼阵营总人数：'+wolfAlive+'。';
-  var god=wwPublicGodGapText(w,p),sig=wwWolfLastVoteKnifeHint(p,w);
-  return base+(god?'\n'+god:'')+(sig?'\n'+sig:'');
+  var god=wwPublicGodGapText(w,p),sig=wwWolfLastVoteKnifeHint(p,w),cmd=wwUserWolfDirectiveText(w);
+  return base+(cmd?'\n'+cmd:'')+(god?'\n'+god:'')+(sig?'\n'+sig:'');
 }
 /* 【改·省调用】一只狼夜里一次搞定三件事：想刀谁、为什么这样刀、给队友留一句悄悄话。
    以前分多次请求，现在合成一次，狼多的时候能省请求。
@@ -35425,6 +35491,14 @@ async function wwWolfAct(p){
     }
   }
   var logic=logicLine?String(logicLine).replace(/^[^:：]*[:：]\s*/,'').trim():'';
+  var banned=wwWolfForbiddenMap(w);
+  if(pick&&banned[pick.uid]){
+    var safe=alive.filter(function(x){return x&&!wwIsWolf(x)&&!banned[x.uid]});
+    var oldTag=wwTag(pick);
+    pick=safe.length?safe[Math.floor(Math.random()*safe.length)]:null;
+    logic+=(logic?' ':'')+'（服从真人指令：避开'+oldTag+'，改刀'+(pick?wwTag(pick):'空刀')+'）';
+    if(!pick)noKill=true;
+  }
   return {t:pick,note:note,noKill:!!noKill,logic:logic};
 }
 /* 你是狼人：夜里给狼队留言（这一夜一共 50 字；可以分几条说，不想说就点「不留言」） */
@@ -35450,7 +35524,8 @@ async function wwWolfChoose(wolves){
   if(wwStaleG(gen))return null;
   var mates=wolves.filter(function(p){return !p.isUser});
   w.wolfPicks=[];                              /* 每只狼今晚的意见：{seq,name,t} */
-  var rand=(prey.length?prey[Math.floor(Math.random()*prey.length)]:alive[Math.floor(Math.random()*alive.length)]);
+  var banned=wwWolfForbiddenMap(w),safePrey=prey.filter(function(p){return !banned[p.uid]});
+  var rand=(safePrey.length?safePrey[Math.floor(Math.random()*safePrey.length)]:null);
   if(!mates.length)return null;                /* 只有你一个狼：没有队友意见 */
   /* 「你在狼队里还活着」才算——你要是好人、在旁观、或者已经出局了，狼队就都是人机，它们自己会说话 */
   var meW=wwMe(), userWolf=!!(meW&&meW.alive&&wwIsWolf(meW));
@@ -35460,6 +35535,10 @@ async function wwWolfChoose(wolves){
     var m=mates[wi];
     var a=await wwWolfAct(m);
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
+    if(a.t&&banned[a.t.uid]){
+      a.t=safePrey.length?safePrey[Math.floor(Math.random()*safePrey.length)]:null;
+      a.logic+=(a.logic?' ':'')+'（最终刀口过滤：避开真人禁刀目标）';
+    }
     var blockedSelf=wwBlockBlindWolfSelfKill(w,a.t,a.logic);
     var t=blockedSelf?(a.noKill?null:rand):(a.t||(a.noKill?null:rand)); /* 明确说「空刀」就是今晚不杀；没答上来才退回随机 */
     if(blockedSelf&&a.logic)a.logic+='（系统拦下：早期保留抗推位，禁止无明确收益的自刀）';
@@ -35478,6 +35557,7 @@ async function wwWolfChoose(wolves){
      【新】「空刀」也算一票：主张空刀的人比主张某个目标的多，这一晚就真的不杀人（返回 null）。 */
   var cnt={},best=null,bn=0,nk=0;
   w.wolfPicks.forEach(function(x){
+    if(x.t&&banned[x.t.uid])x.t=null;
     if(!x.t){if(x.noKill)nk++;return}
     cnt[x.t.uid]=(cnt[x.t.uid]||0)+1;
     if(cnt[x.t.uid]>bn){bn=cnt[x.t.uid];best=x.t}
@@ -36890,6 +36970,8 @@ function wwRoomHTML(){
 async function wwNight(){
   var w=V.ww,me=wwMe();
   var gen=wwGenNow();
+  if(!w._skipCheckpoint)wwCheckpoint('第 '+w.day+' 夜开始前');
+  w._skipCheckpoint=false;
   w.night={wolf:null,save:false,poison:null,check:null,guard:null,gargoyle:null,gravekeeper:null,nightmare:null,feared:null,nokill:false,deaths:[]};
   w.nightDone=false;                  /* 这一夜还没结算（结算完才置 true，存/接着玩时靠它判断进度） */
   w.wolfPicks=[];                     /* 今晚每只狼各自的刀人意见（下面商量刀谁时会填上） */
@@ -38644,6 +38726,116 @@ function wwApplySnap(s,recId){
   w.thinkOpen={};
   w.gen=(w.gen||0)+1;
 }
+var WW_REWIND_MAX=8;
+function wwRewindList(){
+  try{var a=load(LS_WWREWIND,[]);return Array.isArray(a)?a:[]}catch(e){return[]}
+}
+function wwCheckpoint(label){
+  var w=V.ww;
+  if(!w||!w.players||!w.players.length||w.over||w.stopped)return;
+  try{
+    var s=wwSnap();
+    /* 这是“夜晚开始前”的快照，不是已完成夜：恢复时应当重新进入这一夜。 */
+    s.phase='night';s.nightDone=false;s.night=null;s.pendingDeaths=null;s.resume='night';
+    s.winner='';s.endText='';
+    var arr=wwRewindList();
+    if(arr.length&&arr[arr.length-1].day===Number(w.day)&&arr[arr.length-1].label===String(label))arr.pop();
+    arr.push({id:'cp'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),at:Date.now(),
+      day:Number(w.day)||1,label:String(label||('第 '+w.day+' 夜开始前')),recId:w.recId||'',snap:s});
+    arr=arr.slice(-WW_REWIND_MAX);
+    save(LS_WWREWIND,arr);
+  }catch(e){}
+}
+function wwRewindApply(id){
+  var w=V.ww,cp=null;
+  wwRewindList().forEach(function(x){if(x&&x.id===id)cp=x});
+  if(!cp||!cp.snap)return toast('这个检查点已经找不到了');
+  if(!confirm('回到“'+cp.label+'”？\n\n回溯后这一夜以及之后的结果会重新进行；已经写进历史战绩的旧结果不会被改写。'))return;
+  var recId=w.recId||cp.recId||'';
+  var gr=w.gateResolve,ur=w.resolve,vr=w.voteResolve,rr=w.roomResolve;
+  w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;w.voteResolve=null;w.roomResolve=null;w.room=null;
+  if(gr)try{gr()}catch(e){}
+  if(ur)try{ur({uid:null,val:0,text:''})}catch(e){}
+  if(vr)try{vr('')}catch(e){}
+  if(rr)try{rr({skip:1})}catch(e){}
+  wwApplySnap(cp.snap,recId);
+  var nw=V.ww;
+  nw._skipCheckpoint=true;
+  nw.resume='night';
+  nw.auto=false;
+  nw.rewindOpen=false;
+  nw.msg='已回到 '+cp.label+'，夜晚重新开始。';
+  V.view='ww';
+  render(true);
+  wwLoop();
+}
+/* 没有提前存检查点时，尽量从当前局的行动记录撤掉最后一个夜晚。
+   这不是读取历史文字重新开局，而是用当前内存里的完整局面反向撤销该夜。 */
+function wwRollbackLastNight(){
+  var w=V.ww;
+  if(!w||!w.players||!w.players.length)return toast('没有正在进行的牌局');
+  var last=0;
+  (w.rec||[]).forEach(function(x){if(x&&Number(x.d)>last)last=Number(x.d)});
+  if(!last)return toast('这局还没有可撤回的夜间行动');
+  if(!confirm('按当前记录撤回第 '+last+' 夜，并停在该夜开始前？\n\n会恢复该夜死亡、查验、药品和技能状态，并删除该夜之后的记录。旧历史战绩不会被改写。'))return;
+  var marker='第 '+last+' 天';
+  var cut=-1;
+  (w.log||[]).forEach(function(e,i){
+    if(cut<0&&e&&e.k==='sys'&&String(e.text||'').indexOf(marker)===0)cut=i;
+  });
+  var laterLog=cut>=0?(w.log||[]).slice(cut):[];
+  var deaths=(w.night&&w.night.deaths)?w.night.deaths.slice():[];
+  laterLog.forEach(function(e){
+    if(!e)return;
+    var t=String(e.text||''),m;
+    if(e.k==='vote'&&(m=t.match(/(\d{1,2})\s*号出局/))){var q=wwPlayerByUidTarget(w,Number(m[1]));if(q)deaths.push(q)}
+    if((m=t.match(/出局前带走了\s*(\d{1,2})\s*号/))){var q2=wwPlayerByUidTarget(w,Number(m[1]));if(q2)deaths.push(q2)}
+  });
+  var seen={};deaths.forEach(function(p){if(p&&!seen[p.uid]){seen[p.uid]=1;p.alive=true;p.killedBy=''}});
+  (w.rec||[]).forEach(function(x){
+    if(Number(x.d)!==last)return;
+    var t=String(x.t||'');
+    if(/女巫用解药救了/.test(t))w.witchSave=true;
+    if(/女巫用毒药毒了|女巫用毒药毒/.test(t))w.witchPoison=true;
+  });
+  w.witchLog=(w.witchLog||[]).filter(function(x){return Number(x.d)<last});
+  (w.players||[]).forEach(function(p){
+    if(!p)return;
+    p.check=(p.check||[]).filter(function(c){return Number(c.day)<last});
+  });
+  var lastGuard=null;
+  var prevExile=null;
+  var prevNightmare=null;
+  (w.rec||[]).forEach(function(x){
+    if(Number(x.d)>=last)return;
+    var m=String(x.t||'').match(/^守卫守了\s*(\d{1,2})\s*号/);
+    if(m)lastGuard=wwPlayerByUidTarget(w,Number(m[1]));
+    var nm=x.t&&String(x.t).match(/^梦魇恐惧了\s*(\d{1,2})\s*号/);
+    if(nm)prevNightmare=wwPlayerByUidTarget(w,Number(nm[1]));
+    var em=String(x.t||'').match(/^被放逐：\s*(\d{1,2})\s*号/);
+    if(em)prevExile={day:Number(x.d)||last-1,uid:(wwPlayerByUidTarget(w,Number(em[1]))||{}).uid||null};
+  });
+  w.rec=(w.rec||[]).filter(function(x){return Number(x.d)<last});
+  w.log=cut>=0?(w.log||[]).slice(0,cut):(w.log||[]).slice();
+  w.day=last;w.phase='night';w.resume='night';w.nightDone=false;w.night=null;w.pendingDeaths=null;
+  w.winner='';w.endText='';
+  w.scene='night';w.auto=false;w.over=false;w.stopped=false;
+  w.votes={};w.voteMode='';w.votePick=null;w.votePool=[];w.voteLeft=0;
+  w.lastExile=prevExile;w.spoke={};w.speaking=null;w.electing=false;w.inPK=false;
+  w.dayOver=0;w.wordsDone=false;w.guardLast=lastGuard?lastGuard.uid:'';
+  w.nightmareLast=prevNightmare?prevNightmare.uid:'';
+  (w.players||[]).forEach(function(p){if(p&&Number(p.fearedDay)>=last)p.fearedDay=0});
+  /* 当前存档没有“那一夜的身份盘快照”，清掉后续身份判断，避免 AI 看到未来信息。 */
+  (w.players||[]).forEach(function(p){if(p){p.readBoard='';p.readBoardVer=2;p.readBoardDay=0;p.readBoardLog=[];p.scratch=''}});
+  w.scribe=wwEmptyScribe();w.scribeBusy=false;
+  w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;w.voteResolve=null;
+  w.room=null;w.roomResolve=null;w.msg='已按当前记录撤回第 '+last+' 夜，夜晚重新等待行动。';
+  w.gen=(w.gen||0)+1;w.running=false;
+  w._skipCheckpoint=true;
+  w.rewindOpen=false;
+  render(true);
+  wwLoop();
+}
 /* 「继续游戏」：把没打完的一局接回来（有存档就用存档；老记录就按记录尽量还原） */
 function wwResume(id){
   var w=V.ww;
@@ -39046,6 +39238,7 @@ function wwStart(){
   w.nightmareMetWolves=false;w.nightmareLast='';
   w.votes={};w.speaking=null;w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
   w.witchSave=true;w.witchPoison=true;w.witchLog=[];w.reacts=[];w.reacting=false;w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';w.title='';
+  try{save(LS_WWREWIND,[])}catch(e){}
   /* 【新】警长（上警）：每一局都重新来 */
   w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeVote={};w.speechStart='';w.speechDir=1;
   w.pendingDeaths=null;w.electing=false;
@@ -40375,6 +40568,24 @@ function wwBgmToggle(){
 function wwBgmAuto(){
   try{if(load(LS_WWMUSIC,0))wwBgmStart()}catch(e){}
 }
+function wwRewindHTML(){
+  var w=V.ww,arr=wwRewindList(),rows='';
+  if(!arr.length){
+    rows='<p class="gx-hint">这一局还没有预先保存的夜晚检查点。你可以先用下面的“按当前记录撤回上一夜”近似恢复到上一个夜晚；更精确的回溯会从下一次进入夜晚时开始。</p>';
+  }else{
+    rows='<p class="gx-hint">只保留最近 '+WW_REWIND_MAX+' 个“夜晚开始前”检查点。回溯会从选中的夜晚重新进行，不会修改已经保存的旧历史战绩。</p>';
+    arr.slice().reverse().forEach(function(x){
+      rows+='<div class="fic-li" style="margin:7px 0"><div class="fic-lm"><div class="fic-lt">'+esc(x.label||('第 '+x.day+' 夜开始前'))+'</div>'+
+        '<div class="fic-ld">第 '+esc(String(x.day||'?'))+' 天 · '+esc(fmtTime(x.at||Date.now()))+'</div></div>'+
+        '<button class="pri" type="button" onclick="GAME.wwRewindTo(\''+esc(x.id)+'\')">回到这里</button></div>';
+    });
+  }
+  return '<div class="ww-mkmodal" style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:16px 18px;background:rgba(3,5,8,.62)">'+
+    '<div class="ww-mkbox" style="max-height:calc(100vh - 48px);overflow:auto">'+
+    '<div class="ww-mkbox-t">↶ 回溯到哪个夜晚？</div>'+rows+
+    '<div class="gx-row">'+(w.rec&&w.rec.length?'<button class="ghost" type="button" onclick="GAME.wwRewindLastNight()">按当前记录撤回上一夜</button>':'')+
+    '<button class="ghost" type="button" onclick="GAME.wwRewindOpen(0)">关闭</button></div></div></div>';
+}
 function wwInfoHTML(){
   var w=V.ww;if(!w||!w.helpOpen)return '';
   var b=wwBoard(w.count),rules=[],alive=wwAlive().length,me=wwMe(),mine=[];
@@ -40461,6 +40672,7 @@ function wwHTML(){
      topRole+'</div>'+
      (w.mode==='watch'?'<button class="ww-snd ww-godbtn'+(w.godView?' on':'')+'" type="button" aria-label="'+(w.godView?'关闭上帝视角':'打开上帝视角')+'" aria-pressed="'+(w.godView?'true':'false')+'" onclick="GAME.wwGodToggle()">'+wwUiIcon('eye')+'</button>':'')+
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
+     (w.over?'':'<button class="ww-snd" type="button" aria-label="回溯到之前的夜晚" title="回溯到之前的夜晚" onclick="GAME.wwRewindOpen(1)">↶</button>')+
      ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='knight'&&wwKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="骑士决斗" onclick="GAME.wwKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
      (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="查看本局说明" onclick="GAME.wwInfo(1)">'+WW_IC_HELP+'</button>')+
@@ -40600,6 +40812,7 @@ function wwHTML(){
        '</div></div>';
   }
   if(w.helpOpen)h+=wwInfoHTML();
+  if(w.rewindOpen)h+=wwRewindHTML();
   /* 【新·皮肤·第二批】先铺一层全屏场景图（白天/黄昏/夜里/处刑自动换），再叠原来的早晚氛围层，
      最后才是牌桌内容 —— 所有面板在这一批里都换成了暗色，压在村庄图上很清楚。 */
   var sc=wwSceneKey();
@@ -43127,6 +43340,9 @@ window.GAME={
   wwReady:function(inv){wwReady(inv)},
   wwGo:function(){wwGo()},
   wwAuto:function(v){wwAutoSet(!!v)},
+  wwRewindOpen:function(on){var w=V.ww;if(!w)return;w.rewindOpen=!!on;render(false)},
+  wwRewindTo:function(id){wwRewindApply(id)},
+  wwRewindLastNight:function(){wwRollbackLastNight()},
   /* 【新】打断这次思考、让它重新想一遍（正在请求的时候才有效） */
   wwRethink:function(){
     var ac=_WWAC;
