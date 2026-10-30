@@ -16313,6 +16313,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀对战桌新增「夜晚回溯」：每个新夜晚开始前会保存一个检查点，牌桌顶部的「↶」可以列出最近几个夜晚，回到选中的夜晚重新进行；回溯不会回写已经保存的历史战绩，旧版本已经过去的夜晚没有预先检查点，但可以从当前完整记录近似反向撤销上一夜，精确回退仍优先使用检查点。真人玩家在狼队频道或遗言里明确说“别刀/别管/留着抗推”的目标会成为最终禁刀约束，其他 AI 狼不能用多数意见绕过；“我觉得像 X”“找女巫/守卫”等会作为高优先级夜间目标参考。被票出玩家最后一票偏离当天主目标、投向仍存活玩家时，会作为“疑似指刀”候选；狼队终局还会根据公开神职声明优先寻找未明神，并在只剩三人时主动抢无主神职身份。
 角色调用游戏战绩详情工具并成功读完一局后，现在会记住这局的标题、记录编号和查看时间；以后聊天时能明确知道自己确实看过，不再疑惑。只保留最近 30 天内最多 12 局，同一条战绩重新查看会更新时间，不会重复堆积。旧记录超过期限后不再注入聊天，也不会继续占用这部分 token。
 狼人杀退水流程现在会统一记录“疑似代跳后退水，查验作废”，不区分真假预言家，也不会因此暴露真实身份；退水状态会随中途存档保留，已作废的跳预不再被算成漏报查验。已经回答并解决的问题不会继续出现在质问列表里。跳预者报过查验、按计划报验或警徽流完整只说明发言自洽，不再被当成真预证据；真预可以改验，死亡、存活和“唯一还活着的跳预者”也都不证明真假。AI 发言和投票前要回应单边神职或上一位玩家提出的具体狼点；枪口威胁不算证据，但也不能成为不回应事实的理由。
+狼人杀的质问现在会区分“待下次回应”和“未回答”：被问者还没有获得后续发言机会时，本轮不能把问题当成狼点。比较相似措辞时必须同时比较怀疑对象、实际票向、是否反水狼金水和前后行为；公开预判狼队可能恐谁、刀谁只是判断，猜中也不能反推成狼或梦魇。连续投狼是正面证据，可以被新的硬矛盾推翻，但不能只凭“狼也可能卖队友”直接清零。赛后 MVP 不看存活时长：好人胜时看点狼坑、带队投狼、关键警徽交接和技能带狼的贡献，狼人胜时看战术布局、指刀屠边、带节奏和制造迷惑的贡献；最佳操作必须是 MVP 的操作，最惨失误必须具体到一名玩家真实发生的失误。
 
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
@@ -16500,7 +16501,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=90;  /* 90：狼人杀退水作废与听取关键指控的规则修正 */
+const GUIDE_VER=91;  /* 91：狼人杀待回应问答、预判纪律与 MVP 口径修正 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34115,8 +34116,14 @@ function wwAnswerRefsResolved(qRefs,aRefs,refs){
   var aa=aRefs.map(function(r){return refs[r]?refs[r].text:''}).join(' ');
   return wwAnswerResolvesText(qs,aa);
 }
+function wwQuestionHadSpeechAfter(rows,targetUid,asks){
+  var lastAsk=-1;
+  (asks||[]).forEach(function(a){if(a&&Number(a.idx)>lastAsk)lastAsk=Number(a.idx)});
+  if(lastAsk<0)return false;
+  return (rows||[]).some(function(r){return r&&r.uid===targetUid&&Number(r.idx)>lastAsk});
+}
 function wwQAStatusText(st){
-  return st==='answered'?'已回答并解决':(st==='unresolved'?'已回应但未解决':'未回答');
+  return st==='answered'?'已回答并解决':(st==='unresolved'?'已回应但未解决':(st==='pending'?'待下次回应':'未回答'));
 }
 function wwQuestionLedger(w){
   var rows=wwPublicEventRows(w),groups=[],map={};
@@ -34167,7 +34174,10 @@ function wwQuestionLedger(w){
       g.status=wwAnswerResolvesText(qText,aText)?'answered':'unresolved';
       var answerAt=Math.min.apply(null,g.answers.map(function(a){return a.idx}));
       g.repeated=g.asks.filter(function(a){return a.idx>answerAt}).length;
-    }else g.repeated=0;
+    }else{
+      g.repeated=0;
+      if(!wwQuestionHadSpeechAfter(rows,g.target.uid,g.asks))g.status='pending';
+    }
   });
   groups.sort(function(a,b){
     var aa=a.asks.length?a.asks[a.asks.length-1].idx:-1,bb=b.asks.length?b.asks[b.asks.length-1].idx:-1;
@@ -34176,7 +34186,7 @@ function wwQuestionLedger(w){
   return groups;
 }
 function wwQuestionLedgerText(w,p){
-  var L=[],useScribe=!!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length),scribeShown=false;
+  var rows=wwPublicEventRows(w),L=[],useScribe=!!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length),scribeShown=false;
   if(useScribe){
     var refs=wwScribeRefMap(w);
     (w.scribe.qa||[]).forEach(function(qa){
@@ -34186,7 +34196,7 @@ function wwQuestionLedgerText(w,p){
       var mineAsk=asks.some(function(a){return a.uid===p.uid});
       var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       var st=String(qa.status||'');
-      if(!ans.length)st='unanswered';
+      if(!ans.length)st=(asks.length&&!wwQuestionHadSpeechAfter(rows,targetP.uid,asks))?'pending':'unanswered';
       else if(st==='unresolved'||!wwAnswerRefsResolved(qa.questionRefs||[],qa.answerRefs||[],refs))st='unresolved';
       else st='answered';
       if(st==='answered')return;
@@ -34222,7 +34232,7 @@ function wwQuestionLedgerText(w,p){
   }
   if(!L.length)return '';
   L.unshift((useScribe&&scribeShown)?'【质问与回答记录（场记 AI 核对原话）】':'【质问与回答记录（本地规则兜底）】');
-  L.push('纪律：“已回答并解决”的问题不再作为狼点，也不得继续追问；“已回应但未解决”仍是当前硬疑点。承认措辞不好、道歉、重复原结论或反怀疑别人，都不等于解决因果/时间线冲突；若要把硬疑点降级，必须说出新的、能同时成立的替代解释。');
+  L.push('纪律：“已回答并解决”的问题不再作为狼点，也不得继续追问；“待下次回应”表示被问者还没有获得回答机会，本轮不能拿来增加怀疑；“已回应但未解决”仍是当前硬疑点。承认措辞不好、道歉、重复原结论或反怀疑别人，都不等于解决因果/时间线冲突；若要把硬疑点降级，必须说出新的、能同时成立的替代解释。');
   if(L.length<=12)return L.join('\n');
   var kept=L.slice(0,11);kept.push(L[L.length-1]);
   return kept.join('\n');
@@ -35060,7 +35070,10 @@ function wwSysFor(p,task){
     (wwIsWolf(p)?'狼人阵营可以说谎和悍跳。':''));
   L.push('【判断优先级】主持人事实、可信查验 > 未解决硬矛盾 > 票型或明确承诺冲突 > 动机 > 语气。'+
     '夜死、被票、被保或被踩都只是线索，不能因此认铁狼铁好；夜死也可能是狼自刀，女巫毒死不等于狼。'+
-    '发言长短、语气、施压、反问、预判和口癖不是身份证据。单边神职无对跳先不投，但不证明她归票正确；出现新事实后重新盘。');
+    '发言长短、语气、施压、反问、预判和口癖不是身份证据。公开预判狼队可能恐谁、刀谁只是视角；猜中也不能反推她是狼或梦魇。'+
+    '单边神职无对跳先不投，但不证明她归票正确；出现新事实后重新盘。');
+  L.push('【发言比较】比较两人相似措辞时必须同时看怀疑对象、实际票向、是否反水狼金水及前后行为，不能只凭文字接近就认定立场相同。'+
+    '被问者尚未获得下一次发言机会时，提问只标“待下次回应”，不能当成本轮未回答或狼点。');
   L.push('【聊爆与措辞】两句话能同时成立就是措辞或表达差，不能持续定狼。'+
     '原话与规则、时间线、查验或技能结果正面冲突且没有替代解释，才是聊爆；未解决时应优先票出。'+
     '承认“话糙、说错”却没给出替代因果，不算解释成立；说别人聊爆后要改票，必须先撤销判断并说明替代解释。');
@@ -35072,7 +35085,8 @@ function wwSysFor(p,task){
     '死亡不证明假预，存活或“唯一还活着的跳预者”也不证明真预。首夜已发生的查验不能被后来的“今晚验X”倒推成故意撞车；首验理由双方都随意时，不能只扣一方。'+
     '真预把多名对跳者都当狼、狼考虑好人代跳，都是正常视野，不能只凭“太满”判身份。可信守墓人证明其为好时落到真预；'+
     '程序列的漏报、双线金水、自踩金水只作核对线索，不是身份结论。'+(wwSheriffOn()?'警徽处理也只核对是否交接，不证明真预。':''));
-  if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。先看谁从好人互打中获利。'+
+  if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。'+
+    '连续投狼是正面线索，可被新的硬矛盾推翻，但不能只凭“狼也可能卖队友”就反向清零。先看谁从好人互打中获利。'+
     '票型不是身份定论：狼会冲好人，也会卖队友做身份。不能因为“狼公开推过她”就反推她是好人，也不能因为“她投过狼”就直接洗白。'+
     '\n【好人硬检查】“狼不会这么送、查杀太顺、没必要冒这个险”只能算弱概率，不能单独排除某条世界线；狼也不知道预言家当夜会验谁，误撞和配合失误都可能发生。'+
     (wwBoard(w.count,w).nightmare?'报被梦魇恐惧导致当夜没有验人或技能结果，本身不是狼点；没有同夜记录或规则矛盾时，不能只因为没有结果就票她，更不能把“没报出结果”当查验造假。':'')+
@@ -35910,8 +35924,8 @@ function wwJudgePrompt(src,result){
      —— 见 wwPublicLog / wwPublicLogRec，那两种只收 sys / say / vote，所以裁判看不到她和凶手互骂的那些话。 */
   if(src.wolf)L.push('【狼队频道（她们夜里偷偷商量的，当时场上好人完全不知道）】\n'+src.wolf);
   L.push('【复盘纪律】必须区分“聊爆”和“措辞差”：聊爆是原话与规则、验人时间线、票型承诺或技能结果正面冲突，且发言者没有给出能同时成立的替代解释；普通语气、口语歧义、发言靠后或警长票与放逐票不同，不能写成逻辑矛盾。若好人放过了未解决的聊爆，却因这些非矛盾理由出了人，要明确写成本局的真实误判，不能复述狼队的带票话术当事实。');
-  L.push('【赛后评选】由你自行评选一名获胜阵营 MVP；再写一条“最佳操作”，必须是该 MVP 的操作；再写一条“最惨失误”，必须写清具体一名玩家的失误。');
-  L.push('【失误纪律】最惨失误只能写确实发生的具体动作；已明确解释过的问题不得写成“未处理”或“没解释”。');
+  L.push('【赛后评选】只选获胜阵营一名 MVP，不看存活时长。好人胜时，看谁对暴露狼队贡献最大：点明狼坑、正确带队票出狼、关键警徽交接、技能直接带走狼；狼人胜时，看谁对好人破坏最大：战术布局、指刀屠边、带节奏、制造迷惑。'+
+    '最佳操作必须是 MVP 的操作；最惨失误必须写清具体一名玩家确实发生的失误，已解释过的问题不得写成“未处理”。');
   L.push('【输出格式】严格按下面五行输出，不要 markdown 或额外内容：\n'+
     '标题：6~12 字，概括本局最有戏之处，不加标点或引号，不出现「狼人杀」\n'+
     '复盘：2~4 句，说清楚这局大概发生了什么（谁刀了谁、谁被票出去、最后怎么结束的）\n'+
