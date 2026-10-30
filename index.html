@@ -36332,53 +36332,85 @@ function wwShareCanvasLines(ctx,text,maxW){
   });
   return lines;
 }
-function wwBuildShareCanvas(w){
-  var text=wwDumpShareText(w,true,WW_SHARE_WOLF),W=960,PAD=58,FONT=21,LH=32,MAXH=20000;
-  if(!text)return null;
-  var cv=document.createElement('canvas'),ctx=cv.getContext('2d');
-  ctx.font=FONT+'px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
-  var lines=wwShareCanvasLines(ctx,text,W-PAD*2);
-  var maxLines=Math.floor((MAXH-PAD*2-20)/LH);
-  if(lines.length>maxLines){
-    lines=lines.slice(0,maxLines-1);
-    lines.push('……图片过长，后面的公开内容请用「复制精简战报」查看。');
+function wwBuildShareCanvases(w){
+  /* 长图必须展示完整发言，不走“首尾摘要”的紧凑模式。
+     单张画布控制在较安全的 16000 像素内；再长就按完整行顺序分页，绝不丢正文。 */
+  var text=wwDumpShareText(w,false,WW_SHARE_WOLF),W=960,PAD=58,FONT=21,LH=32,MAXH=16000;
+  if(!text)return [];
+  var measure=document.createElement('canvas'),mctx=measure.getContext('2d');
+  mctx.font=FONT+'px "Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+  var lines=wwShareCanvasLines(mctx,text,W-PAD*2);
+  var maxLines=Math.max(1,Math.floor((MAXH-PAD*2-18)/LH)),pages=[];
+  for(var from=0;from<lines.length;from+=maxLines){
+    var part=lines.slice(from,from+maxLines);
+    var H=Math.max(420,PAD*2+part.length*LH+18);
+    var cv=document.createElement('canvas'),ctx;
+    cv.width=W;cv.height=H;
+    ctx=cv.getContext('2d');
+    ctx.fillStyle='#f6f0e5';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#7c2d2d';ctx.fillRect(0,0,W,10);
+    ctx.textBaseline='top';
+    part.forEach(function(line,i){
+      var head=/^(===|【)/.test(line);
+      ctx.font=(head?'bold ':(FONT+'px '))+(head?'23px ':'')+'"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.fillStyle=head?'#762b2b':'#3e3530';
+      ctx.fillText(line,PAD,PAD+i*LH);
+    });
+    ctx.fillStyle='#7c2d2d';ctx.fillRect(0,H-7,W,7);
+    pages.push(cv);
   }
-  var H=Math.min(MAXH,Math.max(420,PAD*2+lines.length*LH+18));
-  cv.width=W;cv.height=H;
-  ctx=cv.getContext('2d');
-  ctx.fillStyle='#f6f0e5';ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='#7c2d2d';ctx.fillRect(0,0,W,10);
-  ctx.textBaseline='top';
-  lines.forEach(function(line,i){
-    var head=/^(===|【)/.test(line);
-    ctx.font=(head?'bold ':(FONT+'px '))+(head?'23px ':'')+'"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif';
-    ctx.fillStyle=head?'#762b2b':'#3e3530';
-    ctx.fillText(line,PAD,PAD+i*LH);
+  return pages;
+}
+function wwShareCanvasUrls(canvases,done){
+  var left=(canvases||[]).length,urls=new Array(left);
+  if(!left)return done([]);
+  canvases.forEach(function(cv,i){
+    function finish(){
+      left--;
+      if(!left)done(urls.filter(Boolean));
+    }
+    function fallback(){
+      try{urls[i]=cv.toDataURL('image/jpeg',.9)}catch(e){}
+      finish();
+    }
+    if(cv.toBlob){
+      try{
+        cv.toBlob(function(blob){
+          if(!blob)return fallback();
+          try{urls[i]=URL.createObjectURL(blob);finish()}catch(e){fallback()}
+        },'image/jpeg',.9);
+      }catch(e){fallback()}
+    }else fallback();
   });
-  ctx.fillStyle='#7c2d2d';ctx.fillRect(0,H-7,W,7);
-  return cv;
 }
 function wwSaveShareImage(w){
   if(!w)return toast('没有可保存的战绩');
-  try{showSheet('<div class="ttl">正在生成战绩长图…</div><p class="dim">只整理身份、夜间行动、公开发言和投票，不包含 AI 内部思考。</p>',false)}catch(e){}
+  try{showSheet('<div class="ttl">正在生成战绩长图…</div><p class="dim">本次使用完整发言原文；内容特别长时会自动分成多张，不会省略文字。</p>',false)}catch(e){}
   setTimeout(function(){
-    var cv=null;
-    try{cv=wwBuildShareCanvas(w)}catch(e){}
-    if(!cv)return toast('战绩长图生成失败');
-    var fname=String(w.title||'狼人杀战绩').replace(/[\\/:*?"<>|]+/g,'-').slice(0,32)+'-'+Date.now()+'.jpg';
-    function show(url){
-      var html='<div class="ttl">战绩长图</div>'+
-        '<div style="max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff"><img src="'+esc(url)+'" style="display:block;width:100%;height:auto"></div>'+
-        '<p class="dim" style="font-size:12px;margin:9px 2px">只含对局信息，不含身份盘、草稿纸、夜间密会和思考过程。若保存按钮没反应，可以长按上面的图片保存。</p>'+
-        '<div class="row"><a class="pri" href="'+esc(url)+'" download="'+esc(fname)+'" style="display:flex;align-items:center;justify-content:center;text-decoration:none">保存图片</a><button class="ghost" onclick="closeSheet()">关闭</button></div>';
-      try{showSheet(html,true)}catch(e){try{window.open(url,'_blank')}catch(x){}}
+    var canvases=[];
+    try{canvases=wwBuildShareCanvases(w)}catch(e){}
+    if(!canvases.length)return toast('战绩长图生成失败');
+    var base=String(w.title||'狼人杀战绩').replace(/[\\/:*?"<>|]+/g,'-').slice(0,32)+'-'+Date.now();
+    function show(urls){
+      if(!urls.length)return toast('战绩长图生成失败');
+      var html='<div class="ttl">战绩长图'+(urls.length>1?(' · 共 '+urls.length+' 张'):'')+'</div>'+
+        '<p class="dim" style="font-size:12px;margin:8px 2px">完整展示发言原文，没有省略。'+(urls.length>1?'内容较长，已按顺序分成多张，请从第 1 张开始保存。':'')+'</p>'+
+        '<div style="max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff">'+
+          urls.map(function(url,i){
+            return '<img src="'+esc(url)+'" style="display:block;width:100%;height:auto;border-bottom:'+(i<urls.length-1?'8px solid #f6f0e5':'0')+'">';
+          }).join('')+
+        '</div>'+
+        '<p class="dim" style="font-size:12px;margin:9px 2px">只含对局信息，不含身份盘、草稿纸、夜间密会和思考过程。若保存按钮没反应，可以长按图片保存。</p>'+
+        '<div class="row" style="flex-wrap:wrap;gap:8px">'+
+          urls.map(function(url,i){
+            var fname=base+(urls.length>1?('-第'+(i+1)+'张'):'')+'.jpg';
+            return '<a class="pri" href="'+esc(url)+'" download="'+esc(fname)+'" style="display:flex;align-items:center;justify-content:center;text-decoration:none">保存'+(urls.length>1?('第 '+(i+1)+' 张'):'图片')+'</a>';
+          }).join('')+
+          '<button class="ghost" onclick="closeSheet()">关闭</button>'+
+        '</div>';
+      try{showSheet(html,true)}catch(e){try{window.open(urls[0],'_blank')}catch(x){}}
     }
-    if(cv.toBlob){
-      cv.toBlob(function(blob){
-        if(!blob)return toast('战绩长图生成失败');
-        try{show(URL.createObjectURL(blob))}catch(e){show(cv.toDataURL('image/jpeg',.9))}
-      },'image/jpeg',.9);
-    }else show(cv.toDataURL('image/jpeg',.9));
+    wwShareCanvasUrls(canvases,show);
   },30);
 }
 function wwCopyText(t){
