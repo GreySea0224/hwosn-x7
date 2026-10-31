@@ -16313,7 +16313,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀对战桌新增「夜晚回溯」：每个新夜晚开始前会保存一个检查点，牌桌顶部的「↶」可以列出最近几个夜晚，回到选中的夜晚重新进行；回溯不会回写已经保存的历史战绩，旧版本已经过去的夜晚没有预先检查点，但可以从当前完整记录近似反向撤销上一夜，精确回退仍优先使用检查点。真人玩家在狼队频道或遗言里明确说“别刀/别管/留着抗推”的目标会成为最终禁刀约束，其他 AI 狼不能用多数意见绕过；“我觉得像 X”“找女巫/守卫”等会作为高优先级夜间目标参考。被票出玩家最后一票偏离当天主目标、投向仍存活玩家时，会作为“疑似指刀”候选；狼队终局还会根据公开神职声明优先寻找未明神，并在只剩三人时主动抢无主神职身份。
 角色调用游戏战绩详情工具并成功读完一局后，现在会记住这局的标题、记录编号和查看时间；以后聊天时能明确知道自己确实看过，不再疑惑。只保留最近 30 天内最多 12 局，同一条战绩重新查看会更新时间，不会重复堆积。旧记录超过期限后不再注入聊天，也不会继续占用这部分 token。
 狼人杀退水流程现在会统一记录“疑似代跳后退水，查验作废”，不区分真假预言家，也不会因此暴露真实身份；退水状态会随中途存档保留，已作废的跳预不再被算成漏报查验。已经回答并解决的问题不会继续出现在质问列表里。跳预者报过查验、按计划报验或警徽流完整只说明发言自洽，不再被当成真预证据；真预可以改验，死亡、存活和“唯一还活着的跳预者”也都不证明真假。AI 发言和投票前要回应单边神职或上一位玩家提出的具体狼点；枪口威胁不算证据，但也不能成为不回应事实的理由。
-狼人杀的质问现在会区分“待下次回应”和“未回答”：被问者还没有获得后续发言机会时，本轮不能把问题当成狼点。比较相似措辞时必须同时比较怀疑对象、实际票向、是否反水狼金水和前后行为；公开预判狼队可能恐谁、刀谁只是判断，猜中也不能反推成狼或梦魇。连续投狼是正面证据，可以被新的硬矛盾推翻，但不能只凭“狼也可能卖队友”直接清零。新增【行为大于言辞】：实际投票结果和归票方向优先于口头质疑，但正确票仍可能是在卖队友，不能直接洗白。【警徽移交铁律】：暂认真预的警长倒牌交徽时，默认接徽者是最后一夜验出的金水或最信任好人，优先按高可信好人判断；只有查验数量、夜数、公开交接分支或后续技能结果出现正面硬矛盾时才降级。赛后 MVP 不看存活时长：好人胜时看点狼坑、带队投狼、关键警徽交接和技能带狼的贡献，狼人胜时看战术布局、指刀屠边、带节奏和制造迷惑的贡献；最佳操作必须是 MVP 的操作，最惨失误必须具体到一名玩家真实发生的失误。MVP 严禁唯技能论，高光平民在 D1/D2 率先点齐狼坑、驳倒狼人伪逻辑或正确交徽归票时，优先级高于只按部就班报查验的神职；狼人即使首日牺牲，若主动设计自刀骗药、枪杀队友做高深水身份并直接导致好人误毒误判，也应获得最高 MVP 权重。狼人投票时会动态判断【绑票轮】：只在当前可投票有效票中狼队严格多于好人时显示，并提醒公开猎人枪、骑士决斗等反制风险；狼 AI 自行判断能否无视这些风险，若能则停止无意义的深水伪装、集中狼队归票，不能为了个人洗白投明狼队友。
+狼人杀的质问现在会区分“待下次回应”和“未回答”：被问者还没有获得后续发言机会时，本轮不能把问题当成狼点。比较相似措辞时必须同时比较怀疑对象、实际票向、是否反水狼金水和前后行为；公开预判狼队可能恐谁、刀谁只是判断，猜中也不能反推成狼或梦魇。连续投狼是正面证据，可以被新的硬矛盾推翻，但不能只凭“狼也可能卖队友”直接清零。新增【行为大于言辞】：实际投票结果和归票方向优先于口头质疑，但正确票仍可能是在卖队友，不能直接洗白。【警徽移交铁律】：暂认真预的警长倒牌交徽时，默认接徽者是最后一夜验出的金水或最信任好人，优先按高可信好人判断；只有查验数量、夜数、公开交接分支或后续技能结果出现正面硬矛盾时才降级。赛后 MVP 不看存活时长：好人胜时看点狼坑、带队投狼、关键警徽交接和技能带狼的贡献，狼人胜时看战术布局、指刀屠边、带节奏和制造迷惑的贡献；最佳操作必须是 MVP 的操作，最惨失误必须具体到一名玩家真实发生的失误。MVP 严禁唯技能论，高光平民在 D1/D2 率先点齐狼坑、驳倒狼人伪逻辑或正确交徽归票时，优先级高于只按部就班报查验的神职；狼人即使首日牺牲，若主动设计自刀骗药、枪杀队友做高深水身份并直接导致好人误毒误判，也应获得最高 MVP 权重。狼人投票时会动态判断【绑票轮】：只在当前可投票有效票中狼队严格多于好人时显示，并提醒公开猎人枪、骑士决斗等反制风险；狼 AI 自行判断能否无视这些风险，若能则停止无意义的深水伪装、集中狼队归票，不能为了个人洗白投明狼队友。狼人杀新增真人狼人【拍刀】：夜间从右上角“本局设置”直接指定刀口，跳过狼队友讨论和普通选刀提示，但不会跳过守卫、女巫、猎人等正常夜间结算；回溯入口也收进同一个设置弹层，牌桌顶部不再单独堆放。
+
+真人狼人【拍刀】现在按玩家自己抿出的神职位置排列后续刀口：次数为有刀狼人数减一；夜间起拍从第一刀开始，白天起拍先默认自爆一狼。系统按实际隐藏身份模拟守卫挡刀、女巫解药或毒药、猎人枪、骑士决斗等最优反制；每刀还可以选择梦魇恐惧谁，白狼王自爆时可以设置带走谁。拍到中间继续默认自爆一狼，最终仍能完成屠边才狼胜，否则拍刀失败、好人获胜。玩家看不到真实神职，失败不会额外泄露目标身份。
 
 【最近更新 · 2026-10-29】
 角色自己安排的“到点再决定说什么”和其他主动消息现在可以像普通聊天一样使用角色已授权的工具：可以先查记忆、看战绩或调用 MCP，再自然地给用户发消息。已经执行过工具的那一轮不会为了防止文字重复而再次重试，避免重复下单或重复发送。主动消息提示也改成了第一人称的沉浸式表达，不再写成“执行角色安排”或“用你的身份扮演”的任务口吻。
@@ -16501,7 +16503,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=94;  /* 94：狼人投票新增动态绑票轮提示 */
+const GUIDE_VER=96;  /* 96：狼人完整拍刀模拟与设置入口 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -33214,7 +33216,7 @@ var WW_NPC_PERSONAS={
 var WW_TIPS=[
 '【术语】金水＝验到的好人；查杀＝验到的狼；银水＝女巫救起的人。刀、自刀、空刀、生推、踩、抬、站边、共边、票型、轮次、归票。',
 '【狼术】悍跳、对跳、冲锋狼、倒钩狼、深水狼、狼踩狼；狼可以悍跳，也可以狼查杀狼。',
-'【提醒】没有铜水、拍刀；板子和警长规则见当前局面与补充。'
+'【提醒】没有铜水；拍刀是狼队确认轮次领先后公开存活狼人身份、按玩家自己抿出的顺序报刀并加速结算。拍刀次数按有刀狼人数减一；守卫挡刀、女巫解药或毒药、猎人枪、梦魇逐夜恐惧和白狼王自爆带人等技能正常扣刀，结算后仍达成屠边才狼胜，否则拍刀失败、好人获胜；板子和警长规则见当前局面与补充。'
 ].join('\n');
 /* 【已删】原来那套「桌子上的手语」：面杀现在夜里可以正常说话，手语这一套整段删掉了。 */
 /* 这一局是不是「面杀」（没选过就是网杀，和以前一样） */
@@ -35584,6 +35586,7 @@ async function wwWolfChatNight(){
   var w=V.ww,gen=wwGenNow(),me=wwMe();
   if(!me)return;
   for(var k=0;k<6;k++){
+    if(w.snapKillUid)break;
     var left=wwWolfMax()-wwWolfUsed();     /* 【新·面杀】面杀这一夜是 100 字，网杀还是 50 */
     if(left<=0){try{toast((wwFaceOn()?'夜间密会：这一夜 ':'狼队频道：这一夜 ')+wwWolfMax()+' 个字已经说完了')}catch(e){}break}
     var r=await wwAskWolf(left,k>0);
@@ -35593,6 +35596,149 @@ async function wwWolfChatNight(){
     render(true);
     if(wwStaleG(gen))return;
   }
+}
+function wwTakeSnapWolfKill(){
+  var w=V.ww,uid=w&&w.snapKillUid;
+  if(!uid)return null;
+  w.snapKillUid='';
+  var p=wwPlayerByUid(uid);
+  return (p&&p.alive)?p:null;
+}
+function wwSnapKillReady(p){
+  var w=V.ww;
+  return !!(w&&p&&p.isUser&&p.alive&&!w.over&&(w.phase==='day'||w.phase==='night')&&
+    wwIsWolfKiller(p)&&wwSnapKnifeWolves().length>=2);
+}
+function wwSnapKnifeWolves(){return wwAlive().filter(function(p){return wwIsPackWolf(p)||(p.role==='nightmare'&&V.ww.nightmareMetWolves)})}
+function wwSnapKillCount(){return Math.max(0,wwSnapKnifeWolves().length-1)}
+function wwSnapTargets(){return wwAlive().filter(function(p){return !wwIsWolf(p)})}
+function wwSnapFearTargets(){
+  var w=V.ww,nm=wwAlive().filter(function(p){return p.role==='nightmare'})[0];
+  if(!nm)return [];
+  var plan=w&&w.snapPlan||[],last=(plan.length?plan[plan.length-1].fear:(w&&w.nightmareLast))||'';
+  return wwAlive().filter(function(p){return p!==nm&&p.uid!==last});
+}
+function wwSnapSimulate(w,plan,dayStart){
+  var me=wwMe(),uid=me&&me.uid,ev=[],fail='';
+  var knifeCount=wwSnapKillCount();
+  var sim=(w.players||[]).map(function(p){
+    return {uid:p.uid,seq:p.seq,name:p.name,role:p.role,alive:!!p.alive,killedBy:p.killedBy||'',fearedDay:Number(p.fearedDay)||0};
+  });
+  var witchSave=!!w.witchSave,witchPoison=!!w.witchPoison,knightUsed=!!w.knightUsed,guardLast=w.guardLast||'',lastFear=w.nightmareLast||'',whiteTarget=w.snapWhiteTarget||'';
+  function tag(p){var a=wwPlayerByUid(p&&p.uid);return a?wwTag(a):(p&&p.seq?p.seq+'号':'？')}
+  function alive(){return sim.filter(function(p){return p.alive})}
+  function wolf(p){return !!(p&&(p.role==='wolf'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='nightmare'||p.role==='gargoyle'))}
+  function good(p){return !!(p&&!wolf(p))}
+  function liveWolves(){return alive().filter(wolf)}
+  function byUid(uid){return sim.filter(function(p){return p.uid===uid})[0]||null}
+  function role(roleName){return alive().filter(function(p){return p.role===roleName})[0]||null}
+  function kill(p,cause,text){if(!p||!p.alive)return false;p.alive=false;p.killedBy=cause;ev.push({text:text});return true}
+  function wolfWin(){
+    var ws=liveWolves().length,gs=alive().filter(good).length;
+    if(!ws)return false;
+    if(w.count===12){
+      var villagers=alive().filter(function(p){return p.role==='villager'}).length;
+      var gods=alive().filter(function(p){return good(p)&&p.role!=='villager'}).length;
+      return villagers===0||gods===0;
+    }
+    return ws>=gs;
+  }
+  function shootWolf(who){
+    var cand=liveWolves().filter(function(p){return p.role==='wolf'||p.role==='nightmare'});
+    var v=cand[0]||liveWolves()[0];
+    if(v)kill(v,'shot','猎人开枪带走 '+tag(v));
+  }
+  function knightDuel(){
+    if(knightUsed)return;
+    var k=role('knight'),v=liveWolves()[0];
+    if(k&&v){knightUsed=true;kill(v,'duel','骑士决斗带走 '+tag(v))}
+  }
+  function selfExplode(){
+    var white=whiteTarget?liveWolves().filter(function(p){return p.role==='wolfking'})[0]:null;
+    var ws=white?[white]:liveWolves().filter(function(p){return p.uid!==uid});
+    if(!ws.length)ws=liveWolves();
+    if(!ws.length){fail='没有可自爆的狼人';return false}
+    var p=ws[0];
+    if(white&&p===white&&whiteTarget){
+      var take=byUid(whiteTarget);
+      if(take&&take.alive&&good(take))kill(take,'shot','白狼王 '+tag(p)+' 自爆，带走 '+tag(take));
+    }
+    kill(p,'vote','狼人自爆：'+tag(p)+'出局，进入黑夜');return true;
+  }
+  function dayStep(){
+    knightDuel();
+    if(wolfWin())return false;
+    return selfExplode();
+  }
+  function knife(step,no){
+    var t=byUid(step&&step.t);
+    if(!t||!t.alive||!good(t)){fail='第 '+no+' 刀的刀口已经出局或不是好人';return false}
+    var fear=step&&step.fear?byUid(step.fear):null;
+    if(fear&&!fear.alive){fail='第 '+no+' 刀选择的恐惧目标已经出局';return false}
+    if(fear&&fear.uid===lastFear){fail='梦魇不能连续两晚恐惧同一人';return false}
+    if(fear)ev.push({text:'第 '+no+' 刀前：梦魇恐惧 '+tag(fear)});
+    var blocked=false,guard=role('guard');
+    if(guard&&!(fear&&fear.uid===guard.uid)&&guard.uid!==guardLast&&Number(guard.fearedDay)!==Number(w.day)){
+      guardLast=t.uid;
+      blocked=true;
+      ev.push({text:'第 '+no+' 刀：守卫守中 '+tag(t)});
+    }
+    var witch=role('witch');
+    if(!blocked&&witch&&!(fear&&fear.uid===witch.uid)&&t.uid!==witch.uid&&witchSave){
+      witchSave=false;
+      ev.push({text:'第 '+no+' 刀：女巫用解药救下 '+tag(t)});
+      blocked=true;
+    }
+    if(!blocked&&witch&&!(fear&&fear.uid===witch.uid)&&witchPoison){
+      var v=liveWolves()[0];
+      if(v){witchPoison=false;kill(v,'poison','女巫毒中 '+tag(v));}
+    }
+    if(!blocked){
+      kill(t,'wolf','第 '+no+' 刀：'+tag(t)+'出局');
+      if(t.role==='hunter'&&!(fear&&fear.uid===t.uid))shootWolf();
+    }
+    lastFear=fear?fear.uid:'';
+    return true;
+  }
+  if(dayStart&&!dayStep())return {ok:false,fail:fail||'白天自爆后无法继续拍刀'};
+  var targets=(plan||[]).slice(0,knifeCount).map(function(x){return typeof x==='string'?{t:x,fear:''}:(x||{})});
+  if(targets.length!==knifeCount)return {ok:false,fail:'拍刀顺序不完整'};
+  for(var i=0;i<targets.length;i++){
+    if(wolfWin())break;
+    if(!knife(targets[i],i+1))return {ok:false,fail:fail};
+    if(wolfWin())break;
+    if(i<targets.length-1&&!dayStep())return {ok:false,fail:fail||'刀间自爆后无法继续拍刀'};
+  }
+  if(!wolfWin())return {ok:false,fail:'按好人最优操作结算后，狼队仍不能完成屠边'};
+  return {ok:true,events:ev,sim:sim,targets:targets,dayStart:dayStart};
+}
+function wwSnapApply(w,res,ok){
+  var ev=res.events||[];
+  var openWolves=wwAlive().filter(wwIsWolf).map(wwTag).join('、');
+  if(openWolves)w.log.push({k:'sys',text:'狼队公开存活身份：'+openWolves});
+  if(ok){
+    (res.sim||[]).forEach(function(s){
+      var p=wwPlayerByUid(s.uid);
+      if(p&&!s.alive&&p.alive){p.alive=false;p.killedBy=s.killedBy||'snap'}
+    });
+    ev.forEach(function(x){w.log.push({k:'sys',text:'🔪 '+x.text})});
+  }else{
+    w.log.push({k:'sys',text:'🔪 拍刀失败：按好人最优技能结算后仍不能完成屠边。'});
+  }
+  w.rec.push({d:w.day,t:'狼队拍刀'+(ok?'成功':'失败')+'：'+(res.targets||w.snapPlan||[]).map(function(x){var uid=x&&x.t||x,p=wwPlayerByUid(uid);return p?wwTag(p):'?'}).join(' → ')});
+  var old=w.gen||0;w.gen=old+1;
+  w.over=true;w.winner=ok?'wolf':'good';w.phase='over';w.nightDone=true;
+  w.endText=ok?'狼队拍刀成功：按好人最优技能结算后仍完成屠边。':('狼队拍刀失败：'+(res.fail||'未能完成屠边')+'，好人获胜。');
+  w.msg=ok?'🔪 拍刀成功，狼人获胜':'🔪 拍刀失败，好人获胜';w.snapPlanOpen=false;w.snapPlan=[];w.snapKillUid='';w.snapPick=false;w.helpOpen=false;w._snapFinished=false;
+  try{
+    var ua=w.userAsk,r=w.resolve;w.userAsk=null;w.resolve=null;
+    if(r){if(ua&&ua.kind==='pick')r({uid:null});else if(ua&&ua.kind==='opt')r({val:0});else r({text:''})}
+    if(w.gateResolve){var gr=w.gateResolve;w.gate={};w.gateResolve=null;gr()}
+  }catch(e){}
+  render(true);
+  setTimeout(function(){
+    try{if(V.ww===w&&w.over&&!w._snapFinished){w._snapFinished=true;wwFinish()}}catch(e){}
+  },0);
 }
 async function wwWolfChoose(wolves){
   var w=V.ww,alive=wwAlive(),prey=alive.filter(function(p){return !wwIsWolf(p)});
@@ -35610,6 +35756,7 @@ async function wwWolfChoose(wolves){
   /* 一只一只单独问：每只狼都带上自己的人设，免得把自己当成别的狼。
      【改】现在一次就问出「刀谁 + 给队友的悄悄话」，不再分两次请求。 */
   for(var wi=0;wi<mates.length;wi++){
+    if(w.snapKillUid)break;
     var m=mates[wi];
     var a=await wwWolfAct(m);
     if(wwStaleG(gen))return null;               /* 这中间换了局：别再往下写 */
@@ -37115,6 +37262,7 @@ async function wwNight(){
   w.night={wolf:null,save:false,poison:null,check:null,guard:null,gargoyle:null,gravekeeper:null,nightmare:null,feared:null,nokill:false,deaths:[]};
   w.nightDone=false;                  /* 这一夜还没结算（结算完才置 true，存/接着玩时靠它判断进度） */
   w.wolfPicks=[];                     /* 今晚每只狼各自的刀人意见（下面商量刀谁时会填上） */
+  w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
   w.speeches=[];
   /* 梦魇最先单独行动；首夜此刻还不认识普通狼。 */
   var nm0=wwAlive().filter(function(p){return p.role==='nightmare'})[0];
@@ -37221,13 +37369,31 @@ async function wwNight(){
         await wwWolfChatNight();
         if(wwStaleG(gen))return;
       }
-      if(mates.length){w.msg=wwTxt('🌙 夜间密会：狼队友正压低声音在商量…','🐺 你的狼队友正在商量…');render(true)}
-      var sug=mates.length?await wwWolfChoose(wolves):null;
-      var sugTxt=(w.wolfPicks&&w.wolfPicks.length)?w.wolfPicks.map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('；'):'';
-      var r1=await wwAsk(wwTxt('🌙 夜间密会：今晚你要带刀去谁的房间？','🐺 你是狼人，今晚要刀谁？')+(sugTxt?('（狼队友：'+sugTxt+'）'):(sug?('（狼队友建议：'+wwTag(sug)+'）'):'')),prey,{none:wwTxt('🌑 今晚空刀（谁也不杀）','空刀（今晚不杀人）')});
-      if(wwStaleG(gen))return;
-      /* 【新】点了「空刀」就是今晚不杀人（uid 为空）：别再退回随机刀一个 */
-      w.night.wolf=r1.uid?wwPlayerByUid(r1.uid):null;
+      var snap=wwTakeSnapWolfKill();
+      if(snap){
+        w.night.wolf=snap;
+        w.wolfPicks.push({seq:me.seq,name:me.name,uid:me.uid,t:snap,noKill:false,think:'',logic:'你直接拍刀指定目标'});
+        w.log.push({k:'me',text:'🔪 你拍刀 '+wwTag(snap)+'，跳过狼队讨论，按正常夜间规则结算。'});
+        try{toast('已拍刀：'+wwTag(snap))}catch(e){}
+        render(true);
+      }else{
+        if(mates.length){w.msg=wwTxt('🌙 夜间密会：狼队友正压低声音在商量…','🐺 你的狼队友正在商量…');render(true)}
+        var sug=mates.length?await wwWolfChoose(wolves):null;
+        snap=wwTakeSnapWolfKill();
+        if(snap){
+          w.night.wolf=snap;
+          w.wolfPicks.push({seq:me.seq,name:me.name,uid:me.uid,t:snap,noKill:false,think:'',logic:'你直接拍刀指定目标'});
+          w.log.push({k:'me',text:'🔪 你拍刀 '+wwTag(snap)+'，跳过后续狼队讨论，按正常夜间规则结算。'});
+          try{toast('已拍刀：'+wwTag(snap))}catch(e){}
+          render(true);
+        }else{
+          var sugTxt=(w.wolfPicks&&w.wolfPicks.length)?w.wolfPicks.map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('；'):'';
+          var r1=await wwAsk(wwTxt('🌙 夜间密会：今晚你要带刀去谁的房间？','🐺 你是狼人，今晚要刀谁？')+(sugTxt?('（狼队友：'+sugTxt+'）'):(sug?('（狼队友建议：'+wwTag(sug)+'）'):'')),prey,{none:wwTxt('🌑 今晚空刀（谁也不杀）','空刀（今晚不杀人）')});
+          if(wwStaleG(gen))return;
+          /* 【新】点了「空刀」就是今晚不杀人（uid 为空）：别再退回随机刀一个 */
+          w.night.wolf=r1.uid?wwPlayerByUid(r1.uid):null;
+        }
+      }
       if(w.night.wolf)wwFx(w.night.wolf.uid,'claw',2600);   /* 你刀谁，谁的头像上就留一下爪印 */
     }else{
       await wwStep('🌙 天黑请闭眼');
@@ -39403,6 +39569,7 @@ function wwStart(){
   w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeVote={};w.speechStart='';w.speechDir=1;
   w.pendingDeaths=null;w.electing=false;
   w.policeAll=[];w.upSpoke={};w.seerRetractions={};
+  w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
   w.guardLast='';w.kingBoom=false;w.kingNote='';w.dayOver=0;
   w.knightUsed=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.inPK=false;w.dualSeerClaims=false;
   w.marks={};w.markMode='';w.markUid=null;
@@ -40748,7 +40915,7 @@ function wwRewindHTML(){
 }
 function wwInfoHTML(){
   var w=V.ww;if(!w||!w.helpOpen)return '';
-  var b=wwBoard(w.count),rules=[],alive=wwAlive().length,me=wwMe(),mine=[];
+  var b=wwBoard(w.count),rules=[],alive=wwAlive().length,me=wwMe(),mine=[],actions='',snapList='';
   if(me){
     mine.push(WW_ROLE_EMOJI[me.role]+' '+WW_ROLE_NAME[me.role]+' · '+(me.alive?'活着':'已出局'));
     if(wwHasBadge()&&wwSheriffP()===me)mine.push('👮 警长 · 票权 1.5');
@@ -40785,11 +40952,34 @@ function wwInfoHTML(){
   if(b.idiot)rules.push('白痴：被票翻牌免死，之后不能投票、不能再被票。');
   if(wwSheriffOn())rules.push('警长：票权 1.5，决定每天的发言顺序。');
   rules.push(w.count===12?'胜负（屠边）：狼人全出局则好人胜；村民全部出局或神职全部出局则狼人胜。同夜狼刀完成屠边且最后一狼被毒死时，按狼刀在先判狼人胜。':'胜负：狼人全出局则好人胜；狼人不少于好人则狼人胜。');
+  if(!w.over)actions+='<button class="ghost" type="button" onclick="GAME.wwInfo(0);GAME.wwRewindOpen(1)">↶ 回溯夜晚</button>';
+  if(wwSnapKillReady(me)&&!w.snapPlanOpen)
+    actions+='<button class="ghost" type="button" style="color:var(--acc)" onclick="GAME.wwSnapKillOpen()">🔪 拍刀</button>';
+  if(w.snapPlanOpen){
+    var plan=w.snapPlan||[],need=w.snapPlanCount||wwSnapKillCount(),seq=plan.map(function(x){var p=wwPlayerByUid(x.t);return (p?wwName(p):'？')+(x.fear&&wwPlayerByUid(x.fear)?('（恐'+wwName(wwPlayerByUid(x.fear))+'）'):'')}).join(' → ');
+    snapList='<div class="ww-help-label">拍刀顺序 · '+plan.length+'/'+need+' 刀</div><div class="ww-help-list">'+
+      (seq?('<div>'+esc(seq)+'</div>'):'<div class="dim">请选择第一刀。目标是按你自己的抿身份判断，系统不会揭示真实神职。</div>')+
+      (w.snapChoosingFear?('<div class="dim" style="margin:4px 0">第 '+(plan.length+1)+' 刀目标是 '+esc(w.snapPendingTarget?wwName(wwPlayerByUid(w.snapPendingTarget)):'？')+'。梦魇本夜恐惧谁？</div>'+
+        '<div class="gx-row" style="flex-wrap:wrap;gap:8px"><button class="ghost" type="button" onclick="GAME.wwSnapFearPick(\'\')">不恐惧</button>'+
+        wwSnapFearTargets().map(function(p){return '<button class="ghost" type="button" onclick="GAME.wwSnapFearPick(\''+esc(p.uid)+'\')">恐惧 '+wwTag(p)+'</button>'}).join('')+'</div>'):
+        plan.length<need?wwSnapTargets().map(function(p){
+        return '<button class="ghost" type="button" style="display:block;width:100%;text-align:left;margin:4px 0" onclick="GAME.wwSnapKillPick(\''+esc(p.uid)+'\')">'+wwTag(p)+'</button>';
+      }).join(''):'')+
+      (plan.length<need?'<p class="dim" style="font-size:11.5px;margin:5px 0 0">继续选择第 '+(plan.length+1)+' 刀。</p>':
+        '<div class="gx-row" style="flex-wrap:wrap;gap:8px;margin-top:6px"><button class="pri" type="button" onclick="GAME.wwSnapKillRun()">开始拍刀结算</button><button class="ghost" type="button" onclick="GAME.wwSnapKillReset()">重新选择</button></div>')+
+      '<p class="dim" style="font-size:11.5px;margin:5px 0 0">'+(w.snapPlanDayStart?'白天起拍会先默认自爆一狼。':'夜间起拍从第一刀开始。')+'按好人最优技能结算，不保证成功。</p></div>';
+    var wk=wwAlive().filter(function(p){return p.role==='wolfking'})[0];
+    if(wk&&!w.snapChoosingFear&&plan.length<need){
+      snapList+='<div class="ww-help-label">白狼王自爆技能（可选）</div><div class="ww-help-list"><div class="dim">若白狼王参与自爆，带走：'+(w.snapWhiteTarget?esc(wwName(wwPlayerByUid(w.snapWhiteTarget))):'不发动')+'</div><div class="gx-row" style="flex-wrap:wrap;gap:8px">'+wwSnapTargets().map(function(p){return '<button class="ghost" type="button" onclick="GAME.wwSnapWhitePick(\''+esc(p.uid)+'\')">带走 '+wwTag(p)+'</button>'}).join('')+'<button class="ghost" type="button" onclick="GAME.wwSnapWhitePick(\'\')">不发动</button></div></div>';
+    }
+  }
   return '<div class="ww-mkmodal ww-helpmask" onclick="GAME.wwInfo(0)">'+
     '<div class="ww-mkbox ww-helpbox" onclick="event.stopPropagation()">'+
-      '<div class="ww-pophead"><b>本局说明</b><button class="ww-popx" type="button" aria-label="关闭" onclick="GAME.wwInfo(0)">×</button></div>'+
+      '<div class="ww-pophead"><b>本局设置</b><button class="ww-popx" type="button" aria-label="关闭" onclick="GAME.wwInfo(0)">×</button></div>'+
       '<div class="ww-help-board"><b>'+esc(wwBoardBrief())+'</b><span>'+esc(wwBoardCompo())+'</span>'+
         '<span>开局 '+w.count+' 人 · 当前 '+alive+' 人 · '+(wwFaceOn()?'面杀':'网杀')+'</span></div>'+
+      (actions?('<div class="ww-help-label">本局操作</div><div class="gx-row" style="flex-wrap:wrap;gap:8px">'+actions+'</div>'):'')+
+      snapList+
       (mine.length?('<div class="ww-help-label">你的身份</div><div class="ww-help-list">'+
         mine.map(function(x){return '<div>'+wwSystemHTML(x)+'</div>'}).join('')+'</div>'):'')+
       '<div class="ww-help-label">规则</div><div class="ww-help-list">'+
@@ -40832,10 +41022,9 @@ function wwHTML(){
      topRole+'</div>'+
      (w.mode==='watch'?'<button class="ww-snd ww-godbtn'+(w.godView?' on':'')+'" type="button" aria-label="'+(w.godView?'关闭上帝视角':'打开上帝视角')+'" aria-pressed="'+(w.godView?'true':'false')+'" onclick="GAME.wwGodToggle()">'+wwUiIcon('eye')+'</button>':'')+
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
-     (w.over?'':'<button class="ww-snd" type="button" aria-label="回溯到之前的夜晚" title="回溯到之前的夜晚" onclick="GAME.wwRewindOpen(1)">↶</button>')+
      ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='knight'&&wwKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="骑士决斗" onclick="GAME.wwKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
-     (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="查看本局说明" onclick="GAME.wwInfo(1)">'+WW_IC_HELP+'</button>')+
+     (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="本局设置" title="本局设置" onclick="GAME.wwInfo(1)">'+WW_IC_GEAR+'</button>')+
      '</div>';
   h+='</div>';   /* 关掉顶部信息条 .ww-head */
   /* 桌面：左边一列座位、右边一列座位，中间是「现场」
@@ -43626,7 +43815,42 @@ window.GAME={
   wwAgain:function(){wwAgain()},
   wwReactGo:function(){wwReactGo()},
   wwStop:function(){wwStop()},
-  wwInfo:function(on){var w=V.ww;if(!w)return;w.helpOpen=!!on;render(false)},
+  wwInfo:function(on){var w=V.ww;if(!w)return;w.helpOpen=!!on;if(!on){w.snapPick=false;w.snapPlanOpen=false}render(false)},
+  wwSnapKillOpen:function(){
+    var w=V.ww,me=wwMe();
+    if(!wwSnapKillReady(me))return;
+    w.snapPlan=[];w.snapPlanOpen=true;w.snapPlanCount=wwSnapKillCount();w.snapPlanDayStart=(w.phase==='day');w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';w.snapPick=false;w.helpOpen=true;render(false);
+  },
+  wwSnapKillPick:function(uid){
+    var w=V.ww,me=wwMe(),p=uid?wwPlayerByUid(uid):null;
+    if(!w||!w.snapPlanOpen||!wwSnapKillReady(me)||!p||!p.alive||wwIsWolf(p))return;
+    if((w.snapPlan||[]).length>=Number(w.snapPlanCount||0))return;
+    w.snapPlan=w.snapPlan||[];w.snapPendingTarget=p.uid;
+    if(wwSnapFearTargets().length){w.snapChoosingFear=true;render(false);return}
+    w.snapPlan.push({t:p.uid,fear:''});w.snapPendingTarget='';render(false);
+  },
+  wwSnapFearPick:function(uid){
+    var w=V.ww,p=uid?wwPlayerByUid(uid):null;
+    if(!w||!w.snapPlanOpen||!w.snapChoosingFear)return;
+    if(uid&&(!p||!p.alive))return;
+    w.snapPlan=w.snapPlan||[];w.snapPlan.push({t:w.snapPendingTarget,fear:uid||''});w.snapPendingTarget='';w.snapChoosingFear=false;render(false);
+  },
+  wwSnapWhitePick:function(uid){
+    var w=V.ww,p=uid?wwPlayerByUid(uid):null;
+    if(!w||!w.snapPlanOpen||(uid&&(!p||!p.alive||wwIsWolf(p))))return;
+    w.snapWhiteTarget=uid||'';render(false);
+  },
+  wwSnapKillReset:function(){
+    var w=V.ww;if(!w||!w.snapPlanOpen)return;w.snapPlan=[];w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';render(false);
+  },
+  wwSnapKillRun:function(){
+    var w=V.ww,me=wwMe();
+    if(!w||!wwSnapKillReady(me)||!w.snapPlanOpen)return;
+    var need=Number(w.snapPlanCount||0);
+    if((w.snapPlan||[]).length!==need){toast('先把拍刀顺序选完');return}
+    var res=wwSnapSimulate(w,w.snapPlan,w.snapPlanDayStart);
+    wwSnapApply(w,res,!!res.ok);
+  },
   wwGodToggle:function(){var w=V.ww;if(!w||w.mode!=='watch')return;w.godView=!w.godView;render(true)},
   /* 装扮小铺（单人 · 做任务攒贝壳 · 换 SVG 头像图标 / 头像框） */
   shopHome:function(){V.view='shop';render(false)},
