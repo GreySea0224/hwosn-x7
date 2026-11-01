@@ -16311,6 +16311,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-11-01】
 狼人杀 AI 增加了“事实、可能、结论”分层和真人核心质疑的跨天记忆。真人明确提出的逻辑问题会按原句、天数、发言编号保留，不会被普通摘要冲淡；AI 发言时至少要正面回答其中最相关的一条，投票时也要回应相关质疑。普通口语转述不再按逐字一致挑错，而是检查有没有改变主体、时间、确定程度或真值。机械狼与小狼即使开局不相认，也可以通过公开发言、票型、刀口和身份结果推断后配合。系统会核对“第二次仍不报确切身份”、单边神职被查杀时谁先发言、警徽原接徽人是否死亡，以及公开报验是否被错误当成证据。正常判断会更重视高概率的单边守卫线，优先质疑发假查杀的人，而不是只因警长先报了查验就先信她。警上不信前置位而说“更支持后置位通灵师”属于正常听发言；警徽流雷同或照抄不是狼点；推理超前、预判局势也不是狼点。单边高可信神职的小口误或措辞问题澄清一次后，不会继续被当成硬疑点或投票理由。被通灵师查验的玩家在能帮助好人正视野时，也会被建议考虑亮明村民或合适身份。赛后 MVP 裁判同样要先核对轮次、首次回应机会和真实胜负影响，不能把合理转述或极端世界线当成最惨失误。
+真人质疑现在会先区分“普通看法、明确问题、明确指控”。普通看法只留在公开记录，不强制所有 AI 回应；明确问题或指控只提醒被点名者回答一次，答过后自动关闭。真人出局后，普通旧发言不再反复注入 AI 上下文，只有遗言或仍直接影响当前存活玩家票局的内容可以继续保留。相关玩家全部出局的历史小推理会从发言和质问记录中归档，AI 不会在公开发言里说出 U1/U2 等内部编号。
 狼人杀新增“认身份收益核对”：同一目标如果同时被一人报出精确职业、被另一人只报模糊金水，目标认下精确职业时，系统会明确判断这主要增强了精确验人线；模糊金水最多只是不冲突，不会得到新的身份证据，也不能被反向写成“给假通灵兜底、抬轿或增加可信度”。
 狼人杀警长竞选的警上发言顺序现在先按座位号排好，再随机选择一个人作为起点，并随机采用正序或逆序；完整顺序会随中途存档保留，不会刷新后重新抽取。AI 被明确禁止把谁先发言、谁后发言、谁还没轮到、谁先跳身份或在后面跳身份当成身份证据，也不得在公开发言里复述“随机起点、正序逆序、系统安排、内部提示、提示词”等幕后规则。
 好人上警默认以听发言、评价和观察为主，警徽优先支持能持续报验的真预言家或真通灵师。普通好人除非明确走好人代跳路线，否则不会强势抢警徽；狼人上警但不跳验人身份时也只做观察和做身份，系统不会提示它们抢徽。
@@ -16516,7 +16517,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=111;  /* 111：濒死狼换守卫/猎人身份止损 */
+const GUIDE_VER=112;  /* 112：真人旧质疑分类、一次性回应与死后退场 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34304,6 +34305,13 @@ function wwQuestionLacksHardBasis(txt){
     !/(?:规则|时间线|查验结果|票型承诺|正面冲突|技能结果)/.test(s))return true;
   return false;
 }
+function wwQuestionGroupArchived(w,target,asks){
+  if(target&&target.alive)return false;
+  return !(asks||[]).some(function(a){
+    var p=a&&(a.p||wwPlayerByUidTarget(w,a.seq));
+    return p&&p.alive;
+  });
+}
 function wwQuestionSeatIn(txt,speakerSeq){
   var s=String(txt||''),m;
   m=s.match(/^\s*(\d{1,2})\s*号/);if(m&&Number(m[1])!==Number(speakerSeq))return Number(m[1]);
@@ -34433,6 +34441,7 @@ function wwQuestionLedgerText(w,p){
       var targetP=wwPlayerByUidTarget(w,qa.target);
       if(!targetP)return;
       var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
+      if(wwQuestionGroupArchived(w,targetP,asks))return;
       if(asks.length&&asks.every(function(a){return wwQuestionLacksHardBasis(a.text)}))return;
       if(wwSingleClaimedGod(targetP,w)&&asks.length&&asks.every(function(a){return wwMinorWordingOnly(a.text)}))return;
       var mineAsk=asks.some(function(a){return a.uid===p.uid});
@@ -34459,6 +34468,7 @@ function wwQuestionLedgerText(w,p){
   if(!useScribe||!L.length){
     wwQuestionLedger(w).forEach(function(g){
       if(g.status==='answered')return;
+      if(wwQuestionGroupArchived(w,g.target,g.asks))return;
       var mine=g.target.uid===p.uid||g.asks.some(function(a){return a.uid===p.uid});
       if(!mine&&g.status!=='unresolved')return;
       var askers=[];
@@ -35176,6 +35186,7 @@ async function wwSpeak(p,sys){
   if(sp.draft)p.scratch=sp.draft;
   var out=wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）'));
   if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
+  if(p&&!p.isUser)out=await wwGuardObsoletePostmortemSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardClaimReasoningSpeech(p,sys,out);
   if(p&&!p.isUser&&V.ww)out=await wwGuardUserClaimsSpeech(p,sys,out);
   if(p&&!p.isUser&&wwIsWolf(p))out=await wwGuardWolfSeerSpeech(p,sys,out);
@@ -35183,6 +35194,7 @@ async function wwSpeak(p,sys){
   if(p&&!p.isUser&&wwIsPackWolf(p))out=await wwGuardMechanicClothingSpeech(p,sys,out);
   if(p&&!p.isUser&&p.role==='seer')out=await wwGuardSeerSpeech(p,sys,out);
   if(p&&!p.isUser&&p.role==='medium')out=await wwGuardMediumSpeech(p,sys,out);
+  if(p&&!p.isUser)out=wwCleanInternalClaimLabels(out,V.ww);
   return out;
 }
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
@@ -35564,20 +35576,59 @@ function wwUserClaimScore(txt){
   if(/(?:我投|本轮投|票给)/.test(s)&&!/凭什么|为什么|不能|逻辑/.test(s))n-=3;
   return n;
 }
-/* 只保存真人的公开原句及其发言编号，不经过普通摘要压缩。 */
-function wwUserKeyClaims(w){
+function wwSeatRefsInText(txt,excludeSeq){
+  var out=[],seen={},re=/(\d{1,2})\s*号/g,m;
+  while((m=re.exec(String(txt||'')))){
+    var n=Number(m[1]);
+    if(n&&n!==Number(excludeSeq)&&!seen[n]){seen[n]=1;out.push(n)}
+  }
+  return out;
+}
+function wwUserStatementKind(txt){
+  var s=String(txt||'');
+  if(/[?？]|凭什么|为什么|怎么|解释|说清|交代|答我|回我|讲明/.test(s))return 'question';
+  if(/狼点|像狼|是狼|悍跳|假跳|查杀|矛盾|篡改|不能信|铁狼|有问题|投\s*\d{1,2}\s*号/.test(s))return 'accusation';
+  if(/我觉得|我认为|我感觉|大概|可能|似乎|我的看法|我倾向于|目前认为/.test(s))return 'opinion';
+  return 'other';
+}
+function wwUserClaimAnsweredBy(rows,meSeq,x){
+  var targets=x.targets||[];
+  if(!targets.length)return false;
+  return rows.some(function(r){
+    return r&&r.idx>x.idx&&Number(r.p.seq)!==Number(meSeq)&&targets.indexOf(Number(r.p.seq))>=0&&
+      wwUserClaimCoverage(r.text,[x])>=2;
+  });
+}
+/* 只把“需要回应的真人问题/指控”放进活动记忆。
+   一般看法不强制回应；提出者死后普通旧发言归档；被点名者答过一次后关闭。 */
+function wwUserKeyClaims(w,current,pool,forVote){
   var me=(w&&w.players||[]).filter(function(p){return p&&p.isUser})[0];
   if(!me)return [];
-  var rows=wwPublicEventRows(w).filter(function(r){return r.uid===me.uid}),picked=[];
+  var allRows=wwPublicEventRows(w),rows=allRows.filter(function(r){return r.uid===me.uid}),picked=[];
   rows.forEach(function(r){
+    var lastWords=/^【遗言】/.test(String(r.e&&r.e.text||''));
+    if(!me.alive&&!lastWords)return;
     var local=[];
     String(r.text||'').split(/[。！？!?；;\n]+/).forEach(function(c){
       c=String(c||'').replace(/^【竞选发言】/,'').replace(/^【遗言】/,'').replace(/\s+/g,' ').trim();
       if(c.length<10)return;
+      var kind=wwUserStatementKind(c),targets=wwSeatRefsInText(c,me.seq);
+      if(kind==='opinion'&&!lastWords)return;
+      if(kind==='other'&&!lastWords)return;
+      if(!targets.length&&!lastWords)return;
       var score=wwUserClaimScore(c);
       if(score<6)return;
-      local.push({uid:r.uid,seq:me.seq,day:r.day,ref:r.ref,idx:r.idx,text:c.slice(0,260),
-        category:wwUserClaimCategory(c),score:score});
+      var x={uid:r.uid,seq:me.seq,day:r.day,ref:r.ref,idx:r.idx,text:c.slice(0,260),
+        category:wwUserClaimCategory(c),score:score,kind:kind,targets:targets,lastWords:lastWords};
+      if(targets.length&&targets.every(function(seq){var q=wwPlayerByUidTarget(w,seq);return q&&!q.alive}))return;
+      if(wwUserClaimAnsweredBy(allRows,me.seq,x))return;
+      if(current&&!current.isUser){
+        if(forVote){
+          var candidates=(pool||[]).map(function(q){return Number(q.seq)});
+          if(!targets.some(function(seq){return candidates.indexOf(seq)>=0}))return;
+        }else if(targets.indexOf(Number(current.seq))<0&&!lastWords)return;
+      }
+      local.push(x);
     });
     local.sort(function(a,b){return b.score-a.score});
     local.slice(0,2).forEach(function(x){picked.push(x)});
@@ -35594,16 +35645,16 @@ function wwUserKeyClaims(w){
   out.sort(function(a,b){return a.idx-b.idx});
   return out;
 }
-function wwUserClaimText(w,forVote){
-  var a=wwUserKeyClaims(w);
+function wwUserClaimText(w,forVote,current,pool){
+  var a=wwUserKeyClaims(w,current,pool,forVote);
   if(!a.length)return '';
-  var L=['【真人核心质疑（跨天保留原句，不能被普通摘要冲淡）】'];
-  a.forEach(function(x,i){
-    L.push('U'+(i+1)+'｜第'+x.day+'天｜'+x.ref+'｜「'+x.text+'」');
+  var L=['【真人当前相关的质疑（只显示与当前发言者或投票候选直接相关的内容）】'];
+  a.forEach(function(x){
+    L.push('· 第'+x.day+'天｜'+x.ref+'｜「'+x.text+'」');
   });
   L.push(forVote
-    ?'投票判断必须回应其中与候选或票向最相关的一条；不能只说“旧账先放”，也不能把已回应但没解释核心问题的质疑当成已解决。'
-    :'本轮公开发言至少正面回应其中与你的身份、立场或当前局面最相关的一条。要回答具体命题，不能只提一句“5号还在纠结”就换话题；若确实无法解释，要明确说明哪条仍成立。');
+    ?'投票判断只在其中某项直接影响候选或票向时简短回应；不得逐条复述旧争论。'
+    :'只有这些是当前直接点名、尚未有人正面回应的事项。答一次即可，不要逐条复述，也不要在公开发言里使用 U1/U2 等内部编号。');
   return L.join('\n');
 }
 function wwUserClaimTokens(txt){
@@ -35629,9 +35680,9 @@ function wwUserClaimCoverage(say,claims){
   return best;
 }
 async function wwGuardUserClaimsSpeech(p,sys,say){
-  var w=V.ww,claims=wwUserKeyClaims(w);
+  var w=V.ww,claims=wwUserKeyClaims(w,p);
   if(!claims.length||wwUserClaimCoverage(say,claims)>=2)return say;
-  var list=wwUserClaimText(w,false);
+  var list=wwUserClaimText(w,false,p);
   try{
     var ask='【真人质疑核对】你刚才的公开回答没有正面接住当前记录里的真人核心质疑。\n'+list+
       '\n请保持原角色口吻、身份立场和票向，重写完整公开发言。必须选择一条与当前局面最相关的质疑，直接回答其中的具体命题；不知道或解释不了就明说哪条仍成立，不要绕回无关话题，也不要解释这条内部核对。原发言：'+String(say||'').slice(0,900);
@@ -35644,6 +35695,50 @@ async function wwGuardUserClaimsSpeech(p,sys,say){
     if(fixed&&!wwClaimReasoningIssue(fixed,w))return fixed;
   }catch(e){}
   return say;
+}
+function wwCleanInternalClaimLabels(txt,w){
+  var me=(w&&w.players||[]).filter(function(p){return p&&p.isUser})[0];
+  var label=me?wwTag(me)+'当时那句':'真人当时那句';
+  return String(txt||'').replace(/\bU\d+(?:\s*[、和及]\s*U\d+)*\s*(?:那句|这条|那条|条)?/g,label);
+}
+function wwObsoleteMinorInference(txt,w){
+  var me=(w&&w.players||[]).filter(function(p){return p&&p.isUser})[0],s=String(txt||'');
+  if(!me||me.alive||!wwMentionsSeq(s,me.seq))return false;
+  if(!/(?:风险小|半步|推得粗|跨急|跨得太急|话赶话|那句|那段)/.test(s))return false;
+  var concluded=s.match(/(?:所以|因此|推出|说明|认为|像)\s*(\d{1,2})\s*号/);
+  if(concluded){
+    var finalTarget=wwPlayerByUidTarget(w,Number(concluded[1]));
+    if(finalTarget&&!finalTarget.alive)return true;
+  }
+  var refs=[],re=/(\d{1,2})\s*号/g,m,allDead=true;
+  while((m=re.exec(s))){
+    var q=wwPlayerByUidTarget(w,Number(m[1]));
+    if(!q)continue;
+    if(q.alive)allDead=false;
+    refs.push(q);
+  }
+  return refs.length>0&&allDead;
+}
+function wwDropObsoleteMinorInferences(txt,w){
+  var parts=String(txt||'').match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[];
+  return parts.filter(function(x){return x&&!wwObsoleteMinorInference(x,w)}).join('').trim();
+}
+async function wwGuardObsoletePostmortemSpeech(p,sys,say){
+  var w=V.ww,cleaned=wwDropObsoleteMinorInferences(say,w);
+  if(cleaned===String(say||'').trim())return say;
+  try{
+    var ask='【已关闭旧话题】这段公开发言反复讨论了一个已经关闭的历史小推理：提出者和相关座位都已出局，继续争论不会影响当前票局。'+
+      '请保持原人设、当前立场和票向，重写完整公开发言，只保留当前存活玩家的发言、票型、身份线和本轮要投谁。'+
+      '不要提内部编号、旧争议或“谁推得粗”，也不要解释这条内部核对。\n原发言：'+String(say||'').slice(0,900);
+    var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
+    fixed=wwTakeTitle(p,fixed);
+    fixed=wwTakeIdentityBoard(p,fixed).text;
+    var sp=wwSplitDraft(fixed);
+    fixed=wwStripLead(sp.say||fixed);
+    if(sp.draft)p.scratch=sp.draft;
+    if(fixed&&wwDropObsoleteMinorInferences(fixed,w)===String(fixed).trim())return fixed;
+  }catch(e){}
+  return cleaned||'这轮我只按当前存活玩家的发言和票型继续判断。';
 }
 /* 赛后给角色的「这一局到底发生了什么」：夜里的行动全部揭晓 + 白天的发言/投票 */
 function wwAfterBlock(){
@@ -35799,7 +35894,7 @@ function wwSysFor(p,task){
   if(disclosureAudit)dyn.push(disclosureAudit);
   var badgeAudit=wwBadgeOutcomeAuditText(w);
   if(badgeAudit)dyn.push(badgeAudit);
-  var userClaims=wwUserClaimText(w,false);
+  var userClaims=wwUserClaimText(w,false,p);
   if(userClaims)dyn.push(userClaims);
   /* 【新·面杀】你自己抿到的：抿身份那会儿你盯着别人看出来的样子（别人不知道你在看） */
   if(p.peeks&&p.peeks.length)dyn.push('【你自己抿到的（你盯着别人看出来的，先放在心里）】\n'+
@@ -36872,7 +36967,7 @@ async function wwVoteAI(p,pool){
   if(badgeAudit)goodHint+='\n'+badgeAudit;
   var endRisk=wwEndgameRiskText(w);
   if(endRisk)goodHint+='\n'+endRisk;
-  var userClaimHint=wwUserClaimText(w,true);
+  var userClaimHint=wwUserClaimText(w,true,p,pool);
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
     (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+(bindHint?'\n'+bindHint:'')+ownHint):(goodHint+ownHint))+
     (userClaimHint?'\n'+userClaimHint:'')+
@@ -36881,7 +36976,7 @@ async function wwVoteAI(p,pool){
       ? ('必须说明你是否采信上面的石像鬼推理链；如果投'+wwTag(gread.candidate)+'，要给出足以推翻“给已知狼金水”的硬反证。')
       : '用一句话说明主要证据，不要只写“感觉”。'));
   var txt=await wwCall(sys,'请投票。',100,.8);
-  var vote=wwReadVoteReply(txt,pool),voteClaims=wwUserKeyClaims(w);
+  var vote=wwReadVoteReply(txt,pool),voteClaims=wwUserKeyClaims(w,p,pool,true);
   if(voteClaims.length&&wwUserClaimCoverage(txt,voteClaims)<2){
     try{
       var retry=await wwCall(sys,(userClaimHint||'')+
@@ -37052,6 +37147,7 @@ function wwJudgePrompt(src,result){
      —— 见 wwPublicLog / wwPublicLogRec，那两种只收 sys / say / vote，所以裁判看不到她和凶手互骂的那些话。 */
   if(src.wolf)L.push('【狼队频道（她们夜里偷偷商量的，当时场上好人完全不知道）】\n'+src.wolf);
   L.push('【复盘纪律】必须区分“聊爆”和“措辞差”：聊爆是原话与规则、验人时间线、票型承诺或技能结果正面冲突，且发言者没有给出能同时成立的替代解释；普通语气、口语歧义、发言靠后或警长票与放逐票不同，不能写成逻辑矛盾。若好人放过了未解决的聊爆，却因这些非矛盾理由出了人，要明确写成本局的真实误判，不能复述狼队的带票话术当事实。');
+  L.push('【已关闭旧话题】如果一名玩家已经出局，且其一条普通推理只涉及已经全部出局的座位、之后又被多人反复讨论，裁判最多用一句说明它当时偏弱或是否有影响；不得把这条旧推理写成贯穿后续轮次的核心矛盾。明确遗言、仍影响当前存活玩家身份线或票型的证据除外。');
   L.push('【裁判核验顺序】评价任何人的推理前，必须先对照完整原话、发言轮次和真实身份/夜间记录。普通口语转述只要没有改变主体、时间、确定程度或真值，就不算篡改；不得拿细小措辞差别代替逻辑审查。'+
     '不得把“某玩家提出机械狼与小狼可能通过公开信息推断后配合”说成“她以为二者互认”；不相认只否定私密频道和开局已知身份，不否定配合可能。'+
     '不得把“单边守卫被查杀”只写成守卫不会自证，也不能只写成验人位必真。正常判断应明显偏向单边守卫并优先质疑发查杀者；还要核对被查杀者此前是否已经有当天发言机会。若查验先发出、她随后才第一次轮到发言，亮守卫是正常回应，不能算临时编身份。'+
