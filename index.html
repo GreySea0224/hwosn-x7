@@ -16304,10 +16304,15 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-10-31 */
+   最后更新：2026-11-01 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-11-01】
+狼人杀警长竞选的警上发言顺序现在每局随机打乱，并会随中途存档保留，不会刷新后重新洗牌。AI 被明确禁止把谁先发言、谁后发言、谁还没轮到、谁先跳身份或在后面跳身份当成身份证据，也不得在公开发言里复述“随机顺序、系统安排、内部提示、提示词”等幕后规则。
+机械狼通灵师板里的通灵师公开查验时可以选择直接报确切身份，也可以只报“好人身份”“神职金水”或“民及民以上金水”。警上较早阶段验到女巫、守卫等关键弱神时，可以优先报模糊层级保护她；警下需要可信度、带队或对冲悍跳时，可以再补确切身份。验到狼、猎人、骑士等强身份时通常优先报确切。悍跳狼也可以按局势选择确切或模糊口径，不必为了圆谎盲扔具体神职。所有玩家都会知道模糊口径不等于假查验，不能仅因通灵师没报具体神职就直接判她假。
+真通灵师验到另一个“通灵师”时，因为本板真通灵师只有一人，对方只可能是学过通灵师技能的机械狼。这种情况必须直接报“机械通灵师/机械狼/查杀”，不能报成通灵师金水、神职金水或好人身份。
 
 【最近更新 · 2026-10-31】
 狼人杀继续修正规则理解：守卫只挡狼刀、不挡女巫毒，被守住的人仍可能被毒死；不能拿“守卫不挡毒”反驳“女巫毒死A、狼刀被守卫挡下”，因为毒杀对象和狼刀对象可以是两个人。夜死和遗言都只是未翻牌自述，自称女巫不等于已被证实，机械狼学女巫也会显示女巫。普通狼虽然不知道机械狼是谁，但可以从“非小狼玩家拿走非小狼死者的身份，再与可信通灵查验发生身份碰撞”把她列为机械狼高优先候选。机械狼通灵板里还能更早推断：真通灵查小狼会报普通“狼人”，查机械狼则显示所学身份或“机械狼”，不会显示成普通“狼人”；因此非小狼玩家若把另一个非小狼报成“狼人”，该验人线就是假的。机械狼即使真的学了通灵/预言家并验到队友是狼，也可以故意公开报成守卫、女巫来发衣服；不能因为公开报假就反推她没有验人能力或不是机械狼。普通狼还会识别机械狼递来的假神职衣服：如果跳通灵/预言家的非小狼把已知小狼队友报成守卫、女巫等身份，小狼必须接牌，不能当众说“我不是X”或反过来主推机械狼。未翻牌的死者不能直接认定不是真神；真女巫、真守卫即使可能还在场上，也不是拒绝接牌的理由。小狼应敢穿神职衣服和真神对跳，把对跳者逼出来并争取抗推成抢衣服的假神，不能为了讨好未知真神主动否认。悍跳是可退出的战术而非硬任务：出现可信机械狼身份线时，悍跳狼可以退水、放弃旧假验并转去配合她，接牌和配合机械狼优先于维持旧分工。机械狼通灵师板里的真通灵师竞选、上警和退水提示也必须使用“通灵师”模板，不能再套“不跳预言家的好人／好人代跳预言家”；真通灵直接报表面身份查验和警徽流。悍跳狼补报查验时也不会再把两种结果拼进同一段，避免“先报村民又报狼人”式自爆。狼队夜间会先判断通灵下一验是否真能锁到核心狼、是否正在替狼带错票，不再只因为她是神职就盲目下刀；单边通灵且守口不明时还会计算守卫风险。公开身份盘统一写成“自称X”，同一人先后跳不同神职会记成“先自称X、后自称Y”，不会当成真实身份。转述句也会单独识别：例如3号说“她退水改口，我才是真女巫”是在复述7号，不算3号跳女巫；只有本人直接陈述才会记成当前发言者的身份声明。白天续局会从还没发言的人继续，不会重复已经完成的发言。
@@ -16353,7 +16358,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 新增 12 人「梦魇守卫」板子：3 个普通狼、1 个梦魇、4 个平民、预言家、女巫、猎人和守卫。梦魇每晚最先单独行动，可以选择空梦，或恐惧一名玩家；不能连续两晚恐惧同一人。被恐惧者当夜不能使用技能，猎人被恐惧后当夜死亡或紧接着的白天被票出都不能开枪。梦魇完成恐惧或空梦后与普通狼会合并参加狼刀和狼队分工，且无论由 AI 还是你本人操作，梦魇都排第一个选择分工；首夜恐惧前她不知道普通狼身份，会合后才显示红名，普通狼则从第一夜起就知道梦魇是谁。
 所有 12 人板子现在按「屠边」判胜负：狼人全部出局则好人胜；全部村民出局或全部神职出局则狼人胜，不再按狼人和好人数量相等直接结束。若同一夜狼刀刚好完成屠边、同时最后一只狼又被女巫毒死，则按约定的狼刀优先判狼人胜。6～9 人局仍使用原来的数量判定。
 狼人杀 NPC 现在每人有一条约 30～45 字的专属短人设，口吻涵盖古风、名侦探式装帅、嘴硬带“喵”、快嘴、冷幽默、直球、效率派等；每个 NPC 只读取自己的那条，不额外读取其他 11 份。所有角色发言都会提醒保持本人的句长、节奏、情绪和少量自然口癖，避免全场都像同一种分析员。
-狼人杀竞选增加了随机变化和稳定性：非真预好人 AI 每人约有三分之一概率获得“突然很想秀操作”的上警心情，每局最多发放 4 次；AI 是否上警的内部表态顺序会随机洗牌，竞选发言仍按座位顺序进行。每个 9/12 人 AI 狼局仍会选出悍跳狼，但守墓人石像鬼板子不再强制它硬跳：它会先上警听前置位，遇到疑似石像鬼给狼金水、已有明确递话或强跳会送狼时，可以改打普通上警发言并退水；其他板子保持原来的强悍跳。普通狼的提示也会明确：石像鬼开局虽与普通狼互不相认，但每晚能查验具体身份，可能已经验过某只普通狼，不能用“她应该不认识我”直接排除。好人支持听发言、评价和代跳两条上警路线；代跳者退水后会说明假验作废，其他好人和骑士不会只因退水就把她定狼。
+狼人杀竞选增加了随机变化和稳定性：非真预好人 AI 每人约有三分之一概率获得“突然很想秀操作”的上警心情，每局最多发放 4 次；AI 是否上警的内部表态顺序会随机洗牌，警上竞选发言顺序也每局随机打乱。每个 9/12 人 AI 狼局仍会选出悍跳狼，但守墓人石像鬼板子不再强制它硬跳：它会先上警听前面顺序的发言，遇到疑似石像鬼给狼金水、已有明确递话或强跳会送狼时，可以改打普通上警发言并退水；其他板子保持原来的强悍跳。普通狼的提示也会明确：石像鬼开局虽与普通狼互不相认，但每晚能查验具体身份，可能已经验过某只普通狼，不能用“她应该不认识我”直接排除。好人支持听发言、评价和代跳两条上警路线；代跳者退水后会说明假验作废，其他好人和骑士不会只因退水就把她定狼。
 
 【最近更新 · 2026-10-23】
 角色记忆页原来的“我是谁（核心设定）”改为“动态认知”。固定身份仍写在角色人设里；动态认知用来记录角色此刻对“自己是谁、用户现在怎样、关系有什么变化、最近修正了什么理解、接下来想怎么做”的持续认识。每日复盘会覆盖更新这块现状，不会每天往后追加，避免越堆越长。
@@ -29853,7 +29858,7 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     wordsDone:false,      /* 【新·面杀】你死那会儿的遗言处理过没有（面杀在进房间前盲留，网杀照旧在白天留） */
     spoke:{},
     /* 【新】警长（上警）：8 人及以上默认开，可在开局设置里关掉 */
-    sheriff:true,sheriffUid:null,badgeGone:false,sheriffDone:false,policeUp:[],policeVote:{},
+    sheriff:true,sheriffUid:null,badgeGone:false,sheriffDone:false,policeUp:[],policeOrder:[],policeVote:{},
     policeAll:[],upSpoke:{},electing:false,pendingDeaths:null,speechStart:'',speechDir:1,
     board:'std',guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',kingBoom:false,kingNote:'',dayOver:0,
     knightUsed:false,knightAsk:null,knightSelected:'',knightPending:false,inPK:false,dualSeerClaims:false,
@@ -33275,7 +33280,7 @@ function wwTipsBlock(){
   if(bd.knight)extra+='\n【骑士】每局决斗一次。自己发言时可决斗，所有人发言完、投票前还能再考虑一次；警长竞选和平票 PK 不能决斗。命中狼人：对方出局、白天立即结束；命中好人：骑士自己出局、白天继续。';
   if(bd.wolfking)extra+='\n【白狼王】白天可自爆带走一人并立即入夜，限一次；尽量炸关键神职或自救。';
   if(bd.wolfkingdeath)extra+='\n【狼王】狼人阵营，和普通狼一起刀人。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以不发动。';
-  if(bd.medium)extra+='\n【通灵师】每晚查验一名存活玩家的具体身份。验到学过身份的机械狼时，会显示它学到的身份；没学过则显示机械狼。';
+  if(bd.medium)extra+='\n【通灵师】每晚查验一名存活玩家的具体身份。公开时可以报确切身份，也可以只报“好人身份/神职金水/民及民以上金水”；模糊口径不等于假验。验到女巫、守卫等关键弱神时可能故意不报具体职业。但真通灵师如果验到另一个“通灵师”，那只可能是学过通灵师技能的机械狼，必须直接报机械通灵师/机械狼/查杀。';
   if(bd.mechanicwolf)extra+='\n【机械狼】狼人阵营，与小狼互不相认、不参加普通狼刀，小狼全灭后接刀。整局只能学习一名存活玩家一次；学到的主动技能次夜生效，学猎人当夜获得枪。';
   if(bd.gravekeeper)extra+='\n【守墓人】每晚查验上一白天被投票放逐者的阵营，只知好人/狼人；第一夜、没有放逐或平票时没有结果。';
   if(bd.gargoyle)extra+='\n【石像鬼】狼人阵营。不与普通狼互认、不参加狼刀；每晚查验一名存活玩家的具体身份。普通狼全灭后才接刀。';
@@ -33300,6 +33305,30 @@ function wwMechanicSkillReady(p){
   if(!p||p.role!=='mechanicwolf'||!p.mechLearn)return false;
   if(p.mechLearn.role==='hunter')return true;
   return Number(V.ww&&V.ww.day)>Number(p.mechLearn.day);
+}
+function wwMediumDisclosureHint(p,w){
+  var list=(p&&p.check||[]).filter(function(c){return c&&c.kind==='medium'});
+  if(!list.length)return '';
+  var c=list[list.length-1],t=wwPlayerByUid(c.uid),role=c.role,actual=t?t.role:'';
+  if(!t)return '';
+  var result='';
+  if(role==='medium'&&actual==='mechanicwolf'){
+    result='本板真通灵师只有你，所以另一个显示为“通灵师”的人只可能是学过通灵师技能的机械狼。必须直接报她是“机械通灵师”“机械狼”或“查杀”，不能报成通灵师金水、神职金水或好人身份。';
+  }else if(wwIsWolf({role:role})){
+    result='这是查杀或具体狼人身份，通常优先直接报确切结果，力度最高；不要为了省信息把狼报成模糊金水。';
+  }else if(role==='hunter'||role==='knight'){
+    result='这是猎人/骑士这类强神，通常可以直接报确切身份，帮助好人建立视野、制造枪口或决斗威慑。';
+  }else if(role==='witch'||role==='guard'||role==='medium'){
+    result=(w&&w.electing)
+      ?'你在警上且当前可以选较保守口径：优先只说“'+wwTag(t)+'是好人身份”或“'+wwTag(t)+'是神职金水/民及民以上金水”，避免狼人靠查验直接锁定女巫、守卫或通灵师。若现场明确需要增强可信度、对冲悍跳或带队，也可以直接报确切身份。'
+      :'当前不在警上；先看局势。若需要增强查验可信度、对冲悍跳或带队，可以补报确切身份；若局势稳定、需要继续藏神，仍可只报“好人身份”或“神职金水”。';
+  }else if(role==='villager'){
+    result='这是村民。可以直报“村民”，也可以只说“好人身份/民及民以上金水”；局势需要查验力度时优先直报。';
+  }else{
+    result='可以按局势选择直接报确切身份，或只报“好人身份/神职金水”；需要力度时优先确切。';
+  }
+  return '【通灵师公开口径（只给自己看）】最新查验：'+wwTag(t)+' = '+WW_ROLE_NAME[role]+'。'+result+
+    '这是策略提示，不要向玩家复述“提示、口径、策略”等词，也不要把没验到的身份说成确切身份。';
 }
 /* 给模型看的一份「死板事实」：谁活着、谁出局了、怎么出局的、狼队有谁。
    弱一点的模型最容易在这些基础状态上绕晕，直接喂给它、别让它自己从记录里抠。 */
@@ -33336,7 +33365,8 @@ function wwFactsFor(p){
     if(mcl.length)L.push('【你的通灵查验（只有你知道）】\n'+mcl.map(function(c){
       var t=wwPlayerByUid(c.uid);
       return '第 '+(c.day||'?')+' 夜：'+(t?wwName(t):'?')+' = '+(WW_ROLE_NAME[c.role]||c.role||'未知');
-    }).join('\n')+'\n· 你看到的是“表面身份”；机械狼学习后会显示它学到的身份。');
+    }).join('\n')+'\n· 你看到的是“表面身份”；机械狼学习后会显示它学到的身份。'+
+      (mcl.length?('\n'+wwMediumDisclosureHint(p,w)):''));
   }else if(p&&p.role==='mechanicwolf'){
     L.push('【机械狼真实情况（只有你知道，勿公开）】你属于狼人阵营，但和普通小狼互不相认，也不进入狼队频道；小狼可能误刀你。'+
       '\n· 小狼全部出局后，你会在夜间接管狼刀。'+
@@ -33444,7 +33474,7 @@ function wwKnownWolf(p){
   if(me.role==='medium'){
     var mc=me.check||[];
     for(var mi=0;mi<mc.length;mi++){
-      if(mc[mi].uid===p.uid&&['wolf','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(mc[mi].role)>=0)return true;
+      if(mc[mi].uid===p.uid&&(mc[mi].role==='查杀'||['wolf','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(mc[mi].role)>=0))return true;
     }
   }
   return false;
@@ -33541,7 +33571,7 @@ function wwBoardLine(){
     (b.wolfking?('（白狼王白天可自爆并带走一人，白天立刻结束；限一次。夜里是普通狼。）'):'')+
     (b.wolfkingdeath?('（狼王属于狼人阵营，与普通狼一起行动。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动。）'):'')+
     (b.mechanicwolf?('（机械狼属于狼人阵营，与小狼互不相认、不参加普通狼刀；小狼全灭后接刀。整局只能学习一名存活玩家一次，主动技能次夜生效，学猎人当夜获得枪。）'):'')+
-    (b.medium?('（通灵师每晚查验一名存活玩家的具体身份；学过身份的机械狼会显示它学到的身份，没学过则显示机械狼。）'):'')+
+    (b.medium?('（通灵师每晚查验一名存活玩家的具体身份；学过身份的机械狼会显示它学到的身份，没学过则显示机械狼。通灵师公开查验时可选择报确切身份，也可只报“好人身份/神职金水/民及民以上金水”；没有报具体神职不代表查验为假。但真通灵师验到另一个通灵师时，对方只可能是机械通灵师，必须直接报查杀。）'):'')+
     (b.gravekeeper?('（守墓人每晚查验上一白天被投票放逐者是好人还是狼人；第一夜和无人被放逐时没有结果。）'):'')+
     (b.gargoyle?('（石像鬼属于狼人阵营，但不与普通狼互认、不参加狼刀；每晚查验一名存活玩家的具体身份，普通狼全灭后接刀。）'):'')+
     (b.nightmare?('（梦魇属于狼人阵营。每晚最先单独恐惧一人，使其当夜技能失效，不能连续两晚恐惧同一人，可空梦；随后参加狼刀。首夜恐惧前不认识狼队友。）'):'');
@@ -33557,10 +33587,10 @@ function wwClassicProxyHint(p){
   var extra='';
   if(V.ww.board==='gravegargoyle'){
     extra='\n【守墓人石像鬼 · 好人的额外打法】\n'+
-      '· 守墓人板子可以更积极地考虑一次压跳：上警后假装预言家，给后置位上警者发金水或给可疑位发查杀，观察谁急着接话、谁像小狼在找“大狼”的递话，再说明自己是好人代跳、假验作废并退水。收益是逼真预和狼队暴露视角；风险是被集火，所以必须有清楚的退出计划。\n'+
+      '· 守墓人板子可以更积极地考虑一次压跳：上警后假装预言家，给排在自己后面、尚未发言的人发金水或给可疑位发查杀，观察谁急着接话、谁像小狼在找“大狼”的递话，再说明自己是好人代跳、假验作废并退水。收益是逼真预和狼队暴露视角；风险是被集火，所以必须有清楚的退出计划。\n'+
       '· 如果已经抿到狼队在找石像鬼，或者你愿意替真神挡刀，好人可以积极考虑假装自己像石像鬼，用一句“我可能是大狼”“夜里别急着动我”之类的暧昧话递假信号，诱导小狼误以为你是盟友甚至误刀你。这是高风险诈狼，不是让自己真变成狼；被好人追问时要有“我是在钓狼”的解释，不能每轮都挂在嘴边，也不能同时再穿预言家的身份。';
   }
-  return '【'+board+' · 好人压跳是常规操作】这一板的好人常在警上暂时跳预言家、给后置位金水或给可疑位查杀，'+
+  return '【'+board+' · 好人压跳是常规操作】这一板的好人常在警上暂时跳预言家、给后面尚未发言的人金水或给可疑位查杀，'+
     '用来占位、施压、观察反应或替真预挡刀，随后再退水；这属于合理的压跳/代跳，不是“爱秀怪操作”。'+
     '不能只因为她上过警、发过假验或后来退水就直接定狼和冲票。'+
     '判断要看：退水时是否说明假验作废、真预出现后是否让位并跟真预归票、压跳期间有没有故意搅乱好人视角、退水后是否继续认真盘票。'+
@@ -33790,17 +33820,30 @@ function wwOwnSeerChecks(txt){
   return wwIdentityChecks(keep.join('。'));
 }
 function wwOwnMediumChecks(txt){
-  var out=[],seen={},names=Object.keys(WW_ROLE_NAME).filter(function(k){return k!=='random'}).map(function(k){return WW_ROLE_NAME[k]}).sort(function(a,b){return b.length-a.length});
-  var re=new RegExp('(?:查验|验到|验了|查到|查了)[^。！？!?；;\\n]{0,28}?(\\d{1,2})\\s*号?[^。！？!?；;\\n]{0,18}?(?:是|为|身份是|身份为)?\\s*('+names.join('|')+')','g'),m;
+  var out=[],seen={},seenSeq={},alias={平民:'villager',普通村民:'villager',普通狼人:'wolf',机械通灵师:'mechanicwolf'};
+  Object.keys(WW_ROLE_NAME).forEach(function(k){if(k!=='random')alias[WW_ROLE_NAME[k]]=k});
+  var names=Object.keys(alias).sort(function(a,b){return b.length-a.length});
+  var re=new RegExp('(?:查验|验到|验了|验(?:的)?|通灵(?:到|结果)?|查到|查了)[^。！？!?；;\\n]{0,28}?(\\d{1,2})\\s*号?[^。！？!?；;\\n]{0,18}?(?:是|为|身份是|身份为)?\\s*('+names.join('|')+')','g'),m;
+  var tierRe=/(?:查验|验到|验了|验(?:的)?|通灵(?:到|结果)?|查到|查了)[^。！？!?；;\n]{0,28}?(\d{1,2})\s*号?[^。！？!?；;\n]{0,18}?(?:是|为|身份是|身份为)?\s*(查杀|神职金水|神职身份|好人神职身份|强神|关键神职|好人身份|民及民以上的?金水|民及民以上|金水)/g;
   String(txt||'').split(/[。！？!?；;\n]+/).forEach(function(s){
     while((m=re.exec(s))){
-      var seq=Number(m[1]),role=Object.keys(WW_ROLE_NAME).filter(function(k){return WW_ROLE_NAME[k]===m[2]})[0];
+      if(/(?:不是|并非|不可能是|不像)/.test(m[0]))continue;
+      var seq=Number(m[1]),role=alias[m[2]];
       if(!seq||!role)continue;
       var key=seq+'|'+role;
       if(seen[key])continue;
-      seen[key]=1;out.push({seq:seq,result:WW_ROLE_NAME[role]});
+      seen[key]=1;seenSeq[seq]=1;out.push({seq:seq,result:WW_ROLE_NAME[role]});
     }
     re.lastIndex=0;
+    while((m=tierRe.exec(s))){
+      if(/(?:不是|并非|不可能是|不像)/.test(m[0]))continue;
+      var seq2=Number(m[1]);
+      if(!seq2||seenSeq[seq2])continue;
+      var result=m[2]==='查杀'?'查杀':(/神职|强神/.test(m[2])?'神职金水':'好人身份'),key2=seq2+'|'+result;
+      if(seen[key2])continue;
+      seen[key2]=1;out.push({seq:seq2,result:result});
+    }
+    tierRe.lastIndex=0;
   });
   return out;
 }
@@ -33953,6 +33996,12 @@ function wwSeerCommitmentLedger(w){
   });
   return {claims:out,checksBySeat:checksBySeat,votes:wwVoteHistoryRows(w)};
 }
+function wwPublicCheckIsGoodResult(result){
+  var r=String(result||'');
+  if(/金水|好人|民及民以上/.test(r))return true;
+  if(/狼/.test(r))return false;
+  return ['村民','预言家','通灵师','女巫','猎人','守卫','白痴','骑士','守墓人'].indexOf(r)>=0;
+}
 function wwSeerCommitmentText(w){
   var a=wwSeerCommitmentLedger(w),L=[],bySeat={};
   var claimName=(w&&wwBoard(w.count,w).medium)?'跳通灵':'跳预';
@@ -33967,7 +34016,7 @@ function wwSeerCommitmentText(w){
   var goodBy={};
   Object.keys(a.checksBySeat).forEach(function(seat){
     (a.checksBySeat[seat]||[]).forEach(function(x){
-      if(x.result!=='金水'&&x.result!=='好人')return;
+      if(!wwPublicCheckIsGoodResult(x.result))return;
       goodBy[x.seq]=goodBy[x.seq]||[];
       if(!goodBy[x.seq].some(function(y){return y.seat===Number(seat)}))
         goodBy[x.seq].push({seat:Number(seat),day:x.day});
@@ -34642,7 +34691,7 @@ function wwStripLead(t){
 }
 /* 发言先后是系统或警长决定的，不能拿来推身份。这里做静默自检：
    命中时让模型重写一次，仍命中就删掉相关自述句，但绝不向玩家朗读规则。 */
-var WW_ORDER_BAD=/(?:还没|一直没|到现在.{0,8}没|全程没).{0,8}(?:说话|发言|开口)|(?:一直|全程)(?:都|也)?不(?:说话|发言|开口)|(?:还没|没有|没)轮到.{0,8}(?:说话|发言|开口)|(?:发言|说话|开口).{0,6}(?:太晚|靠后|在后)|(?:后置位|后发言|后跳|后手|先发言|先跳).{0,12}(?:像狼|是狼|狼面|不做好|有问题|好人面)|(?:谁先|谁后|发言顺序).{0,12}(?:像狼|是狼|狼面|不做好|判断身份)|(?:不能|不该|不要).{0,12}(?:发言顺序|谁先谁后|没说话|不说话).{0,8}(?:当|推|判断|狼)/;
+var WW_ORDER_BAD=/(?:还没|一直没|到现在.{0,8}没|全程没).{0,8}(?:说话|发言|开口)|(?:一直|全程)(?:都|也)?不(?:说话|发言|开口)|(?:还没|没有|没)轮到.{0,8}(?:说话|发言|开口)|(?:发言|说话|开口).{0,6}(?:太晚|靠后|在后)|(?:后置位|后发言|后跳|后手|先发言|先跳).{0,12}(?:像狼|是狼|狼面|不做好|有问题|好人面)|(?:谁先|谁后|发言顺序).{0,12}(?:像狼|是狼|狼面|不做好|判断身份)|(?:不能|不该|不要).{0,12}(?:发言顺序|谁先谁后|没说话|不说话).{0,8}(?:当|推|判断|狼)|(?:随机顺序|随机打乱|随机洗牌|内部规则|内部提示|内部策略|公开口径|口径建议|策略提示|提示词|规则要求)|(?:系统随机|系统安排|由系统决定)[^。！？!?；;\n]{0,20}(?:说|讲|发言|顺序|先后|身份|狼面|好人面)|(?:发言顺序|先后顺序)[^。！？!?；;\n]{0,20}(?:随机|打乱|系统|内部|提示词|规则)|(?:不能|不该|不要|不会)[^。！？!?；;\n]{0,16}(?:随机顺序|发言顺序|谁先谁后)[^。！？!?；;\n]{0,12}(?:判断|定义|推|身份|狼)/;
 function wwSpeechOrderBad(t){return WW_ORDER_BAD.test(String(t||''))}
 function wwDropOrderSentences(t){
   var parts=String(t||'').match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[];
@@ -34652,9 +34701,9 @@ async function wwGuardSpeechOrder(p,sys,say){
   say=wwStripLead(say||'');
   if(!wwSpeechOrderBad(say))return say;
   try{
-    var fixed=String(await wwCall(sys,'【内部修正】刚才这段公开发言里，有人把“谁还没轮到、谁一直没说话、谁先发言或后发言、谁后跳身份”当成了身份证据。'+
-      '请保持原说话人设、原有立场和实质证据，删除这些关于发言先后的判断，重写一段自然、可以直接说出口的话。'+
-      '不要解释为什么删除，不要提到规则、系统、提示词、禁令或“不能拿顺序说事”，不要写免责声明，只输出重写后的公开发言。\n原文：'+String(say||'').slice(0,900),wwSayMax(),.65)||'').trim();
+    var fixed=String(await wwCall(sys,'【内部修正】刚才这段公开发言里，有人把随机打乱的上警顺序、谁先谁后或谁还没发言当成身份证据，或者复述了内部规则。'+
+      '请保持原说话人设、原有立场和实质证据，删除这些关于发言先后和幕后规则的判断，重写一段自然、可以直接说出口的话。'+
+      '不要解释为什么删除，不要提到随机顺序、系统安排、内部提示、规则、提示词、禁令，也不要写免责声明，只输出重写后的公开发言。\n原文：'+String(say||'').slice(0,900),wwSayMax(),.65)||'').trim();
     var sp=wwSplitDraft(fixed);
     fixed=wwStripLead(sp.say||fixed);
     if(sp.draft&&p)p.scratch=sp.draft;
@@ -34815,6 +34864,60 @@ async function wwGuardSeerSpeech(p,sys,say){
   p._lastSayTitle='报验'+wwTag(t)+(c.isWolf?'查杀':'金水');
   return '我是预言家。'+fact+'之前警徽流只是计划，不是查验结果，这轮以这条真实结果为准。';
 }
+function wwLatestPrivateMediumCheck(p,seq){
+  var list=(p&&p.check||[]).filter(function(c){return c&&c.kind==='medium'&&(!seq||Number(c.uid?wwPlayerByUid(c.uid)&&wwPlayerByUid(c.uid).seq:0)===Number(seq))});
+  return list.length?list[list.length-1]:null;
+}
+function wwMediumReportedResultValid(c,result){
+  if(!c||!result)return false;
+  var target=wwPlayerByUid(c.uid),actual=target?target.role:c.role;
+  if(c.role==='medium'&&actual==='mechanicwolf')return result==='机械狼'||result==='查杀';
+  if(result===WW_ROLE_NAME[c.role])return true;
+  if(result==='查杀')return wwIsWolf({role:actual});
+  if(result==='好人身份')return !wwIsWolf({role:actual});
+  if(result==='神职金水')return actual!=='villager'&&!wwIsWolf({role:actual});
+  return false;
+}
+function wwMediumSpeechMatches(p,say){
+  var got=wwOwnMediumChecks(say);
+  if(!got.length)return true;
+  for(var i=0;i<got.length;i++){
+    var c=wwLatestPrivateMediumCheck(p,got[i].seq);
+    if(!c||!wwMediumReportedResultValid(c,got[i].result))return false;
+  }
+  return true;
+}
+async function wwGuardMediumSpeech(p,sys,say){
+  if(wwMediumSpeechMatches(p,say))return say;
+  var got=wwOwnMediumChecks(say),bad=null;
+  for(var i=0;i<got.length;i++){
+    var c=wwLatestPrivateMediumCheck(p,got[i].seq);
+    if(!c||!wwMediumReportedResultValid(c,got[i].result)){bad={r:got[i],c:c};break}
+  }
+  if(!bad)return say;
+  var target=wwPlayerByUid(bad.c&&bad.c.uid);
+  var exact=bad.c?WW_ROLE_NAME[bad.c.role]:'未知';
+  var fact=target&&bad.c?('第 '+(Number(bad.c.day)||Number(V.ww.day)||1)+' 夜你验的是 '+wwTag(target)+' · '+target.name+'，私有结果只有【'+exact+'】。'):'这段公开查验没有对应的私有查验记录。';
+  try{
+    var ask='【通灵师私有查验纠正】你刚才准备公开说：“'+String(say||'').slice(0,700)+'”。'+fact+
+      '请保持原角色口吻和原任务格式重写完整发言。可以报确切身份，也可以为了隐藏关键神职只报“好人身份”或“神职金水”；但公开身份必须和私有结果一致，不能把好人报成狼，也不能编造没验过的座位。'+
+      '如果原话本来只想模糊报，就继续保持模糊，不要被迫报出女巫、守卫等具体身份。不要解释这条内部检查。';
+    var fixed='';
+    p._lastSayTitle='';
+    var cr=wwTakeTitle(p,String(await wwCall(sys,ask,wwSayMax(),.65)||'').trim());
+    var cb=wwTakeIdentityBoard(p,cr);cr=cb.text;
+    var sp=wwSplitDraft(cr);
+    fixed=wwStripLead(sp.say||'');
+    if(sp.draft)p.scratch=sp.draft;
+    if(fixed&&wwMediumSpeechMatches(p,fixed))return fixed;
+  }catch(e){}
+  if(!target||!bad.c)return say;
+  var actualRole=target&&target.role?target.role:bad.c.role;
+  var specialMech=bad.c.role==='medium'&&actualRole==='mechanicwolf';
+  p._lastSayTitle='报验'+wwTag(target)+'真相';
+  return '我昨晚验的是 '+wwTag(target)+'，'+(specialMech?'是机械通灵师，也就是机械狼查杀。':(wwIsWolf({role:actualRole})?'是查杀。':'是好人身份。'))+
+    '前面的具体身份表述以这条为准，这轮先按这条真实结果和场上票型走。';
+}
 function wwActivePublicSeerClaim(p,w){
   if(!p||!w)return null;
   var a=wwSeerCommitmentLedger(w).claims||[];
@@ -34861,10 +34964,10 @@ async function wwGuardWolfSeerSpeech(p,sys,say){
   var hint=planned?('你上一轮公开说过要验 '+wwTag(planned)+'；优先沿用这个目标。'):'上一轮没有可沿用的明确验人计划，自己选一个目标编。';
   var fearOption=wwBoard(w.count,w).nightmare
     ?'也可以明确改验或声称被恐没结果，但必须和上一轮计划对得上。'
-    :'本板没有梦魇，不能声称“被梦魇恐惧”，必须报一个金水或查杀。';
+    :('本板没有梦魇，不能声称“被梦魇恐惧”，必须报一个可核对的查验结果。'+(mediumBoard?'可以是确切身份，也可以是“好人身份”或“神职金水”。':'必须是金水或查杀。'));
   try{
     var ask='【悍跳狼每日查验硬检查】你仍在公开穿'+claimName+'，还没有退水。今天只说别人、不交代昨夜查验会直接自爆。'+
-      hint+'现在必须报第 '+w.day+' 夜新增查验：'+(mediumBoard?'给一个具体座位和“具体表面身份”，并让结果与你之前的世界线一致。':'给一个具体座位和“金水/查杀”，并让结果与你之前的世界线一致。')+fearOption+'不能沉默跳过。'+
+      hint+'现在必须报第 '+w.day+' 夜新增查验：'+(mediumBoard?'给一个具体座位和身份口径，并让结果与你之前的世界线一致。可以报确切身份，也可以为了避免盲扔具体神职而只说“好人身份”或“神职金水”；如果要搏力度、验到狼或强神，优先考虑确切身份。':'给一个具体座位和“金水/查杀”，并让结果与你之前的世界线一致。')+fearOption+'不能沉默跳过。'+
       '保持原人设和原立场，重写完整公开发言；不要暴露自己是狼，不要解释这条检查。之前发言：'+String(say||'').slice(0,900);
     var fixed=String(await wwCall(sys,ask,wwSayMax(),.7)||'').trim();
     fixed=wwTakeTitle(p,fixed);
@@ -34878,7 +34981,7 @@ async function wwGuardWolfSeerSpeech(p,sys,say){
   if(!tgt)return say;
   p._lastSayTitle='报验'+wwTag(tgt)+(mediumBoard?'身份':'金水');
   return mediumBoard
-    ?('我昨晚验的是 '+wwTag(tgt)+'，身份是村民。前面查验表述以这一条为准。这轮先按这个结果和场上票型走，不再混用两个结果。')
+    ?('我昨晚验的是 '+wwTag(tgt)+'，好人身份。前面查验表述以这一条为准。这轮先按这个结果和场上票型走，不再混用两个结果。')
     :('我昨晚验的是 '+wwTag(tgt)+'，金水。前面查验表述以这一条为准。这轮先按这个结果和场上票型走，不再混用两个结果。');
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
@@ -34917,6 +35020,7 @@ async function wwSpeak(p,sys){
   if(p&&!p.isUser&&wwIsWolf(p))out=await wwGuardWolfSeerSpeech(p,sys,out);
   if(p&&!p.isUser&&wwIsPackWolf(p))out=await wwGuardMechanicClothingSpeech(p,sys,out);
   if(p&&!p.isUser&&p.role==='seer')out=await wwGuardSeerSpeech(p,sys,out);
+  if(p&&!p.isUser&&p.role==='medium')out=await wwGuardMediumSpeech(p,sys,out);
   return out;
 }
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
@@ -35164,7 +35268,7 @@ function wwSysFor(p,task){
   L.push('【你是谁 / 你的身份】你是 '+wwName(p)+'（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwName(p)+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'无特殊能力。听发言盘 1~2 个狼和理由，独立投票；被怀疑时用时间线自证。':
      r==='seer'?'每晚验一人。报验前先核对私有验人结果卡：公开说过的“今晚准备验谁”只是计划，不是结果；实际改验就明确说改验。必须按座位号报出当夜真实目标和金水/查杀。被质疑时正面回答最关键的问题，通常首轮起跳。':
-     r==='medium'?'每晚查验一名存活玩家的具体身份。你看到的是“表面身份”：没学习过的机械狼显示机械狼，学习过的机械狼显示它学到的身份。报查验时必须使用你实际看到的身份，不能开上帝视角。':
+     r==='medium'?'每晚查验一名存活玩家的具体身份。你看到的是“表面身份”：没学习过的机械狼显示机械狼，学习过的机械狼显示它学到的身份。你可以自行选择公开口径：报确切身份，或只报“好人身份/神职金水/民及民以上金水”；后者不是假验。警上较前阶段验到女巫、守卫等关键弱神时，可以优先模糊以保护她；局势需要可信度、带队或对冲悍跳时再补确切身份。验到狼或强神通常优先报确切。但本板真通灵师只有你：如果你验到另一个“通灵师”，对方只可能是学过通灵师技能的机械狼，必须直接报机械通灵师/机械狼/查杀，不能报成通灵师金水或神职金水。不能开上帝视角。':
      r==='witch'?'解药、毒药各一次，同夜只用一瓶。女巫全程不能自救。有守卫时首夜可救人；不乱毒，少暴露。被怀疑时只讲真实药况和救人时机，别为了圆场编药。':
      r==='hunter'?'被刀或被票可开枪；被毒不能开枪。平时藏身份；自己快被推出、且亮枪能改变票型时，及时报猎人。':
      r==='knight'?'每局可决斗一次。自己发言时可以决斗；所有人发言结束、投票前还会再得到一次考虑机会。警长竞选和平票 PK 不能决斗。命中狼人则对方立即出局、白天结束；命中好人则你自己出局、白天继续。别在没证据时乱戳。':
@@ -35237,22 +35341,22 @@ function wwSysFor(p,task){
   /* 【新】本局有警长（上警）：把规则讲清楚，AI 才知道怎么竞选、怎么用警长的权力 */
   if(wwSheriffOn())L.push('【警长】第一天先上警再报死讯；上警发言、可退水，警下投票。警长票 1.5 并定顺序，出局时移交或撕徽。竞选时不知道死讯，别装知道。'+
     '警长票是“支持谁当选警长”，不是白天把谁投出局；竞选里说“警下票给几号”时，意思必须是支持几号当警长。'+
-    '可以对还没发言的后置位施压或试探，但要用假设句；不能把对方尚未作出的身份声明和验人结果当成事实。'+
+    '可以对尚未轮到发言的人施压或试探，但要用假设句；不能把对方尚未作出的身份声明和验人结果当成事实。'+
     '警徽流可以传递验人信息。常见打法是：验A，A是好就让A接徽；A是狼就把徽交给已知金水或可信好人，没有合适接徽人就撕徽。她死后实际接徽人要和生前报的分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。疑似狼的警长X号给Y号警徽，不代表Y一定是狼。');
   if(wwSheriffOn())L.push('【警徽移交铁律】被多数暂认真预的警长倒牌并把警徽交给Y时，默认Y是她最后一夜查验出的金水或最信任好人，优先按高可信好人处理；不能只因Y曾质疑过她或没等到公开报验就投Y。'+
     '只有Y的查验数量、夜数、公开交接分支或后续技能结果出现正面硬矛盾时，才降级复核。');
   L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
     '有人声称“昨晚被恐”时，先按当前白天定位到她说的具体第几夜；不同夜晚的恐惧不能拼成同一夜矛盾，自己曾经被恐也不等于昨晚被恐。'+
     (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
-  L.push('【内部禁令·发言先后】不得把“谁先发言、谁后发言、谁还没轮到、谁一直没说话、谁后置位起跳、谁后跳身份”当成狼面或好人面。'+
-    '这些先后由警长或系统决定，不是玩家自己选的；竞选时可以对未发言者用假设句试探，但不能把尚未轮到发言本身当证据。'+
-    '这是只给自己看的自检，不得在公开发言里复述、解释或声明“我不能因为顺序判断”，也不要把它写成免责声明。');
+  L.push('【内部禁令·发言先后】警上竞选发言顺序每局随机打乱；不得把“谁先发言、谁后发言、谁没轮到、谁一直没说话、谁先起跳、谁后跳身份”当成狼面或好人面。'+
+    '这些先后由系统或警长安排，不是玩家自己选的；竞选时可以对尚未发言者用假设句试探，但不能把尚未轮到发言本身当证据。'+
+    '这是只给自己看的自检，不得在公开发言里复述、解释或声明“随机顺序”“系统安排”“内部提示”“提示词”“不能因为顺序判断”等幕后信息，也不要写成免责声明。');
   L.push('【总规则】只把主持人公告、自身身份和技能结果当事实；他人身份、验人、遗言可假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
       ? '面杀可写少量括号动作，不用 markdown。'
       : '像群聊说话，不写旁白动作，不用 markdown。')+
     (wwIsWolf(p)?'狼人阵营可以说谎和悍跳。':''));
-  if(wwBoard(w.count,w).medium)L.push('【本板验人位是通灵师】这一局没有预言家；所有“验人、报身份、对跳”的公开说法只能用通灵师身份，不要声称自己是预言家。通灵师查验的是存活玩家的具体表面身份，狼人可以假跳通灵师并编造具体身份结果。');
+  if(wwBoard(w.count,w).medium)L.push('【本板验人位是通灵师】这一局没有预言家；所有“验人、报身份、对跳”的公开说法只能用通灵师身份，不要声称自己是预言家。通灵师查验的是存活玩家的具体表面身份，但公开时可以选择报确切身份，也可以只报“好人身份/神职金水/民及民以上金水”；尤其是警上较早阶段验到女巫、守卫等关键弱神，模糊口径可以防止狼队找神，不能仅因没报具体职业就判假通灵。但真通灵师验到另一个“通灵师”时，本板只可能是一只学过通灵师技能的机械狼，必须直接报机械通灵师/机械狼/查杀，不能报成普通通灵师金水。局势需要可信度、带队或对冲悍跳时，可以再补确切身份。狼人假跳通灵师时也可以使用确切或模糊口径；要搏力度、验到狼或强神时优先考虑确切身份。');
   L.push('【判断优先级】主持人事实、可信查验 > 未解决硬矛盾 > 票型或明确承诺冲突 > 动机 > 语气。'+
     '夜死、被票、被保或被踩都只是线索，不能因此认铁狼铁好；夜死也可能是狼自刀，女巫毒死不等于狼。'+
     '发言长短、语气、施压、反问、预判和口癖不是身份证据。公开预判狼队可能恐谁、刀谁只是视角；猜中也不能反推她是狼或梦魇。'+
@@ -38487,6 +38591,16 @@ function wwKingBoomFromSay(){
 }
 /* ---------- 【新】警长（上警）：竞选 / 发言顺序 / 警徽 ---------- */
 function wwPoliceUpP(){var w=V.ww;return (w.policeUp||[]).map(function(u){return wwPlayerByUid(u)}).filter(function(p){return !!p})}
+/* 警上发言顺序只用于流程，不代表身份。这里恢复本局已经保存的随机顺序。 */
+function wwPoliceOrderP(){
+  var w=V.ww,out=[],seen={};
+  (w.policeOrder||[]).forEach(function(uid){
+    var p=wwPlayerByUid(uid);
+    if(p&&!seen[p.uid]&&(w.policeUp||[]).indexOf(p.uid)>=0){seen[p.uid]=1;out.push(p)}
+  });
+  wwPoliceUpP().forEach(function(p){if(!seen[p.uid])out.push(p)});
+  return out;
+}
 /* 今天的发言顺序：警长定过就按警长定的来，否则随机挑一个开头、按座位号往下 */
 function wwSpeechOrderList(){
   var w=V.ww,alive=wwAlive(),n=alive.length,out=[];
@@ -38505,7 +38619,7 @@ var WW_UP_MOOD_CHANCE=1/3;
 var WW_UP_MOOD_LIMIT=4;
 /* 叫一个 AI 决定上不上警 */
 async function wwPoliceDecide(p){
-  /* 石像鬼板子也先上警观察；是否真的悍跳，留到听完前置位发言后再判断。 */
+  /* 石像鬼板子也先上警观察；是否真的悍跳，留到听完排在自己前面的发言后再判断。 */
   if(wwWolfJobOf(p)==='jump')return true;
   var trueSeer=!!(p&&(p.role==='seer'||p.role==='medium'));
   var claimName=(p&&p.role==='medium')?'通灵师':'预言家';
@@ -38530,8 +38644,9 @@ function wwJumpCanAdapt(p){
 }
 async function wwPoliceSpeech(p){
   var up=wwPoliceUpP(),others=up.filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、');
-  var later=up.filter(function(x){return x!==p&&Number(x.seq)>Number(p.seq)});
-  var earlier=up.filter(function(x){return x!==p&&Number(x.seq)<Number(p.seq)});
+  var order=wwPoliceOrderP(),pos=order.indexOf(p);
+  var later=pos>=0?order.slice(pos+1):[];
+  var earlier=pos>=0?order.slice(0,pos):[];
   var claimName=wwBoard(V.ww.count,V.ww).medium?'通灵师':'预言家';
   var checkWord=wwBoard(V.ww.count,V.ww).medium?'具体表面身份':'金水';
   var trueSeer=!!(p&&(p.role==='seer'||p.role==='medium'));
@@ -38541,18 +38656,17 @@ async function wwPoliceSpeech(p){
     :'';
   var goodUpHint='你是不跳'+claimName+'的好人，二选一：①上警听发言：说明目的；'+
     (earlier.length
-      ?('前面已有'+earlier.map(wwTag).join('、')+'发言，评价她们的竞选、说想投谁当警长及理由，可指出谁聊爆；')
+      ?('排在你前面按本局随机顺序发言的有'+earlier.map(wwTag).join('、')+'，评价她们的竞选、说想投谁当警长及理由，可指出谁聊爆；')
       :'你是第一个发言，就诚实说本想先听但暂时没信息；')+
     '明确说自己是好人，可退水。②好人代跳：直接假跳'+claimName+'，不必说“我是来听发言”；'+
-    '可给可信者报'+checkWord+'或做假查杀试探，尤其可以给后置位上警者报一个看似可信的结果，观察谁急着接话。目标反应像狼、真'+claimName+'明显接受代跳且继续装能挡刀或带票，才留下；'+
+    '可给可信者报'+checkWord+'或做假查杀试探，尤其可以给排在你后面、尚未发言的上警者报一个看似可信的结果，观察谁急着接话。目标反应像狼、真'+claimName+'明显接受代跳且继续装能挡刀或带票，才留下；'+
     '真验人位反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真'+claimName+'归票。'+
-    (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后置位金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'');
-  var priorSeer=wwKnightClaims().map(wwPlayerByUid).filter(function(x){
-    return x&&x!==p&&Number(x.seq)<Number(p.seq);
-  });
+    (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后面尚未发言的人金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'');
+  var claimedUids=wwKnightClaims();
+  var priorSeer=order.slice(0,Math.max(0,pos)).filter(function(x){return claimedUids.indexOf(x.uid)>=0});
   var badgeHint=wwWolfJobOf(p)==='jump'
     ?(wwJumpCanAdapt(p)
-      ?'你原本的狼队分工是悍跳狼，但这不是硬命令。先听前置位发言：如果疑似石像鬼已经给狼金水、递出明确信息，或当前起跳收益低、强跳会送狼，你可以改打普通上警发言，不报假验并准备退水。若仍决定悍跳，才明确自称'+claimName+'，报昨夜验人结果、自然的首验理由和一项可执行的警徽处理；判断要以实际发言和局面为准，不要为了完成分工机械起跳。'
+      ?'你原本的狼队分工是悍跳狼，但这不是硬命令。先听排在你前面的人发言：如果疑似石像鬼已经给狼金水、递出明确信息，或当前起跳收益低、强跳会送狼，你可以改打普通上警发言，不报假验并准备退水。若仍决定悍跳，才明确自称'+claimName+'，报昨夜验人结果、自然的首验理由和一项可执行的警徽处理；判断要以实际发言和局面为准，不要为了完成分工机械起跳。'
       :'你是悍跳狼，这一轮必须明确自称'+claimName+'，报昨夜验人结果和一句自然的首验理由（可编成盲验、看头像或名字、眼缘、觉得像高玩等），并说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽，不必堆额外分支。')
     :(isJump
       ?(trueSeer?('你是真'+claimName+'。这一轮直接报昨夜真实验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽。按当前板子的真验人位正常发言，不要套用普通好人代跳模板。')
@@ -38562,16 +38676,18 @@ async function wwPoliceSpeech(p){
         :goodUpHint));
   var seerHint=trueSeer
     ?'你是真'+claimName+'。'+
-      (priorSeer.length?('前置位已有'+priorSeer.map(wwName).join('、')+'跳'+claimName+'；从你的视角她是对跳狼：直接把她定义为悍跳，不把下一验或警徽流给她。可以给一次好人代跳退路：“若你是好人代跳，现在退水；继续跳就按狼打。”警徽流改验外置位里更需要确认的人。'):'')+
-      (later.length?('如果后置位还有人跳'+claimName+'，同样按对跳狼处理，不能把她安排进警徽流。'):'')+
+      (priorSeer.length?('排在你前面、已经发言的'+priorSeer.map(wwName).join('、')+'跳了'+claimName+'；从你的视角她是对跳狼：直接把她定义为悍跳，不把下一验或警徽流给她。可以给一次好人代跳退路：“若你是好人代跳，现在退水；继续跳就按狼打。”警徽流改验外置位里更需要确认的人。'):'')+
+      (later.length?('如果按本局顺序排在你后面的人还有人跳'+claimName+'，同样按对跳狼处理，不能把她安排进警徽流。'):'')+
       '如果有人已经明确说验了你并给你查杀，不要反问“她凭什么知道我是狼”——对方已经声称验过你，这种反问会像没听懂规则。直接说“你对我的查杀是编的；我是真'+claimName+'，我验的是X”，再报'+claimName+'的验人结果和警徽流。'
     :'';
   var orderHint=later.length
-    ?'后面还没发言的上警者有：'+later.map(wwNum).join('、')+'。可以条件式给她们压力，但不能当成她们已经跳'+claimName+'。'
-    :'你已经是最后一个上警发言者，后面没有其他竞选者了。不要再提“后面谁再跳'+claimName+'/后置位报验人”，直接回应已经发过言的竞选者。';
-  var base='现在做竞选发言，争取警下支持你当警长。警长票是支持当选，不是把谁投出局。说清身份（可真可假）、打法、当选后的发言顺序和归票方向。'+
+    ?'按本局随机顺序，排在你后面还没发言的上警者有：'+later.map(wwNum).join('、')+'。可以条件式给她们压力，但不能把顺序本身或尚未发言当成身份证据，也不能当成她们已经跳'+claimName+'。'
+    :'你已经是本局顺序里的最后一个上警发言者，后面没有其他竞选者了。不要再提“后面谁再跳'+claimName+'/后面还有人报验人”，直接回应已经发过言的竞选者。';
+  var base='现在做竞选发言，争取警下支持你当警长。警长票是支持当选，不是把谁投出局。本局警上发言顺序已经随机打乱：'+
+    order.map(wwTag).join(' → ')+'。这个顺序只是流程，不是身份证据；不要提内部规则或说自己不能拿顺序判断。'+
+    '说清身份（可真可假）、打法、当选后的发言顺序和归票方向。'+
     badgeHint+jumpTimelineHint+seerHint+orderHint+
-    '如果确实还有后置位，可以施压，但只能假设、不能当成已经发生：可说“若后面有人起跳'+claimName+'，我看她的验人和警徽流；好人别来抢身份，我不认代跳”。'+
+    '如果按本局顺序确实还有人排在你后面，可以施压，但只能假设、不能把顺序当成身份证据，也不能当成已经发生：可说“若后面有人起跳'+claimName+'，我看她的验人和警徽流；好人别来抢身份，我不认代跳”。'+
     (others?('其他上警者：'+others+'。'):'')+'提到别人时带编号。';
   var say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)));
   if(wwWolfJobOf(p)==='jump'&&!wwJumpCanAdapt(p)&&!(new RegExp(claimName+'|跳'+claimName).test(say)&&/金水|查杀|验|身份/.test(say))){
@@ -38588,7 +38704,7 @@ async function wwPoliceWater(p){
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
   var proxyClaimName=wwBoard(V.ww.count,V.ww).medium?'通灵师':'预言家';
   var jumpHint=adaptJump
-    ?'\n你是原定的悍跳狼，但分工不是硬命令。听完前置位后可自由选择：继续跳、改成普通上警观察，或直接退水假装好人代跳。若已经报了假验，退水时必须明确说假验作废并让位；若还没报假验，只说明放弃竞选即可。可信度不足、强跳会送狼时可以退，别为了完成分工硬撑。'
+    ?'\n你是原定的悍跳狼，但分工不是硬命令。听完排在自己前面的人后，可自由选择：继续跳、改成普通上警观察，或直接退水假装好人代跳。若已经报了假验，退水时必须明确说假验作废并让位；若还没报假验，只说明放弃竞选即可。可信度不足、强跳会送狼时可以退，别为了完成分工硬撑。'
       +(mechEarly?'\n【本局强提示】'+wwTag(mechEarly.giver)+'公开报'+wwTag(mechEarly.target)+'为'+mechEarly.result+
         '，但'+wwTag(mechEarly.target)+'不是小狼，且真通灵不会把机械狼显示成普通“狼人”。她的验人线高度可能是假的，'+wwTag(mechEarly.giver)+'很可能是机械狼。默认应退水、放弃自己的旧假通灵线，转去配合她；继续硬撑自己的唯一通灵面，会和更强的狼队身份线互打。':'')
     :'';
@@ -38668,7 +38784,7 @@ async function wwPolicePoll(gen,cand){
     w.log.push({k:'vote',text:'警长票：\n'+order.map(function(t){var p=wwPlayerByUid(t);return by[t].join('、')+' → '+(p?wwTag(p):'？')}).join('\n')});
     render(true);
     if(list.length===1)return wwPlayerByUid(list[0]);
-    cand=list.map(wwPlayerByUid).filter(function(p){return !!p});
+    cand=wwPoliceOrderP().filter(function(p){return list.indexOf(p.uid)>=0});
     if(cand.length<2)return null;
     w.log.push({k:'sys',text:'警长票平票：'+cand.map(wwTag).join('、')+'，重投。'});
     render(true);
@@ -38697,7 +38813,7 @@ async function wwPolicePoll(gen,cand){
 async function wwElection(){
   var w=V.ww,gen=wwGenNow();
   if(!w.players||w.players.length<3)return;
-  w.policeUp=[];w.policeVote={};w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;
+  w.policeUp=[];w.policeOrder=[];w.policeVote={};w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;
   w.policeAll=[];w.upSpoke={};
   w.upMoodCount=0;
   w.log.push({k:'sys',text:'🗳️ 开始警长竞选。'});
@@ -38719,14 +38835,16 @@ async function wwElection(){
   w.msg='大家正在陆续表态…';render(true);
   await chain;
   if(wwStaleG(gen)||wwDayCut())return;
-  var up=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
+  var up=wwPoliceUpP();
+  w.policeOrder=wwShuffle(up.slice()).map(function(p){return p.uid});
   w.policeAll=up.map(function(p){return p.uid});   /* 【新】记下「上过警的人」（含后来退水的）：退水的人不能再投警长票 */
   if(!up.length){w.log.push({k:'sys',text:'无人上警，本局无警长。'});w.sheriffDone=true;render(true);return}
   w.log.push({k:'sys',text:'上警：'+up.map(function(p){return p.seq||'?'}).join('/')});
+  w.log.push({k:'sys',text:'上警发言顺序（随机）：'+wwPoliceOrderP().map(wwTag).join(' → ')});
   render(true);
   if(up.length===1){w.sheriffUid=up[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:wwTag(up[0])+'直接当选警长。'});render(true);return}
-  var cand=up.slice();
-  /* ② 警上发言（按座位号） */
+  var cand=wwPoliceOrderP();
+  /* ② 警上发言（顺序已随机打乱，只决定流程，不代表身份） */
   for(var j=0;j<cand.length;j++){
     var q=cand[j];if(wwStaleG(gen))return;
     w.speaking=q.uid;
@@ -39445,7 +39563,7 @@ function wwSnap(){
     looks:Object.assign({},w.looks||{}),
     pick:w.pick,autoWatch:!!w.autoWatch,sayTok:w.sayTok||0,
     sheriff:(w.sheriff!==false),sheriffUid:w.sheriffUid||null,badgeGone:!!w.badgeGone,sheriffDone:!!w.sheriffDone,
-    policeUp:(w.policeUp||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),speechMode:w.speechMode||'',
+    policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),speechMode:w.speechMode||'',
     policeAll:(w.policeAll||[]).slice(),seerRetractions:Object.assign({},w.seerRetractions||{}),
     board:wwBoardSafe(w.board),guardLast:w.guardLast||'',lastExile:w.lastExile?{day:Number(w.lastExile.day)||0,uid:w.lastExile.uid}:null,
     nightmareMetWolves:!!w.nightmareMetWolves,nightmareLast:w.nightmareLast||'',kingBoom:!!w.kingBoom,kingNote:w.kingNote||'',mechKnifeStartedDay:Number(w.mechKnifeStartedDay)||0,
@@ -39501,7 +39619,7 @@ function wwSnapFromRec(rec){
     table:'online',peekDone:true,        /* 老记录不知道当初选的是不是面杀：按网杀接着玩，抿身份也不再补 */
     wolfBlown:false,blownWolves:[],roomMemory:null,wordsDone:true,   /* 老记录没有这段收刀结局 */
     scribe:wwCloneScribe(rec.scribe||wwEmptyScribe()),
-    sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeAll:[],speechStart:'',speechDir:1};
+    sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeOrder:[],policeAll:[],speechStart:'',speechDir:1};
 }
 /* 把一份存档倒回 V.ww */
 function wwApplySnap(s,recId){
@@ -39531,7 +39649,7 @@ function wwApplySnap(s,recId){
   w.pick=s.pick||'random';w.autoWatch=!!s.autoWatch;w.sayTok=s.sayTok||0;
   /* 【新】警长（上警）的状态也要接回来 */
   w.sheriff=(s.sheriff===true);w.sheriffUid=s.sheriffUid||null;w.badgeGone=!!s.badgeGone;w.sheriffDone=!!s.sheriffDone;
-  w.policeUp=(s.policeUp||[]).slice();w.speechStart=s.speechStart||'';w.speechDir=(s.speechDir===-1)?-1:1;w.speechMode=s.speechMode||'';
+  w.policeUp=(s.policeUp||[]).slice();w.policeOrder=(s.policeOrder||[]).slice();w.speechStart=s.speechStart||'';w.speechDir=(s.speechDir===-1)?-1:1;w.speechMode=s.speechMode||'';
   w.policeAll=(s.policeAll||[]).slice();w.upSpoke={};
   w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;w.electing=false;
   w.board=wwBoardSafe(s.board);w.guardLast=s.guardLast||'';w.lastExile=s.lastExile?{day:Number(s.lastExile.day)||0,uid:s.lastExile.uid}:null;
@@ -40099,7 +40217,7 @@ function wwStart(){
   w.witchSave=true;w.witchPoison=true;w.witchLog=[];w.reacts=[];w.reacting=false;w.recId=null;w.busy=false;w.msg='';w.judge='';w.mvpUid='';w.title='';
   try{save(LS_WWREWIND,[])}catch(e){}
   /* 【新】警长（上警）：每一局都重新来 */
-  w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeVote={};w.speechStart='';w.speechDir=1;
+  w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeOrder=[];w.policeVote={};w.speechStart='';w.speechDir=1;
   w.pendingDeaths=null;w.electing=false;
   w.policeAll=[];w.upSpoke={};w.seerRetractions={};
   w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
@@ -41488,7 +41606,7 @@ function wwInfoHTML(){
   }
   if(b.witch)rules.push('女巫：解药、毒药各一瓶，同一晚限用一瓶。网杀和面杀都全程不能自救。');
   if(b.hunter)rules.push('猎人：被毒杀不能开枪。');
-  if(b.medium)rules.push('通灵师：每晚查验一名存活玩家的具体表面身份。机械狼没学习时显示机械狼，学习后显示它学到的身份。');
+  if(b.medium)rules.push('通灵师：每晚查验一名存活玩家的具体表面身份。机械狼没学习时显示机械狼，学习后显示它学到的身份。公开时可以选择报确切身份，也可以只报“好人身份/神职金水/民及民以上金水”；没报具体神职不等于假验。但真通灵师验到另一个通灵师时，对方只可能是机械通灵师，必须直接报查杀。');
   if(b.mechanicwolf)rules.push('机械狼：与小狼互不相认，小狼全灭后接刀；整局学习一名存活玩家一次，主动技能次夜生效，学猎人当夜获得枪。学守卫得到只能使用一次、可自守、能挡刀和毒的机械盾，不能挡枪。');
   if(b.wolfkingdeath)rules.push('狼王：属于狼人阵营，与普通狼一起行动。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动；带走猎人时，猎人仍按原规则决定是否开枪。');
   if(b.knight)rules.push('骑士：每局决斗一次。自己发言时可决斗，所有人发言完、投票前还能再考虑一次；警长竞选和平票 PK 不能决斗。命中狼人则对方出局、白天立即结束；命中好人则骑士出局、白天继续。');
