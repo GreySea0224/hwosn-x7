@@ -16311,6 +16311,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-11-01】
 狼人杀 AI 增加了“事实、可能、结论”分层和真人核心质疑的跨天记忆。真人明确提出的逻辑问题会按原句、天数、发言编号保留，不会被普通摘要冲淡；AI 发言时至少要正面回答其中最相关的一条，投票时也要回应相关质疑。普通口语转述不再按逐字一致挑错，而是检查有没有改变主体、时间、确定程度或真值。机械狼与小狼即使开局不相认，也可以通过公开发言、票型、刀口和身份结果推断后配合。系统会核对“第二次仍不报确切身份”、单边神职被查杀时谁先发言、警徽原接徽人是否死亡，以及公开报验是否被错误当成证据。正常判断会更重视高概率的单边守卫线，优先质疑发假查杀的人，而不是只因警长先报了查验就先信她。警上不信前置位而说“更支持后置位通灵师”属于正常听发言；警徽流雷同或照抄不是狼点；推理超前、预判局势也不是狼点。单边高可信神职的小口误或措辞问题澄清一次后，不会继续被当成硬疑点或投票理由。被通灵师查验的玩家在能帮助好人正视野时，也会被建议考虑亮明村民或合适身份。赛后 MVP 裁判同样要先核对轮次、首次回应机会和真实胜负影响，不能把合理转述或极端世界线当成最惨失误。
+狼人杀新增“认身份收益核对”：同一目标如果同时被一人报出精确职业、被另一人只报模糊金水，目标认下精确职业时，系统会明确判断这主要增强了精确验人线；模糊金水最多只是不冲突，不会得到新的身份证据，也不能被反向写成“给假通灵兜底、抬轿或增加可信度”。
 狼人杀警长竞选的警上发言顺序现在每局随机打乱，并会随中途存档保留，不会刷新后重新洗牌。AI 被明确禁止把谁先发言、谁后发言、谁还没轮到、谁先跳身份或在后面跳身份当成身份证据，也不得在公开发言里复述“随机顺序、系统安排、内部提示、提示词”等幕后规则。
 机械狼通灵师板里的通灵师第一次警上发言或尚未出现可验证冲突时，可以选择直接报确切身份，也可以只报“好人身份”“神职金水”或“民及民以上金水”。警上较早阶段验到女巫、守卫等关键弱神时，可以优先报模糊层级保护她；但对手已经报了更具体的身份、本人第二次仍有发言机会，或目标已经死亡后，继续拒绝用确切身份回应会成为强烈狼点。若目标是平民，直接确认没有暴露活神风险；若目标是神，真通灵报确切身份还能揭穿对方。所有玩家会理解第一次模糊不等于假验，但不会无限期接受第二次仍回避。
 真通灵师验到另一个“通灵师”时，因为本板真通灵师只有一人，对方只可能是学过通灵师技能的机械狼。这种情况必须直接报“机械通灵师/机械狼/查杀”，不能报成通灵师金水、神职金水或好人身份。
@@ -16513,7 +16514,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=108;  /* 108：后置位、警徽雷同、超前推理与单边神职小措辞不再误判 */
+const GUIDE_VER=109;  /* 109：认身份收益区分精确验人与模糊金水 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34774,6 +34775,15 @@ function wwClaimReasoningIssue(say,w){
       out.push({kind:'checkedReveal',text:c});
       return;
     }
+    var safeSupport=/(?:不是|不能|不会|不等于|不代表|并非)[^。！？!?；;\n]{0,24}(?:兜底|抬轿|做身份|站住)/.test(c)||
+      /(?:兜底|抬轿|做身份|站住)[^。！？!?；;\n]{0,20}(?:不是|不能|不会|不等于|不代表|并非)/.test(c);
+    if(!safeSupport&&(
+      /(?:认|确认|报)[^。！？!?；;\n]{0,14}(?:村民|平民|身份|职业)[^。！？!?；;\n]{0,24}(?:是|会|就是|等于)[^。！？!?；;\n]{0,14}(?:帮|给|替)\s*\d{1,2}\s*号?[^。！？!?；;\n]{0,14}(?:兜底|抬轿|做身份|站住|增加可信度)/.test(c)||
+      /(?:认|确认|报)[^。！？!?；;\n]{0,14}(?:村民|平民|身份|职业)[^。！？!?；;\n]{0,24}(?:给|帮|替)[^。！？!?；;\n]{0,14}(?:假通灵|假预言|跳预者)[^。！？!?；;\n]{0,14}(?:兜底|抬轿|做身份|站住)/.test(c)
+    )){
+      out.push({kind:'supportWrong',text:c});
+      return;
+    }
     var safeLater=/(?:不是|不能|不算|不得|不应)[^。！？!?；;\n]{0,24}(?:后置位|等后置位|后手通灵)/.test(c)||
       /(?:后置位|等后置位|后手通灵)[^。！？!?；;\n]{0,24}(?:不是|不能|不算|不得|不应)[^。！？!?；;\n]{0,12}(?:狼|狼点|问题|身份证据)/.test(c);
     if(!safeLater&&/(?:更支持|相信|听|等|看)[^。！？!?；;\n]{0,18}后置位[^。！？!?；;\n]{0,24}(?:像狼|是狼|狼点|不做好|有问题|等身份|找队友|不能信)/.test(c)){
@@ -34823,6 +34833,9 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
     correction='公开报验本身只是说法，验人线完整、自洽或警徽流工整只能说明会编。要暂时相信某条查验，必须写出独立理由；不能只因为“报了查验”就先信。';
   }else if(bad.kind==='checkedReveal'){
     correction='被查验者若亮明村民或合适身份能让好人分辨真假通灵，应当考虑亮身份；但是否能亮还取决于她是否有关键夜间身份、是否已经轮到发言、狼报的身份是否真能对应。没有亮身份不能被机械判狼，必须看她当时的真实处境和后续行为。';
+  }else if(bad.kind==='supportWrong'){
+    correction='同一目标同时有人报精确职业、有人只报模糊金水时，目标认下精确职业会增强精确验人线；模糊金水只从不冲突获得弱支持，不会得到新的身份证据。不能把认身份写成给模糊金水者兜底、抬轿或增加可信度。\n'+
+      (wwIdentityConfirmationSupportText(V.ww)||'');
   }else if(bad.kind==='civic'){
     correction='平民确认自己的身份没有暴露活神的风险。明知别人的查验准确报出了自己仍故意不确认，会削弱真验人位、帮助假验人位；局内 AI 不能凭空认定她一定是平民，但必须把这种拒绝配合评价为明显不利于好人，不能夸成谨慎。';
   }else if(bad.kind==='revealDuty'){
@@ -35349,6 +35362,7 @@ function wwReasoningDisciplineText(){
     '通灵师第一次警上不报确切身份可以理解，但对手已经报了更具体的身份后，第二次仍拒绝用确切身份回应，就是强烈不做好的行为。若目标是平民，直接报平民没有暴露活神的风险；若目标是神，真通灵报出确切身份还能当场揭穿对方。目标已经死亡后，继续以“保护神职”为由拒绝公开，收益更低，狼面更高。'+
     '平民若发现某人的查验准确报出了自己的身份，应当为好人正视野。明知对方报对仍故意不确认，会直接削弱真验人位、帮助假验人位；局内 AI 不能凭空认定她一定是平民，但必须把这种拒绝配合评价为明显不利于好人的行为，不能当成“谨慎勇敢”。'+
     '被通灵师发查验的玩家，也要单独判断自己亮身份是否有正视野收益：若说明自己是村民或确切神职能帮助好人分辨谁是真通灵，且不会给狼暴露一个仍有夜间价值的关键身份，就应当考虑亮身份；一味藏身份可能让假通灵继续获得可信度。亮身份是否合理要看她的真实处境和公开信息，不能反过来把没有亮身份机械判狼。'+
+    '同一目标同时有人报了精确职业、有人只报了模糊金水时，目标认下职业会直接增强精确那条查验；模糊金水最多只是“不冲突”，不会获得新增身份证据。例如12号报1号“村民”、3号只报1号“金水”，1号认村民主要是验证12号的精确查验，不能写成“认村民是在给3号兜底或抬轿”。'+
     '当一名验人位报某人为查杀，而该人自称单边守卫（尤其无人对跳）时，正常先验应明显偏向守卫，并优先质疑发查杀的人。仍要保留“验人位真、守卫假”的极限世界线，但其成立需要独立硬证据，不能只凭“被查杀才亮身份”“单边不一定真”或机械狼不互认来推翻守卫线。'+
     '判断“被查杀才亮身份”前必须核对发言顺序。若警长或前置位先报查杀，被查杀者此前根本没有当天发言机会，轮到她时亮守卫只是首次正常回应，绝不能算临时编身份。只有她能上警却没上、或此前已经轮到过发言却刻意不说，才有拖延疑点。'+
     '警上玩家不信前置位跳预者，说“更支持后置位通灵师”“想听后置位验人”，是正常的听发言路线，本身不是狼点。只有把尚未发言者说成已经起跳、已经报了某个结果，或后续出现明确矛盾时，才需要追问；不得把“等后置位”反复当成等身份、找队友或狼面。'+
@@ -35459,6 +35473,50 @@ function wwIdentityDisclosureAuditText(w){
   if(!out.length)return '';
   return '【身份公开时点审查（程序按公开轮次核对）】\n'+out.slice(-4).join('\n')+
     '\n· 警上第一次模糊报验可以理解；第二次仍拒绝回应更具体身份，信息价值已经发生变化，必须显著增加狼面。';
+}
+function wwTargetSelfConfirmsResult(w,target,result,rows){
+  if(!w||!target||!result)return false;
+  var roleKey=null;
+  Object.keys(WW_ROLE_NAME).some(function(k){if(WW_ROLE_NAME[k]===result){roleKey=k;return true}return false});
+  if(result==='机械通灵师')roleKey='mechanicwolf';
+  var mine=(rows||wwPublicEventRows(w)).filter(function(r){return r.uid===target.uid});
+  return mine.some(function(r){
+    var t=String(r.text||'');
+    if(roleKey&&wwClaimIdentityRoles(t,target.seq).indexOf(roleKey)>=0)return true;
+    var esc=String(result||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    return new RegExp('(?:我|本人)[^。！？!?；;\\n]{0,10}(?:认|认下|确认|就是|是)\\s*'+esc).test(t)&&
+      !new RegExp('(?:不认|不是|并非|不确认)[^。！？!?；;\\n]{0,8}'+esc).test(t);
+  });
+}
+/* 同一目标的精确验人与模糊金水分开算收益。
+   目标认下精确职业，增强精确验人者；模糊金水只从“冲突”变成“不冲突”。 */
+function wwIdentityConfirmationSupportText(w){
+  if(!w||!w.players||!w.players.length)return '';
+  var a=wwSeerCommitmentLedger(w),rows=wwPublicEventRows(w),byTarget={},out=[];
+  a.claims.forEach(function(c){
+    if(!c||!c.p||c.retractedDay)return;
+    (c.checks||[]).forEach(function(x){
+      if(!wwPublicCheckIsGoodResult(x.result))return;
+      var exact=wwSpecificRoleResult(x.result),t=byTarget[x.seq]||(byTarget[x.seq]={exact:[],vague:[]});
+      (exact?t.exact:t.vague).push({c:c,p:c.p,check:x});
+    });
+  });
+  Object.keys(byTarget).forEach(function(seq){
+    var g=byTarget[seq],exact=g.exact.filter(function(x){return !!x}),vague=g.vague.filter(function(x){return !!x});
+    if(!exact.length||!vague.length)return;
+    var exactUids=exact.map(function(x){return x.p.uid});
+    vague=vague.filter(function(x){return exactUids.indexOf(x.p.uid)<0});
+    if(!vague.length)return;
+    var target=wwPlayerByUidTarget(w,seq);
+    if(!target)return;
+    var ex=exact[0],vg=vague[0],confirmed=wwTargetSelfConfirmsResult(w,target,ex.check.result,rows);
+    out.push('· '+wwTag(target)+'同时被'+wwTag(ex.p)+'报【'+ex.check.result+'（精确）】、'+wwTag(vg.p)+'报【'+
+      vg.check.result+'（模糊）】。'+(confirmed?'她已公开认下这个精确职业：':'若她之后认下这个精确职业：')+
+      '主要增强'+wwTag(ex.p)+'的查验；'+wwTag(vg.p)+'只得到“不冲突”，没有得到新的身份证据，不能写成“认身份是在给'+wwTag(vg.p)+'兜底或抬轿”。');
+  });
+  if(!out.length)return '';
+  return '【认身份收益核对（程序按公开验人线）】\n'+out.slice(-4).join('\n')+
+    '\n· 若目标只是没表态，不能机械判狼；但一旦认下精确职业，就必须按上面的验人线归属证据。';
 }
 /* 警徽分支只作线索：原定接徽人若已死亡或实际改交给最信任好人，不能反推被验者必狼。 */
 function wwBadgeOutcomeAuditText(w){
@@ -35731,6 +35789,8 @@ function wwSysFor(p,task){
   dyn.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
   var criticalWorldline=wwCriticalWorldlineText(w);
   if(criticalWorldline)dyn.push(criticalWorldline);
+  var confirmationSupport=wwIdentityConfirmationSupportText(w);
+  if(confirmationSupport)dyn.push(confirmationSupport);
   var disclosureAudit=wwIdentityDisclosureAuditText(w);
   if(disclosureAudit)dyn.push(disclosureAudit);
   var badgeAudit=wwBadgeOutcomeAuditText(w);
@@ -36728,6 +36788,8 @@ async function wwVoteAI(p,pool){
   if(seerAudit)goodHint+='\n投票硬检查：\n'+seerAudit;
   var disclosureAudit=wwIdentityDisclosureAuditText(w);
   if(disclosureAudit)goodHint+='\n'+disclosureAudit;
+  var confirmationSupport=wwIdentityConfirmationSupportText(w);
+  if(confirmationSupport)goodHint+='\n'+confirmationSupport;
   var badgeAudit=wwBadgeOutcomeAuditText(w);
   if(badgeAudit)goodHint+='\n'+badgeAudit;
   var endRisk=wwEndgameRiskText(w);
@@ -36917,6 +36979,7 @@ function wwJudgePrompt(src,result){
     '不得把“单边守卫被查杀”只写成守卫不会自证，也不能只写成验人位必真。正常判断应明显偏向单边守卫并优先质疑发查杀者；还要核对被查杀者此前是否已经有当天发言机会。若查验先发出、她随后才第一次轮到发言，亮守卫是正常回应，不能算临时编身份。'+
     '公开报验只是一条未经证实的主张；验人线自洽、警徽流完整不能证明真假。若某人第二次仍拒绝用确切身份回应更具体的对手，应评价其信息价值和配合义务；平民明知别人报对身份仍不确认，会削弱真验人位，属于实际不利于好人的行为。'+
     '被通灵师发查验的玩家是否亮身份，要看亮明身份能否帮助好人分辨真通灵、是否会额外暴露仍有夜间价值的关键神职；不能把“没有亮身份”机械判狼。'+
+    '同一目标同时有人报精确职业、有人只报模糊金水时，目标认下精确职业只会直接增强精确查验线；模糊金水最多得到“不冲突”的弱支持。不得把“认村民”写成给只报金水的假通灵兜底、抬轿或增加可信度。'+
     '不得把“警徽实际交给不在分支里的人”直接写成被验者必狼；先核对原接徽人是否死亡、是否有临时改验、转交可信好人或做局。'+
     '警上不信前置位而说更支持后置位通灵师，是正常听发言；警徽流与别人相同、雷同或一字不差不是狼点；推理超前、预判局势、提出少数世界线也不等于狼。'+
     '单边高可信神职的小口误、措辞或语气问题不能反复作为主疑点，更不能仅因此投票；必须有规则、时间线、技能结果或票型承诺的正面硬冲突。'+
