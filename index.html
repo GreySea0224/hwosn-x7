@@ -37253,6 +37253,93 @@ async function wwVoteAISafe(p,pool){
   }
   return fb;
 }
+function wwWitchNightFacts(p,w){
+  if(!w||!p||p.role!=='witch')return null;
+  var killedByWolf=p.killedBy==='wolf'||!!(w.night&&w.night.wolf&&w.night.wolf.uid===p.uid);
+  if(!killedByWolf)return null;
+  var logs=(w.witchLog||[]).filter(function(x){return x&&Number(x.d)===Number(w.day)});
+  var poison=null,save=null;
+  logs.forEach(function(x){
+    if(!x)return;
+    if(x.k==='poison')poison=x;
+    if(x.k==='save')save=x;
+  });
+  var target=null;
+  if(poison){
+    if(poison.uid)target=wwPlayerByUid(poison.uid);
+    if(!target){
+      var m=String(poison.txt||'').match(/^\s*(\d{1,2})/);
+      if(m)target=wwPlayerByUidTarget(w,Number(m[1]));
+    }
+  }
+  return {
+    day:Number(w.day)||1,
+    poison:poison,
+    target:target,
+    save:save,
+    antidote:w.witchSave?'还在':'已经用掉',
+    reason:poison?String(poison.reason||'').slice(0,900):''
+  };
+}
+function wwWitchNightLastWordsHint(p,w){
+  var f=wwWitchNightFacts(p,w);
+  if(!f)return '';
+  var s='【女巫夜间遗言·必须遵守的真实时间线】你是在第 '+f.day+' 夜被狼人刀中后出局，女巫不能自救；这不是白天被票出。';
+  s+='你的解药'+f.antidote+'。';
+  if(f.poison&&f.target){
+    s+='你在同一夜、当天任何公开发言开始之前，已经用毒药毒了 '+wwTag(f.target)+'。'+wwTag(f.target)+
+      '是被你的毒药毒死的；你已经知道自己本夜是狼刀目标，不能把它改写成“狼队刀了'+wwTag(f.target)+'”，也不能声称普通守卫挡住了这次毒药。';
+  }else if(f.poison){
+    s+='你在同一夜已经使用过毒药，但你只应按照自己的私人记录说明目标，不能事后编造刀口或守卫结果。';
+  }else{
+    s+='你这一夜没有使用毒药，不要编造毒人目标。';
+  }
+  s+='毒人理由只能使用开毒前已经掌握的信息、角色关系、个人印象或盲毒直觉；当天上警、白天发言和遗言都发生在开毒之后，不能倒灌成毒人理由。'+
+    '如果你当时只是看某人不对眼、凭感觉或盲毒，就照实说，不要为了显得合理而引用后来听到的话。';
+  if(f.reason)s+='\n【你当时开毒的真实私有思路（只供你核对，不要提“系统记录”）】'+f.reason;
+  return s;
+}
+function wwWitchLastWordsContradiction(out,f){
+  var clauses=String(out||'').split(/[。！？!?；;\n]+/);
+  for(var i=0;i<clauses.length;i++){
+    var c=clauses[i];
+    if(!c||!c.trim())continue;
+    if(/(?:不能|没有|没听|没看|不是|并非|不会|不可能)/.test(c))continue;
+    var speechPoison=/(?:警上|上警|今天|刚才|这轮|白天|发言|警徽流)[^。！？!?；;\n]{0,88}(?:毒|下毒|开毒)|(?:毒|毒药)[^。！？!?；;\n]{0,88}(?:警上|上警|今天|刚才|这轮|白天|发言|警徽流)/.test(c);
+    var beforePoison=/(?:发言|警上|上警|白天)[^。！？!?；;\n]{0,20}(?:之前|以前)|(?:开毒|下毒|毒药)[^。！？!?；;\n]{0,20}(?:之前|以前)/.test(c);
+    if(speechPoison&&!beforePoison)return c;
+    if(/(?:毒|毒药)[^。！？!?；;\n]{0,70}(?:听|看|因为|觉得)[^。！？!?；;\n]{0,44}(?:警上|上警|今天|刚才|这轮|白天|发言|警徽流)/.test(c)||
+      /(?:警上|上警|今天|刚才|这轮|白天|发言)[^。！？!?；;\n]{0,48}(?:所以|因此|才|于是)[^。！？!?；;\n]{0,28}(?:毒|下毒|开毒)/.test(c)){
+      return c;
+    }
+    if(f&&f.target){
+      var re=new RegExp('(?:狼|狼队|狼人)[^。！？!?；;\\n]{0,18}(?:刀|杀)[^。！？!?；;\\n]{0,8}'+Number(f.target.seq)+'\\s*号');
+      if(re.test(c))return c;
+    }
+    if(/(?:毒|毒药)[^。！？!?；;\n]{0,28}(?:被|让)?[^。！？!?；;\n]{0,10}(?:普通)?守卫[^。！？!?；;\n]{0,10}(?:挡|守)/.test(c)||
+      /(?:普通)?守卫[^。！？!?；;\n]{0,12}(?:挡|守)[^。！？!?；;\n]{0,12}(?:毒|毒药)/.test(c)){
+      return c;
+    }
+  }
+  return '';
+}
+async function wwGuardWitchNightLastWords(p,sys,out){
+  var f=wwWitchNightFacts(p,V.ww),bad=wwWitchLastWordsContradiction(out,f);
+  if(!bad)return out;
+  var fact=wwWitchNightLastWordsHint(p,V.ww);
+  try{
+    var ask='【女巫遗言时间线纠正】你的遗言“'+bad+'”与私人夜间记录冲突。'+fact+
+      '\n请保持原人设，重写完整遗言。必须如实说明自己夜里中刀、不能自救，以及同夜是否开毒；不能引用开毒之后才发生的公开发言，不能把毒药目标改写成狼刀目标，也不能说普通守卫挡毒。只输出遗言正文。';
+    var fixed=String(await wwCall(sys,ask,wwSayMax(),.72)||'').trim();
+    fixed=wwStripLead(wwSplitDraft(fixed).say||fixed);
+    if(fixed&&!wwWitchLastWordsContradiction(fixed,f))return fixed;
+  }catch(e){}
+  var tail=f&&f.poison&&f.target
+    ?('我在同一夜、听到今天的公开发言之前，用毒药毒了 '+wwTag(f.target)+'。'+wwTag(f.target)+'是被毒死的，不是那晚的狼刀目标；普通守卫也不能挡毒。')
+    :'我这一夜没有使用毒药。';
+  return '我是女巫。第 '+((f&&f.day)||V.ww.day||1)+' 夜我被狼人刀中，女巫不能自救，所以夜里出局。'+tail+
+    '毒人理由只按我开毒前知道的信息和当时判断；如果只是凭感觉或盲毒，我不拿后来的发言补理由。';
+}
 async function wwLastWords(p){
   var w=V.ww;
   var task='你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
@@ -37283,6 +37370,8 @@ async function wwLastWords(p){
         ?('你已经被投票放逐、伪装基本装不下去了：这种情况下可以直接承认自己是石像鬼，并把真实验到的神职位置直说给狼队，例如“我是石像鬼，X号是预言家，夜里先刀她”。不要编造没有验到的身份，也不要把普通狼队友一起报出来。')
         :'目标是让狼队听懂、好人拿不到直接翻牌式的确证；表达要自然，别为了递话把遗言写成一串暗号。');
   }
+  var witchHint=wwWitchNightLastWordsHint(p,w);
+  if(witchHint)task+='\n'+witchHint;
   var sys=wwSysFor(p,task);
   var out=(await wwCall(sys,'请留遗言。',wwSayMax(),.9))||'（'+wwTag(p)+' 没留下什么。）';
   if(holdClaimRole){
@@ -37296,6 +37385,7 @@ async function wwLastWords(p){
     }
   }
   if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
+  if(p&&!p.isUser&&p.role==='witch')out=await wwGuardWitchNightLastWords(p,sys,out);
   return out;
 }
 /* 真人玩家留遗言：规则里第一轮出局能留遗言，就让「你」自己在发言框里说一段（不想说可以跳过） */
@@ -38993,7 +39083,12 @@ async function wwNight(){
       var res=await wwWitchChoose(witch,w.night.wolf);
       if(wwStaleG(gen))return;
       if(res.save&&w.witchSave&&w.night.wolf){w.night.save=true;w.witchSave=false;w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf),tk:(WW_LAST&&WW_LAST.reason)||''});w.witchLog.push({d:w.day,k:'save',txt:wwTag(w.night.wolf)})}
-      if(res.poison&&w.witchPoison){w.night.poison=res.poison;w.witchPoison=false;w.rec.push({d:w.day,t:'女巫毒了 '+wwTag(res.poison),tk:(WW_LAST&&WW_LAST.reason)||''});w.witchLog.push({d:w.day,k:'poison',txt:wwTag(res.poison)})}
+      if(res.poison&&w.witchPoison){
+        var poisonReason=String((WW_LAST&&WW_LAST.reason)||'').slice(0,1200);
+        w.night.poison=res.poison;w.witchPoison=false;
+        w.rec.push({d:w.day,t:'女巫毒了 '+wwTag(res.poison),tk:poisonReason});
+        w.witchLog.push({d:w.day,k:'poison',txt:wwTag(res.poison),uid:res.poison.uid,reason:poisonReason});
+      }
     }
   }
   /* 通灵师查验存活玩家的具体身份；机械狼学习后会显示学到的身份。 */
