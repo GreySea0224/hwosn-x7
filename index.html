@@ -33201,7 +33201,7 @@ var WW_WOLF_JOB_HELP={
 };
 function wwWolfJobHelp(role){
   if(role==='jump'&&wwSheriffOn())return WW_WOLF_JOB_HELP.jump+
-    '竞选取警徽时把警徽流两个分支说清：今晚验A，A好就让A接徽；A是狼就交给已知金水或最信好人，没有合适接徽人就撕徽。强跳明显送狼时，可改普通上警或退水。';
+    '竞选取警徽时把警徽流两个分支说清：今晚验A，A好就让A接徽；A是狼时，手里有已知金水就交给金水，没有已知金水就默认撕徽。不要把还没验的Y当成可信接徽人塞进狼分支；只有明确采用“Y是未验的下一验位，接徽后继续报验”的打法时才能提Y，而且必须说清Y尚未验证，不能暗示她是金水。强跳明显送狼时，可改普通上警或退水。';
   return WW_WOLF_JOB_HELP[role]||'';
 }
 var WW_WOLF_JOB_VOTE={
@@ -33438,7 +33438,7 @@ function wwFactsFor(p){
     if(badgePlans.length)L.push('【最近公开报过的警徽流（只是发言，可能为假）】\n'+badgePlans.map(function(e){
       var q=wwPlayerByUid(e.who);
       return wwTag(q)+'：'+wwClipSpeech(String(e.text||'').replace(/^【竞选发言】/,''),280,110);
-    }).join('\n')+'\n盘法：用实际接徽人与她事前报的分支对照；验到好人通常让被验者接徽，验到狼通常交给已知金水/可信好人，没有则撕徽。');
+    }).join('\n')+'\n盘法：用实际接徽人与她事前报的分支对照；验到好人通常让被验者接徽，验到狼时有已知金水才交金水，否则默认撕徽。不能把未验的Y当成“可信接徽人”；若她采用次验位代接，必须明确说明Y仍未验、只是下一验位。');
   }
   if(w.phase==='day'&&w.speechMode){
     var so=wwSpeechOrderList();
@@ -34815,6 +34815,17 @@ function wwClaimReasoningIssue(say,w){
       out.push({kind:'badgeCopy',text:c});
       return;
     }
+    var badgeGive=c.match(/(\d{1,2})\s*号?[^。！？!?；;\n]{0,24}(?:是|为)?狼[^。！？!?；;\n]{0,24}(?:警徽|徽)[^。！？!?；;\n]{0,16}(?:给|交|接|传)[^。！？!?；;\n]{0,8}(\d{1,2})\s*号/);
+    if(badgeGive){
+      var giveTo=Number(badgeGive[2]);
+      var giveQualified=/(?:未验|没验|尚未验证|下一验|次验|接着验|继续验|再验|下一验位|次验位)/.test(c)||
+        new RegExp('(?:金水|好人|女巫|守卫|猎人|通灵师|预言家|村民)[^。！？!?；;\\n]{0,8}'+giveTo+'\\s*号|'+giveTo+'\\s*号[^。！？!?；;\\n]{0,16}(?:金水|好人|女巫|守卫|猎人|通灵师|预言家|村民)').test(c);
+      var giveReview=/(?:不合理|不成立|说不通|有矛盾|有问题|质疑|硬伤|是错|凭什么|没有依据|无依据|没道理)/.test(c);
+      if(!giveQualified&&!giveReview){
+        out.push({kind:'badgeFlow',text:c,target:giveTo});
+        return;
+      }
+    }
     var safeAdvanced=/(?:不是|不等于|不能|不应)[^。！？!?；;\n]{0,24}(?:超前|复杂|预判|猜中)/.test(c)||
       /(?:超前|复杂|预判|猜中)[^。！？!?；;\n]{0,24}(?:不是|不等于|不能|不应)[^。！？!?；;\n]{0,14}(?:狼|狼点|问题|证据)/.test(c);
     if(!safeAdvanced&&(
@@ -34871,6 +34882,8 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
     correction='警上玩家不信前置位跳预者、表示更支持后置位通灵师或想听后置位验人，是正常的听发言路线，本身不是狼点。只有把尚未发言者说成已经起跳或报了结果，或后续出现明确矛盾，才需要追问。';
   }else if(bad.kind==='badgeCopy'){
     correction='警徽流是白天听发言后组织的话，和别人的分支相似、相同或一字不差，最多是旁证，不是狼点。判断只能看实际接徽、后续验人和规则时间线是否冲突。';
+  }else if(bad.kind==='badgeFlow'){
+    correction='你给出的“A是狼就把警徽交给Y”没有说明Y为什么可信。第一天警上若没有已知金水，A为狼时默认应明确撕徽，不能把还没验的Y包装成可信接徽人。若确实采用次验位代接，必须直接说明Y尚未验证、只是下一验位；否则就改成撕徽。';
   }else if(bad.kind==='advanced'){
     correction='玩家推理超前、想到别人没提出的世界线或预判了后续局势，不等于狼。必须检查事实前提、推导和结论；猜中走势也不能反推开天眼或“只有狼才想得到”。';
   }else if(bad.kind==='prediction'){
@@ -35403,6 +35416,7 @@ function wwReasoningDisciplineText(){
     '判断“被查杀才亮身份”前必须核对发言顺序。若警长或前置位先报查杀，被查杀者此前根本没有当天发言机会，轮到她时亮守卫只是首次正常回应，绝不能算临时编身份。只有她能上警却没上、或此前已经轮到过发言却刻意不说，才有拖延疑点。'+
     '警上玩家不信前置位跳预者，说“更支持后置位通灵师”“想听后置位验人”，是正常的听发言路线，本身不是狼点。只有把尚未发言者说成已经起跳、已经报了某个结果，或后续出现明确矛盾时，才需要追问；不得把“等后置位”反复当成等身份、找队友或狼面。'+
     '警徽流和别人的分支相同、措辞相近，最多是旁证，不是狼点。验人是夜里定的，但警徽流是白天听发言后组织的话；常见逻辑自然会写出相同分支。判断只能看实际接徽、后续验人、规则时间线是否冲突，不能因为“照抄、雷同、一字不差”就投人。'+
+    '报警徽流时必须区分“接徽人已经验证过”和“只是下一验位”。第一天警上若A是狼，而自己手里没有已知金水，默认明确说撕徽；不要把尚未验过的Y直接包装成可信接徽人。若确实要采用次验位代接，必须公开说清“Y还没验，只是下一验位/接徽后继续报验”，不能借助模糊措辞让众人误以为Y是金水。'+
     '玩家的推理超前、想到多数人没提出的世界线、预判了后续局势，不等于狼。只评价事实前提、推导和结论是否成立；猜中后续走势也不能反推她开天眼，复杂推理更不是“只有狼才想得到”。'+
     '真人局里预判别人可能怎么发言、明天可能刀谁、自己死后怎么安排票和警徽，都是正常策略。使用“可能、大概、如果、我猜、下一步看”等表达时，不得当狼点，也不要用“预判让我不舒服、发言扣分、像在写台词”反复施压。只有把尚未发生的话说成已经发生、把预测直接当定罪事实，或本人已经实际回答后仍用预测代替原话，才需要指出；指出一次即可，之后听本人回答。'+
     '单边高可信神职出现小口误、语气差、用词不准时，可以要求她简短澄清；澄清后不得反复拿同一个措辞问题施压，更不能仅因此投她。只有与规则、时间线、查验结果或票型承诺发生正面硬冲突，且没有替代解释时，才能降级身份判断。'+
@@ -35961,7 +35975,7 @@ function wwSysFor(p,task){
     '警长票是“支持谁当选警长”，不是白天把谁投出局；竞选里说“警下票给几号”时，意思必须是支持几号当警长。'+
     '警徽最好交给能持续报验的真预言家/真通灵师。普通好人上警主要用于听发言、评价和观察，除非明确走好人代跳路线，否则不要强势抢徽；不跳身份的狼上警也只做观察和做身份，不要把抢徽当目标。'+
     '可以对尚未轮到发言的人施压或试探，但要用假设句；不能把对方尚未作出的身份声明和验人结果当成事实。'+
-    '警徽流可以传递验人信息。常见打法是：验A，A是好就让A接徽；A是狼就把徽交给已知金水或可信好人，没有合适接徽人就撕徽。她死后实际接徽人要和生前报的分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。疑似狼的警长X号给Y号警徽，不代表Y一定是狼。');
+    '警徽流可以传递验人信息。常见打法是：验A，A是好就让A接徽；A是狼时，有已知金水就交给金水，没有已知金水就默认撕徽。不能把还没验的Y当作“可信接徽人”；若采用次验位代接，必须明确说明Y尚未验证、只是下一验位，不能暗示Y是金水。她死后实际接徽人要和生前报的分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。疑似狼的警长X号给Y号警徽，不代表Y一定是狼。');
   if(wwSheriffOn())L.push('【警徽移交铁律】被多数暂认真预的警长倒牌并把警徽交给Y时，默认Y是她最后一夜查验出的金水或最信任好人，优先按高可信好人处理；不能只因Y曾质疑过她或没等到公开报验就投Y。'+
     '只有Y的查验数量、夜数、公开交接分支或后续技能结果出现正面硬矛盾时，才降级复核。');
   L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
@@ -39434,10 +39448,10 @@ async function wwPoliceSpeech(p){
   var badgeHint=wwWolfJobOf(p)==='jump'
     ?(wwJumpCanAdapt(p)
       ?'你原本的狼队分工是悍跳狼，但这不是硬命令。先听排在你前面的人发言：如果疑似石像鬼已经给狼金水、递出明确信息，或当前起跳收益低、强跳会送狼，你可以改打普通上警发言，不报假验并准备退水。若仍决定悍跳，才明确自称'+claimName+'，报昨夜验人结果、自然的首验理由和一项可执行的警徽处理；判断要以实际发言和局面为准，不要为了完成分工机械起跳。'
-      :'你是悍跳狼，这一轮必须明确自称'+claimName+'，报昨夜验人结果和一句自然的首验理由（可编成盲验、看头像或名字、眼缘、觉得像高玩等），并说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽，不必堆额外分支。')
+      :'你是悍跳狼，这一轮必须明确自称'+claimName+'，报昨夜验人结果和一句自然的首验理由（可编成盲验、看头像或名字、眼缘、觉得像高玩等），并说清今晚验A后的基本去向：A好就让A接徽；A狼时，有已知金水就交给金水，没有已知金水就明确撕徽。不要把未验的Y说成可信接徽人；只有明确采用“Y是未验的下一验位”时才能提Y，并说清她还没验。不必堆额外分支。')
     :(isJump
-      ?(trueSeer?('你是真'+claimName+'。这一轮直接报昨夜真实验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽。按当前板子的真验人位正常发言，不要套用普通好人代跳模板。')
-        :('如果你报'+claimName+'身份，第一轮要报昨夜验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再说清今晚验A后的基本去向：A好就让A接徽，A狼就交给已知金水、可信好人或撕徽，不必堆额外分支。'))
+      ?(trueSeer?('你是真'+claimName+'。这一轮直接报昨夜真实验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再说清今晚验A后的基本去向：A好就让A接徽；A狼时，有已知金水就交给金水，没有已知金水就明确撕徽。不要把未验的Y说成可信接徽人；只有明确采用“Y是未验的下一验位”时才能提Y，并说清她还没验。按当前板子的真验人位正常发言，不要套用普通好人代跳模板。')
+        :('如果你报'+claimName+'身份，第一轮要报昨夜验人结果和一句首验理由；理由可以是盲验、看头像或名字、眼缘、觉得像高玩等，按人设随口说即可。再说清今晚验A后的基本去向：A好就让A接徽；A狼时，有已知金水就交给金水，没有已知金水就明确撕徽。不要把未验的Y说成可信接徽人；只有明确采用“Y是未验的下一验位”时才能提Y，并说清她还没验。不必堆额外分支。'))
       :(wwIsWolf(p)
         ?('你这一轮不跳'+claimName+'。上警以听发言、评价和观察为主，不要强势抢警徽，也不要编“为什么我适合拿徽”；警徽最好让给能报验的真'+claimName+'，目的完成就准备退水。')
         :goodUpHint));
@@ -42488,7 +42502,7 @@ function wwHTML(){
      '</div>';
   /* ↓↓↓ 操作区 / 结算：紧跟在最新消息下面，不用再往上滑 ↓↓↓ */
   if(w.over){
-    h+='<div class="gx-verdict ww-verdict '+(w.winner==='good'?'win':(w.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
+    h+='<div id="wwResultVerdict" class="gx-verdict ww-verdict '+(w.winner==='good'?'win':(w.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
        '<div class="gx-vsub">'+esc(w.endText||'')+'</div></div>';
     /* 【新】裁判还在写复盘 / 评 MVP 的时候：先显示一排跳动的点点，让她知道是在等裁判 */
     if(w.judging&&!w.judge){
@@ -42497,7 +42511,7 @@ function wwHTML(){
     }else h+=wwJudgeHTML(w.judge);
     h+=wwTransRow();
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
-       w.players.map(function(p){return '<div class="mq-pick"><b>'+esc(wwName(p))+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
+       w.players.map(function(p){return '<div class="mq-pick"><b'+(wwIsWolf(p)?' style="color:#e05a52"':'')+'>'+esc(wwName(p))+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
     if((w.rec||[]).length)h+='<details class="gx-log"><summary>这局的夜间行动（复盘）</summary><div class="gx-vs">'+w.rec.map(function(x,ri){
       return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('r'+ri,x.tk,'hist'):'')+'</div>';
     }).join('')+'</div></details>';
@@ -42639,6 +42653,7 @@ function wwAfterRender(){
     try{setTimeout(wwMeasureHead,90)}catch(e){}
     try{setTimeout(wwMeasureHead,400)}catch(e){}          /* 再补一次：字体/换行晚一点也不会量小 */
     var sh=D.getElementById('sheet');                     /* 滚动时也重量一次，编号红圈就不会被顶栏压住 */
+    wwFocusResultVerdict(V.ww);
     if(sh&&!sh._wwm){sh._wwm=1;sh.addEventListener('scroll',function(){
       wwMeasureHead();
       /* 【修】滚下去以后顶栏换实底（上面那条 .sheet.wwscrolled 规则），把滚过去的发言挡住 */
@@ -42656,6 +42671,23 @@ function wwAfterRender(){
       if(c2&&V.ww&&V.ww.cfgScroll)c2.scrollTop=V.ww.cfgScroll;
     })}catch(e){}
   }catch(e){}
+}
+function wwFocusResultVerdict(w){
+  if(!w||!w.over||w._resultVerdictShown)return;
+  var attempt=0;
+  function go(){
+    if(!w||V.ww!==w||!w.over||w._resultVerdictShown)return;
+    var el=D.getElementById('wwResultVerdict');
+    if(el){
+      w._resultVerdictShown=true;
+      try{el.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}
+      catch(e){try{el.scrollIntoView()}catch(x){}}
+      return;
+    }
+    if(++attempt<8)setTimeout(go,60);
+  }
+  try{requestAnimationFrame(function(){requestAnimationFrame(go)})}
+  catch(e){setTimeout(go,0)}
 }
 function wwHistHTML(rec){
   var h='';
@@ -42691,7 +42723,7 @@ function wwHistHTML(rec){
   }
   var _wr=rec.wolfRoles||{};
   h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+((rec.players||[]).map(function(p){
-    return '<div class="mq-pick"><b>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+(_wr[p.uid]?(' · 狼队分工：'+esc(WW_WOLF_JOB_NAME[_wr[p.uid]]||_wr[p.uid])):'')+'</div>';
+    return '<div class="mq-pick"><b'+(wwIsWolf(p)?' style="color:#e05a52"':'')+'>'+esc((p.seq?p.seq+'号 · ':'')+p.name)+'</b>'+((rec.sheriffUid&&p.uid===rec.sheriffUid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+(p.uid===rec.mvp?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+(_wr[p.uid]?(' · 狼队分工：'+esc(WW_WOLF_JOB_NAME[_wr[p.uid]]||_wr[p.uid])):'')+'</div>';
   }).join(''))+'</div>';
   if((rec.rec||[]).length)h+='<details class="gx-log"><summary>夜间行动（复盘）</summary><div class="gx-vs">'+rec.rec.map(function(x,ri){
     return '<div class="ww-recln">第 '+x.d+' 天 · '+esc(x.t)+((x.tk&&wwTransparentOn())?wwThinkHTML('hr'+ri,x.tk,'hist'):'')+'</div>';
