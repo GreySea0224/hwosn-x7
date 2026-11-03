@@ -29844,7 +29844,7 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     draft:'',ballot:{human:'',ai:''},votes:[],counts:{},humanWinners:[],aiWinners:[],
     userResult:'',recId:null,reviewPid:'',reviewSuspect:false},
   ww:{cids:[],mem:{},roleLocks:{},anon:{},count:7,mode:'play',pick:'random',table:'online',autoWatch:false,
-    players:[],day:1,phase:'setup',over:false,winner:'',endText:'',
+    players:[],day:1,phase:'setup',dayStage:'',over:false,winner:'',endText:'',
     night:null,votes:{},log:[],rec:[],witchSave:true,witchPoison:true,
     userAsk:null,resolve:null,gate:{},gateResolve:null,
     running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',title:'',tips:{},marks:{},markMode:'',markUid:null,sayTok:0,stopped:false,
@@ -38672,6 +38672,7 @@ async function wwNight(){
   w._skipCheckpoint=false;
   w.night={wolf:null,save:false,poison:null,check:null,medium:null,guard:null,gargoyle:null,gravekeeper:null,nightmare:null,feared:null,nokill:false,deaths:[],
     mechStudy:null,mechKills:[],mechPoison:null,mechGuard:null,mechCheck:null};
+  w.dayStage='';
   w.nightDone=false;                  /* 这一夜还没结算（结算完才置 true，存/接着玩时靠它判断进度） */
   w.wolfPicks=[];                     /* 今晚每只狼各自的刀人意见（下面商量刀谁时会填上） */
   w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
@@ -39373,6 +39374,7 @@ async function wwDoVote(voters,targets){
   var gen=wwGenNow();
   await wwScribeTick(w,'before-vote');
   if(wwStaleG(gen)||wwAbort())return;
+  w.dayStage='vote';
   w.votes={};w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;
   w.msg='';                      /* 清掉上一次发言留下的"正在发言…"，别和投票状态叠在一起 */
   var me=(voters||[]).filter(function(p){return p&&p.alive&&p.isUser})[0]||null;
@@ -40260,6 +40262,7 @@ async function wwDay(){
   w.scene='noon';      /* 【修】新的一天从「白天」开始（中午那张）；投票时会切成黄昏 */
   w.inPK=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;
   if(!resumedDay){
+    w.dayStage='speech';
     w.spoke={};          /* 新的一天：发言记录清空（座位上的「未发言/已发言」靠它） */
     w.votes={};          /* 新的一天：先把昨天的票清掉，座位上的「已投票」才不会残留 */
     w.lastExile=null;    /* 守墓人只查「上一白天」的放逐；新一天先清空，真正放逐时再写入 */
@@ -40455,6 +40458,7 @@ async function wwDay(){
     w.log.push({k:'vote',text:'本轮无人出局。'});
     render(true);
   }
+  w.dayStage='resolved';
 }
 
 /* ---------- 主循环 / 存档 ---------- */
@@ -40561,7 +40565,7 @@ function wwHistoryLog(arr,max){
 function wwSnap(){
   var w=V.ww;
   return {
-    day:w.day,phase:w.phase,mode:w.mode,count:w.count,winner:w.winner||'',endText:w.endText||'',
+    day:w.day,phase:w.phase,dayStage:w.dayStage||'',mode:w.mode,count:w.count,winner:w.winner||'',endText:w.endText||'',
     nightDone:!!w.nightDone,
     night:w.night?{
       wolf:(w.night.wolf&&w.night.wolf.uid)||null,save:!!w.night.save,
@@ -40672,7 +40676,7 @@ function wwApplySnap(s,recId){
     if(q.readBoardVer<2){q.readBoard='';q.readBoardLog=[];q.readBoardVer=2}
     byUid[q.uid]=q;return q;
   });
-  w.day=s.day||1;w.phase=s.phase||'day';w.mode=s.mode||'play';w.count=s.count||w.players.length;
+  w.day=s.day||1;w.phase=s.phase||'day';w.dayStage=s.dayStage||'';w.mode=s.mode||'play';w.count=s.count||w.players.length;
   w.nightDone=(s.nightDone!==false);                                   /* 那一夜结算过没有 */
   w.phase=(s.phase==='night'&&!w.nightDone)?'night':'day';             /* 别让"结束"这种中间状态漏到界面上 */
   w.over=false;w.stopped=false;w.winner='';w.endText='';
@@ -40815,7 +40819,7 @@ function wwRollbackLastNight(){
   });
   w.rec=(w.rec||[]).filter(function(x){return Number(x.d)<last});
   w.log=cut>=0?(w.log||[]).slice(0,cut):(w.log||[]).slice();
-  w.day=last;w.phase='night';w.resume='night';w.nightDone=false;w.night=null;w.pendingDeaths=null;
+  w.day=last;w.phase='night';w.dayStage='';w.resume='night';w.nightDone=false;w.night=null;w.pendingDeaths=null;
   w.winner='';w.endText='';
   w.scene='night';w.auto=false;w.over=false;w.stopped=false;
   w.votes={};w.voteMode='';w.votePick=null;w.votePool=[];w.voteLeft=0;
@@ -40834,6 +40838,37 @@ function wwRollbackLastNight(){
   render(true);
   wwLoop();
 }
+function wwResumeDayAlreadyResolved(w){
+  if(!w)return false;
+  if(w.dayStage==='resolved')return true;
+  if(w.lastExile&&Number(w.lastExile.day)===Number(w.day))return true;
+  var day=Number(w.day)||1,inDay=false;
+  for(var i=0;i<(w.log||[]).length;i++){
+    var e=w.log[i];if(!e)continue;
+    var t=String(e.text||'');
+    if(e.k==='sys'){
+      var dm=t.match(/^第\s*(\d+)\s*天/);
+      if(dm){inDay=Number(dm[1])===day;continue}
+    }
+    if(!inDay||e.k!=='vote')continue;
+    if(/^投票：\s*\d{1,2}\s*号出局。/.test(t)||
+      /本轮无人出局|再 PK 仍平票|白痴[^。]{0,20}翻牌免死|狼队全出局/.test(t))return true;
+  }
+  return false;
+}
+function wwPrepareNextNightAfterResume(w){
+  if(!w)return;
+  w.day=(Number(w.day)||1)+1;
+  w.phase='night';w.dayStage='';w.resume='';w.nightDone=false;
+  w.night={wolf:null,save:false,poison:null,check:null,medium:null,guard:null,gargoyle:null,gravekeeper:null,nightmare:null,feared:null,nokill:false,deaths:[],
+    mechStudy:null,mechKills:[],mechPoison:null,mechGuard:null,mechCheck:null};
+  w.votes={};w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
+  w._voteExpected=[];w._voteTargetUids=[];
+  w.spoke={};w.speaking=null;w.speechStart='';w.speechDir=1;w.speechMode='';
+  w.inPK=false;w.knightPending=false;w.knightAsk=null;w.knightSelected='';
+  w.electing=false;w.dayOver=0;w.wordsDone=false;w.scene='night';w.wolfPicks=[];
+  w.auto=false;w.msg='第 '+w.day+' 夜继续。';
+}
 /* 「继续游戏」：把没打完的一局接回来（有存档就用存档；老记录就按记录尽量还原） */
 function wwResume(id){
   var w=V.ww;
@@ -40846,10 +40881,20 @@ function wwResume(id){
   if(!s||!(s.players||[]).length)return toast('这局没法接着玩了');
   wwApplySnap(s,rec.id);
   if(w.nightDone!==false){
+    var dayResolved=wwResumeDayAlreadyResolved(w);
+    if(dayResolved&&!w.over){
+      wwPrepareNextNightAfterResume(w);
+      V.view='ww';render(true);
+      wwBgmAuto();
+      wwLoop();
+      return;
+    }
     var hasDayProgress=!!(s.speaking||Object.keys(s.spoke||{}).length);
     if(hasDayProgress){
       /* 已经进入白天发言：保留现场记录，只从还没发言的人继续，绝不把整天重演。 */
       w.night={wolf:null,save:false,poison:null,check:null,nokill:false,deaths:[]};
+      if(!w.dayStage)w.dayStage='speech';
+      w.votes={};w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
       w.resume='day';
       w._resumeDayInProgress=true;
       V.view='ww';render(true);
