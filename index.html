@@ -16316,6 +16316,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 真人公开发言和公开遗言不再被自动当成狼队最高优先级指令。只有真人在狼队频道里的私密安排才具备最高优先级；真人若是普通小狼，出局遗言只会作为其他小狼的“可能指刀线索”参考，不会强制最终刀口。真人若是好人或其他狼人身份，遗言只作为普通公开信息处理。
 狼人杀现在会完整保留真人玩家在每一轮的公开原话，不再把“你”的长发言压成场记摘要或只留首尾；AI 必须回看用户实际说过的完整理由，不能断章取义。发言机会检查也增加了硬兜底：本轮已经发言完的玩家，AI 不能再要求她“当场再解释一下，解释不了就票她”；重写失败时会直接删掉这种无效追问。AI 还会先判断踩人问题是否合理：普通好人没有义务解释狼队为什么刀人，“建议改验2号”和“2号当夜被刀”不能自动连成因果；报验结果与夜死不冲突也不等于验人成立。裁判复盘会区分“玩家本人失误”和“其他好人误抗推”，不会因为真人站对边、点对狼坑却被无效追问推出局，就把她写成最惨失误。
 狼人杀白天发言和投票新增“玩家打法中性”规则：AI 不能把激进、直接点狼坑、主动指挥、听感、预判、说话跳跃或拒绝回答荒谬问题单独当成狼点。真人座位只在白天发言和投票提示里带有内部标记，告诉 AI 这是真人表达风格；该标记不是身份信息，不能公开提及，也不能让 AI 默认用户是好人。投票前若 AI 想投真人、理由却只有风格问题，会先复核并要求写出可核验硬证据；仍没有硬证据时改投其他目标。夜间狼刀、女巫、守卫、通灵、猎人等所有夜间行动都不读取这个标记和风格提示，避免 AI 针对真人下刀。
+狼人杀现在会给白天发言和投票附一张核对过的票型事实卡，分别列出警长票和放逐票，避免 AI 把发言计划当成实际投票。AI 引用“某人投给某人”时会与真实票型核对；说错票型会被要求重写。警长票支持某人当选、放逐票要求某人出局是不同阶段，不能因为两张票都指向同一个座位就判成硬矛盾。接警徽的人也不会自动获得死者最后一夜的私有查验结果，不能要求接徽者复述她无权知道的内容；未翻牌出局者只能写成“判断为狼”，不能当成已知身份计算剩余狼数。裁判复盘也按同一标准核对。
 
 【最近更新 · 2026-11-04】
 狼人杀 AI 现在会把“表面职业”和“阵营”分开判断。机械狼通灵师板里，即使认定某人是真通灵师，她的金水仍然可能是学过同一职业的机械狼；即使真通灵师把警徽传给金水，也不能写成金水的阵营已经被验证。AI 遇到“死者能开枪、活人又自称猎人”这类公开身份碰撞时，不会再把活人直接当成真正的单边神，而会同时保留真猎人/假猎人和机械狼/真猎人两条线。
@@ -16538,7 +16539,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=125;  /* 125：白天给真人加入打法中性提示，夜间不注入，并复核纯风格投票 */
+const GUIDE_VER=126;  /* 126：增加票型事实卡、警长/放逐区分、未翻牌身份与接徽认知修正 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34022,6 +34023,58 @@ function wwVoteHistoryRows(w){
   });
   return out;
 }
+function wwVoteFactRows(w){
+  var day=1,out=[],seen={};
+  ((w&&w.log)||[]).forEach(function(e){
+    if(!e)return;
+    var text=String(e.text||'');
+    if(e.k==='sys'){
+      var dm=text.match(/^第\s*(\d+)\s*天/);
+      if(dm)day=Number(dm[1])||day;
+      return;
+    }
+    if(e.k!=='vote')return;
+    var kind=/^警长票[：:]/.test(text)?'police':(/^投票[：:]/.test(text)?'exile':'');
+    if(!kind)return;
+    text.split(/\n+/).forEach(function(line){
+      var m=line.match(/^(.+?)\s*→\s*(\d{1,2})\s*号/);
+      if(!m)return;
+      var target=Number(m[2]),re=/(\d{1,2})\s*号/g,mm;
+      while((mm=re.exec(m[1]))){
+        var voter=Number(mm[1]);
+        if(!voter||!target)continue;
+        var key=day+'|'+kind+'|'+voter+'|'+target;
+        if(seen[key])continue;
+        seen[key]=1;out.push({day:day,kind:kind,voter:voter,target:target});
+      }
+    });
+  });
+  return out;
+}
+function wwVoteFactText(w){
+  var rows=wwVoteFactRows(w),days=[];
+  rows.forEach(function(x){if(days.indexOf(x.day)<0)days.push(x.day)});
+  if(!days.length)return '';
+  days=days.sort(function(a,b){return a-b});
+  var lines=[];
+  days.forEach(function(day){
+    ['police','exile'].forEach(function(kind){
+      var rs=rows.filter(function(x){return x.day===day&&x.kind===kind});
+      if(!rs.length)return;
+      var by={},tg=[];
+      rs.forEach(function(x){
+        if(!by[x.target]){by[x.target]=[];tg.push(x.target)}
+        if(by[x.target].indexOf(x.voter)<0)by[x.target].push(x.voter);
+      });
+      tg.sort(function(a,b){return a-b});
+      lines.push('· D'+day+' '+(kind==='police'?'警长票':'放逐票')+'：'+
+        tg.map(function(t){return by[t].sort(function(a,b){return a-b}).join('、')+'号 → '+t+'号'}).join('；'));
+    });
+  });
+  return '【票型事实卡（程序核对）】\n'+lines.join('\n')+
+    '\n· 只有这里明确列出的“谁→谁”才是已核实票型。发言里说想投谁、准备投谁，不等于真实票型。'+
+    '\n· 警长票是支持谁当选，放逐票是要求谁出局。“警长票支持X当选、放逐票投X出局”不自动构成矛盾；玩家听完当天发言后改变放逐意向是正常变化。';
+}
 function wwExileRows(w){
   return ((w&&w.rec)||[]).map(function(x){
     var m=String(x&&x.t||'').match(/被放逐[：:]\s*(\d{1,2})\s*号/);
@@ -35536,6 +35589,76 @@ function wwStripQuestionClauses(say,badTexts){
   }
   return out.join('').trim();
 }
+function wwVoteFactIssues(say,w){
+  var rows=wwVoteFactRows(w),out=[];
+  String(say||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    if(/(?:说错|写错|误述|转述|引用|声称|说成|没有投过|没投过|从未投)/.test(c))return;
+    var found=[];
+    [
+      /(\d{1,2})\s*号[^。！？!?；;\n]{0,22}?(?:警长票|放逐票)[^。！？!?；;\n]{0,12}?(?:投给|投了|投|给|落)\s*(\d{1,2})\s*号/g,
+      /(\d{1,2})\s*号[^。！？!?；;\n]{0,45}?(?:最后投的是|实际投了|投给|投票给|投了)\s*(\d{1,2})\s*号/g,
+      /(\d{1,2})\s*号[^。！？!?；;\n]{0,70}?(?:也一样|一样)[^。！？!?；;\n]{0,45}?(?:票又押在|票押在|押在|押了)\s*(\d{1,2})\s*号/g
+    ].forEach(function(re){
+      re.lastIndex=0;var m;
+      while((m=re.exec(c)))found.push([Number(m[1]),Number(m[2])]);
+    });
+    if(found.some(function(x){
+      return !rows.some(function(v){return v.voter===x[0]&&v.target===x[1]});
+    }))out.push(c.trim());
+  });
+  return out;
+}
+function wwPoliceExileContradictionIssues(say){
+  var out=[];
+  String(say||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    if(/(?:不矛盾|不是矛盾|不能写成矛盾|不等于矛盾|可以不同|两者不必一致|两张票不同)/.test(c))return;
+    if(!/(?:矛盾|冲突|不能同时|没法同时|说不通|打架|不成立)/.test(c))return;
+    var p=c.match(/(?:警长票|支持)[^。！？!?；;\n]{0,14}?(\d{1,2})\s*号/);
+    if(!p)return;
+    var n=Number(p[1]),tail=c.slice((p.index||0)+p[0].length);
+    if(new RegExp(n+'\\s*号').test(tail)&&/(?:投|票|挂|放逐)/.test(tail))out.push(c.trim());
+  });
+  return out;
+}
+function wwBadgeRecipientKnowledgeIssues(say){
+  var out=[];
+  String(say||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    if(/(?:不是通灵师|不能要求|不可能知道|无从得知|报不出正常|不等于知道|不代表知道|凭什么能预知)/.test(c))return;
+    var hasBadge=/(?:接(?:了)?(?:警)?徽|拿(?:了)?(?:警)?徽|警徽(?:在|给到|交到)[^。！？!?；;\n]{0,8}(?:手|手里))/.test(c);
+    var hasResult=/(?:最后一夜|验人|查验|验了谁|结果)/.test(c);
+    var demandOrAssume=/(?:必须|应该|得|要她|让她|叫她|要求她|第一件事|又[^。！？!?；;\n]{0,10}(?:报不出|说不清|不知道)|却[^。！？!?；;\n]{0,10}(?:报不出|说不清|不知道)|还[^。！？!?；;\n]{0,10}(?:报不出|说不清|不知道)|(?:就|等于|说明)[^。！？!?；;\n]{0,12}(?:知道|掌握))/.test(c);
+    var bad=hasBadge&&hasResult&&demandOrAssume;
+    if(bad)out.push(c.trim());
+  });
+  return out;
+}
+function wwPublicFactIssues(say,w){
+  return wwVoteFactIssues(say,w)
+    .concat(wwPoliceExileContradictionIssues(say))
+    .concat(wwBadgeRecipientKnowledgeIssues(say));
+}
+async function wwGuardPublicFactSpeech(p,sys,say){
+  var bad=wwPublicFactIssues(say,V.ww);
+  if(!bad.length)return say;
+  try{
+    var ask='【公开事实核对】这段发言里有票型或警徽信息与公开记录不符。'+
+      '\n'+(wwVoteFactText(V.ww)||'')+
+      '\n· 只能引用票型事实卡中实际存在的“某人→某人”。不能把别人的发言、预测或计划当成已经发生的投票。'+
+      '\n· 警长票是支持谁当选，放逐票是要求谁出局；同一个玩家先被支持当警长，听完发言后又被放逐，不自动构成矛盾。'+
+      '\n· 接警徽的人不会自动获得死者最后一夜的私有查验结果。只能问她依据哪条公开警徽流接徽，不能要求她说出自己无权知道的结果。'+
+      '\n请保持原人设、身份盘、票向和已有判断，重写完整公开发言；若删掉错误事实后判断改变，可以改票并写清新理由。不要解释这条内部核对。\n原发言：'+String(say||'').slice(0,1000);
+    var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
+    fixed=wwTakeTitle(p,fixed);
+    fixed=wwTakeIdentityBoard(p,fixed).text;
+    var sp=wwSplitDraft(fixed);fixed=wwStripLead(sp.say||fixed);
+    if(sp.draft&&p)p.scratch=sp.draft;
+    if(fixed&&!wwPublicFactIssues(fixed,V.ww).length)return fixed;
+    var cleaned=wwStripQuestionClauses(fixed||say,wwPublicFactIssues(fixed||say,V.ww));
+    if(cleaned&&!wwPublicFactIssues(cleaned,V.ww).length)return cleaned;
+  }catch(e){}
+  var safe=wwStripQuestionClauses(say,wwPublicFactIssues(say,V.ww));
+  return safe||'我按已经核对的公开票型和警徽流重说：只认事实卡里出现过的票，不要求接徽者报出她无权知道的查验结果。';
+}
 async function wwGuardAnswerOpportunity(p,sys,say){
   var bad=wwAnswerRequestIssues(say,V.ww,p,false);
   var badKill=wwNightKillExplanationIssues(say);
@@ -35599,7 +35722,8 @@ function wwSpeakTask(p,base){
     '不骂人、不靠发誓喊冤、不用 markdown。';
   plain+=wwSpeechOpportunityText(V.ww,p,false)+wwPublicRoleClaimAuditText(V.ww)+
     wwMinorityWorldlineSpeechHint()+wwGoodLeadDefenseHint(p)+
-    wwDayPlayStyleNeutralityText(p,V.ww,false);
+    wwDayPlayStyleNeutralityText(p,V.ww,false)+
+    (wwVoteFactText(V.ww)?'\n'+wwVoteFactText(V.ww):'');
   if(wwIsWolf(p))plain+=wwWolfEarlyWagerHint(p)+wwWolfMidgameClaimHint(p)+wwWolfEndgameClaimHint(p)+wwWolfDoomedClaimHint(p,V.ww);
   var titleAsk='先写【标题】：单独一行，最多 12 字。标题会被用户看见，必须客观概括公开说了什么、站了谁，不判断身份和动机；狼也不能暴露身份或写出“装作村民、装好人、潜伏”等真实意图。例：站边1号 / 查杀1号 / 这轮划水 / 无信息发言。';
   if(((p&&p.role==='seer')||wwWolfJobOf(p)==='jump')&&V.ww&&Number(V.ww.day)===1){
@@ -35927,6 +36051,7 @@ async function wwSpeak(p,sys){
   if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardObsoletePostmortemSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardAnswerOpportunity(p,sys,out);
+  if(p&&!p.isUser)out=await wwGuardPublicFactSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardClaimReasoningSpeech(p,sys,out);
   if(p&&!p.isUser&&V.ww)out=await wwGuardUserClaimsSpeech(p,sys,out);
   if(p&&!p.isUser&&wwIsWolf(p))out=await wwGuardWolfSeerSpeech(p,sys,out);
@@ -36148,6 +36273,8 @@ function wwReasoningDisciplineText(){
     '【夜刀与举证责任】狼刀、空刀、刀谁属于狼队夜间行动。普通好人只能推测，没有义务解释狼队为什么选择某个刀口。“建议改验2号”和“2号当夜被刀”只是两个独立事实，不能自动推出该玩家提前知道刀口、与狼共边，或必须为2号死亡负责。可以问她“为什么判断2号更像好人、为什么更想验3号”，不能问“2号为什么死，你解释”。被问者回答“2号是狼队刀的，我不知道狼队理由；我判断2号偏好的理由如下”属于有效回答，不算回避。只有出现可核验硬冲突，例如她声称掌握本不该知道的刀口、技能或时间线矛盾，或明确承诺与实际行动正面冲突时，才能把夜死和她联系起来；“像提前知道”只能算弱猜测，不能作为定票主证据。'+
     '【验人与夜死不冲突不是验证】公开报验结果与夜死不冲突，只说明这条世界线暂时不能被排除，不是支持验人者真实的新证据。例如“1号报2号是村民，2号当夜被刀”，不能写成“验人跟夜死对得上，所以1号更像真的”。死者不能替验人结果自证，仍要独立核对验人者的夜数、时间线、后续查验和票型。'+
     '【追问先查因果与举证义务】AI 不能因为有人提问就默认问题有效。若问题要求普通好人解释狼队夜间动机，却没有任何可核验冲突，应把该追问标为无效，不能记成“未回答”或狼点。被问者明确说明“这不是我的举证范围”并解释自己的原判断后，应按已回答处理；追问者若继续复读无效前提，应降为逻辑质量或带节奏线索，不能靠多人复读把它变成多份独立证据。'+
+    '【警徽接收者不自动知道最后一验】接过警徽只说明死者按某条公开警徽流把徽交给她，不代表主持人或系统把最后一夜私有查验结果交给了她。接徽者不是通灵师时，不知道死者验了谁、结果是什么是正常的；只能要求她说清自己依据哪条公开分支接徽，不能把“她报不出最后一夜结果”直接当狼点。只有本局规则或主持人明确把结果传给接徽者时，才可要求转述。'+
+    '【未翻牌出局不是已知身份】死亡或放逐通常只公布“谁出局”，除非主持人、技能结果或明确翻牌给出了身份，否则 6号是狼、7号是狼、11号是狼都只能写“判断为狼/狼面高”，不能写成已知事实。用“已出局三狼”去计算剩余狼坑时，必须标明这是当前判断，不能把推测直接当人头账。'+
     '单个报验结果仍可能是编的，验人线完整、警徽流工整不能证明每一次查验都为真；但“单边验人位是否成立”和“这一条验人结果是否可核”要分开。若本轮发言完整结束后仍只有一名活跃验人位、无人对跳，默认按真验人位处理，不因“她也可能是机械通灵”这种纯理论可能就推翻；只有正面硬矛盾才降级。'+
     '通灵师第一次警上不报确切身份可以理解，但对手已经报了更具体的身份后，第二次仍拒绝用确切身份回应，就是强烈不做好的行为。若目标是平民，直接报平民没有暴露活神的风险；若目标是神，真通灵报出确切身份还能当场揭穿对方。目标已经死亡后，继续以“保护神职”为由拒绝公开，收益更低，狼面更高。'+
     '平民若发现某人的查验准确报出了自己的身份，应当为好人正视野。明知对方报对仍故意不确认，会直接削弱真验人位、帮助假验人位；局内 AI 不能凭空认定她一定是平民，但必须把这种拒绝配合评价为明显不利于好人的行为，不能当成“谨慎勇敢”。'+
@@ -37957,16 +38084,28 @@ async function wwVoteAI(p,pool){
       '身上；优先藏票或跟随一个能形成多数、又不会立刻反噬狼队的票案。只有确认能控票并能立刻取得足够收益时，才考虑点单边验人位。')
     :'';
   var styleHint=wwDayPlayStyleNeutralityText(p,w,true);
+  var voteFactHint=wwVoteFactText(w);
   var sys=wwSysFor(p,'现在投票。请从这些活着的玩家中选一个你最怀疑的人（不能投自己）：'+pool.map(wwName).join('、')+
     (voteTurn?'\n'+voteTurn:'')+((wwIsWolf(p)&&claimAudit)?'\n'+claimAudit:'')+
     (wwIsWolf(p)?((jobHint?'\n'+jobHint:'')+(bindHint?'\n'+bindHint:'')+wolfSingleHint+ownHint):(goodHint+ownHint))+
     (userClaimHint?'\n'+userClaimHint:'')+(styleHint?'\n'+styleHint:'')+
+    (voteFactHint?'\n'+voteFactHint:'')+
     '\n【输出格式】只写两行：\n投票：编号或名字（例如「3号」）。\n判断：'+
     (gread
       ? ('必须说明你是否采信上面的石像鬼推理链；如果投'+wwTag(gread.candidate)+'，要给出足以推翻“给已知狼金水”的硬反证。')
       : '用一句话说明主要证据，不要只写“感觉”。'));
   var txt=await wwCall(sys,'请投票。',100,.8);
   var vote=wwReadVoteReply(txt,pool),voteClaims=wwUserKeyClaims(w,p,pool,true);
+  if(vote.logic&&wwPublicFactIssues(vote.logic,w).length){
+    try{
+      var factReply=await wwCall(sys,'【投票事实核对】你的投票理由引用了不存在的票型、把警长票和放逐票误当成矛盾，或要求接徽者说出她无权知道的历史查验结果。'+
+        '\n'+(wwVoteFactText(w)||'')+
+        '\n· 只引用事实卡里实际存在的票。接警徽只表示死者按某条公开分支交徽，不会把最后一夜查验结果自动交给接徽者。'+
+        '\n请保持原票向，或根据修正后的事实改票；严格只写两行：投票、判断。',120,.62);
+      var factVote=wwReadVoteReply(factReply,pool);
+      if(factVote.pick){txt=factReply;vote=factVote}
+    }catch(e){}
+  }
   var human=null;
   (w.players||[]).forEach(function(x){if(!human&&x&&x.isUser&&x.alive)human=x});
   if(human&&vote.pick===human.uid&&wwStyleOnlyVoteReason(vote.logic)){
@@ -38294,6 +38433,8 @@ function wwJudgePrompt(src,result){
     '【夜刀举证边界】狼刀、空刀和刀谁属于狼队行动，普通好人没有解释狼队夜间动机的义务。“建议改验2号”和“2号当夜被刀”不能自动建立因果，也不能写成她提前知道刀口或与狼共边。公开报验“2号是好人”与“2号当夜被刀”只是不冲突，不是验人成立或更可信的证据；死者不能替验人结果自证。'+
     '【无效追问不是证据】若某次抗推建立在“某一普通好人必须解释别人为什么被狼刀”这类无效问题上，重复追问的人再多也不会变成多份证据。裁判应评价是谁提出了错误因果、谁拒绝修正、谁利用它转移焦点；被追问者说明这不是自己的举证范围并解释原判断，不能写成“拒绝回答”或“最惨失误”。'+
     '【真人误抗推归因】如果真人已经站对边、点对狼坑、给出合理投票或技能建议，并解释过自己的票向和判断，最终仍因其他玩家断章取义、重复无效追问或集体误判被票出，裁判不能把出局本身写成真人的失误。最惨失误必须落在她本人可核验的错误行为上；别人没听、曲解原话或把关联当因果，应写成好人阵营的共同误判，不能反过来责怪真人。'+
+    '【票型事实核对】复盘时必须分别核对警长票和放逐票。把某人的发言计划、怀疑对象当成实际投票，或把“支持X当警长、当天又投X出局”直接写成硬矛盾，都是裁判错误。指出别人误述票型时，要区分“她说错了某票”和“她本人实际投了某票”。'+
+    '【警徽与未翻牌身份】接警徽的人不会自动获得死者最后一夜的私有查验结果；除非本局规则或主持人明确传递，不能因为接徽者报不出死者最后一验就判她狼。未翻牌出局者也只按“判断为狼/狼面高”评价，不能写成已知身份去计算剩余狼数。'+
     '最佳操作、MVP 和赌局转折要落在可核对的原话、票型、技能结果上；最惨失误必须说明它怎样实际改变票局或胜负。合理的可能性、普通口语转述、警上只说“后置位”而未指定身份、没有翻牌的自称，都不能单独列为失误。');
   L.push('【赛后评选】只选获胜阵营一名 MVP，不看存活时长。好人胜时，看谁对暴露狼队贡献最大：点明狼坑、正确带队票出狼、关键警徽交接、技能直接带走狼；狼人胜时，看谁对好人破坏最大：战术布局、指刀屠边、带节奏、制造迷惑。'+
     '最佳操作必须是 MVP 的操作；最惨失误必须写清具体一名玩家确实发生的失误，已解释过的问题不得写成“未处理”。');
