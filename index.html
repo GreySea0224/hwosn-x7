@@ -16312,6 +16312,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
 真通灵/预言按板子规则必须上警；其他警上声明退水、无人继续对跳且本轮发言完整结束后，单边验人位默认按真处理，不再保留“真验人位一直躲着没跳”的超级小概率鬼故事。验人解析也区分计划、条件和已经发生的报验，不会再把“准备验5号、如果5号是村民”误记成“已经验出5号是村民”。
+真人公开发言和公开遗言不再被自动当成狼队最高优先级指令。只有真人在狼队频道里的私密安排才具备最高优先级；真人若是普通小狼，出局遗言只会作为其他小狼的“可能指刀线索”参考，不会强制最终刀口。真人若是好人或其他狼人身份，遗言只作为普通公开信息处理。
 
 【最近更新 · 2026-11-04】
 狼人杀 AI 现在会把“表面职业”和“阵营”分开判断。机械狼通灵师板里，即使认定某人是真通灵师，她的金水仍然可能是学过同一职业的机械狼；即使真通灵师把警徽传给金水，也不能写成金水的阵营已经被验证。AI 遇到“死者能开枪、活人又自称猎人”这类公开身份碰撞时，不会再把活人直接当成真正的单边神，而会同时保留真猎人/假猎人和机械狼/真猎人两条线。
@@ -16534,7 +16535,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=121;  /* 121：区分机械通灵师专项打法与机械狼通用打法 */
+const GUIDE_VER=122;  /* 122：真人公开发言/遗言不再误当狼队最高优先级指令 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -36899,9 +36900,10 @@ function wwWolfChannelText(max){
   }).join('\n');
 }
 function wwWolfCommandRule(){
-  return '【狼队执行优先级】本夜真人玩家在狼队频道里的明确安排最高；真人已经出局时，遗言里的狼队安排仍然最高，不能因为作者出局就忽略；本夜没有新指令时，优先听狼队这一夜形成的讨论和多数策略；最后才是“悍跳/冲锋/倒钩/深水”等分工标签。'+
+  return '【狼队执行优先级】最高优先级只来自真人玩家当时作为狼队成员，在狼队频道里发出的私密安排。真人公开发言和公开遗言不是狼队指令。若真人是普通小狼，她出局后的公开遗言只能作为“可能的指刀线索”参考，由其他小狼结合局势自行判断，不能自动当成最终刀口。若真人不是普通小狼，她的公开发言和遗言只是普通公开信息，不得被解释成狼队安排或最高优先级指令。'+
+    '本夜没有新的狼队私密指令时，优先听狼队这一夜形成的讨论和多数策略；最后才是“悍跳/冲锋/倒钩/深水”等分工标签。'+
     '分工只是默认打法，不是禁令或角色限制。多句真人指令冲突时，以本夜时间最新的那句为准。'+
-    '真人要求你跳预、改刀、改票、退水、禁刀某人或按指定方式配合时，要优先执行，不能因为自己是“深水狼”等标签就拒绝，也不能被其他 AI 狼的多数意见覆盖。';
+    '真人玩家在狼队频道里要求你跳预、改刀、改票、退水、禁刀某人或按指定方式配合时，要优先执行，不能因为自己是“深水狼”等标签就拒绝，也不能被其他 AI 狼的多数意见覆盖。公开遗言不拥有同样的命令权。';
 }
 function wwWolfJobOf(p){var w=V.ww;return (w&&w.wolfRoles&&p)?String(w.wolfRoles[p.uid]||''):''}
 function wwWolfJobNames(a){return (a||[]).map(function(k){return WW_WOLF_JOB_NAME[k]||k}).join('、')}
@@ -37186,16 +37188,17 @@ function wwUserWolfDirectiveRows(w){
   var out=[];
   ((w&&w.log)||[]).forEach(function(e){
     if(!e)return;
-    if(e.k==='wolf'&&e.isUser&&String(e.text||'').trim())
-      out.push({d:e.d||0,text:String(e.text||'').trim(),kind:'狼队频道'});
-    else if(me&&e.k==='say'&&e.who===me.uid&&/^【遗言】/.test(String(e.text||'')))
-      out.push({d:e.d||0,text:String(e.text||'').replace(/^【遗言】/,'').trim(),kind:'遗言'});
+    if(me&&wwIsWolf(me)&&e.k==='wolf'&&e.isUser&&String(e.text||'').trim())
+      out.push({d:e.d||0,text:String(e.text||'').trim(),kind:'狼队频道',hard:true});
+    else if(me&&me.role==='wolf'&&e.k==='say'&&e.who===me.uid&&/^【遗言】/.test(String(e.text||'')))
+      out.push({d:e.d||0,text:String(e.text||'').replace(/^【遗言】/,'').trim(),kind:'真人小狼公开遗言',hard:false});
   });
   return out;
 }
 function wwWolfForbiddenMap(w){
   var banned={},rows=wwUserWolfDirectiveRows(w);
   rows.forEach(function(row){
+    if(!row.hard)return;
     var t=row.text,m,re=/(?:别刀|不要刀|不许刀|别杀|不要杀|别管|不要动|留着|保住)[^。！？!?；;\n]{0,10}?(\d{1,2})\s*号/g;
     while((m=re.exec(t))){
       var p=wwPlayerByUidTarget(w,Number(m[1]));
@@ -37214,35 +37217,46 @@ function wwWolfForbiddenMap(w){
   return banned;
 }
 function wwWolfUserPreferenceText(w){
-  var rows=wwUserWolfDirectiveRows(w),out=[];
+  var rows=wwUserWolfDirectiveRows(w),hardOut=[],adviceOut=[];
   rows.forEach(function(row){
-    var t=row.text,m,re=/(?:我觉得像|像是|像|优先刀|先刀|先找|重点找|找)\s*(\d{1,2})\s*号?/g;
+    var bucket=row.hard?hardOut:adviceOut,t=row.text,m,re=/(?:我觉得像|像是|像|优先刀|先刀|先找|重点找|找|毒|刀)\s*(\d{1,2})\s*号?/g;
     while((m=re.exec(t))){
       var p=wwPlayerByUidTarget(w,Number(m[1]));
-      if(p&&p.alive&&!out.some(function(x){return x.uid===p.uid}))out.push(p);
+      if(p&&p.alive&&!bucket.some(function(x){return x.uid===p.uid}))bucket.push(p);
     }
     var roleRe=/(\d{1,2})\s*号?[^。！？!?；;\n]{0,10}(?:像|是|指|优先)[^。！？!?；;\n]{0,8}(?:女巫|守卫|猎人|预言家|通灵师|守墓人|机械狼)/g;
     while((m=roleRe.exec(t))){
       var q=wwPlayerByUidTarget(w,Number(m[1]));
-      if(q&&q.alive&&!out.some(function(x){return x.uid===q.uid}))out.push(q);
+      if(q&&q.alive&&!bucket.some(function(x){return x.uid===q.uid}))bucket.push(q);
     }
   });
-  return out.length?('【真人给出的目标倾向（最高优先级参考）】'+out.map(wwTag).join('、')+
-    '：真人根据发言或身份判断点到的候选。不是绝对硬令时，也要优先和守卫、女巫、最后未明神的收益一起比较，不要直接忽略。'):'';
+  var L=[];
+  if(hardOut.length)L.push('【真人狼队频道里的目标倾向（高优先级参考）】'+hardOut.map(wwTag).join('、')+
+    '：这是真人狼队成员的私密建议；仍要和守卫、女巫、最后未明神的收益一起比较。');
+  if(adviceOut.length)L.push('【真人小狼公开遗言里的指刀线索（参考，不是硬令）】'+adviceOut.map(wwTag).join('、')+
+    '：这是已出局小狼通过公开遗言留下的可能目标，只作为刀口比较线索，不等于最终刀口，其他小狼仍按公开局势判断。');
+  return L.join('\n');
 }
 function wwUserWolfDirectiveText(w){
   var rows=wwUserWolfDirectiveRows(w);
   if(!rows.length)return '';
+  var hard=rows.filter(function(x){return x.hard}),advisory=rows.filter(function(x){return !x.hard});
   var banned=wwWolfForbiddenMap(w),names=[];
   Object.keys(banned).forEach(function(uid){
     var p=null;(w.players||[]).some(function(x){if(x&&x.uid===uid){p=x;return true}return false});
     if(p&&p.alive)names.push(wwTag(p));
   });
-  return '【真人玩家狼队指令（最高优先级，最终刀口必须服从）】\n'+
-    rows.slice(-4).map(function(x){return '· '+(x.d?('第'+x.d+'夜 '):'')+x.kind+'：'+x.text}).join('\n')+
-    (names.length?('\n【本夜硬禁止刀】'+names.join('、')+'。这些位置是真人明确要求留下/别管/用于白天抗推的；AI 狼不能用自己的威胁判断或多数意见覆盖。除非真人后来明确说改刀该位置。'):'')+
-    '\n如果真人要求“注意守卫/找神”，不要只看警徽；先比较守卫、女巫和最后未明神的位置。'+
-    (wwWolfUserPreferenceText(w)?('\n'+wwWolfUserPreferenceText(w)):'');
+  var L=[];
+  if(hard.length)L.push('【真人玩家狼队频道指令（最高优先级，最终刀口必须服从）】\n'+
+    hard.slice(-4).map(function(x){return '· '+(x.d?('第'+x.d+'夜 '):'')+x.kind+'：'+x.text}).join('\n')+
+    (names.length?('\n【本夜硬禁止刀】'+names.join('、')+'。这些位置是真人明确要求留下/别管/用于白天抗推的；AI 狼不能用自己的威胁判断或多数意见覆盖。除非真人后来明确说改刀该位置。'):''));
+  if(advisory.length)L.push('【真人小狼公开遗言（只作为指刀参考）】\n'+
+    advisory.slice(-2).map(function(x){return '· '+(x.d?('第'+x.d+'天 '):'')+x.text}).join('\n')+
+    '\n· 这只说明已出局小狼可能留下了想让狼队注意的目标，不是最高优先级命令，也不能自动覆盖狼队根据公开局势做出的刀口判断。');
+  if(!L.length)return '';
+  L.push('如果真人狼队频道要求“注意守卫/找神”，不要只看警徽；先比较守卫、女巫和最后未明神的位置。'+
+    (wwWolfUserPreferenceText(w)?('\n'+wwWolfUserPreferenceText(w)):''));
+  return L.join('\n');
 }
 function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length;
