@@ -16314,6 +16314,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀警徽规则进一步明确：单边、高可信的通灵师/预言家把警徽交给某人，主要是传徽者在强烈认可接徽者，接徽者应按高概率金水处理；机械狼板只额外保留“她可能是机械狼”的例外。警徽不会把最后一夜查验结果自动传给接徽者，接徽者也没有义务解释自己为什么被选中或替传徽者解释警徽流；接徽或不解释接徽原因都不是接徽者的狼点。
 狼人杀同步收紧公开声明和事实的边界：女巫救人只证明被救者当过狼刀目标，不证明好人，自刀世界线必须保留；被女巫毒死不证明狼；未翻牌出局不能写成已知身份；上警没跳通灵/预言不等于狼；推理快、全面、准确、强势或留有多条世界线不能单独当狼点。程序会在发言和投票时检查这些错误，并把接警徽、警上听发言等状态按上述规则解释。
 狼人杀给普通狼新增“最终刀口账本”：以后每一夜都会区分个人想刀谁和狼队实际最终刀了谁，跨天保留，不能把狼队频道里自己的旧提议误记成团队行动。机械狼显示规则也纠正为：没学习显示“机械狼”，学到普通小狼显示“狼人”，学到村民或神职显示对应身份。若狼队实际刀过某人、该人又被单边高可信通灵报成“狼人”，程序会同时保留“真通灵＋被误刀的机械狼”和“假验＋误刀好人”两条世界线，不能再说“机械狼绝不会显示狼人”。旧版本里“机械狼不会显示普通狼人”的说法一律以本条修正为准。
+狼人杀警徽流现在会拆成“已发生查验”和“条件接徽分支”两部分。把5号写成“5号好就5号接徽”只是条件候选，不代表已经验过5号；接徽候选也不需要先验过。一个人是已声明金水，同时又是另一条分支的备选接徽人，并不矛盾。警徽流好坏分支都讲完整属于说明清楚，不是“留后路”。错误质疑被识别后不再进入未解决问答记录；像“后路铺得太整齐、说得太完整”这类没有硬矛盾的说法也不会作为怀疑或投票依据。
 
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
@@ -16545,7 +16546,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=128;  /* 128：增加狼队最终刀口账本，并修正机械狼学到普通狼时的显示规则 */
+const GUIDE_VER=129;  /* 129：区分警徽流条件候选与已发生查验，并关闭伪逻辑质问复读 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -33477,6 +33478,8 @@ function wwFactsFor(p){
       ' 若传徽者当前是高可信的单边验人位，她把徽交给Y就是强烈认可，应把Y按“高概率金水”处理。'+
       (wwBoard(w.count,w).mechanicwolf?' 机械狼板只额外保留“Y可能是学过好身份的机械狼”这一例外。':' 这仍不是主持人翻牌，但可以作为很强的好人线索。')+
       ' 接徽者没有义务解释自己为什么被选中，也不需要替传徽者解释警徽流；接徽本身不是她的狼点。');
+    var badgeSemantics=wwBadgeFlowSemanticsText(w);
+    if(badgeSemantics)L.push(badgeSemantics);
   }
   if(w.phase==='day'&&w.speechMode){
     var so=wwSpeechOrderList();
@@ -33962,13 +33965,16 @@ function wwOwnMediumChecks(txt){
   var out=[],seen={},seenSeq={},alias={平民:'villager',普通村民:'villager',普通狼人:'wolf',机械通灵师:'mechanicwolf'};
   Object.keys(WW_ROLE_NAME).forEach(function(k){if(k!=='random')alias[WW_ROLE_NAME[k]]=k});
   var names=Object.keys(alias).sort(function(a,b){return b.length-a.length});
-  var re=new RegExp('(?:查验|验到|验了|验的|验过|通灵(?:到|结果)?|查到|查了)[^。！？!?；;\\n]{0,28}?(\\d{1,2})\\s*号?[^。！？!?；;\\n]{0,18}?(?:是|为|身份是|身份为)?\\s*('+names.join('|')+')','g'),m;
-  var tierRe=/(?:查验|验到|验了|验的|验过|通灵(?:到|结果)?|查到|查了)[^。！？!?；;\n]{0,28}?(\d{1,2})\s*号?[^。！？!?；;\n]{0,18}?(?:是|为|身份是|身份为)?\s*(查杀|神职金水|神职身份|好人神职身份|强神|关键神职|好人身份|民及民以上的?金水|民及民以上|金水)/g;
+  var checkVerb='(?:查验|验到|验了|验的|验过|通灵(?!师)(?:到|结果)?|查到|查了)';
+  var re=new RegExp(checkVerb+'[^，,。！？!?；;\\n]{0,28}?(\\d{1,2})\\s*号?[^，,。！？!?；;\\n]{0,18}?(?:是|为|身份是|身份为)?\\s*('+names.join('|')+')','g'),m;
+  var reverseRe=new RegExp('(\\d{1,2})\\s*号?[^，,。！？!?；;\\n]{0,18}?(?:是|为)?\\s*(?:我|本人)\\s*'+checkVerb+'[^，,。！？!?；;\\n]{0,14}?\\s*('+names.join('|')+')','g');
+  var tierRe=/(?:查验|验到|验了|验的|验过|通灵(?!师)(?:到|结果)?|查到|查了)[^，,。！？!?；;\n]{0,28}?(\d{1,2})\s*号?[^，,。！？!?；;\n]{0,18}?(?:是|为|身份是|身份为)?\s*(查杀|神职金水|神职身份|好人神职身份|强神|关键神职|好人身份|民及民以上的?金水|民及民以上|金水)/g;
   wwStripBadgeFlowClaims(txt).split(/[。！？!?；;\n]+/).forEach(function(s){
     /* 计划和条件不是已发生的查验。例如“今晚准备验5号”“5号要是村民，那……”
        不能被当成“验了5号＝村民”。只有同时出现过去/已发生的报验表达才保留。 */
     if(/(?:今晚|今夜|明晚|准备|打算|计划|警徽流|如果|要是|若|将验)/.test(s)&&
       !/(?:昨晚|昨夜|第\s*\d+\s*夜|验到|验了|验的|查验结果|查到|查了)/.test(s))return;
+    var reverseSource=s;
     s=wwStripThirdPartyCheckClaims(wwStripLearnRoleClaims(s));
     while((m=re.exec(s))){
       if(/(?:不是|并非|不可能是|不像)/.test(m[0]))continue;
@@ -33988,8 +33994,67 @@ function wwOwnMediumChecks(txt){
       seen[key2]=1;out.push({seq:seq2,result:result});
     }
     tierRe.lastIndex=0;
+    while((m=reverseRe.exec(reverseSource))){
+      if(/(?:不是|并非|不可能是|不像)/.test(m[0]))continue;
+      var seq3=Number(m[1]),role3=alias[m[2]];
+      if(!seq3||!role3)continue;
+      var key3=seq3+'|'+role3;
+      if(seen[key3])continue;
+      seen[key3]=1;seenSeq[seq3]=1;out.push({seq:seq3,result:WW_ROLE_NAME[role3]});
+    }
+    reverseRe.lastIndex=0;
   });
   return out;
+}
+/* 警徽流里的“X好→Y接徽、X狼→Z接徽”是条件分支，不是已经完成的查验。
+   接徽候选也不需要事先验过；只有把候选写成“已验金水”才是错误转述。 */
+function wwBadgeFlowBranches(txt){
+  var out=[],seen={};
+  String(txt||'').split(/[。！？!?；;\n]+/).forEach(function(clause){
+    var reGood=/(\d{1,2})\s*号?[^，,]{0,12}?(?:好人|金水)[^，,]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^，,]{0,8}?(?:接徽|拿徽|警徽)?/g;
+    var reWolf=/(\d{1,2})\s*号?[^，,]{0,12}?(?:狼人|狼|查杀)[^，,]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^，,]{0,8}?(?:接徽|拿徽|警徽)?/g;
+    var m;
+    while((m=reGood.exec(clause))){
+      var key='good|'+m[1]+'|'+m[2];
+      if(seen[key])continue;seen[key]=1;
+      out.push({condition:Number(m[1]),result:'好人',recipient:Number(m[2]),text:clause.trim()});
+    }
+    while((m=reWolf.exec(clause))){
+      var key2='wolf|'+m[1]+'|'+m[2];
+      if(seen[key2])continue;seen[key2]=1;
+      out.push({condition:Number(m[1]),result:'狼人',recipient:Number(m[2]),text:clause.trim()});
+    }
+  });
+  return out;
+}
+function wwBadgeFlowPlanRows(w){
+  if(!w)return [];
+  var b=wwBoard(w.count,w),claimRole=b.medium?'medium':'seer';
+  return wwPublicEventRows(w).filter(function(r){
+    return r&&/(?:警徽流|接徽|递徽|警徽给)/.test(r.text)&&
+      wwClaimIdentityRoles(r.text,r.p.seq).indexOf(claimRole)>=0;
+  }).slice(-4).map(function(r){
+    var parser=b.medium?wwOwnMediumChecks:wwOwnSeerChecks;
+    return {p:r.p,row:r,checks:parser(r.text),branches:wwBadgeFlowBranches(r.text)};
+  });
+}
+function wwBadgeFlowSemanticsText(w){
+  var plans=wwBadgeFlowPlanRows(w);
+  if(!plans.length)return '';
+  var L=['【警徽流语义（程序核对）】'];
+  plans.forEach(function(x){
+    var checks=x.checks.map(function(c){return c.seq+'号='+c.result}).join('、')||'没有已发生的本人报验';
+    var branches=x.branches.map(function(b){
+      return b.condition+'号'+(b.result==='好人'?'好':'是狼')+'→'+b.recipient+'号接徽';
+    }).join('；')||'暂未解析出明确分支，仍以原话为准';
+    L.push('· '+wwTag(x.p)+'（'+x.row.ref+'）：已发生查验：'+checks+'；条件接徽分支：'+branches+'。');
+  });
+  L.push('· “警徽流给Y”或“X好→Y接徽”是未来条件分支，不等于当前已经验过Y，也不等于现在断言Y是好人。'+
+    '把Y列为接徽候选不需要先验过Y；可以基于信任、后续查验条件或多条分支安排。'+
+    '只有原话实际说“我验过Y”或“Y是已验金水”时，才把Y记成查验结果。'+
+    '金水本人同时作为另一条分支的备选接徽人也完全合法，不是二选一。'+
+    '把好坏分支都讲完整属于清楚说明，不是“留后路”或狼点。');
+  return L.join('\n');
 }
 function wwOwnVoteIntentTargets(txt){
   var out=[],seen={};
@@ -34829,8 +34894,23 @@ function wwMinorWordingOnly(txt){
   if(!/(?:话糙|措辞|表达|用词|口误|说得不好|语气)/.test(s))return false;
   return !/(?:时间线|规则|技能结果|查验结果|票型承诺|正面冲突|自爆|改验|前后颠倒|漏报|冲突)/.test(s);
 }
-function wwQuestionLacksHardBasis(txt){
+function wwQuestionLacksHardBasis(txt,w){
   var s=String(txt||'');
+  if(/(?:金水|接徽|备位)[^。！？!?；;\n]{0,34}(?:还是|到底|既|又|同时|矛盾|二选一)/.test(s)&&
+    !/(?:时间线|规则|查验结果|技能结果|票型承诺|正面冲突)/.test(s))return true;
+  if(/(?:接徽|递徽|警徽流)[^。！？!?；;\n]{0,48}(?:没验|未验|几时验|什么时候验|没被验|没验过)|(?:没验|未验|几时验|什么时候验|没被验|没验过)[^。！？!?；;\n]{0,48}(?:接徽|递徽|警徽流)/.test(s)){
+    var plans=wwBadgeFlowPlanRows(w),seats=[],m,re=/(\d{1,2})\s*号/g;
+    while((m=re.exec(s)))seats.push(Number(m[1]));
+    if(plans.some(function(x){
+      var checked={};(x.checks||[]).forEach(function(c){checked[Number(c.seq)]=1});
+      return (x.branches||[]).some(function(b){
+        return (seats.indexOf(Number(b.condition))>=0||seats.indexOf(Number(b.recipient))>=0)&&
+          !checked[Number(b.condition)]&&!checked[Number(b.recipient)];
+      });
+    }))return true;
+  }
+  if(/(?:后路|退路)[^。！？!?；;\n]{0,10}(?:整齐|铺得|足|多)|(?:说|计划)[^。！？!?；;\n]{0,6}(?:太完整|太全面)/.test(s)&&
+    !/(?:时间线|规则|查验结果|技能结果|票型承诺|正面冲突)/.test(s))return true;
   if(/(?:警徽流|徽流)[^。！？!?；;\n]{0,30}(?:照抄|雷同|一字不差|完全一样)/.test(s)&&
     !/(?:实际接徽|接徽人|后续验人|时间线|规则|正面冲突|漏报|改验|技能结果)/.test(s))return true;
   if(/(?:更支持|相信|听|等|看)[^。！？!?；;\n]{0,18}后置位/.test(s)&&
@@ -34881,6 +34961,11 @@ function wwAnswerLike(txt){
    只认一句“话糙/措辞错了”但没有补出新的首夜选人理由，仍然算未解决。 */
 function wwAnswerResolvesText(q,a){
   q=String(q||'');a=String(a||'');
+  var badgeFlowQ=/(?:警徽流|徽流|接徽|递徽|备位)/.test(q)&&/(?:验过|没验|未验|金水|候选|后路|完整|整齐)/.test(q);
+  if(badgeFlowQ){
+    var badgeClarified=/(?:假设|条件|分支|只是.*(?:候选|备位|计划)|不代表|不等于|不是.*(?:验过|金水)|没(?:有)?说.*验过|没验|未验|没有验)/.test(a);
+    if(badgeClarified)return true;
+  }
   var mechanicDisplay=/机械狼/.test(q)&&/(?:学到|学习|学到|显示|查验|验到)/.test(q);
   if(mechanicDisplay){
     var correctTiming=/(?:机械狼[^。]{0,24})?(?:学习后|学到后|学完后)[^。]{0,28}(?:表面身份|显示身份|伪装身份)[^。]{0,20}(?:立即|马上|当场|就会|立刻|变成)|(?:表面身份|显示身份)[^。]{0,24}(?:学习后|学到后|学完后)[^。]{0,20}(?:立即|马上|当场|就会|立刻|变成)/.test(a);
@@ -34919,7 +35004,7 @@ function wwQuestionLedger(w){
     if(/(?:聊爆|圆不回来|不可能圆)/.test(r.text)&&/(?:验|查验|查杀|金水|时间线|上警|夜里|白天)/.test(r.text)&&fullTarget){
       var hardTarget=null;
       (w.players||[]).some(function(p){if(p&&Number(p.seq)===fullTarget){hardTarget=p;return true}return false});
-      if(hardTarget&&!wwQuestionLacksHardBasis(r.text)&&!(wwSingleClaimedGod(hardTarget,w)&&wwMinorWordingOnly(r.text))){
+      if(hardTarget&&!wwQuestionLacksHardBasis(r.text,w)&&!(wwSingleClaimedGod(hardTarget,w)&&wwMinorWordingOnly(r.text))){
         var hardKey=hardTarget.uid+'|聊爆/时间线',hardG=map[hardKey];
         if(!hardG){hardG={target:hardTarget,topic:'聊爆/时间线',asks:[],answers:[],status:'unanswered'};map[hardKey]=hardG;groups.push(hardG)}
         if(!hardG.asks.some(function(a){return a.ref===r.ref}))
@@ -34933,7 +35018,7 @@ function wwQuestionLedger(w){
       var target=null;
       (w.players||[]).some(function(p){if(p&&Number(p.seq)===ts){target=p;return true}return false});
       if(!target)return;
-      if(wwQuestionLacksHardBasis(c))return;
+      if(wwQuestionLacksHardBasis(c,w))return;
       if(wwSingleClaimedGod(target,w)&&wwMinorWordingOnly(c))return;
       var topics=wwQuestionTopics(c);
       if(!topics.length)return;
@@ -34985,7 +35070,7 @@ function wwQuestionLedgerText(w,p){
       if(!targetP)return;
       var asks=(qa.questionRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
       if(wwQuestionGroupArchived(w,targetP,asks))return;
-      if(asks.length&&asks.every(function(a){return wwQuestionLacksHardBasis(a.text)}))return;
+      if(asks.length&&asks.every(function(a){return wwQuestionLacksHardBasis(a.text,w)}))return;
       if(wwSingleClaimedGod(targetP,w)&&asks.length&&asks.every(function(a){return wwMinorWordingOnly(a.text)}))return;
       var mineAsk=asks.some(function(a){return a.uid===p.uid});
       var ans=(qa.answerRefs||[]).map(function(r){return refs[r]}).filter(Boolean);
@@ -35356,6 +35441,11 @@ function wwClaimReasoningIssue(say,w){
   clauses.forEach(function(c){
     if(!c||!c.trim())return;
     var denied=/(?:不能|别|不要|不等于|不代表|不是|并非|不足以|不应)/.test(c);
+    if(!denied&&/(?:后路|退路)[^。！？!?；;\n]{0,10}(?:整齐|铺得|足|多)|(?:说法|计划|分支)[^。！？!?；;\n]{0,6}(?:太完整|太全面)/.test(c)&&
+      !/(?:时间线|规则|查验结果|技能结果|票型承诺|正面冲突|具体矛盾)/.test(c)){
+      out.push({kind:'styleOnly',text:c});
+      return;
+    }
     if(WW_VAGUE_ATTACK_RE.test(c)){
       var safeVague=/(?:不能|不要|禁止|不应|不得)[^。！？!?；;\n]{0,30}(?:太满|太绝对|有点飘|太飘|跨得太大|跨的太大|跨度太大|推得太急|脑补太多|脑补过度)/.test(c)||
         /(?:太满|太绝对|有点飘|太飘|跨得太大|跨的太大|跨度太大|推得太急|脑补太多|脑补过度)[^。！？!?；;\n]{0,24}(?:不是证据|不能当证据|不能作为依据|不等于狼)/.test(c);
@@ -35553,7 +35643,7 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
   }else if(bad.kind==='poisonWolf'){
     correction='被女巫毒死只说明有人声称对她用了毒，或者夜里出现毒杀线索；不能证明她是狼。女巫可能毒错，被毒死的也可能是真通灵师或其他好人。请改为比较女巫声明真假、毒人时机和票局收益，不要用死亡反推阵营。';
   }else if(bad.kind==='styleOnly'){
-    correction='推理快、结论准、分析全面、发言强势或留有多条退路，都是表达和思考风格，不是身份证据。必须具体指出哪条事实前提错误、哪条规则冲突、哪条时间线或票型承诺矛盾；如果指不出来，就不能单凭这些风格理由怀疑或投票。';
+    correction='推理快、结论准、分析全面、发言强势，或把警徽流好坏两个分支都讲完整，都是表达和思考风格，不是身份证据。必须具体指出哪条事实前提错误、哪条规则冲突、哪条时间线或票型承诺矛盾；如果指不出来，就不能单凭“后路太整齐、说太完整”这类理由怀疑或投票。';
   }
   try{
     var ask='【内部推理核对】你刚才准备公开说：“'+bad.text+'”。这句话与记录或规则不合：'+correction+
@@ -35886,7 +35976,7 @@ function wwCoreReasoningIssue(say,w){
     if(dead&&!/(?:判断|认为|可能|按|如果|若|当作)/.test(c))return {kind:'deadRole',text:c,target:Number(dead[1])};
     if(/(?:女巫|毒药|开毒|毒死)[^。]{0,60}(?:所以|因此|说明|证明|等于|就是)[^。]{0,22}(?:狼|不是好人)/.test(c))
       return {kind:'poisonWolf',text:c};
-    if(/(?:推理|逻辑|判断|结论|分析|发言)[^。]{0,18}(?:太快|太准|太完整|太全面|太强势|太顺|退路.{0,8}足|留.{0,8}后路)[^。]{0,42}(?:狼|可疑|不信|投|票)/.test(c))
+    if(/(?:推理|逻辑|判断|结论|分析|发言|计划)[^。]{0,18}(?:太快|太准|太完整|太全面|太强势|太顺|退路.{0,8}足|留.{0,8}后路|后路.{0,8}(?:铺得|整齐|太足|太多))[^。]{0,42}(?:狼|可疑|不信|投|票)/.test(c))
       return {kind:'styleOnly',text:c};
   }
   return null;
@@ -38292,7 +38382,7 @@ function wwStyleOnlyVoteReason(txt){
   if(wwCoreReasoningIssue(t,V.ww))return false;   /* 核心规则错误单独走证据复核，不按普通风格处理 */
   var invalidNightBurden=wwNightKillExplanationIssues(t).length>0||
     /(?:没|不|未|回避)[^。！？!?；;\n]{0,12}(?:解释|回答)[^。！？!?；;\n]{0,20}(?:死|倒|刀口)|(?:死|倒|刀口)[^。！？!?；;\n]{0,20}(?:没|不|未|回避)[^。！？!?；;\n]{0,12}(?:解释|回答)/.test(t);
-  var style=/(?:激进|太主动|抢节奏|带节奏|控场|话多|话少|发言太短|太水|划水|语气|态度|不像.{0,8}(?:好人|玩家|AI|常规|正常)|看不懂|听不懂|读不懂|太绝对|太满|太飘|很怪|奇怪|不舒服|听感|直觉|预判|太有主见|不按.{0,8}(?:顺序|模板)|直接点.{0,8}狼坑|爱指挥|指挥.{0,8}(?:神职|预言家|女巫|守卫|猎人|通灵)|拒绝回答|不回答|回避质疑|回避问题|格格不入|票型两头站|反复换靶|暗跳.{0,12}(?:村民|民牌)|软跳.{0,12}(?:村民|民牌)|太快|太准|太完整|太全面|太强势|退路.{0,8}足|留.{0,8}后路)/.test(t);
+  var style=/(?:激进|太主动|抢节奏|带节奏|控场|话多|话少|发言太短|太水|划水|语气|态度|不像.{0,8}(?:好人|玩家|AI|常规|正常)|看不懂|听不懂|读不懂|太绝对|太满|太飘|很怪|奇怪|不舒服|听感|直觉|预判|太有主见|不按.{0,8}(?:顺序|模板)|直接点.{0,8}狼坑|爱指挥|指挥.{0,8}(?:神职|预言家|女巫|守卫|猎人|通灵)|拒绝回答|不回答|回避质疑|回避问题|格格不入|票型两头站|反复换靶|暗跳.{0,12}(?:村民|民牌)|软跳.{0,12}(?:村民|民牌)|太快|太准|太完整|太全面|太强势|退路.{0,8}足|留.{0,8}后路|后路.{0,8}(?:铺得|整齐|太足|太多)|(?:说|计划).{0,6}(?:太完整|太全面))/.test(t);
   var hard=/(?:时间线|夜数|规则冲突|技能结果|查验结果|报验结果|验人目标|金水|查杀|假验|对跳|具体身份|票型承诺|明确承诺|锁票|夜间记录|共边|不可能|正面矛盾|前后矛盾|硬冲突|承诺.{0,12}(?:冲突|违背|不符)|票型.{0,12}(?:冲突|违背|不符|反水)|身份.{0,12}(?:冲突|矛盾))/.test(t);
   return (invalidNightBurden||style)&&!hard;
 }
