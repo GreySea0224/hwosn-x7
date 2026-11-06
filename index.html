@@ -16315,6 +16315,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀同步收紧公开声明和事实的边界：女巫救人只证明被救者当过狼刀目标，不证明好人，自刀世界线必须保留；被女巫毒死不证明狼；未翻牌出局不能写成已知身份；上警没跳通灵/预言不等于狼；推理快、全面、准确、强势或留有多条世界线不能单独当狼点。程序会在发言和投票时检查这些错误，并把接警徽、警上听发言等状态按上述规则解释。
 狼人杀给普通狼新增“最终刀口账本”：以后每一夜都会区分个人想刀谁和狼队实际最终刀了谁，跨天保留，不能把狼队频道里自己的旧提议误记成团队行动。机械狼显示规则也纠正为：没学习显示“机械狼”，学到普通小狼显示“狼人”，学到村民或神职显示对应身份。若狼队实际刀过某人、该人又被单边高可信通灵报成“狼人”，程序会同时保留“真通灵＋被误刀的机械狼”和“假验＋误刀好人”两条世界线，不能再说“机械狼绝不会显示狼人”。旧版本里“机械狼不会显示普通狼人”的说法一律以本条修正为准。
 狼人杀警徽流现在会拆成“已发生查验”和“条件接徽分支”两部分。把5号写成“5号好就5号接徽”只是条件候选，不代表已经验过5号；接徽候选也不需要先验过。一个人是已声明金水，同时又是另一条分支的备选接徽人，并不矛盾。警徽流好坏分支都讲完整属于说明清楚，不是“留后路”。错误质疑被识别后不再进入未解决问答记录；像“后路铺得太整齐、说得太完整”这类没有硬矛盾的说法也不会作为怀疑或投票依据。
+狼人杀“重新说一遍”现在会恢复该条发言当时的上下文：只看到原发言之前的人、当时的顺序和上警状态，不会提前看到后来玩家的发言或整轮完成状态；重说完成后再恢复当前进度和后面的记录。重说失败时会保留原来的发言，不会留下空缺。
+狼人杀白天的进度现在每完成一条 AI 或真人发言都会立即存档；警长竞选也会保存已发言的上警者、退水决定和当前步骤。中途退出、刷新或重新进入时，会从还没发言的人继续，不再回到当天开头，也不会重复已经完成的竞选发言。
 
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
@@ -16546,7 +16548,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=129;  /* 129：区分警徽流条件候选与已发生查验，并关闭伪逻辑质问复读 */
+const GUIDE_VER=130;  /* 130：修复重说时点上下文和白天/竞选即时续局 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -40565,8 +40567,20 @@ function wwStaleG(g){return g!==((V.ww&&V.ww.gen)||0)}
 function wwPushSay(g,o){
   if(wwStaleG(g))return false;
   if(o&&o.k==='say'){
+    var w=V.ww;
     var p=wwPlayerByUid(o.who);
     if(p&&p._lastSayTitle){o.title=String(p._lastSayTitle).slice(0,24);p._lastSayTitle=''}
+    if(w&&p&&!p.isUser&&!o.ctx){
+      o.ctx={
+        day:Number(w.day)||1,phase:w.phase||'day',dayStage:w.dayStage||'',
+        speechMode:w.speechMode||'',speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),
+        speaking:w.speaking||p.uid,spoke:Object.assign({},w.spoke||{}),
+        electing:!!w.electing,upSpoke:Object.assign({},w.upSpoke||{}),
+        policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),policeAll:(w.policeAll||[]).slice(),
+        sheriffUid:w.sheriffUid||null,sheriffDone:!!w.sheriffDone,badgeGone:!!w.badgeGone,
+        seerRetractions:Object.assign({},w.seerRetractions||{}),inPK:!!w.inPK
+      };
+    }
   }
   V.ww.log.push(o);return true
 }
@@ -41216,111 +41230,129 @@ async function wwPolicePoll(gen,cand){
   return null;
 }
 /* 走一遍完整的警长竞选（只在第一天的白天、开上警时调用） */
-async function wwElection(){
+async function wwElection(resume){
   var w=V.ww,gen=wwGenNow();
   if(!w.players||w.players.length<3)return;
-  w.policeUp=[];w.policeOrder=[];w.policeVote={};w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;
-  w.policeAll=[];w.upSpoke={};
-  w.upMoodCount=0;
-  w.log.push({k:'sys',text:'🗳️ 开始警长竞选。'});
-  render(true);
-  /* ① 表态：谁上警（第一夜死的人也可以上警） —— AI 在后台一个个决定，你同时选自己的 */
-  var chain=Promise.resolve();
-  wwShuffle(w.players.filter(function(p){return p&&!p.isUser})).forEach(function(p){
-    chain=chain.then(function(){
-      if(wwStaleG(gen))return;
-      return wwPoliceDecide(p).then(function(yes){if(wwStaleG(gen))return;if(yes)w.policeUp.push(p.uid);render(true)},function(){render(true)});
-    });
-  });
-  var me=wwMe();
-  if(me){
-    var ru=await wwAskOpt('🗳️ 你要上警吗？',[['上警',1],['不上警',0]]);
-    if(wwStaleG(gen))return;
-    if(ru&&ru.val===1)w.policeUp.push(me.uid);
-  }
-  w.msg='大家正在陆续表态…';render(true);
-  await chain;
-  if(wwStaleG(gen)||wwDayCut())return;
-  var up=wwPoliceUpP();
-  var policeMade=wwPoliceOrderMake(up);
-  w.policeOrder=policeMade.list.map(function(p){return p.uid});
-  w.policeAll=up.map(function(p){return p.uid});   /* 【新】记下「上过警的人」（含后来退水的）：退水的人不能再投警长票 */
-  if(!up.length){w.log.push({k:'sys',text:'无人上警，本局无警长。'});w.sheriffDone=true;render(true);return}
-  w.log.push({k:'sys',text:'上警：'+up.map(function(p){return p.seq||'?'}).join('/')});
-  w.log.push({k:'sys',text:'上警发言顺序（随机起点 · '+(policeMade.dir===-1?'逆序':'正序')+'）：'+wwPoliceOrderP().map(wwTag).join(' → ')});
-  render(true);
-  if(up.length===1){w.sheriffUid=up[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:wwTag(up[0])+'直接当选警长。'});render(true);return}
-  var cand=wwPoliceOrderP();
-  /* ② 警上发言（随机起点＋正序/逆序，只决定流程，不代表身份） */
-  for(var j=0;j<cand.length;j++){
-    var q=cand[j];if(wwStaleG(gen))return;
-    w.speaking=q.uid;
-    /* 【新】白狼王可以在竞选警长发言的时候自爆 */
-    if(q.role==='wolfking'&&!w.kingBoom){if(await wwKingTry(gen,q))return;if(wwStaleG(gen)||wwDayCut())return;}
-    if(q.isUser){
-      var rs=await wwAskSay('🗳️ 竞选发言：说身份、打法、怀疑谁。','不发言');
-      if(wwStaleG(gen))return;
-      if(rs&&rs.boom)return;             /* 【新】你在竞选发言框里点了自爆 */
-      if(rs.text){
-        if(!await wwPushUserSay(gen,q.uid,'【竞选发言】'+rs.text))return;
-      }
-      else w.log.push({k:'sys',text:wwTag(q)+'未发言。'});
-    }else{
-      await wwStep('轮到「'+wwTag(q)+'」竞选发言');
-      if(wwStaleG(gen))return;
-      w.msg='「'+wwTag(q)+'」正在竞选发言…';render(true);
-      var ss=await wwPoliceSpeech(q);
-      if(wwStaleG(gen)||wwDayCut())return;   /* 【新】这中间白狼王自爆了：这段竞选发言作废 */
-      if(!wwPushSay(gen,{k:'say',who:q.uid,text:'【竞选发言】'+ss,think:wwThinkOf(q)}))return;
-    }
-    if(wwDayCut())return;    /* 【新】你在这段发言里点了自爆：竞选到此为止 */
-    w.upSpoke[q.uid]=1;      /* 竞选发言说完了：座位下面显示「已发言」 */
-    render(true);w.speaking=null;
-  }
-  /* ③ 退水（AI 在后台决定，你同时选自己的） */
-  var chain2=Promise.resolve(),retired=[];
-  cand.filter(function(p){return !p.isUser}).forEach(function(c){
-    chain2=chain2.then(function(){
-      if(wwStaleG(gen))return;
-      return wwPoliceWater(c).then(function(wa){
+  var resuming=!!resume&&(w.policeAll||[]).length>0;
+  if(!resuming){
+    w.policeUp=[];w.policeOrder=[];w.policeVote={};w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;
+    w.policeAll=[];w.upSpoke={};w.electionStage='decide';w.policeWaterDone={};w.policeRetired=[];
+    w.upMoodCount=0;
+    w.log.push({k:'sys',text:'🗳️ 开始警长竞选。'});
+    render(true);wwSave(true);
+    /* ① 表态：谁上警（第一夜死的人也可以上警） —— AI 在后台一个个决定，你同时选自己的 */
+    var chain=Promise.resolve();
+    wwShuffle(w.players.filter(function(p){return p&&!p.isUser})).forEach(function(p){
+      chain=chain.then(function(){
         if(wwStaleG(gen))return;
-        if(wa){w.policeUp=w.policeUp.filter(function(u){return u!==c.uid});retired.push(c);render(true);}
-      },function(){});
+        return wwPoliceDecide(p).then(function(yes){if(wwStaleG(gen))return;if(yes)w.policeUp.push(p.uid);render(true)},function(){render(true)});
+      });
     });
-  });
-  var myCand=cand.filter(function(p){return p.isUser})[0];
-  if(myCand){
-    var rw=await wwAskOpt(wwTxt('🗳️ 竞选发言说完了：你要退水（不再争这个警长）吗？','🗳️ 竞选发言结束：你要退水（退出竞选）吗？'),[['不退水，继续选',1],['退水',0]]);
-    if(wwStaleG(gen))return;
-    if(rw&&rw.val===0){w.policeUp=w.policeUp.filter(function(u){return u!==myCand.uid});retired.push(myCand);render(true)}
-  }
-  w.msg='其他人正在决定退不退水…';render(true);
-  await chain2;
-  if(wwStaleG(gen)||wwDayCut())return;
-  if(retired.length){
-    retired.sort(function(a,b){return (a.seq||99)-(b.seq||99)});
-    w.seerRetractions=w.seerRetractions||{};
-    var retiredText=retired.map(function(p){
-      if(wwWasCampaignSeerClaim(w,p)){
-        w.seerRetractions[p.uid]=Number(w.day)||1;
-        return wwTag(p)+'疑似代跳后退水，查验作废。';
-      }
-      return wwTag(p)+'退水。';
-    }).join(' ');
-    w.log.push({k:'sys',text:'🙇 '+retiredText});
+    var me=wwMe();
+    if(me){
+      var ru=await wwAskOpt('🗳️ 你要上警吗？',[['上警',1],['不上警',0]]);
+      if(wwStaleG(gen))return;
+      if(ru&&ru.val===1)w.policeUp.push(me.uid);
+    }
+    w.msg='大家正在陆续表态…';render(true);
+    await chain;
+    if(wwStaleG(gen)||wwDayCut())return;
+    var up0=wwPoliceUpP();
+    var policeMade=wwPoliceOrderMake(up0);
+    w.policeOrder=policeMade.list.map(function(p){return p.uid});
+    w.policeAll=up0.map(function(p){return p.uid});
+    if(!up0.length){w.log.push({k:'sys',text:'无人上警，本局无警长。'});w.sheriffDone=true;w.electionStage='done';render(true);wwSave(true);return}
+    w.log.push({k:'sys',text:'上警：'+up0.map(function(p){return p.seq||'?'}).join('/')});
+    w.log.push({k:'sys',text:'上警发言顺序（随机起点 · '+(policeMade.dir===-1?'逆序':'正序')+'）：'+wwPoliceOrderP().map(wwTag).join(' → ')});
+    w.electionStage='speech';render(true);wwSave(true);
+  }else{
+    w.electing=true;
     render(true);
   }
+  var up=wwPoliceUpP();
+  if(!up.length){
+    w.log.push({k:'sys',text:'无人上警，本局无警长。'});w.sheriffDone=true;w.electionStage='done';render(true);wwSave(true);return;
+  }
+  if(up.length===1&&w.electionStage!=='water'&&w.electionStage!=='vote'){
+    w.sheriffUid=up[0].uid;w.sheriffDone=true;w.electionStage='done';
+    w.log.push({k:'sys',text:wwTag(up[0])+'直接当选警长。'});render(true);wwSave(true);return;
+  }
+  var cand=(w.policeOrder||[]).map(wwPlayerByUid).filter(function(p){return p&&(w.policeAll||[]).indexOf(p.uid)>=0});
+  if(!cand.length)cand=wwPoliceOrderP();
+  if(w.electionStage==='speech'){
+    /* ② 警上发言：已经说完的人不会在续局时重复。 */
+    for(var j=0;j<cand.length;j++){
+      var q=cand[j];if(wwStaleG(gen))return;
+      if(w.upSpoke&&w.upSpoke[q.uid])continue;
+      w.speaking=q.uid;
+      if(q.role==='wolfking'&&!w.kingBoom){if(await wwKingTry(gen,q))return;if(wwStaleG(gen)||wwDayCut())return;}
+      if(q.isUser){
+        var rs=await wwAskSay('🗳️ 竞选发言：说身份、打法、怀疑谁。','不发言');
+        if(wwStaleG(gen))return;
+        if(rs&&rs.boom)return;
+        if(rs.text){
+          if(!await wwPushUserSay(gen,q.uid,'【竞选发言】'+rs.text))return;
+        }else w.log.push({k:'sys',text:wwTag(q)+'未发言。'});
+      }else{
+        await wwStep('轮到「'+wwTag(q)+'」竞选发言');
+        if(wwStaleG(gen))return;
+        w.msg='「'+wwTag(q)+'」正在竞选发言…';render(true);
+        var ss=await wwPoliceSpeech(q);
+        if(wwStaleG(gen)||wwDayCut())return;
+        if(!wwPushSay(gen,{k:'say',who:q.uid,text:'【竞选发言】'+ss,think:wwThinkOf(q)}))return;
+      }
+      if(wwDayCut())return;
+      w.upSpoke[q.uid]=1;
+      render(true);w.speaking=null;wwSave(true);
+    }
+    w.electionStage='water';wwSave(true);
+  }
+  if(w.electionStage==='water'){
+    /* ③ 退水：每个人的决定都记录，续局不会重复问已经决定过的人。 */
+    w.policeWaterDone=Object.assign({},w.policeWaterDone||{});
+    w.policeRetired=(w.policeRetired||[]).slice();
+    function markRetired(c){
+      if(!c||(w.policeUp||[]).indexOf(c.uid)<0)return;
+      w.policeUp=w.policeUp.filter(function(u){return u!==c.uid});
+      if(w.policeRetired.indexOf(c.uid)<0)w.policeRetired.push(c.uid);
+      var text=wwTag(c)+'退水。';
+      if(wwWasCampaignSeerClaim(w,c)){
+        w.seerRetractions=w.seerRetractions||{};
+        w.seerRetractions[c.uid]=Number(w.day)||1;
+        text=wwTag(c)+'疑似代跳后退水，查验作废。';
+      }
+      w.log.push({k:'sys',text:'🙇 '+text});render(true);
+    }
+    for(var wi=0;wi<cand.length;wi++){
+      var c=cand[wi];if(!c||c.isUser||w.policeWaterDone[c.uid])continue;
+      var water=false;
+      try{water=await wwPoliceWater(c)}catch(e){water=false}
+      if(wwStaleG(gen))return;
+      w.policeWaterDone[c.uid]=1;
+      if((w.policeRetired||[]).indexOf(c.uid)<0&&(w.policeUp||[]).indexOf(c.uid)>=0&&water)markRetired(c);
+      wwSave(true);
+    }
+    var myCand=cand.filter(function(p){return p&&p.isUser})[0];
+    if(myCand&&!w.policeWaterDone[myCand.uid]){
+      var rw=await wwAskOpt(wwTxt('🗳️ 竞选发言说完了：你要退水（不再争这个警长）吗？','🗳️ 竞选发言结束：你要退水（退出竞选）吗？'),[['不退水，继续选',1],['退水',0]]);
+      if(wwStaleG(gen))return;
+      w.policeWaterDone[myCand.uid]=1;
+      if(rw&&rw.val===0)markRetired(myCand);
+      wwSave(true);
+    }
+    w.electionStage='vote';wwSave(true);
+  }
   var left=wwPoliceUpP().sort(function(a,b){return (a.seq||0)-(b.seq||0)});
-  if(!left.length){w.log.push({k:'sys',text:'全员退水，本局无警长。'});w.sheriffDone=true;render(true);return}
-  if(left.length===1){w.sheriffUid=left[0].uid;w.sheriffDone=true;w.log.push({k:'sys',text:wwTag(left[0])+'直接当选警长。'});render(true);return}
+  if(!left.length){w.log.push({k:'sys',text:'全员退水，本局无警长。'});w.sheriffDone=true;w.electionStage='done';render(true);wwSave(true);return}
+  if(left.length===1){w.sheriffUid=left[0].uid;w.sheriffDone=true;w.electionStage='done';w.log.push({k:'sys',text:wwTag(left[0])+'直接当选警长。'});render(true);wwSave(true);return}
   /* ④ 警下投票选警长 */
   var win=await wwPolicePoll(gen,left);
   if(wwStaleG(gen))return;
-  if(!win){w.log.push({k:'sys',text:'警长票未决，本局无警长。'});w.sheriffDone=true;render(true);return}
-  w.sheriffUid=win.uid;w.sheriffDone=true;
+  if(!win){w.log.push({k:'sys',text:'警长票未决，本局无警长。'});w.sheriffDone=true;w.electionStage='done';render(true);wwSave(true);return}
+  w.sheriffUid=win.uid;w.sheriffDone=true;w.electionStage='done';
   w.log.push({k:'sys',text:'👮 '+wwTag(win)+'当选警长。'});
   w.rec.push({d:w.day,t:'警长竞选：'+wwTag(win)+' 当选警长'});
-  render(true);
+  render(true);wwSave(true);
 }
 /* 警长决定今天的发言顺序 */
 async function wwDecideOrder(){
@@ -41532,7 +41564,7 @@ async function wwApplyPendingDeaths(){
   /* 【修】这句以前写死成网杀的「第 N 天早上」，面杀里也照抄了 —— 改成跟着玩法走。 */
   w.log.push({k:'sys',text:'第 '+w.day+' 天：'+
     (ds.length?(ds.map(function(x){return wwTag(x)}).join('、')+'出局。'):'平安夜。')});
-  render(true);
+  render(true);wwSave(true);
 }
 /* 【新·面杀】把「夜间 · 你的房间」那一晚的对话，整理成一段文字。
    传进谁看（uid），就把它自己说的话写成「你自己说」——这段只给进过那间房、
@@ -41627,9 +41659,11 @@ async function wwDay(){
   var gen=wwGenNow();
   var resumedDay=!!w._resumeDayInProgress;   /* 白天中途续局：保留今天已经完成的发言进度 */
   w._resumeDayInProgress=false;
+  var resumedElection=!!w._resumeElectionInProgress;
+  w._resumeElectionInProgress=false;
   w.scene='noon';      /* 【修】新的一天从「白天」开始（中午那张）；投票时会切成黄昏 */
   w.inPK=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;
-  if(!resumedDay){
+  if(!resumedDay&&!resumedElection){
     w.dayStage='speech';
     w.spoke={};          /* 新的一天：发言记录清空（座位上的「未发言/已发言」靠它） */
     w.votes={};          /* 新的一天：先把昨天的票清掉，座位上的「已投票」才不会残留 */
@@ -41639,9 +41673,9 @@ async function wwDay(){
   /* 【新】第一天：先上警（警长竞选），死讯要等警长选完才公布（只有开了上警、8 人及以上才有） */
   if(!resumedDay&&w.day===1&&wwSheriffOn()&&!w.sheriffDone){
     w.electing=true;
-    await wwElection();
+    await wwElection(resumedElection);
     w.electing=false;
-    render(true);
+    render(true);wwSave(true);
     if(wwStaleG(gen))return;
     await wwKnightAfterElection();
     if(wwStaleG(gen))return;
@@ -41708,6 +41742,12 @@ async function wwDay(){
     else{w.speechStart='';w.speechDir=1;w.speechMode='random';}
   }
   var _so=wwSpeechOrderList(),order=_so.list,lastSpoken=null;
+  if(resumedDay){
+    var _todaySays=wwPublicEventRows(w).filter(function(r){return r.day===Number(w.day)});
+    if(_todaySays.length)lastSpoken=_todaySays[_todaySays.length-1].p;
+    var _allDone=order.every(function(x){return !x.alive||(w.spoke&&w.spoke[x.uid])});
+    if(_allDone)w.speaking=null;
+  }
   if(!resumedDay&&order.length&&!wwHasBadge())w.log.push({k:'sys',text:'发言：'+wwTag(order[0])+'起，'+( _so.dir===-1?'逆序':'正序')});
   for(var j=0;j<order.length;j++){
     var q=order[j];if(!q.alive)continue;
@@ -41726,6 +41766,7 @@ async function wwDay(){
       }
       else w.log.push({k:'sys',text:wwTag(q)+'跳过。'});
       w.spoke[q.uid]=1;
+      wwSave(true);
     }else{
       await wwStep('轮到「'+wwTag(q)+'」发言');
       if(wwStaleG(gen))return;
@@ -41734,6 +41775,7 @@ async function wwDay(){
       if(wwStaleG(gen)||wwDayCut())return;   /* 【新】这中间白狼王自爆了：这段发言作废、不再写进记录 */
       if(!wwPushSay(gen,{k:'say',who:q.uid,text:s,think:wwThinkOf(q)}))return;   /* 中间换了局就别写进去 */
       w.spoke[q.uid]=1;
+      wwSave(true);
     }
     lastSpoken=q;
     if(q.role==='knight'&&q.alive&&!q.isUser&&!wwDayCut()){
@@ -41806,6 +41848,7 @@ async function wwDay(){
         lastPk=pp;
         render(true);
         w.speaking=null;
+        wwSave(true);
         if(wwCheckOver())return;
       }
       if(lastPk&&!lastPk.isUser&&!w.over&&!wwDayCut()){
@@ -41973,7 +42016,9 @@ function wwSnap(){
     pick:w.pick,autoWatch:!!w.autoWatch,sayTok:w.sayTok||0,
     sheriff:(w.sheriff!==false),sheriffUid:w.sheriffUid||null,badgeGone:!!w.badgeGone,sheriffDone:!!w.sheriffDone,
     policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),speechMode:w.speechMode||'',
-    policeAll:(w.policeAll||[]).slice(),seerRetractions:Object.assign({},w.seerRetractions||{}),
+    policeAll:(w.policeAll||[]).slice(),upSpoke:Object.assign({},w.upSpoke||{}),electing:!!w.electing,electionStage:w.electionStage||'',
+    policeWaterDone:Object.assign({},w.policeWaterDone||{}),policeRetired:(w.policeRetired||[]).slice(),
+    seerRetractions:Object.assign({},w.seerRetractions||{}),
     board:wwBoardSafe(w.board),guardLast:w.guardLast||'',lastExile:w.lastExile?{day:Number(w.lastExile.day)||0,uid:w.lastExile.uid}:null,
     nightmareMetWolves:!!w.nightmareMetWolves,nightmareLast:w.nightmareLast||'',kingBoom:!!w.kingBoom,kingNote:w.kingNote||'',mechKnifeStartedDay:Number(w.mechKnifeStartedDay)||0,
     knightUsed:!!w.knightUsed,inPK:!!w.inPK,
@@ -42059,8 +42104,10 @@ function wwApplySnap(s,recId){
   /* 【新】警长（上警）的状态也要接回来 */
   w.sheriff=(s.sheriff===true);w.sheriffUid=s.sheriffUid||null;w.badgeGone=!!s.badgeGone;w.sheriffDone=!!s.sheriffDone;
   w.policeUp=(s.policeUp||[]).slice();w.policeOrder=(s.policeOrder||[]).slice();w.speechStart=s.speechStart||'';w.speechDir=(s.speechDir===-1)?-1:1;w.speechMode=s.speechMode||'';
-  w.policeAll=(s.policeAll||[]).slice();w.upSpoke={};
-  w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;w.electing=false;
+  w.policeAll=(s.policeAll||[]).slice();w.upSpoke=Object.assign({},s.upSpoke||{});
+  w.electing=!!s.electing;w.electionStage=s.electionStage||'';
+  w.policeWaterDone=Object.assign({},s.policeWaterDone||{});w.policeRetired=(s.policeRetired||[]).slice();
+  w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;
   w.board=wwBoardSafe(s.board);w.guardLast=s.guardLast||'';w.lastExile=s.lastExile?{day:Number(s.lastExile.day)||0,uid:s.lastExile.uid}:null;
   w.nightmareMetWolves=!!s.nightmareMetWolves;w.nightmareLast=s.nightmareLast||'';w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.mechKnifeStartedDay=Number(s.mechKnifeStartedDay)||0;w.dayOver=0;
   w.knightUsed=!!s.knightUsed;w.knightAsk=null;w.knightSelected='';w.inPK=!!s.inPK;w.dualSeerClaims=false;
@@ -42248,6 +42295,14 @@ function wwResume(id){
   if(!s)s=wwSnapFromRec(rec);
   if(!s||!(s.players||[]).length)return toast('这局没法接着玩了');
   wwApplySnap(s,rec.id);
+  if(w.electing&&!w.sheriffDone){
+    w.resume='day';
+    w._resumeElectionInProgress=true;
+    V.view='ww';render(true);
+    wwBgmAuto();
+    wwLoop();
+    return;
+  }
   if(w.nightDone!==false){
     var dayResolved=wwResumeDayAlreadyResolved(w);
     if(dayResolved&&!w.over){
@@ -42669,7 +42724,7 @@ function wwStart(){
   /* 【新】警长（上警）：每一局都重新来 */
   w.sheriffUid=null;w.badgeGone=false;w.sheriffDone=false;w.policeUp=[];w.policeOrder=[];w.policeVote={};w.speechStart='';w.speechDir=1;
   w.pendingDeaths=null;w.electing=false;
-  w.policeAll=[];w.upSpoke={};w.seerRetractions={};
+  w.policeAll=[];w.upSpoke={};w.seerRetractions={};w.electionStage='';w.policeWaterDone={};w.policeRetired=[];
   w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
   w.guardLast='';w.kingBoom=false;w.kingNote='';w.dayOver=0;
   w.knightUsed=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.inPK=false;w.dualSeerClaims=false;
@@ -43233,15 +43288,43 @@ async function wwResayGo(){
   var idx=w.resayIdx,ruid=w.resayUid||'',rkey=w.resayKey||'',note=String(w.resayNote||'').trim().slice(0,2000);
   w.resayIdx=null;w.resayNote='';
   var gen=w.gen||0,log=w.log;       /* 记下这是哪一局：中途换了新局，结果就不能再塞回去 */
+  var tail=[],live=null,oldSay=null,restored=false;
   try{
     var e=w.log[idx],p=e?wwPlayerByUid(e.who):null;
     /* 核对还是刚才长按的那一条（万一这中间游戏往前走了，就不能乱改） */
     if(!e||e.k!=='say'||!p||p.isUser||e.who!==ruid||(rkey&&String(e.text||'').slice(0,10)!==rkey)){render(false);return}
     if(w.running&&!w.gateResolve&&!w.userAsk){toast('正在自动往下演，先点左上角「暂停」再重说');render(false);return}
-    var wasLW=String(e.text||'').indexOf('【遗言】')===0;
-    var wasCampaign=String(e.text||'').indexOf('【竞选发言】')===0;
-    var previous=String(e.text||'');
-    w.log.splice(idx,1);
+    oldSay=e;
+    var wasLW=String(oldSay.text||'').indexOf('【遗言】')===0;
+    var wasCampaign=String(oldSay.text||'').indexOf('【竞选发言】')===0;
+    var previous=String(oldSay.text||'');
+    tail=w.log.slice(idx+1);
+    live={
+      day:w.day,phase:w.phase,dayStage:w.dayStage||'',speechMode:w.speechMode||'',speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),
+      speaking:w.speaking||null,spoke:Object.assign({},w.spoke||{}),electing:!!w.electing,upSpoke:Object.assign({},w.upSpoke||{}),
+      policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),policeAll:(w.policeAll||[]).slice(),
+      sheriffUid:w.sheriffUid||null,sheriffDone:!!w.sheriffDone,badgeGone:!!w.badgeGone,
+      seerRetractions:Object.assign({},w.seerRetractions||{}),inPK:!!w.inPK
+    };
+    /* 临时回到这条发言产生时的上下文：后面的发言、后来的投票结果和整轮完成状态都不让它提前看到。 */
+    w.log.splice(idx,w.log.length-idx);
+    var ctx=oldSay.ctx||null;
+    if(ctx){
+      w.day=Number(ctx.day)||w.day;w.phase=ctx.phase||'day';w.dayStage=ctx.dayStage||'speech';
+      w.speechMode=ctx.speechMode||'';w.speechStart=ctx.speechStart||'';w.speechDir=ctx.speechDir===-1?-1:1;
+      w.speaking=p.uid;w.spoke=Object.assign({},ctx.spoke||{});w.electing=!!ctx.electing;w.upSpoke=Object.assign({},ctx.upSpoke||{});
+      w.policeUp=(ctx.policeUp||[]).slice();w.policeOrder=(ctx.policeOrder||[]).slice();w.policeAll=(ctx.policeAll||[]).slice();
+      w.sheriffUid=ctx.sheriffUid||null;w.sheriffDone=!!ctx.sheriffDone;w.badgeGone=!!ctx.badgeGone;
+      w.seerRetractions=Object.assign({},ctx.seerRetractions||{});w.inPK=!!ctx.inPK;
+    }else{
+      var prefixRows=wwPublicEventRows({players:w.players,log:w.log.slice()}).filter(function(r){return r.day===Number(w.day)});
+      w.spoke={};w.upSpoke={};
+      prefixRows.forEach(function(r){
+        if(/^【竞选发言】/.test(String(r.e&&r.e.text||'')))w.upSpoke[r.uid]=1;
+        else w.spoke[r.uid]=1;
+      });
+      w.speaking=p.uid;w.electing=wasCampaign;w.dayStage='speech';w.inPK=false;
+    }
     w.resayOn=true;
     w.msg='「'+wwTag(p)+'」正在'+(note?'按备注纠正并重新说':'重新说')+'…';render(true);
     var t='';
@@ -43253,14 +43336,39 @@ async function wwResayGo(){
       t=wasLW?('【遗言】'+(blownLW?await wwBlownWordsLine(p):await wwLastWords(p,resay))):
         (wasCampaign?('【竞选发言】'+await wwPoliceSpeech(p,resay)):await wwSpeech(p,resay));
     }catch(err){t=''}
+    var newThink=t?wwThinkOf(p):'';
+    /* 恢复当前真实进度和这条发言之后已经存在的记录。 */
+    w.day=live.day;w.phase=live.phase;w.dayStage=live.dayStage;w.speechMode=live.speechMode;w.speechStart=live.speechStart;w.speechDir=live.speechDir;
+    w.speaking=live.speaking;w.spoke=live.spoke;w.electing=live.electing;w.upSpoke=live.upSpoke;
+    w.policeUp=live.policeUp;w.policeOrder=live.policeOrder;w.policeAll=live.policeAll;
+    w.sheriffUid=live.sheriffUid;w.sheriffDone=live.sheriffDone;w.badgeGone=live.badgeGone;
+    w.seerRetractions=live.seerRetractions;w.inPK=live.inPK;
     if(gen!==(w.gen||0)||w.log!==log){w.resayOn=false;return}   /* 已经开了新的一局：这次结果丢掉，免得出现"上一局的人" */
-    if(!t)t=(wasLW?'【遗言】':'')+'（'+wwTag(p)+' 想了想，没说什么。）';
-    w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:wwThinkOf(p),title:(p&&p._lastSayTitle)||'',resayNote:note});
+    if(t){
+      w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:newThink,title:(p&&p._lastSayTitle)||'',resayNote:note,ctx:oldSay.ctx||null});
+    }else{
+      w.log.splice(idx,0,oldSay);
+      try{toast('这次没有生成新发言，原来的发言已保留')}catch(e){}
+    }
+    if(tail.length)w.log.push.apply(w.log,tail);
+    restored=true;
     if(p)p._lastSayTitle='';
     w.resayOn=false;w.msg='';render(true);
-    if(w.over)wwSave(true);
+    wwSave(true);
   }catch(err){
-    try{if(gen===(w.gen||0)){w.resayOn=false;w.msg='';render(true)}}catch(x){}
+    try{
+      if(gen===(w.gen||0)&&w.log===log&&!restored&&live){
+        w.day=live.day;w.phase=live.phase;w.dayStage=live.dayStage;w.speechMode=live.speechMode;w.speechStart=live.speechStart;w.speechDir=live.speechDir;
+        w.speaking=live.speaking;w.spoke=live.spoke;w.electing=live.electing;w.upSpoke=live.upSpoke;
+        w.policeUp=live.policeUp;w.policeOrder=live.policeOrder;w.policeAll=live.policeAll;
+        w.sheriffUid=live.sheriffUid;w.sheriffDone=live.sheriffDone;w.badgeGone=live.badgeGone;
+        w.seerRetractions=live.seerRetractions;w.inPK=live.inPK;
+        w.log.splice(idx,w.log.length-idx);
+        w.log.splice(idx,0,oldSay);
+        if(tail.length)w.log.push.apply(w.log,tail);
+      }
+      if(gen===(w.gen||0)){w.resayOn=false;w.msg='';render(true)}
+    }catch(x){}
   }
 }
 /* 只刷新中间发言记录：展开/收起标题时不重画整张牌桌，避免手机重新合成整屏背景。 */
