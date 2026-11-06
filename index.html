@@ -16319,6 +16319,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀白天的进度现在每完成一条 AI 或真人发言都会立即存档；警长竞选也会保存已发言的上警者、退水决定和当前步骤。中途退出、刷新或重新进入时，会从还没发言的人继续，不再回到当天开头，也不会重复已经完成的竞选发言。
 狼人杀底栏“标记”右边新增“本局笔记”：按座位号竖排，每个玩家可以单独记身份、发言、狼点和票向；下面会自动列出上警玩家信息和当前公开票型。笔记跟着本局存档，退出刷新后还在。上警公告里的座位号也改为从小到大排列。
 狼人杀公开发言新增两项清理：如果模型把“系统提示、内部核对、输出格式”等幕后文字说出来，只会删掉这些泄漏句，不会整段替换角色正文；如果发言停在“我反过来问你”这类半句话上，会先要求从头补完整，仍失败时优先保留原来完整的公开发言。
+狼人杀第一夜出局者说完遗言后会停下来，等用户点「继续」再处理下一步，方便刷新或检查。未结束的狼人杀战绩默认隐藏身份、夜间行动和狼队频道，只显示公开记录；可以从详情直接继续游戏，也可以选择“直接查看身份”，但查看后这局就不能再继续。
+狼人杀对跳验人新增世界线成本规则：未证实的验人不能因为“刚好能解释对方为什么知道某身份”就被当成是真的；目标先公开并确认某个身份时，后来者说“她其实是机械狼”仍只是另一条声明，不能让后来者因为解释完整就自动取得更高可信度。
 
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
@@ -16550,7 +16552,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=131;  /* 131：增加本局笔记、上警排序，并修复系统词泄漏和半句截断 */
+const GUIDE_VER=132;  /* 132：增加遗言确认、未完局防剧透和验人世界线成本 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -35373,7 +35375,7 @@ function wwSpeechLooksCut(txt){
 function wwStripInternalSpeechLeak(txt){
   var s=String(txt||'');
   var parts=s.match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[];
-  var leak=/(?:系统提示词|系统规则|内部提示|内部核对|内部推理核对|投票理由复核|发言与追问核对|公开事实核对|已关闭旧话题|提示词|输出格式|原发言\s*[:：]|上一版\s*[:：]|请保持原角色|重写完整公开发言|不要解释这条内部|不能提及规则|用户要求我重写)/;
+  var leak=/(?:系统提示词|系统规则|内部提示|内部核对|内部推理核对|投票理由复核|投票事实核对|发言与追问核对|公开事实核对|单边验人位投票复核|女巫遗言时间线纠正|濒死身份止损重写|悍跳狼每日查验硬检查|警下验人位起跳硬检查|已关闭旧话题|提示词|输出格式|原发言\s*[:：]|上一版\s*[:：]|请保持原角色|重写完整公开发言|不要解释这条内部|不能提及规则|用户要求我重写)/;
   var kept=parts.filter(function(x){return x&&!leak.test(x)});
   return kept.join('').replace(/【(?:内部|输出|提示|系统)[^】]*】/g,'').trim();
 }
@@ -40945,9 +40947,9 @@ function wwNotesHTML(){
   }).join(''):'<span class="dim" style="font-size:12px">还没有上警信息。</span>';
   var list=players.map(function(p){
     return '<div style="display:flex;align-items:flex-start;gap:8px;margin:7px 0">'+
-      '<b style="flex:0 0 34px;line-height:34px;font-size:13px">'+(p.seq||'?')+'号</b>'+
-      '<textarea maxlength="800" rows="2" placeholder="记这个人：身份、发言、狼点、是否上警、票投给谁…" '+
-      'style="min-height:38px;height:38px;resize:vertical;font-size:12.5px;line-height:1.45;padding:7px 9px" '+
+      '<b style="flex:0 0 38px;line-height:38px;font-size:13px;color:var(--txt);text-shadow:none">'+(p.seq||'?')+'号</b>'+
+      '<textarea maxlength="800" rows="2" placeholder="" '+
+      'style="flex:1;width:auto;min-width:0;min-height:38px;height:38px;resize:vertical;font-size:12.5px;line-height:1.45;padding:7px 9px" '+
       'oninput="GAME.wwNoteSet('+(Number(p.seq)||0)+',this.value)">'+esc(notes[p.uid]||'')+'</textarea></div>';
   }).join('');
   return '<div class="ww-mkmodal" style="position:fixed;inset:0;bottom:var(--kb,0px);z-index:75;display:flex;align-items:center;justify-content:center;padding:16px 18px;background:rgba(0,0,0,.38);pointer-events:auto">'+
@@ -41813,6 +41815,9 @@ async function wwDay(){
         if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+t,think:wwThinkOf(p)}))return;
         render(true);
       }
+      wwSave(true);
+      await wwGate('「'+wwTag(p)+'」的遗言结束了。确认后再进入下一步。',true,'继续 ›');
+      if(wwStaleG(gen)||wwDayCut())return;
     }else{
       if(p.isUser)w.log.push({k:'sys',text:'你出局了，无遗言。'});
       else w.log.push({k:'sys',text:wwTag(p)+'出局，无遗言。'});
@@ -42390,6 +42395,7 @@ function wwResume(id){
   if(w.running||w.busy)return toast('现在还在演，等这一步完了再继续');
   var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
   if(!rec||rec.game!=='ww')return toast('这局的记录找不到了');
+  if(!rec.winner&&!rec.endText&&rec.spoiled)return toast('这局已经在战绩里查看过身份，不能再继续，只能回看记录。');
   var s=null;
   try{var sp=load(LS_WWSAVE,null);if(sp&&(!id||!sp.id||sp.id===id))s=sp}catch(e){}
   if(!s)s=wwSnapFromRec(rec);
@@ -42945,7 +42951,7 @@ function hallHTML(){
      '</div>';
   /* 有一局狼人杀没打完：放在最上面，点一下就能接着玩 */
   var pendWW=null;
-  recStore().forEach(function(r){if(!pendWW&&r&&r.game==='ww'&&!r.winner&&!r.endText)pendWW=r});
+  recStore().forEach(function(r){if(!pendWW&&r&&r.game==='ww'&&!r.winner&&!r.endText&&!r.spoiled)pendWW=r});
   if(pendWW){
     h+='<div class="gx-index"><b>没打完的一局</b><i>Continue</i></div>'+
        '<button class="gx-item" onclick="GAME.wwResume(\''+esc(pendWW.id)+'\')">'+gxIcon('wolf')+
@@ -43025,7 +43031,7 @@ function hallHTML(){
          '<div class="fic-lm">'+
          '<div class="fic-lt">'+esc(recTitle(r))+'</div>'+
          '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+esc(recSub(r))+'</div></div>'+
-         ((r.game==='ww'&&!r.winner&&!r.endText)?('<button class="ghost" type="button" style="color:var(--acc)" onclick="event.stopPropagation();GAME.wwResume(\''+esc(r.id)+'\')">继续</button>'):'')+
+         ((r.game==='ww'&&!r.winner&&!r.endText&&!r.spoiled)?('<button class="ghost" type="button" style="color:var(--acc)" onclick="event.stopPropagation();GAME.wwResume(\''+esc(r.id)+'\')">继续</button>'):'')+
          '<button class="rec-x" type="button" aria-label="删除" onclick="event.stopPropagation();GAME.histDel(\''+esc(r.id)+'\')">'+REC_IC_X+'</button>'+
          '</div>';
     });
@@ -44569,14 +44575,37 @@ function wwFocusResultVerdict(w){
   try{requestAnimationFrame(function(){requestAnimationFrame(go)})}
   catch(e){setTimeout(go,0)}
 }
+function wwHistPublicLogHTML(rec){
+  var L=[];
+  ((rec&&rec.log)||[]).forEach(function(e){
+    if(!e)return;
+    if(e.k==='sys')L.push('<div class="ww-sys">'+wwSystemHTML(wwPublicSysText(e.text))+'</div>');
+    else if(e.k==='say'){
+      var p=null;((rec.players||[])).forEach(function(q){if(q.uid===e.who)p=q});
+      L.push('<div class="mq-pick"><b>'+esc(p?((p.seq?p.seq+'号 · ':'')+p.name):'？')+'</b>：'+esc(e.text)+'</div>');
+    }else if(e.k==='vote')L.push('<div class="ww-sys strong">'+wwVoteLines(e.text)+'</div>');
+  });
+  return L.join('')||'<p class="gx-hint">还没有公开记录。</p>';
+}
 function wwHistHTML(rec){
+  var unfinished=!rec.winner&&!rec.endText;
+  var locked=unfinished&&!rec.spoiled;
   var h='';
   h+='<div class="gx-cover sm">'+backBtn('GAME.hall()')+
      '<div class="gx-vol"><span>GAME LOG</span><i></i><span>WEREWOLF</span></div>'+
      '<div class="gx-title">狼人杀</div>'+
      '<div class="gx-sub">'+(rec.title?(esc(rec.title)+' · '):'')+esc(recWhen(rec.t))+' · '+(rec.mode==='watch'?'旁观局':'你参与了')+' · '+esc(String(rec.count||''))+' 人</div></div>';
-  h+='<div class="gx-verdict '+(rec.winner==='good'?'win':(rec.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(rec.winner==='good'?'好人获胜':(rec.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
-     '<div class="gx-vsub">'+esc(rec.endText||'')+'</div></div>';
+  h+='<div class="gx-verdict '+(rec.winner==='good'?'win':(rec.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(unfinished?'尚未结束':(rec.winner==='good'?'好人获胜':(rec.winner==='wolf'?'狼人获胜':'平局')))+'</div>'+
+     '<div class="gx-vsub">'+esc(unfinished?(rec.spoiled?'已查看身份，本局不能继续':'身份已隐藏，避免继续游戏前被剧透'):(rec.endText||''))+'</div></div>';
+  if(locked){
+    h+='<div class="gx-card" style="border-color:var(--acc)"><div class="gx-vs" style="line-height:1.7"><b>这局还没打完</b><br>身份、夜间行动和狼队频道已隐藏。建议直接继续游戏；如果现在查看身份，这局将不能继续。</div>'+
+      '<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续游戏</button><button class="ghost" style="color:var(--warn)" onclick="GAME.wwRevealUnfinished(\''+esc(rec.id)+'\')">直接查看身份</button></div></div>'+
+      '<div class="gx-sec">公开记录</div><div class="gx-card">'+wwHistPublicLogHTML(rec)+'</div>'+
+      '<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button></div>';
+    return h;
+  }
+  if(unfinished&&rec.spoiled)
+    h+='<div class="gx-card"><div class="gx-vs"><b>已选择查看身份</b><br>为防止继续游戏时带着剧透信息，本局继续入口已关闭，只能查看记录。</div></div>';
   if(V.histJudgeBusy){
     /* 【新】正在叫裁判重新复盘：先显示跳动的点点 */
     h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+'中立裁判正在重新总结这一局（复盘 + 评 MVP）…</span></div></div>';
@@ -44636,7 +44665,7 @@ function wwHistHTML(rec){
   }
   h+='<div class="gx-sec">记录</div>'+_logHTML;
   if((rec.reacts||[]).length)h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
-  if(rec.game==='ww'&&!rec.winner&&!rec.endText)
+  if(rec.game==='ww'&&!rec.winner&&!rec.endText&&!rec.spoiled)
     h+='<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续这一局</button></div>';
   h+=wwShareWolfToggleHTML()+
      '<div class="gx-row"><button class="pri" onclick="GAME.wwCopyShareRec(\''+esc(rec.id)+'\')">'+wwUiIcon('copy')+'复制精简战报</button><button class="ghost" onclick="GAME.wwShareImageRec(\''+esc(rec.id)+'\')">📷 保存战绩图片</button></div>'+
@@ -46742,6 +46771,17 @@ window.GAME={
   chatSend:function(){chatSend()},
   /* 历史记录 */
   histOpen:function(id){V.view='hist';V.histId=id;render(false)},
+  wwRevealUnfinished:function(id){
+    var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
+    if(!rec||rec.game!=='ww')return toast('这局记录找不到了');
+    if(rec.winner||rec.endText)return render(false);
+    if(rec.spoiled)return render(false);
+    if(!confirm('现在就查看这局身份吗？\n\n查看后，为了防止剧透，这局将不能再继续游戏，只能回看记录。'))return;
+    rec.spoiled=true;
+    var list=recStore(),i;
+    for(i=0;i<list.length;i++){if(list[i]&&list[i].id===rec.id){list[i]=rec;break}}
+    recPut(list);render(false);
+  },
   histDel:function(id){
     if(!confirm('删掉这一局的记录吗？删了就找不回来了。'))return;
     recPut(recStore().filter(function(x){return !x||x.id!==id}));
