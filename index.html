@@ -16315,7 +16315,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀同步收紧公开声明和事实的边界：女巫救人只证明被救者当过狼刀目标，不证明好人，自刀世界线必须保留；被女巫毒死不证明狼；未翻牌出局不能写成已知身份；上警没跳通灵/预言不等于狼；推理快、全面、准确、强势或留有多条世界线不能单独当狼点。程序会在发言和投票时检查这些错误，并把接警徽、警上听发言等状态按上述规则解释。
 狼人杀给普通狼新增“最终刀口账本”：以后每一夜都会区分个人想刀谁和狼队实际最终刀了谁，跨天保留，不能把狼队频道里自己的旧提议误记成团队行动。机械狼显示规则也纠正为：没学习显示“机械狼”，学到普通小狼显示“狼人”，学到村民或神职显示对应身份。若狼队实际刀过某人、该人又被单边高可信通灵报成“狼人”，程序会同时保留“真通灵＋被误刀的机械狼”和“假验＋误刀好人”两条世界线，不能再说“机械狼绝不会显示狼人”。旧版本里“机械狼不会显示普通狼人”的说法一律以本条修正为准。
 狼人杀警徽流现在会拆成“已发生查验”和“条件接徽分支”两部分。把5号写成“5号好就5号接徽”只是条件候选，不代表已经验过5号；接徽候选也不需要先验过。一个人是已声明金水，同时又是另一条分支的备选接徽人，并不矛盾。警徽流好坏分支都讲完整属于说明清楚，不是“留后路”。错误质疑被识别后不再进入未解决问答记录；像“后路铺得太整齐、说得太完整”这类没有硬矛盾的说法也不会作为怀疑或投票依据。
-狼人杀“重新说一遍”现在会恢复该条发言当时的上下文：只看到原发言之前的人、当时的顺序和上警状态，不会提前看到后来玩家的发言或整轮完成状态；重说完成后再恢复当前进度和后面的记录。重说失败时会保留原来的发言，不会留下空缺。
+狼人杀“重新说一遍”现在会恢复该条发言开口前的完整局面：当时的存活与出局状态、票型、夜间行动记录截止位置、女巫药况、场记结果、身份盘和本人草稿都会一起回退，不再只回退发言列表；重说完成后再恢复当前进度和后面的记录，下一轮也不会把上一轮旧草稿贴成这一轮的新思考。重说失败时会保留原来的发言，不会留下空缺。
+狼人杀每次发言前新增“本轮硬状态”核对：当前天数、截至当前已出局的人、当前可投名单、未退水验人线和已退水作废线都会放在长历史记录前面。AI 不能把已出局者当今天票口，不能把历史上跳过后退水的人说成现在仍在多人对跳；假跳守卫等身份也必须遵守真实时间线，第一夜不能用白天上警或报验信息解释守人。程序会检查这些错误并要求重写。另修正了“昨晚我验的8号，表面身份是女巫”这类带逗号的通灵查验解析，不会再误记成漏报；质问与回答的整局导出也会按发言编号去重。
 狼人杀白天的进度现在每完成一条 AI 或真人发言都会立即存档；警长竞选也会保存已发言的上警者、退水决定和当前步骤。中途退出、刷新或重新进入时，会从还没发言的人继续，不再回到当天开头，也不会重复已经完成的竞选发言。
 狼人杀底栏“标记”右边新增“本局笔记”：按座位号竖排，每个玩家可以单独记身份、发言、狼点和票向；下面会自动列出上警玩家信息和当前公开票型。笔记跟着本局存档，退出刷新后还在。上警公告里的座位号也改为从小到大排列。
 狼人杀公开发言新增两项清理：如果模型把“系统提示、内部核对、输出格式”等幕后文字说出来，只会删掉这些泄漏句，不会整段替换角色正文；如果发言停在“我反过来问你”这类半句话上，会先要求从头补完整，仍失败时优先保留原来完整的公开发言。
@@ -16552,7 +16553,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=132;  /* 132：增加遗言确认、未完局防剧透和验人世界线成本 */
+const GUIDE_VER=133;  /* 133：狼人杀重说完整时间快照与当前轮次硬核对 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -33516,6 +33517,31 @@ function wwFactsFor(p){
   if(reasoningBaseline)L.push(reasoningBaseline);
   return L.join('\n');
 }
+/* 每次发言前最该先看到的一张小卡：当前轮次、可投名单、有效身份线。
+   长历史记录随后再给，避免模型把上一轮的票口和已经退水的身份带进今天。 */
+function wwCurrentTurnText(w,p){
+  if(!w||!w.players||!w.players.length)return '';
+  var alive=w.players.filter(function(x){return x&&x.alive});
+  var dead=w.players.filter(function(x){return x&&!x.alive});
+  var L=['【本轮硬状态（主持人提供，先核对再发言）】',
+    '· 现在是第 '+w.day+' 天 · '+(w.phase==='night'?'夜晚':'白天')+'。今天是新的当前轮次；昨天和更早的票口只能写成“昨天/第N天/当时”，不能写成“今天/现在”。',
+    '· 截至当前仍活着：'+(alive.map(wwTag).join('、')||'（无人）')+'。',
+    '· 截至当前已出局：'+(dead.map(wwTag).join('、')||'（无人）')+'。',
+    '· 白天投票只能投仍活着且可投票的人；已出局者不能作为“今天归票/本轮票落/下一轮再投”的目标。'];
+  var data=wwPublicIdentityData(w),claimRole=(wwBoard(w.count,w).medium?'medium':'seer');
+  var claimName=(claimRole==='medium'?'通灵师':'预言家');
+  var activeRows=data[claimRole]?Object.keys(data[claimRole]).map(function(k){return data[claimRole][k].p}).filter(Boolean):[];
+  var retired=[];
+  (w.players||[]).forEach(function(q){
+    if(q&&w.seerRetractions&&w.seerRetractions[q.uid])retired.push({p:q,day:Number(w.seerRetractions[q.uid])||0});
+  });
+  L.push('· 当前仍未退水的验人线：'+(activeRows.length?activeRows.map(wwTag).join('、'):'暂无')+'。');
+  if(retired.length)L.push('· 历史已退水/作废的验人声明：'+retired.map(function(x){return wwTag(x.p)+(x.day?'（D'+x.day+'）':'')}).join('、')+'。');
+  if(activeRows.length<=1&&retired.length){
+    L.push('· 可以说“D1 曾经有人起跳后已退水”，但不能说现在仍有“几位对跳/多人对跳”。当前未退水的'+claimName+'线只有 '+(activeRows.length?wwTag(activeRows[0]):'0 条')+'。');
+  }
+  return L.join('\n');
+}
 /* 你知道的狼（名字显示成红色）：你是狼 → 你和队友都知道；你是预言家 → 验出查杀的 */
 function wwKnownWolf(p){
   var me=wwMe();
@@ -33973,8 +33999,8 @@ function wwOwnMediumChecks(txt){
   Object.keys(WW_ROLE_NAME).forEach(function(k){if(k!=='random')alias[WW_ROLE_NAME[k]]=k});
   var names=Object.keys(alias).sort(function(a,b){return b.length-a.length});
   var checkVerb='(?:查验|验到|验了|验的|验过|通灵(?!师)(?:到|结果)?|查到|查了)';
-  var re=new RegExp(checkVerb+'[^，,。！？!?；;\\n]{0,28}?(\\d{1,2})\\s*号?[^，,。！？!?；;\\n]{0,18}?(?:是|为|身份是|身份为)?\\s*('+names.join('|')+')','g'),m;
-  var reverseRe=new RegExp('(\\d{1,2})\\s*号?[^，,。！？!?；;\\n]{0,18}?(?:是|为)?\\s*(?:我|本人)\\s*'+checkVerb+'[^，,。！？!?；;\\n]{0,14}?\\s*('+names.join('|')+')','g');
+  var re=new RegExp(checkVerb+'[^。！？!?；;\\n]{0,28}?(\\d{1,2})\\s*号?[^。！？!?；;\\n]{0,18}?(?:是|为|身份是|身份为)?\\s*('+names.join('|')+')','g'),m;
+  var reverseRe=new RegExp('(\\d{1,2})\\s*号[^。！？!?；;\\n]{0,18}?(?:是|为)?\\s*(?:我|本人)\\s*'+checkVerb+'[^。！？!?；;\\n]{0,14}?\\s*('+names.join('|')+')','g');
   var tierRe=/(?:查验|验到|验了|验的|验过|通灵(?!师)(?:到|结果)?|查到|查了)[^，,。！？!?；;\n]{0,28}?(\d{1,2})\s*号?[^，,。！？!?；;\n]{0,18}?(?:是|为|身份是|身份为)?\s*(查杀|神职金水|神职身份|好人神职身份|强神|关键神职|好人身份|民及民以上的?金水|民及民以上|金水)/g;
   wwStripBadgeFlowClaims(txt).split(/[。！？!?；;\n]+/).forEach(function(s){
     /* 计划和条件不是已发生的查验。例如“今晚准备验5号”“5号要是村民，那……”
@@ -36007,6 +36033,94 @@ function wwPublicFactIssues(say,w){
     .concat(wwPoliceExileContradictionIssues(say))
     .concat(wwBadgeRecipientKnowledgeIssues(say));
 }
+/* 当前轮次检查：已出局者不能当今天票口；历史退水不能算当前多人对跳；
+   假跳守卫也必须遵守第一夜早于上警的时间线；夜里死因没有公开证据不能写成确定事实。 */
+function wwCurrentTurnIssues(say,w,p){
+  if(!w||!w.players)return [];
+  var fullSay=String(say||''),out=[],clauses=fullSay.split(/[。！？!?；;\n]+/);
+  var data=wwPublicIdentityData(w),claimRole=(wwBoard(w.count,w).medium?'medium':'seer');
+  var active=data[claimRole]?Object.keys(data[claimRole]).length:0;
+  var selfGuard=/(?:我|本人)(?:就是|是|跳|认|报|穿)[^。！？!?；;\n]{0,8}守卫/.test(fullSay);
+  function playerBySeq(n){
+    var a=w.players||[],r=null;
+    for(var i=0;i<a.length;i++)if(a[i]&&Number(a[i].seq)===Number(n)){r=a[i];break}
+    return r;
+  }
+  function poisonWasPublic(seq,c){
+    if(p&&p.role==='witch'&&Number((p.seq||0))>0)return true;
+    var n=Number(seq);
+    if(!n)return false;
+    if(new RegExp('(?:女巫|\\d{1,2}\\s*号)[^。！？!?；;\\n]{0,18}(?:说|报|承认)[^。！？!?；;\\n]{0,18}(?:毒|毒药)').test(c))return true;
+    return (w.log||[]).some(function(e){
+      if(!e||e.k!=='say')return false;
+      var t=String(e.text||'');
+      return /(?:我用毒|我毒了|毒药[^。！？!?；;\n]{0,12}(?:毒了|毒|下给|下))/.test(t)&&wwMentionsSeq(t,n);
+    });
+  }
+  clauses.forEach(function(c){
+    c=String(c||'').trim();
+    if(!c)return;
+    var past=/(?:昨天|昨日|上一轮|上一局|D\d+|第\s*\d+\s*天|第\s*\d+\s*夜|当时|此前|之前|已经出局|已出局)/.test(c);
+    var voteM=c.match(/(?:今天|今日|这轮|本轮|现在)[^。！？!?；;\n]{0,28}?(?:归票|票落|票投|投给|投|下)\s*(\d{1,2})\s*号/);
+    if(!voteM&&!past)voteM=c.match(/(?:^|[，,])\s*(?:我|我们)?[^。！？!?；;\n]{0,12}(?:归票|票落|票投|投给|投|下)\s*(\d{1,2})\s*号/);
+    if(voteM){
+      var vt=playerBySeq(Number(voteM[1]));
+      if(vt&&!vt.alive)out.push({kind:'deadTarget',target:vt.seq,text:c});
+    }
+    var nextM=c.match(/(?:下轮|下一轮|明天|明早)[^。！？!?；;\n]{0,18}(?:投|票|归票|下)\s*(\d{1,2})\s*号/);
+    if(nextM){
+      var nt=playerBySeq(Number(nextM[1]));
+      if(nt&&!nt.alive)out.push({kind:'deadNext',target:nt.seq,text:c});
+    }
+    if(active<=1&&!past&&
+      /(?:几位|多人|几个|两位|两个|三名|多名)[^。！？!?；;\n]{0,8}(?:对跳|跳预|跳通灵)|(?:对跳|跳预|跳通灵)[^。！？!?；;\n]{0,8}(?:几位|多人|几个|两位|两个|三名|多名)/.test(c)){
+      out.push({kind:'multiClaim',text:c});
+    }
+    var pm=c.match(/(\d{1,2})\s*号[^。！？!?；;\n]{0,12}(?:被毒|中毒)|(?:毒死|毒了|毒药)[^。！？!?；;\n]{0,8}(\d{1,2})\s*号/);
+    if(pm){
+      var poisoned=Number(pm[1]||pm[2]);
+      if(poisoned&&!poisonWasPublic(poisoned,c))out.push({kind:'deathCause',target:poisoned,text:c});
+    }
+  });
+  if(selfGuard){
+    var guardClock=fullSay.match(/(?:第一夜|首夜)[\s\S]{0,100}?(?:我|本人)[\s\S]{0,20}?(?:守|盲守)[\s\S]{0,180}?(?:上警|警上|报验|验人|唯一通灵|死讯|警徽)/);
+    if(guardClock)out.push({kind:'guardClock',text:guardClock[0].trim()});
+  }
+  var seen={};
+  return out.filter(function(x){
+    var k=x.kind+'|'+String(x.target||'')+'|'+x.text;
+    if(seen[k])return false;seen[k]=1;return true;
+  });
+}
+async function wwGuardCurrentTurnSpeech(p,sys,say){
+  var bad=wwCurrentTurnIssues(say,V.ww,p);
+  if(!bad.length)return say;
+  var labels=bad.map(function(x){
+    if(x.kind==='deadTarget')return x.target+'号已经出局，不能成为今天的归票或本轮票落目标';
+    if(x.kind==='deadNext')return x.target+'号已经出局，不能安排下一轮再投她';
+    if(x.kind==='multiClaim')return '当前只有一条未退水验人线，不能写成现在有几位/多人对跳；退水者只能写成历史起跳';
+    if(x.kind==='guardClock')return '自称守卫时，第一夜早于上警、发言、验人和死讯；不能用白天信息解释第一夜守人，首夜只能空守或依据开局前信息盲守';
+    if(x.kind==='deathCause')return x.target+'号目前只有夜间出局公告，没有公开技能结果时不能写成确定被毒/被刀';
+    return '当前轮次与公开事实不符';
+  });
+  try{
+    var ask='【当前轮次事实硬检查】这段发言有以下问题：'+labels.join('；')+'。'+
+      '\n'+(wwCurrentTurnText(V.ww,p)||'')+
+      '\n请保持原角色口吻、身份盘和已有判断，重写完整公开发言。必须只把仍存活的人当本轮票口；引用历史票口或退水身份时明确写昨天、第几天或当时。不要解释这条内部检查。\n原发言：'+String(say||'').slice(0,1000);
+    var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
+    fixed=wwTakeTitle(p,fixed);
+    fixed=wwTakeIdentityBoard(p,fixed).text;
+    var sp=wwSplitDraft(fixed);fixed=wwStripLead(sp.say||fixed);
+    if(sp.draft&&p)p.scratch=sp.draft;
+    if(fixed&&!wwCurrentTurnIssues(fixed,V.ww,p).length)return fixed;
+    var cleanBad=wwCurrentTurnIssues(fixed||say,V.ww,p).map(function(x){return x.text});
+    var cleaned=wwStripQuestionClauses(fixed||say,cleanBad);
+    if(cleaned&&!wwCurrentTurnIssues(cleaned,V.ww,p).length)return cleaned;
+  }catch(e){}
+  var safeBad=wwCurrentTurnIssues(say,V.ww,p).map(function(x){return x.text});
+  var safe=wwStripQuestionClauses(say,safeBad);
+  return safe||'这轮按已经核对的当前局面重说：只投仍活着的人，旧轮次和已退水身份不当作今天的事实。';
+}
 async function wwGuardPublicFactSpeech(p,sys,say){
   var bad=wwPublicFactIssues(say,V.ww);
   if(!bad.length)return say;
@@ -36084,6 +36198,7 @@ function wwSpeakTask(p,base){
   var plain=base+(wwHushOn()
     ? '\n【说话要求】始终按本角色的语气、句长和情绪说话，口癖少量自然，不要写成同一种分析员。公开发言控制在 2~4 句、约 120~260 个汉字。没信息就直说，别硬编狼坑。'
     : '\n【说话要求】始终按本角色的语气、句长和情绪说话，口癖少量自然，不要写成同一种分析员。用你的人设和口气，长短随角色。说怀疑/信任谁、理由、投谁；没信息就直说，别硬编狼坑。')+
+    '\n【本轮硬检查】发言前先核对动态事实卡里的当前天数、截至当前出局的人、当前存活/可投名单和当前未退水身份线。不得把已出局者写成今天归票目标，也不得把上一轮已经完成的票口说成这一轮还要投；引用旧轮次时必须明确写“昨天/第N天/当时”。当前只有一条未退水验人线时，不得说场上现在是“几位/多人对跳”，只能把退水者写成历史起跳。引用别人的观点时必须先核对座位号和发言天数，不能把A号说过的话安到B号头上。'+
     '别复述规则、套模板或长篇点评；不要为了显得独立而故意唱反调。没轮到的玩家不是心虚。'+
     '若上一位或单边神职公开点出具体狼点，先用一句直接回应；可以不认同其身份和结论，但不能假装没听见。'+
     '若当前局面附有“真人核心质疑”，至少正面回答其中最相关的一条，不能只重复自己的旧结论或把它当成已经解释完。'+
@@ -36403,6 +36518,7 @@ async function wwGuardSpeechCompleteness(p,sys,out){
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
 async function wwSpeak(p,sys,resay){
+  wwMarkSpeechStart(p);
   if(p)p._lastSayTitle='';
   var resayPrompt=wwResayCorrectionText(resay,'发言');
   if(resayPrompt)sys=String(sys||'')+'\n\n'+resayPrompt;
@@ -36438,6 +36554,7 @@ async function wwSpeak(p,sys,resay){
   if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardObsoletePostmortemSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardAnswerOpportunity(p,sys,out);
+  if(p&&!p.isUser)out=await wwGuardCurrentTurnSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardPublicFactSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardClaimReasoningSpeech(p,sys,out);
   if(p&&!p.isUser&&V.ww)out=await wwGuardUserClaimsSpeech(p,sys,out);
@@ -37290,6 +37407,8 @@ function wwSysFor(p,task){
   var fearHistory=wwFearHistoryText(p,w);
   if(fearHistory)dyn.push(fearHistory);
   if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))dyn.push('【本夜恐惧状态】第 '+w.day+' 夜你被梦魇恐惧，这一夜技能不能发动；如果紧接这个白天出局，猎人枪也不能开。它只影响第 '+w.day+' 夜，不是持续状态。');
+  var turnState=wwCurrentTurnText(w,p);
+  if(turnState)dyn.push(turnState);
   dyn.push(wwBoardLine());
   dyn.push('【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog());
   dyn.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
@@ -37335,6 +37454,8 @@ function wwSysFor(p,task){
   L.push('【时间线】第1天：首夜验人（此前无人发言）→'+(wwSheriffOn()?'上警→':'')+'公布昨夜死讯→普通发言投票；死讯后仍是同一天。之后每个白天：公布昨夜结果→发言投票。每个夜晚只结算一次验人。'+
     '有人声称“昨晚被恐”时，先按当前白天定位到她说的具体第几夜；不同夜晚的恐惧不能拼成同一夜矛盾，自己曾经被恐也不等于昨晚被恐。'+
     (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
+  L.push('【所有神职声明的行动时间线】真假神职都必须遵守真实时序：第 1 夜早于第 1 天的上警、竞选发言、普通发言和死讯。真守卫首夜空守；如果狼人假跳守卫，首夜也只能说空守，或用开局前就有的头像、名字、座位、眼缘等信息解释盲守，不能用“某人刚上警、已经报验、已经成了唯一通灵”等白天信息补第一夜守人。'+
+    '夜里出局在公开信息中只写“出局”，没有公开技能结果时不能把死因写成确定的“被狼刀/被女巫毒/被守卫挡下”。');
   L.push('【内部禁令·发言先后】警上竞选发言顺序每局随机打乱；不得把“谁先发言、谁后发言、谁没轮到、谁一直没说话、谁先起跳、谁后跳身份”当成狼面或好人面。'+
     '这些先后由系统或警长安排，不是玩家自己选的；竞选时可以对尚未发言者用假设句试探，但不能把尚未轮到发言本身当证据。'+
     '这是只给自己看的自检，不得在公开发言里复述、解释或声明“随机顺序”“系统安排”“内部提示”“提示词”“不能因为顺序判断”等幕后信息，也不要写成免责声明。');
@@ -37446,6 +37567,8 @@ async function wwCall(sys,usr,maxtok,temp){
 function wwThinkOf(p){
   var r=(WW_LAST&&WW_LAST.reason)||'';
   var d=(p&&p.scratch)||'';
+  var start=p&&p._speechStartState;
+  if(start&&String(d)===String(start.scratch||''))d='';   /* 这一轮没写新草稿，不把上一轮旧纸再贴一遍 */
   var out='';
   if(r)out+='【模型的思考过程】\n'+r;
   if(d)out+=(out?'\n\n':'')+'【它的草稿纸】\n'+d;
@@ -38346,6 +38469,22 @@ function wwResayCorrectionText(resay,kind){
     '用户备注是逻辑和规则纠错，必须落实到判断和结论；不要把备注里没有公开的猜测擅自变成主持人事实，也不要利用备注泄露其他玩家的隐藏身份。'+
     '如果纠错改变了归票或站边，就自然写出新结论。公开发言里不要提“用户、备注、系统、内部核对、上一版”，要像角色自己重新想明白后说出口。';
 }
+/* 记录“开口前”的状态。每条发言都会带着它走，重说时就能回到当时的视角。 */
+function wwMarkSpeechStart(p){
+  if(!p||p.isUser)return;
+  p._speechStartState={
+    scratch:String(p.scratch||''),
+    readBoard:String(p.readBoard||''),
+    readBoardVer:Number(p.readBoardVer)||0,
+    readBoardDay:Number(p.readBoardDay)||0,
+    readBoardLog:(p.readBoardLog||[]).map(function(x){return Object.assign({},x)}),
+    check:(p.check||[]).map(function(c){return Object.assign({},c)}),
+    mechLearn:p.mechLearn?Object.assign({},p.mechLearn):null,
+    mechShieldUsed:!!p.mechShieldUsed,
+    mechPoisonUsed:!!p.mechPoisonUsed,
+    mechChaseUsed:!!p.mechChaseUsed
+  };
+}
 async function wwSpeech(p,resay){
   var pos=wwSpeechPositionInfo(p);
   var base=pos.first
@@ -38731,6 +38870,7 @@ async function wwGuardWitchNightLastWords(p,sys,out){
 }
 async function wwLastWords(p,resay){
   var w=V.ww;
+  wwMarkSpeechStart(p);
   var task='你出局了。请说一段遗言：可以报自己的身份，也可以说出你知道的线索、你最怀疑谁。'+
     '时间够，把该交代的都说清楚，别只留一句话。提到别人时带上编号。只输出你要说的话。';
   var resayPrompt=wwResayCorrectionText(resay,'留遗言');
@@ -39059,6 +39199,14 @@ function wwDumpQALedger(w){
   var L=[],useScribe=!!(w&&w.scribe&&w.scribe.ran&&(w.scribe.qa||[]).length);
   if(!useScribe&&!wwQuestionLedger(w).length)return '';
   L.push('【质问与回答记录】');
+  var printed={};
+  function dumpSpeech(kind,a){
+    if(!a)return;
+    var key=kind+'|'+(a.ref||((a.seq||'?')+'|'+(a.day||'?')+'|'+String(a.text||'').slice(0,40)));
+    if(printed[key])return;
+    printed[key]=1;
+    L.push('  '+kind+' · '+(a.p?wwTag(a.p):((a.seq||'?')+'号'))+'第'+(a.day||'?')+'天 · '+(a.ref||'无编号')+'：'+wwClipSpeech(a.text,kind==='问'?240:700,kind==='问'?100:260));
+  }
   if(useScribe){
     var refs=wwScribeRefMap(w);
     w.scribe.qa.forEach(function(qa){
@@ -39070,20 +39218,20 @@ function wwDumpQALedger(w){
       if(!ans.length)st='unanswered';
       else if(st==='unresolved'||!wwAnswerRefsResolved(qa.questionRefs||[],qa.answerRefs||[],refs))st='unresolved';
       else st='answered';
+      var before=L.length;
       L.push('· '+tp.seq+'号 · '+qa.topic+' · 场记 '+wwQAStatusText(st));
-      asks.forEach(function(a){L.push('  问 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100))});
-      ans.forEach(function(a){L.push('  答 · '+a.p.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260))});
+      asks.forEach(function(a){dumpSpeech('问',a)});
+      ans.forEach(function(a){dumpSpeech('答',a)});
+      if(L.length===before+1)L.pop();
     });
   }else{
     wwQuestionLedger(w).forEach(function(g){
+      var before=L.length;
       L.push('· '+(g.target.seq?g.target.seq+'号':g.target.name)+' · '+g.topic+' · '+
         wwQAStatusText(g.status)+(g.repeated?(' · 回答后重复追问 '+g.repeated+' 次'):''));
-      g.asks.forEach(function(a){
-        L.push('  问 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,240,100));
-      });
-      g.answers.forEach(function(a){
-        L.push('  答 · '+a.seq+'号第'+a.day+'天 · '+a.ref+'：'+wwClipSpeech(a.text,700,260));
-      });
+      g.asks.forEach(function(a){dumpSpeech('问',a)});
+      g.answers.forEach(function(a){dumpSpeech('答',a)});
+      if(L.length===before+1)L.pop();
     });
   }
   return L.join('\n');
@@ -40619,6 +40767,7 @@ function wwPushSay(g,o){
     var p=wwPlayerByUid(o.who);
     if(p&&p._lastSayTitle){o.title=String(p._lastSayTitle).slice(0,24);p._lastSayTitle=''}
     if(w&&p&&!p.isUser&&!o.ctx){
+      var start=p._speechStartState||null;
       o.ctx={
         day:Number(w.day)||1,phase:w.phase||'day',dayStage:w.dayStage||'',
         speechMode:w.speechMode||'',speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),
@@ -40626,8 +40775,30 @@ function wwPushSay(g,o){
         electing:!!w.electing,upSpoke:Object.assign({},w.upSpoke||{}),
         policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),policeAll:(w.policeAll||[]).slice(),
         sheriffUid:w.sheriffUid||null,sheriffDone:!!w.sheriffDone,badgeGone:!!w.badgeGone,
-        seerRetractions:Object.assign({},w.seerRetractions||{}),inPK:!!w.inPK
+        seerRetractions:Object.assign({},w.seerRetractions||{}),inPK:!!w.inPK,
+        recN:(w.rec||[]).length,
+        votes:Object.assign({},w.votes||{}),
+        lastExile:w.lastExile?{day:Number(w.lastExile.day)||0,uid:w.lastExile.uid}:null,
+        players:(w.players||[]).map(function(q){
+          return {uid:q.uid,alive:!!q.alive,killedBy:q.killedBy||'',revealed:!!q.revealed,fearedDay:Number(q.fearedDay)||0};
+        }),
+        witchSave:!!w.witchSave,witchPoison:!!w.witchPoison,
+        witchLog:(w.witchLog||[]).map(function(x){return Object.assign({},x)}),
+        scribe:(function(s){
+          var c=wwCloneScribe(s||wwEmptyScribe());
+          return {
+            version:Number(c.version)||2,ran:!!c.ran,claims:c.claims,qa:c.qa,
+            updatedDay:Number(c.updatedDay)||0,phase:c.phase||'',error:c.error||''
+          };
+        })(w.scribe),
+        own:start?{
+          scratch:start.scratch,readBoard:start.readBoard,readBoardVer:start.readBoardVer,readBoardDay:start.readBoardDay,
+          readBoardLog:(start.readBoardLog||[]).map(function(x){return Object.assign({},x)}),
+          check:(start.check||[]).map(function(c){return Object.assign({},c)}),mechLearn:start.mechLearn?Object.assign({},start.mechLearn):null,
+          mechShieldUsed:!!start.mechShieldUsed,mechPoisonUsed:!!start.mechPoisonUsed,mechChaseUsed:!!start.mechChaseUsed
+        }:null
       };
+      p._speechStartState=null;
     }
   }
   V.ww.log.push(o);return true
@@ -41714,6 +41885,7 @@ function wwBlownWords(p,hist){
    前面的人说过的话攒在 w.blownHist 里，后面的狼能接着吵。 */
 async function wwBlownWordsLine(p){
   var w=V.ww,gen=wwGenNow();
+  wwMarkSpeechStart(p);
   var t='';
   try{t=String(await wwCall(wwBlownWords(p,w.blownHist||[]),'请留遗言。',wwSayMax(),.9)||'')}catch(e){t=''}
   if(wwStaleG(gen))return '';
@@ -43396,6 +43568,16 @@ async function wwResayGo(){
   w.resayIdx=null;w.resayNote='';
   var gen=w.gen||0,log=w.log;       /* 记下这是哪一局：中途换了新局，结果就不能再塞回去 */
   var tail=[],live=null,oldSay=null,restored=false;
+  function restoreLiveState(){
+    if(!live)return;
+    w.day=live.day;w.phase=live.phase;w.dayStage=live.dayStage;w.speechMode=live.speechMode;w.speechStart=live.speechStart;w.speechDir=live.speechDir;
+    w.speaking=live.speaking;w.spoke=live.spoke;w.electing=live.electing;w.upSpoke=live.upSpoke;
+    w.policeUp=live.policeUp;w.policeOrder=live.policeOrder;w.policeAll=live.policeAll;
+    w.sheriffUid=live.sheriffUid;w.sheriffDone=live.sheriffDone;w.badgeGone=live.badgeGone;
+    w.seerRetractions=live.seerRetractions;w.inPK=live.inPK;
+    w.players=live.players;w.rec=live.rec;w.votes=live.votes;w.lastExile=live.lastExile;
+    w.witchSave=live.witchSave;w.witchPoison=live.witchPoison;w.witchLog=live.witchLog;w.scribe=live.scribe;
+  }
   try{
     var e=w.log[idx],p=e?wwPlayerByUid(e.who):null;
     /* 核对还是刚才长按的那一条（万一这中间游戏往前走了，就不能乱改） */
@@ -43411,7 +43593,9 @@ async function wwResayGo(){
       speaking:w.speaking||null,spoke:Object.assign({},w.spoke||{}),electing:!!w.electing,upSpoke:Object.assign({},w.upSpoke||{}),
       policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),policeAll:(w.policeAll||[]).slice(),
       sheriffUid:w.sheriffUid||null,sheriffDone:!!w.sheriffDone,badgeGone:!!w.badgeGone,
-      seerRetractions:Object.assign({},w.seerRetractions||{}),inPK:!!w.inPK
+      seerRetractions:Object.assign({},w.seerRetractions||{}),inPK:!!w.inPK,
+      players:JSON.parse(JSON.stringify(w.players||[])),rec:w.rec,votes:w.votes,lastExile:w.lastExile,
+      witchSave:!!w.witchSave,witchPoison:!!w.witchPoison,witchLog:w.witchLog,scribe:w.scribe
     };
     /* 临时回到这条发言产生时的上下文：后面的发言、后来的投票结果和整轮完成状态都不让它提前看到。 */
     w.log.splice(idx,w.log.length-idx);
@@ -43423,6 +43607,31 @@ async function wwResayGo(){
       w.policeUp=(ctx.policeUp||[]).slice();w.policeOrder=(ctx.policeOrder||[]).slice();w.policeAll=(ctx.policeAll||[]).slice();
       w.sheriffUid=ctx.sheriffUid||null;w.sheriffDone=!!ctx.sheriffDone;w.badgeGone=!!ctx.badgeGone;
       w.seerRetractions=Object.assign({},ctx.seerRetractions||{});w.inPK=!!ctx.inPK;
+      if(ctx.players){
+        var pub={};ctx.players.forEach(function(q){if(q&&q.uid)pub[q.uid]=q});
+        (w.players||[]).forEach(function(q){
+          var a=pub[q.uid];if(!a)return;
+          q.alive=!!a.alive;q.killedBy=a.killedBy||'';q.revealed=!!a.revealed;q.fearedDay=Number(a.fearedDay)||0;
+        });
+      }
+      if(Number(ctx.recN)>=0&&live.rec)w.rec=live.rec.slice(0,Number(ctx.recN));
+      if(ctx.votes)w.votes=Object.assign({},ctx.votes);
+      w.lastExile=ctx.lastExile?{day:Number(ctx.lastExile.day)||0,uid:ctx.lastExile.uid}:null;
+      if(ctx.witchLog)w.witchLog=ctx.witchLog.map(function(x){return Object.assign({},x)});
+      if(typeof ctx.witchSave==='boolean')w.witchSave=ctx.witchSave;
+      if(typeof ctx.witchPoison==='boolean')w.witchPoison=ctx.witchPoison;
+      if(ctx.scribe)w.scribe=wwCloneScribe(ctx.scribe);
+      if(ctx.own){
+        p.scratch=String(ctx.own.scratch||'');
+        p.readBoard=String(ctx.own.readBoard||'');
+        p.readBoardVer=Number(ctx.own.readBoardVer)||0;
+        p.readBoardDay=Number(ctx.own.readBoardDay)||0;
+        p.readBoardLog=(ctx.own.readBoardLog||[]).map(function(x){return Object.assign({},x)});
+        p.check=(ctx.own.check||[]).map(function(c){return Object.assign({},c)});
+        p.mechLearn=ctx.own.mechLearn?Object.assign({},ctx.own.mechLearn):null;
+        p.mechShieldUsed=!!ctx.own.mechShieldUsed;p.mechPoisonUsed=!!ctx.own.mechPoisonUsed;p.mechChaseUsed=!!ctx.own.mechChaseUsed;
+        p._speechStartState=null;
+      }
     }else{
       var prefixRows=wwPublicEventRows({players:w.players,log:w.log.slice()}).filter(function(r){return r.day===Number(w.day)});
       w.spoke={};w.upSpoke={};
@@ -43444,12 +43653,19 @@ async function wwResayGo(){
         (wasCampaign?('【竞选发言】'+await wwPoliceSpeech(p,resay)):await wwSpeech(p,resay));
     }catch(err){t=''}
     var newThink=t?wwThinkOf(p):'';
+    var newPrivate=t?{
+      scratch:String(p.scratch||''),readBoard:String(p.readBoard||''),readBoardVer:Number(p.readBoardVer)||0,
+      readBoardDay:Number(p.readBoardDay)||0,readBoardLog:(p.readBoardLog||[]).map(function(x){return Object.assign({},x)})
+    }:null;
     /* 恢复当前真实进度和这条发言之后已经存在的记录。 */
-    w.day=live.day;w.phase=live.phase;w.dayStage=live.dayStage;w.speechMode=live.speechMode;w.speechStart=live.speechStart;w.speechDir=live.speechDir;
-    w.speaking=live.speaking;w.spoke=live.spoke;w.electing=live.electing;w.upSpoke=live.upSpoke;
-    w.policeUp=live.policeUp;w.policeOrder=live.policeOrder;w.policeAll=live.policeAll;
-    w.sheriffUid=live.sheriffUid;w.sheriffDone=live.sheriffDone;w.badgeGone=live.badgeGone;
-    w.seerRetractions=live.seerRetractions;w.inPK=live.inPK;
+    restoreLiveState();
+    if(newPrivate){
+      var np=wwPlayerByUid(p.uid);
+      if(np){
+        np.scratch=newPrivate.scratch;np.readBoard=newPrivate.readBoard;np.readBoardVer=newPrivate.readBoardVer;
+        np.readBoardDay=newPrivate.readBoardDay;np.readBoardLog=newPrivate.readBoardLog;
+      }
+    }
     if(gen!==(w.gen||0)||w.log!==log){w.resayOn=false;return}   /* 已经开了新的一局：这次结果丢掉，免得出现"上一局的人" */
     if(t){
       w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:newThink,title:(p&&p._lastSayTitle)||'',resayNote:note,ctx:oldSay.ctx||null});
@@ -43465,11 +43681,7 @@ async function wwResayGo(){
   }catch(err){
     try{
       if(gen===(w.gen||0)&&w.log===log&&!restored&&live){
-        w.day=live.day;w.phase=live.phase;w.dayStage=live.dayStage;w.speechMode=live.speechMode;w.speechStart=live.speechStart;w.speechDir=live.speechDir;
-        w.speaking=live.speaking;w.spoke=live.spoke;w.electing=live.electing;w.upSpoke=live.upSpoke;
-        w.policeUp=live.policeUp;w.policeOrder=live.policeOrder;w.policeAll=live.policeAll;
-        w.sheriffUid=live.sheriffUid;w.sheriffDone=live.sheriffDone;w.badgeGone=live.badgeGone;
-        w.seerRetractions=live.seerRetractions;w.inPK=live.inPK;
+        restoreLiveState();
         w.log.splice(idx,w.log.length-idx);
         w.log.splice(idx,0,oldSay);
         if(tail.length)w.log.push.apply(w.log,tail);
