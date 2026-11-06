@@ -16313,6 +16313,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀局内“重新说一遍”现在可以附带纠错备注：长按最新一条 AI 公开发言（或点发言右上角的重新发言按钮），在弹窗里写它上一版哪里说错了，再点“按备注重新说”。这个角色会重新读取自己上一版的完整原话和你的备注，按备注修正整段逻辑，而不是只补一句话；备注只给这个角色看，不会作为“用户说的原话”出现在公开发言里。适合当场纠正“银水必好”“狼不会自刀”“接徽连坐”这类重复错误。
 狼人杀警徽规则进一步明确：单边、高可信的通灵师/预言家把警徽交给某人，主要是传徽者在强烈认可接徽者，接徽者应按高概率金水处理；机械狼板只额外保留“她可能是机械狼”的例外。警徽不会把最后一夜查验结果自动传给接徽者，接徽者也没有义务解释自己为什么被选中或替传徽者解释警徽流；接徽或不解释接徽原因都不是接徽者的狼点。
 狼人杀同步收紧公开声明和事实的边界：女巫救人只证明被救者当过狼刀目标，不证明好人，自刀世界线必须保留；被女巫毒死不证明狼；未翻牌出局不能写成已知身份；上警没跳通灵/预言不等于狼；推理快、全面、准确、强势或留有多条世界线不能单独当狼点。程序会在发言和投票时检查这些错误，并把接警徽、警上听发言等状态按上述规则解释。
+狼人杀给普通狼新增“最终刀口账本”：以后每一夜都会区分个人想刀谁和狼队实际最终刀了谁，跨天保留，不能把狼队频道里自己的旧提议误记成团队行动。机械狼显示规则也纠正为：没学习显示“机械狼”，学到普通小狼显示“狼人”，学到村民或神职显示对应身份。若狼队实际刀过某人、该人又被单边高可信通灵报成“狼人”，程序会同时保留“真通灵＋被误刀的机械狼”和“假验＋误刀好人”两条世界线，不能再说“机械狼绝不会显示狼人”。旧版本里“机械狼不会显示普通狼人”的说法一律以本条修正为准。
 
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
@@ -16544,7 +16545,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=127;  /* 127：增加局内带备注重说，并修正警徽认可、银水、自刀、退水和未翻牌身份规则 */
+const GUIDE_VER=128;  /* 128：增加狼队最终刀口账本，并修正机械狼学到普通狼时的显示规则 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -33259,7 +33260,7 @@ var WW_TIPS=[
 '【狼术】悍跳、对跳、冲锋狼、倒钩狼、深水狼、狼踩狼；狼可以悍跳，也可以狼查杀狼。',
 '【提醒】没有铜水；拍刀是狼队确认轮次领先后公开存活狼人身份、按玩家自己抿出的顺序报刀并加速结算。拍刀次数按有刀狼人数减一；守卫挡刀、女巫解药或毒药、猎人枪、梦魇逐夜恐惧和白狼王自爆带人等技能正常扣刀，结算后仍达成屠边才狼胜，否则拍刀失败、好人获胜；板子和警长规则见当前局面与补充。'
 ].join('\n');
-var WW_MECHANIC_DISPLAY_RULE='机械狼首夜学习后，表面身份立即变成它学到的身份；通灵师在同夜学习步骤之后查验，会看到这个学到的身份。只有学习得到的主动技能（查验、毒药、盾、连刀等）从下一夜起可用，不能把“技能次夜生效”误解成“身份伪装也次夜生效”。';
+var WW_MECHANIC_DISPLAY_RULE='机械狼首夜学习后，表面身份立即变成它学到的身份；通灵师在同夜学习步骤之后查验，会看到这个学到的身份。具体是：没学习显示“机械狼”，学到普通小狼显示“狼人”，学到村民或神职则显示对应身份。只有学习得到的主动技能（查验、毒药、盾、连刀等）从下一夜起可用，不能把“技能次夜生效”误解成“身份伪装也次夜生效”。';
 /* 【已删】原来那套「桌子上的手语」：面杀现在夜里可以正常说话，手语这一套整段删掉了。 */
 /* 这一局是不是「面杀」（没选过就是网杀，和以前一样） */
 function wwFaceOn(){var w=V.ww;return !!(w&&w.table==='face')}
@@ -33449,6 +33450,10 @@ function wwFactsFor(p){
       L.push('· 昨晚你们想刀 '+wwName(w.night.wolf)+'，最后收刀放过她；白天别说。');
     if(w.night&&w.night.nokill)
       L.push('· 昨晚你们选择空刀，今早是平安夜；仅自己知道，白天别说。');
+    var knifeLedger=wwWolfNightLedgerText(p,w);
+    if(knifeLedger)L.push(knifeLedger);
+    var mechKnife=wwMechanicKnifeWorldlineText(p,w);
+    if(mechKnife)L.push(mechKnife);
     /* 【新】把狼队频道塞进来：你们夜里偷偷商量的话，只有狼看得见 */
     var ch=wwWolfChannelText();
     if(ch)L.push(wwFaceOn()
@@ -34294,6 +34299,100 @@ function wwMechanicTimingAuditText(w){
 function wwCheckResultIsWolf(result){
   return /查杀|狼人|狼王|白狼王|机械狼|机械通灵师|梦魇/.test(String(result||''));
 }
+/* 普通狼每夜都会看到“自己想刀谁”和“团队最终刀谁”。后者是私有行动事实，
+   不能因为狼队频道里自己的旧提议不同，就把个人提议误记成最终刀口。 */
+function wwWolfKnifeLedger(w){
+  var rows=[];
+  function add(day,finalTarget,proposal,noKill){
+    rows.push({day:Number(day)||0,finalTarget:Number(finalTarget)||0,proposal:String(proposal||''),noKill:!!noKill});
+  }
+  (w&&w.rec||[]).forEach(function(x){
+    if(x&&x.wolfFinal){
+      add(x.d,x.wolfFinal.seq||0,(x.wolfProposals||[]).map(function(q){return q.seq+'号 想刀 '+(q.targetSeq?q.targetSeq+'号':'空刀')}).join('、'),false);
+      return;
+    }
+    if(x&&x.wolfNoKill===true&&/^狼人今晚【空刀】/.test(String(x.t||''))){
+      add(x.d,0,(x.wolfProposals||[]).map(function(q){return q.seq+'号 想刀 '+(q.targetSeq?q.targetSeq+'号':'空刀')}).join('、'),true);
+      return;
+    }
+    var t=String(x&&x.t||''),m=t.match(/^狼人刀了\s*(\d{1,2})\s*号/);
+    if(m){
+      var pm=t.match(/当晚各自的想法：([^）]+)/);
+      add(x.d,Number(m[1]),pm?pm[1]:'');
+      return;
+    }
+    if(/^狼人今晚【空刀】/.test(t)){
+      var pm2=t.match(/当晚各自的想法：([^）]+)/);
+      add(x.d,0,pm2?pm2[1]:'',true);
+    }
+  });
+  var day=Number(w&&w.day)||0;
+  if(day&&!rows.some(function(x){return x.day===day})&&w&&w.night){
+    var opn=(w.wolfPicks||[]).map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('、');
+    if(w.night.wolf)add(day,w.night.wolf.seq,opn,false);
+    else if(w.night.nokill)add(day,0,opn,true);
+  }
+  rows.sort(function(a,b){return a.day-b.day});
+  return rows.slice(-6);
+}
+function wwWolfNightLedgerText(p,w){
+  if(!w||!p||(!wwIsPackWolf(p)&&!(p.role==='nightmare'&&w.nightmareMetWolves)))return '';
+  var rows=wwWolfKnifeLedger(w);
+  if(!rows.length)return '';
+  return '【狼队最终刀口账本（只给狼队）】\n'+rows.map(function(x){
+    var target=x.finalTarget?wwPlayerByUidTarget(w,x.finalTarget):null;
+    return '· 第 '+x.day+' 夜：狼队实际'+(x.noKill?'【空刀】':('最终刀了 '+wwTag(target)))+
+      (x.proposal?('；个人提议：'+x.proposal):'')+'。';
+  }).join('\n')+
+  '\n· 个人提议、狼队频道最初讨论和团队最终落刀是三件事。后续回忆必须使用“狼队实际最终刀了谁”，不能把某只狼最初想刀的人写成团队最终刀口，也不能把最终刀口误记成公开角色声称后才成立的猜测。'+
+  '\n· 最终刀口是狼队私有事实；是否被女巫救、是否被守卫挡、目标真实身份仍只能按公开信息和本板规则判断，不能因为刀了她就认定她一定是好人。';
+}
+function wwMechanicKnifeWorldlineInfo(p,w){
+  if(!w||!p||!wwIsPackWolf(p))return null;
+  var b=wwBoard(w.count,w);
+  if(!b.mechanicwolf||!b.medium)return null;
+  var rows=wwPublicEventRows(w),a=wwSeerCommitmentLedger(w),best=null;
+  wwWolfKnifeLedger(w).slice().reverse().some(function(k){
+    if(!k.finalTarget)return false;
+    var target=wwPlayerByUidTarget(w,k.finalTarget);
+    if(!target||wwIsPackWolf(target))return false;
+    var claim=null;
+    (a.claims||[]).some(function(c){
+      if(!c||!c.p||c.retractedDay||wwIsPackWolf(c.p))return false;
+      return (c.checks||[]).some(function(x){
+        if(Number(x.seq)!==Number(target.seq)||!/^(?:狼人|查杀)$/.test(String(x.result||'')))return false;
+        claim={giver:c.p,target:target,result:String(x.result),day:Number(x.day)||Number(c.day)||0,ref:x.ref||c.ref||''};
+        return true;
+      });
+    });
+    if(!claim)return false;
+    var save=null,tag=target.seq+'号';
+    rows.some(function(r){
+      var hit=String(r.text||'').split(/[。！？!?；;\n]+/).filter(function(c){
+        return c.indexOf(tag)>=0&&/(?:解药|救人|救了|救起|银水)/.test(c);
+      })[0];
+      if(!hit)return false;
+      save={p:r.p,day:r.day,ref:r.ref,text:wwClipSpeech(hit,220,90)};
+      return true;
+    });
+    best={knife:k,claim:claim,save:save};
+    return true;
+  });
+  return best;
+}
+function wwMechanicKnifeWorldlineText(p,w){
+  var h=wwMechanicKnifeWorldlineInfo(p,w);
+  if(!h)return '';
+  var t=wwTag(h.claim.target),g=wwTag(h.claim.giver);
+  return '【机械狼可能被自刀误伤（只给普通狼看，程序按私有刀口和公开声明整理）】\n'+
+    '· 第 '+h.knife.day+' 夜狼队最终刀口是 '+t+'；'+g+'随后公开声称 '+t+'＝'+h.claim.result+
+    (h.save?('；'+wwTag(h.save.p)+'公开声称与 '+t+' 的救人/解药有关'):'')+'。\n'+
+    '· 世界线A：如果这条验人声明为真，'+t+'又不是你的已知小狼队友，那么她不可能只是普通小狼，只能是机械狼。'+
+    '机械狼如果第一夜学到普通小狼，表面身份就是“狼人”，所以真通灵查到“狼人”完全成立；不能说“机械狼绝不会显示狼人”。'+
+    '如果狼队又确实刀了 '+t+'，且她之后活着或被公开声称救起，这就是“狼队误刀机械狼＋真通灵查到机械狼”的完整世界线。\n'+
+    '· 世界线B：如果这条验人声明是假的，'+t+'仍可能是被狼队误刀的好人。她遗言自称村民也只是自述，不能据此排除机械狼。\n'+
+    '· 这是高优先级世界线比较，不是要求直接认定；但在否决世界线A前，必须指出验人或救药哪条声明出现了具体硬矛盾。';
+}
 /* 普通狼知道自己的小狼队友。只有非队友的跳验人位把某个小狼队友
    报成好人身份，才可能是机械狼在给狼队递好人衣服。 */
 function wwMechanicClothingInfo(p){
@@ -34312,9 +34411,8 @@ function wwMechanicClothingInfo(p){
   });
   return best;
 }
-/* 机械狼通灵板的第一层早期推断：真通灵查小狼会报“狼人”；查机械狼时，
-   学过的显示所学身份，没学过的显示“机械狼”，都不会显示成普通“狼人”。
-   因此非小狼的跳通灵者若把另一个非小狼报成“狼人”，她的验人线就是假的。 */
+/* 机械狼通灵板的第一层候选线：非小狼被报“狼人”时，
+   既可能是假验，也可能是机械狼学到了普通小狼，不能直接判验人位为假。 */
 function wwMechanicEarlyInferenceInfo(p){
   var w=V.ww,b=wwBoard(w&&w.count,w);
   if(!w||!p||!wwIsPackWolf(p)||!b.mechanicwolf||!b.medium)return null;
@@ -34350,11 +34448,11 @@ function wwMechanicEarlyInferenceHint(p){
   var h=wwMechanicEarlyInferenceInfo(p);
   if(!h)return '';
   var g=wwTag(h.giver),t=wwTag(h.target);
-  return '【机械狼早期推断（只给你看）】'+g+'公开跳通灵并报'+t+'=【'+h.result+'】，但'+t+'不在你的小狼队伍里。'+
-    '本板真通灵查小狼才会显示普通“狼人”；查机械狼时，学过的显示所学身份，没学过的显示“机械狼”，不会显示成普通“狼人”。'+
-    '所以你和小狼队友可以确定：'+t+'基本是好人，'+g+'的这条查验是假的。'+g+'又不是小狼，继续坚持查验线时，机械狼就是她的最高优先身份。'+
-    '她就算真的学过通灵、也能验人，仍可以为了做局故意报假结果；狼阵营的公开验人不是证据输出，而是话术。'+
-    '不要为了维持自己的悍跳分工去攻击'+g+'；若你是悍跳狼，这轮退水、放弃旧假验、转去配合她的假通灵线，优先级高于硬撑自己的身份。';
+  return '【机械狼候选线（只给你看，不是硬结论）】'+g+'公开跳通灵并报'+t+'=【'+h.result+'】，而'+t+'不在你的小狼队伍里。'+
+    '这不能单独证明'+g+'是假验：如果'+g+'是真通灵，'+t+'可能是机械狼；机械狼若学到普通小狼，表面身份正是“狼人”。'+
+    '只有在验人时间线、夜数、规则结果或正式对跳出现硬矛盾时，才能把'+g+'的验人线判假。'+
+    '如果狼队自己确实刀过'+t+'，还要同时比较“误刀机械狼后被救”和“误刀好人后被救”两条世界线。'+
+    '不要仅凭“'+t+'不在小狼队伍”就退水去配合'+g+'是机械狼的猜测，也不能因此强行推出真通灵另在别处。';
 }
 async function wwGuardMechanicClothingSpeech(p,sys,out){
   var h=wwMechanicClothingInfo(p);
@@ -40019,11 +40117,16 @@ async function wwNight(){
     if(w.night.wolf){
       try{wwBgmKillSfx()}catch(e){}     /* 刀人这一下：补一记阴间的刀锋音效（只有音乐开着才响） */
       var opn=(w.wolfPicks||[]).map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('、');
-      w.rec.push({d:w.day,t:'狼人刀了 '+wwTag(w.night.wolf)+(opn?('　（当晚各自的想法：'+opn+'）'):''),tk:wolfThink});
+      w.rec.push({d:w.day,t:'狼人刀了 '+wwTag(w.night.wolf)+(opn?('　（当晚各自的想法：'+opn+'）'):''),tk:wolfThink,
+        wolfFinal:{uid:w.night.wolf.uid,seq:w.night.wolf.seq,name:w.night.wolf.name},
+        wolfNoKill:false,
+        wolfProposals:(w.wolfPicks||[]).map(function(x){return {seq:x.seq,name:x.name,targetSeq:x.t?x.t.seq:0}})});
     }else{
       /* 【新】空刀：这一晚谁也没杀 —— 上帝视角 / 裁判记录里也要写清楚（不然会以为是程序出错） */
       var opn2=(w.wolfPicks||[]).map(function(x){return wwTag(x)+' 想刀 '+(x.t?wwTag(x.t):'空刀')}).join('、');
-      w.rec.push({d:w.day,t:'狼人今晚【空刀】（一个人都没杀）'+(opn2?('　（当晚各自的想法：'+opn2+'）'):''),tk:wolfThink});
+      w.rec.push({d:w.day,t:'狼人今晚【空刀】（一个人都没杀）'+(opn2?('　（当晚各自的想法：'+opn2+'）'):''),tk:wolfThink,
+        wolfFinal:null,wolfNoKill:true,
+        wolfProposals:(w.wolfPicks||[]).map(function(x){return {seq:x.seq,name:x.name,targetSeq:x.t?x.t.seq:0}})});
     }
     w.night.nokill=!w.night.wolf;      /* 【新】今晚是空刀：白天狼队自己心里要有数（别以为是被救了） */
     if(wwStaleG(gen))return;                 /* 上一局的循环：赶紧收手，别插到新局里 */
@@ -40917,8 +41020,9 @@ async function wwPoliceWater(p){
   var proxyClaimName=wwBoard(V.ww.count,V.ww).medium?'通灵师':'预言家';
   var jumpHint=adaptJump
     ?'\n你是原定的悍跳狼，但分工不是硬命令。听完排在自己前面的人后，可自由选择：继续跳、改成普通上警观察，或直接退水假装好人代跳。若已经报了假验，退水时必须明确说假验作废并让位；若还没报假验，只说明放弃竞选即可。可信度不足、强跳会送狼时可以退，别为了完成分工硬撑。'
-      +(mechEarly?'\n【本局强提示】'+wwTag(mechEarly.giver)+'公开报'+wwTag(mechEarly.target)+'为'+mechEarly.result+
-        '，但'+wwTag(mechEarly.target)+'不是小狼，且真通灵不会把机械狼显示成普通“狼人”。她的验人线高度可能是假的，'+wwTag(mechEarly.giver)+'很可能是机械狼。默认应退水、放弃自己的旧假通灵线，转去配合她；继续硬撑自己的唯一通灵面，会和更强的狼队身份线互打。':'')
+      +(mechEarly?'\n【本局候选线，不是强命令】'+wwTag(mechEarly.giver)+'公开报'+wwTag(mechEarly.target)+'为'+mechEarly.result+
+        '，而'+wwTag(mechEarly.target)+'不是小狼。这里至少有两支：①'+wwTag(mechEarly.giver)+'是真通灵，'+wwTag(mechEarly.target)+'是学到普通小狼的机械狼，所以会显示“狼人”；②'+wwTag(mechEarly.giver)+'的验人线是假的。'+
+        '不能只用“机械狼不会显示普通狼人”就判她在撒谎，也不能因此机械退水去配合她。先比较夜数、时序、公开票型，以及你自己的悍跳收益；只有确认硬矛盾或强跳明显送狼时，才考虑退水。':'')
     :'';
   var proxyHint=(!wwIsWolf(p)&&p.role!=='seer'&&p.role!=='medium')
     ?'\n如果你只是上警听发言，目的完成且没有明确留警收益，通常退水。如果你是好人代跳：真'+proxyClaimName+'明显接受代跳且继续装能挡刀或带票，才不退；真'+proxyClaimName+'反驳、试探没收获、目标更像好人，或继续装可能被骑士决斗，就退水。退水后要让其他好人知道你是代跳、假验作废。'
