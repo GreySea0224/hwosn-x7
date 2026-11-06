@@ -16317,6 +16317,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀警徽流现在会拆成“已发生查验”和“条件接徽分支”两部分。把5号写成“5号好就5号接徽”只是条件候选，不代表已经验过5号；接徽候选也不需要先验过。一个人是已声明金水，同时又是另一条分支的备选接徽人，并不矛盾。警徽流好坏分支都讲完整属于说明清楚，不是“留后路”。错误质疑被识别后不再进入未解决问答记录；像“后路铺得太整齐、说得太完整”这类没有硬矛盾的说法也不会作为怀疑或投票依据。
 狼人杀“重新说一遍”现在会恢复该条发言开口前的完整局面：当时的存活与出局状态、票型、夜间行动记录截止位置、女巫药况、场记结果、身份盘和本人草稿都会一起回退，不再只回退发言列表；重说完成后再恢复当前进度和后面的记录，下一轮也不会把上一轮旧草稿贴成这一轮的新思考。重说失败时会保留原来的发言，不会留下空缺。
 狼人杀每次发言前新增“本轮硬状态”核对：当前天数、截至当前已出局的人、当前可投名单、未退水验人线和已退水作废线都会放在长历史记录前面。AI 不能把已出局者当今天票口，不能把历史上跳过后退水的人说成现在仍在多人对跳；假跳守卫等身份也必须遵守真实时间线，第一夜不能用白天上警或报验信息解释守人。程序会检查这些错误并要求重写。另修正了“昨晚我验的8号，表面身份是女巫”这类带逗号的通灵查验解析，不会再误记成漏报；质问与回答的整局导出也会按发言编号去重。
+机械狼学到普通小狼后的首次接刀双刀夜，现在会一次让 AI 选满两个不同目标，不再连续问两次。提示会先核对“两刀同时打掉当前最可信的存活神职能否屠神”“两刀打掉村民能否屠民”，存在直接终局组合时优先选择；女巫没药、猎人有枪和警长票权只作为没有直接屠边组合后的次级判断。双刀目标解析失败或漏选时只补问缺少的目标，普通单刀夜和真人自己选刀流程不变。
 狼人杀白天的进度现在每完成一条 AI 或真人发言都会立即存档；警长竞选也会保存已发言的上警者、退水决定和当前步骤。中途退出、刷新或重新进入时，会从还没发言的人继续，不再回到当天开头，也不会重复已经完成的竞选发言。
 狼人杀底栏“标记”右边新增“本局笔记”：按座位号竖排，每个玩家可以单独记身份、发言、狼点和票向；下面会自动列出上警玩家信息和当前公开票型。笔记跟着本局存档，退出刷新后还在。上警公告里的座位号也改为从小到大排列。
 狼人杀公开发言新增两项清理：如果模型把“系统提示、内部核对、输出格式”等幕后文字说出来，只会删掉这些泄漏句，不会整段替换角色正文；如果发言停在“我反过来问你”这类半句话上，会先要求从头补完整，仍失败时优先保留原来完整的公开发言。
@@ -16553,7 +16554,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=133;  /* 133：狼人杀重说完整时间快照与当前轮次硬核对 */
+const GUIDE_VER=134;  /* 134：机械狼双刀一次选两人并优先核对直接屠边 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -38393,14 +38394,77 @@ async function wwMechanicSkillChoose(p,kind){
   if(/不用|不毒|不守|不查|跳过|放弃/.test(txt))return null;
   return wwMatch(txt,pool)||null;
 }
-async function wwMechanicKillChoose(p,usedUids){
+function wwMatchMany(txt,list,maxN){
+  var out=[],seen={},s=String(txt||''),lines=s.split(/\n+/);
+  maxN=Math.max(1,Number(maxN)||1);
+  lines.forEach(function(line){
+    if(out.length>=maxN)return;
+    var p=wwMatch(line,list);
+    if(p&&!seen[p.uid]){seen[p.uid]=1;out.push(p)}
+  });
+  if(out.length<maxN){
+    var re=/(\d{1,2})\s*号/g,m;
+    while(out.length<maxN&&(m=re.exec(s))){
+      var n=Number(m[1]);
+      for(var i=0;i<list.length;i++){
+        var q=list[i];
+        if(q&&Number(q.seq)===n&&!seen[q.uid]){seen[q.uid]=1;out.push(q);break}
+      }
+    }
+  }
+  return out;
+}
+function wwMechanicDoubleKillHint(w,p){
+  if(!w||!p)return '';
+  var d=wwPublicGodGapData(w),godRows=[],villagerRows=[],seen={};
+  d.gods.forEach(function(role){
+    var row=d.claimed[role];
+    if(!row||!row.players||!row.players.length)return;
+    godRows.push(WW_ROLE_NAME[role]+'（'+row.players.map(function(q){
+      return wwTag(q)+(q.alive?'·存活':'·已出局');
+    }).join('、')+'）');
+  });
+  (w.log||[]).forEach(function(e){
+    if(!e||e.k!=='say'||!e.who)return;
+    var q=wwPlayerByUid(e.who);
+    if(!q||!q.alive||seen[q.uid])return;
+    if(wwDirectVillagerClaim(e.text,q.seq)){seen[q.uid]=1;villagerRows.push(wwTag(q))}
+  });
+  var unclaimed=(d.never||[]).map(function(role){return WW_ROLE_NAME[role]});
+  return '【双刀终局组合核对（内部优先）】你这一夜有两刀，必须先按“两刀合起来”判断，不能逐个只看谁威胁大。\n'+
+    '· 本板神职共 '+d.gods.length+' 个。公开神职声明：'+(godRows.join('、')||'暂无')+'。'+
+    (unclaimed.length?('从未被公开认领的神职：'+unclaimed.join('、')+'。'):'')+
+    '\n· 当前存活且公开自称村民：'+(villagerRows.join('、')||'暂无明确村民声明')+'。'+
+    '\n· 先分别构造两条终局路线：A. 两刀同时打掉当前最可信的存活神职，是否能屠神；B. 两刀打掉当前最可信的村民，是否能让村民坑清零。若存在两刀后直接满足屠边的组合，优先选它，不要为了保留明天的抗推位、警长票权或单个“没药女巫”而拆掉终局组合。'+
+    '\n· 女巫没药、猎人有枪、某人票权高，只在没有直接屠边组合时才作为次级比较项。公开声明和已出局者都不等于真实身份；如果某职业只有出局者曾经自称，必须保留“真神仍藏在存活暗位”的世界线。'+
+    '\n· 你必须一次选满两个不同目标；两刀都空才写“空刀”。';
+}
+async function wwMechanicKillChoose(p,usedUids,need){
   var used=usedUids||{},pool=wwAlive().filter(function(x){return x&&x!==p&&!used[x.uid]});
-  if(!pool.length)return null;
-  var sys=wwSysFor(p,'普通小狼已经全部出局，你从今夜起接管狼刀。现在选择要刀的人（可以空刀）：'+
-    pool.map(wwName).join('、')+'\n【输出格式】只输出编号、名字或「空刀」。');
-  var txt=await wwCall(sys,'请决定这一刀。',40,.85);
-  if(/空刀|不刀|不杀/.test(txt))return null;
-  return wwMatch(txt,pool)||null;
+  need=Math.max(1,Math.min(2,Number(need)||1));
+  var want=Math.min(need,pool.length);
+  if(!want)return [];
+  var double=want===2;
+  var task=(double?'普通小狼已经全部出局，你从今夜起接管狼刀。这一夜可以砍两刀，必须一次选择两个不同目标。':'普通小狼已经全部出局，你从今夜起接管狼刀。现在选择要刀的人（可以空刀）：')+
+    pool.map(wwName).join('、')+
+    (double?('\n'+wwMechanicDoubleKillHint(V.ww,p)):'')+
+    '\n【输出格式】'+(double?'第一刀：编号或名字\n第二刀：编号或名字\n只能各写一个、不能重复；只有两刀都不刀时才写「空刀」。':'只输出编号、名字或「空刀」。');
+  var sys=wwSysFor(p,task);
+  var txt=await wwCall(sys,double?'请一次决定两刀。':'请决定这一刀。',double?80:40,.85);
+  if(/空刀|不刀|不杀/.test(txt)&&!/\d{1,2}\s*号/.test(txt))return [];
+  var picks=wwMatchMany(txt,pool,want);
+  if(double&&picks.length<want){
+    var got={};picks.forEach(function(q){got[q.uid]=1});
+    var rest=pool.filter(function(q){return !got[q.uid]});
+    if(rest.length){
+      var missing=want-picks.length;
+      var ask='你还没有选满两刀。请只从以下未选目标中补选 '+missing+' 名，不能重复：'+rest.map(wwName).join('、')+
+        '\n只输出补充的编号或名字。';
+      var txt2=await wwCall(sys,ask,30,.8);
+      wwMatchMany(txt2,rest,missing).forEach(function(q){picks.push(q)});
+    }
+  }
+  return picks.slice(0,want);
 }
 async function wwGargoyleKill(p){
   var pool=wwAlive();
@@ -40530,20 +40594,22 @@ async function wwNight(){
     if(!w.mechKnifeStartedDay)w.mechKnifeStartedDay=w.day;
     var chase=!!(mech0.mechLearn&&mech0.mechLearn.role==='wolf'&&Number(w.mechKnifeStartedDay)===Number(w.day)&&!mech0.mechChaseUsed);
     var mechKills=[],used={};
-    for(var mki=0;mki<(chase?2:1);mki++){
-      var mkPool=wwAlive().filter(function(p){return p!==mech0&&!used[p.uid]});
-      var mk=null;
-      if(me&&me.alive&&mech0===me){
+    if(me&&me.alive&&mech0===me){
+      for(var mki=0;mki<(chase?2:1);mki++){
+        var mkPool=wwAlive().filter(function(p){return p!==mech0&&!used[p.uid]});
         var rmk=await wwAsk((chase?'🔪 你接管狼刀，这一夜可以砍两刀。':'🔪 小狼已全灭，你接管狼刀。')+'现在刀谁？',mkPool,{none:'空刀'});
         if(wwStaleG(gen))return;
-        mk=rmk.uid?wwPlayerByUid(rmk.uid):null;
-      }else if(mkPool.length){
+        var mk=rmk.uid?wwPlayerByUid(rmk.uid):null;
+        if(!mk)break;
+        used[mk.uid]=1;mechKills.push(mk);
+      }
+    }else{
+      var mkPool2=wwAlive().filter(function(p){return p!==mech0});
+      if(mkPool2.length){
         if(!wwQuietNight()){await wwStep('🌙 天黑请闭眼');w.msg='🌙 天黑请闭眼…';render(true)}
-        mk=await wwMechanicKillChoose(mech0,used);
+        mechKills=await wwMechanicKillChoose(mech0,{},chase?2:1);
         if(wwStaleG(gen))return;
       }
-      if(!mk)break;
-      used[mk.uid]=1;mechKills.push(mk);
     }
     if(chase)mech0.mechChaseUsed=true;
     w.night.mechKills=mechKills;
