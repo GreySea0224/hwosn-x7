@@ -16309,6 +16309,11 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-11-07】
+狼人杀“重新说一遍”改为只加强生成提示，不做事后删句：旧原话和纠错备注只给角色内部参考，最终公开发言必须像该角色这一轮第一次开口，不得出现“我刚刚/上一句/我说错了/纠正一下/重新说”等自指修补，也不得解释自己为什么改口。
+狼人杀新增“公开查验原话事实卡”：所有 AI 会直接看到每条查验的发言人、发言编号、目标和精确级别，例如“2号 D1-P2-1 验6号＝村民（精确职业，目标本人确认）”。精确“村民/猎人/女巫”等不能被旧身份盘或场记摘要改写成“模糊好人身份”，不同夜晚的结果也不能合并成“首夜连报两条”。
+狼人终局新增“真人公开收队声明”：真人公开自认机械狼/狼人、要求队友停止伪装并合票时，AI 狼会看到这条公开声明和对应票口，但系统不会确认真人真实阵营，也不会代替 AI 算票或强制改票。AI 要自己结合她过去是否持续给狼递话、给好人发查杀、公开票向、票权人数、警长票以及猎人/骑士等反制，判断她是真队友还是好人在冒充机械狼骗狼。判断是真合作就优先合票，判断是诈骗就不跟；不能因为怕暴露机械切割，也不能因为是真人座位就盲信。
+
 【最近更新 · 2026-11-06】
 狼人杀局内“重新说一遍”现在可以附带纠错备注：长按最新一条 AI 公开发言（或点发言右上角的重新发言按钮），在弹窗里写它上一版哪里说错了，再点“按备注重新说”。这个角色会重新读取自己上一版的完整原话和你的备注，按备注修正整段逻辑，而不是只补一句话；备注只给这个角色看，不会作为“用户说的原话”出现在公开发言里。适合当场纠正“银水必好”“狼不会自刀”“接徽连坐”这类重复错误。
 狼人杀警徽规则进一步明确：单边、高可信的通灵师/预言家把警徽交给某人，主要是传徽者在强烈认可接徽者，接徽者应按高概率金水处理；机械狼板只额外保留“她可能是机械狼”的例外。警徽不会把最后一夜查验结果自动传给接徽者，接徽者也没有义务解释自己为什么被选中或替传徽者解释警徽流；接徽或不解释接徽原因都不是接徽者的狼点。
@@ -16554,7 +16559,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=134;  /* 134：机械狼双刀一次选两人并优先核对直接屠边 */
+const GUIDE_VER=136;  /* 136：收队信号去掉真实阵营与票权系统判定，交给狼 AI 自行推理 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34319,6 +34324,26 @@ function wwPublicCheckIsGoodResult(result){
   if(/狼/.test(r))return false;
   return ['村民','预言家','通灵师','女巫','猎人','守卫','白痴','骑士','守墓人'].indexOf(r)>=0;
 }
+function wwPublicCheckFactsText(w){
+  if(!w||!w.players||!w.players.length)return '';
+  var a=wwSeerCommitmentLedger(w),rows=wwPublicEventRows(w),out=[];
+  (a.claims||[]).forEach(function(c){
+    if(!c||!c.p||c.retractedDay)return;
+    (c.checks||[]).forEach(function(x){
+      var target=wwPlayerByUidTarget(w,Number(x.seq));
+      if(!target||!x.result)return;
+      var exact=wwSpecificRoleResult(x.result),confirmed=wwTargetSelfConfirmsResult(w,target,x.result,rows);
+      var source=wwFindCheckRow(rows,c,x);
+      out.push('· '+wwTag(c.p)+' 在 '+(x.ref||('D'+(x.day||'?')))+' 公开声称验 '+wwTag(target)+'＝【'+x.result+'】'+
+        (exact?'（精确职业）':'（宽泛身份结果）')+(confirmed?'；目标本人已公开确认':'；目标本人尚未确认')+
+        (source?('\n  原话：'+wwClipSpeech(source.text,110,45)):''));
+    });
+  });
+  if(!out.length)return '';
+  var kept=out.length>10?out.slice(0,4).concat(out.slice(-6)):out;
+  return '【公开查验原话事实卡（从公开发言重新提取，优先于场记摘要和你的旧身份盘）】\n'+kept.join('\n')+
+    '\n· 精确职业不能被降级成“好人身份/模糊好身份/宽口”。如果旧身份盘或摘要与本卡冲突，直接改正；每条验人结果都必须保留自己的发言天数和发言编号。';
+}
 function wwSeerCommitmentText(w){
   var a=wwSeerCommitmentLedger(w),L=[],bySeat={};
   var claimName=(w&&wwBoard(w.count,w).medium)?'跳通灵':'跳预';
@@ -36041,6 +36066,16 @@ function wwCurrentTurnIssues(say,w,p){
   var fullSay=String(say||''),out=[],clauses=fullSay.split(/[。！？!?；;\n]+/);
   var data=wwPublicIdentityData(w),claimRole=(wwBoard(w.count,w).medium?'medium':'seer');
   var active=data[claimRole]?Object.keys(data[claimRole]).length:0;
+  var exactByUid={},claimBySeat={};
+  (wwSeerCommitmentLedger(w).claims||[]).forEach(function(c){
+    if(!c||!c.p||c.retractedDay)return;
+    claimBySeat[Number(c.p.seq)]=c;
+    (c.checks||[]).forEach(function(x){
+      if(!wwSpecificRoleResult(x.result))return;
+      var t=wwPlayerByUidTarget(w,Number(x.seq));
+      if(t)exactByUid[t.uid]=(exactByUid[t.uid]||[]).concat([{result:x.result,day:x.day,ref:x.ref,claim:c.p}]);
+    });
+  });
   var selfGuard=/(?:我|本人)(?:就是|是|跳|认|报|穿)[^。！？!?；;\n]{0,8}守卫/.test(fullSay);
   function playerBySeq(n){
     var a=w.players||[],r=null;
@@ -36077,6 +36112,27 @@ function wwCurrentTurnIssues(say,w,p){
       /(?:几位|多人|几个|两位|两个|三名|多名)[^。！？!?；;\n]{0,8}(?:对跳|跳预|跳通灵)|(?:对跳|跳预|跳通灵)[^。！？!?；;\n]{0,8}(?:几位|多人|几个|两位|两个|三名|多名)/.test(c)){
       out.push({kind:'multiClaim',text:c});
     }
+    if(/(?:模糊|宽口|没报具体|只报(?:了)?|概括成)[^。！？!?；;\n]{0,18}(?:好人身份|好身份)|(?:好人身份|好身份)[^。！？!?；;\n]{0,18}(?:模糊|宽口|没报具体|只报(?:了)?)/.test(c)){
+      var hitExact=null,seatRe=/(\d{1,2})\s*号/g,sm;
+      while(!hitExact&&(sm=seatRe.exec(c))){
+        var tp=playerBySeq(Number(sm[1]));
+        if(tp&&exactByUid[tp.uid])hitExact=tp;
+      }
+      var alreadyCorrected=/(?:原话|准确|具体是|其实是|更正|纠正|认错|记岔|口误|不是模糊)/.test(c);
+      var mentionsExact=!!(hitExact&&(exactByUid[hitExact.uid]||[]).some(function(x){return c.indexOf(String(x.result||''))>=0}));
+      if(hitExact&&!alreadyCorrected&&!mentionsExact)out.push({kind:'claimPrecision',target:hitExact.seq,text:c});
+    }
+    if(/(?:首夜|第一夜)/.test(c)&&/(?:连报|两条|两份|两个具体|两份具体)/.test(c)){
+      var mergedClaim=null;
+      Object.keys(claimBySeat).some(function(seq){
+        var c2=claimBySeat[seq];
+        if(!c2||!wwMentionsSeq(c,Number(seq))||!c2.checks||!c2.checks.length)return false;
+        var days={};c2.checks.forEach(function(x){if(wwSpecificRoleResult(x.result))days[Number(x.day)]=1});
+        if(Object.keys(days).length>1){mergedClaim=c2;return true}
+        return false;
+      });
+      if(mergedClaim)out.push({kind:'timelineMerge',target:mergedClaim.p.seq,text:c});
+    }
     var pm=c.match(/(\d{1,2})\s*号[^。！？!?；;\n]{0,12}(?:被毒|中毒)|(?:毒死|毒了|毒药)[^。！？!?；;\n]{0,8}(\d{1,2})\s*号/);
     if(pm){
       var poisoned=Number(pm[1]||pm[2]);
@@ -36102,6 +36158,8 @@ async function wwGuardCurrentTurnSpeech(p,sys,say){
     if(x.kind==='multiClaim')return '当前只有一条未退水验人线，不能写成现在有几位/多人对跳；退水者只能写成历史起跳';
     if(x.kind==='guardClock')return '自称守卫时，第一夜早于上警、发言、验人和死讯；不能用白天信息解释第一夜守人，首夜只能空守或依据开局前信息盲守';
     if(x.kind==='deathCause')return x.target+'号目前只有夜间出局公告，没有公开技能结果时不能写成确定被毒/被刀';
+    if(x.kind==='claimPrecision')return x.target+'号的公开查验原话是精确职业，不能改写成“模糊好人身份/宽口”；若是在复盘别人记错，必须同时写出正确原话';
+    if(x.kind==='timelineMerge')return x.target+'号的查验结果来自不同夜晚，不能合并成“首夜连报两条”';
     return '当前轮次与公开事实不符';
   });
   try{
@@ -36199,7 +36257,7 @@ function wwSpeakTask(p,base){
   var plain=base+(wwHushOn()
     ? '\n【说话要求】始终按本角色的语气、句长和情绪说话，口癖少量自然，不要写成同一种分析员。公开发言控制在 2~4 句、约 120~260 个汉字。没信息就直说，别硬编狼坑。'
     : '\n【说话要求】始终按本角色的语气、句长和情绪说话，口癖少量自然，不要写成同一种分析员。用你的人设和口气，长短随角色。说怀疑/信任谁、理由、投谁；没信息就直说，别硬编狼坑。')+
-    '\n【本轮硬检查】发言前先核对动态事实卡里的当前天数、截至当前出局的人、当前存活/可投名单和当前未退水身份线。不得把已出局者写成今天归票目标，也不得把上一轮已经完成的票口说成这一轮还要投；引用旧轮次时必须明确写“昨天/第N天/当时”。当前只有一条未退水验人线时，不得说场上现在是“几位/多人对跳”，只能把退水者写成历史起跳。引用别人的观点时必须先核对座位号和发言天数，不能把A号说过的话安到B号头上。'+
+    '\n【本轮硬检查】发言前先核对动态事实卡里的当前天数、截至当前出局的人、当前存活/可投名单和当前未退水身份线。不得把已出局者写成今天归票目标，也不得把上一轮已经完成的票口说成这一轮还要投；引用旧轮次时必须明确写“昨天/第N天/当时”。当前只有一条未退水验人线时，不得说场上现在是“几位/多人对跳”，只能把退水者写成历史起跳。引用别人的观点时必须先核对座位号和发言天数，不能把A号说过的话安到B号头上。引用公开查验时直接沿用“公开查验原话事实卡”的精确等级：原话是“村民、猎人、女巫”等具体职业，就不能概括成“好人身份、模糊、宽口、没报具体”；不同夜晚的结果也不能合并成“首夜多条”。'+
     '别复述规则、套模板或长篇点评；不要为了显得独立而故意唱反调。没轮到的玩家不是心虚。'+
     '若上一位或单边神职公开点出具体狼点，先用一句直接回应；可以不认同其身份和结论，但不能假装没听见。'+
     '若当前局面附有“真人核心质疑”，至少正面回答其中最相关的一条，不能只重复自己的旧结论或把它当成已经解释完。'+
@@ -36210,7 +36268,7 @@ function wwSpeakTask(p,base){
     wwMinorityWorldlineSpeechHint()+wwGoodLeadDefenseHint(p)+
     wwDayPlayStyleNeutralityText(p,V.ww,false)+
     (wwVoteFactText(V.ww)?'\n'+wwVoteFactText(V.ww):'');
-  if(wwIsWolf(p))plain+=wwWolfEarlyWagerHint(p)+wwWolfMidgameClaimHint(p)+wwWolfEndgameClaimHint(p)+wwWolfDoomedClaimHint(p,V.ww);
+  if(wwIsWolf(p))plain+=wwWolfEarlyWagerHint(p)+wwWolfMidgameClaimHint(p)+wwWolfEndgameClaimHint(p)+wwWolfDoomedClaimHint(p,V.ww)+wwWolfOpenRallyText(V.ww,p);
   var titleAsk='先写【标题】：单独一行，最多 12 字。标题会被用户看见，必须客观概括公开说了什么、站了谁，不判断身份和动机；狼也不能暴露身份或写出“装作村民、装好人、潜伏”等真实意图。例：站边1号 / 查杀1号 / 这轮划水 / 无信息发言。';
   if(((p&&p.role==='seer')||wwWolfJobOf(p)==='jump')&&V.ww&&Number(V.ww.day)===1){
     titleAsk=wwSheriffOn()
@@ -37410,6 +37468,8 @@ function wwSysFor(p,task){
   if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))dyn.push('【本夜恐惧状态】第 '+w.day+' 夜你被梦魇恐惧，这一夜技能不能发动；如果紧接这个白天出局，猎人枪也不能开。它只影响第 '+w.day+' 夜，不是持续状态。');
   var turnState=wwCurrentTurnText(w,p);
   if(turnState)dyn.push(turnState);
+  var checkFacts=wwPublicCheckFactsText(w);
+  if(checkFacts)dyn.push(checkFacts);
   dyn.push(wwBoardLine());
   dyn.push('【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog());
   dyn.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
@@ -37664,6 +37724,7 @@ function wwWolfChannelText(max){
 }
 function wwWolfCommandRule(){
   return '【狼队执行优先级】最高优先级只来自真人玩家当时作为狼队成员，在狼队频道里发出的私密安排。真人公开发言和公开遗言不是狼队指令。若真人是普通小狼，她出局后的公开遗言只能作为“可能的指刀线索”参考，由其他小狼结合局势自行判断，不能自动当成最终刀口。若真人不是普通小狼，她的公开发言和遗言只是普通公开信息，不得被解释成狼队安排或最高优先级指令。'+
+    '例外：真人若主动公开自认狼阵营、明确要求队友停止伪装并合票，这只作为一条公开收队声明供你判断，不确认她真实阵营。你要结合她此前是否持续帮狼、公开票型和当前票权自行判断是真队友还是好人骗狼；既不能因为怕暴露就机械切割，也不能因为是真人座位就盲信。'+
     '本夜没有新的狼队私密指令时，优先听狼队这一夜形成的讨论和多数策略；最后才是“悍跳/冲锋/倒钩/深水”等分工标签。'+
     '分工只是默认打法，不是禁令或角色限制。多句真人指令冲突时，以本夜时间最新的那句为准。'+
     '真人玩家在狼队频道里要求你跳预、改刀、改票、退水、禁刀某人或按指定方式配合时，要优先执行，不能因为自己是“深水狼”等标签就拒绝，也不能被其他 AI 狼的多数意见覆盖。公开遗言不拥有同样的命令权。';
@@ -38526,12 +38587,14 @@ function wwResayCorrectionText(resay,kind){
   if(!resay)return '';
   var previous=String(resay.previous||'').trim(),note=String(resay.note||'').trim();
   if(!previous&&!note)return '';
-  return '【用户触发了“重新'+kind+'”】\n'+
+  return '【仅你可见的内部替换要求：观众不知道旧稿存在】\n'+
     (previous?('【你上一次公开发言的完整原话】\n'+previous+'\n'):'')+
     (note?('【用户对你的纠错备注】\n'+note+'\n'):'')+
-    '请以这段旧原话为“上一版”，'+(note?'严格按用户备注修正逻辑，':'重新完整组织这段发言，')+'重写完整公开发言，而不是只改一句话或接着旧版往下补。'+
+    '你现在是在替换本轮同一条发言。其他玩家没有看到旧稿，也完全不知道你重说过；最终正文必须像你在这一轮第一次公开发言一样，直接完整表达你现在真正想说的观点。'+
+    (note?'严格吸收用户备注中的逻辑和规则纠错。':'重新完整组织这段发言。')+
+    '不要写成补丁、道歉或解释自己改口；不要出现“我刚刚、刚才、上一句、上一条、上一版、我说错了、我说岔了、纠正一下、更正一下、重新说、重说、按备注、听我重新讲、不是刚才那个意思”这类自指修补。旧稿最多只能在心里用于对照，不能出现在正文里。'+
     '用户备注是逻辑和规则纠错，必须落实到判断和结论；不要把备注里没有公开的猜测擅自变成主持人事实，也不要利用备注泄露其他玩家的隐藏身份。'+
-    '如果纠错改变了归票或站边，就自然写出新结论。公开发言里不要提“用户、备注、系统、内部核对、上一版”，要像角色自己重新想明白后说出口。';
+    '如果纠错改变了归票或站边，就直接写出新结论，并把它当成你这一轮本来就会说的话；不要解释“为什么我的说法变了”。';
 }
 /* 记录“开口前”的状态。每条发言都会带着它走，重说时就能回到当时的视角。 */
 function wwMarkSpeechStart(p){
@@ -38578,6 +38641,59 @@ function wwKnownWolfVoteAllies(p){
   }
   return out;
 }
+function wwWolfOpenRallyInfo(w,p){
+  if(!w||!p||p.isUser||!wwIsWolf(p)||w.over)return null;
+  var me=(w.players||[]).filter(function(x){return x&&x.isUser})[0]||null;
+  if(!me||!me.alive)return null;
+  var day=Number(w.day)||1;
+  var rows=wwPublicEventRows(w).filter(function(r){return r&&r.uid===me.uid&&r.day===day});
+  if(!rows.length)return null;
+  var row=rows[rows.length-1],text=String(row.text||'');
+  var selfWolf=/(?:我|本人)[^。！？!?；;\n]{0,22}(?:爆身份|自认|摊牌|明牌|是|就是)[^。！？!?；;\n]{0,14}(?:机械狼|狼人|狼阵营)|(?:我是|我自认|我明牌)(?:机械狼|狼人|狼阵营)/.test(text);
+  var openVote=/(?:绑票|冲票|控场|人数够|站起来打|别演|不用演|一起投|跟我投|跟票|归票|票了|票\s*\d|投\s*\d|下\s*\d)/.test(text);
+  if(!selfWolf||!openVote)return null;
+  var known=wwKnownWolfVoteAllies(p),blocked={};
+  known.forEach(function(q){blocked[q.uid]=1});
+  blocked[p.uid]=1;blocked[me.uid]=1;
+  var protectedUids={},m,reProtect=/(\d{1,2})\s*号[^。！？!?；;\n]{0,14}(?:留着|别票|不票|先留|留给我)/g;
+  while((m=reProtect.exec(text))){
+    var pp=wwPlayerByUidTarget(w,Number(m[1]));
+    if(pp)protectedUids[pp.uid]=1;
+  }
+  reProtect=/(?:留着|别票|不票|先留)(?:下|住)?\s*(\d{1,2})\s*号/g;
+  while((m=reProtect.exec(text))){
+    var pp2=wwPlayerByUidTarget(w,Number(m[1]));
+    if(pp2)protectedUids[pp2.uid]=1;
+  }
+  var found=[],seenPos={};
+  [
+    /(?:把\s*)?(\d{1,2})\s*号[^。！？!?；;\n]{0,18}(?:票|投|归票|归|出局|下)/g,
+    /(?:票|投|归票|归|下|出)\s*(\d{1,2})\s*号/g
+  ].forEach(function(re){
+    var m2;
+    while((m2=re.exec(text))){
+      var q=wwPlayerByUidTarget(w,Number(m2[1]));
+      if(!q||!q.alive||blocked[q.uid]||protectedUids[q.uid])continue;
+      var key=m2.index+'|'+q.uid;
+      if(seenPos[key])continue;seenPos[key]=1;found.push({at:m2.index,p:q});
+    }
+  });
+  found.sort(function(a,b){return a.at-b.at});
+  var target=found.length?found[found.length-1].p:null;
+  return {user:me,row:row,text:text,target:target,candidates:found.map(function(x){return x.p})};
+}
+function wwWolfOpenRallyText(w,p){
+  var r=wwWolfOpenRallyInfo(w,p);
+  if(!r)return '';
+  return '【真人公开狼队收队声明（只是公开声明，不确认真实阵营）】\n'+
+    '· 真人'+wwTag(r.user)+'在 '+r.row.ref+' 公开自认狼阵营，并要求停止伪装、直接控票/合票。'+
+    (r.target?('她给出的明确票口是 '+wwTag(r.target)+'。'):'她没有留下唯一明确票口。')+
+    '\n· 这可能是真队友公开收队，也可能是好人在冒充机械狼、骗狼队接话或互相投票。系统不会替你说她一定是哪一边。'+
+    '\n· 你自己核对：她过去是否持续做出符合狼队利益的行为，例如给狼阵营递话、给好人发查杀、在关键票型帮狼；她公开点的目标是否是你们的已知队友；场上还剩多少人，已知小狼票加警长票是否真的足够控场，猎人枪、骑士和守卫是否会让跟票直接输。'+
+    '\n· 如果多人同时说自己才是机械狼，或者有人反过来说她是假机械狼，比较谁的说法与实际行动、查验收益和票向更一致，不要因为她是真人座位就默认可信。'+
+    '\n· 如果你判断她是真队友且票权足够，优先合票，不要为了维持“深水/倒钩/冲锋”人设或保留个人好人面主动卖掉她；如果你判断她是好人诈骗，就按骗狼处理。'+
+    '\n· 公开表达可以简短自然，不需要把“绑票/控场”这些内部判断全说出来。';
+}
 function wwWolfBindVoteText(p){
   var w=V.ww;
   if(!w||!p||!wwIsWolf(p)||w.over)return '';
@@ -38607,7 +38723,8 @@ function wwWolfBindVoteText(p){
   return '【已知同狼票权】当前你可确认的同狼票：'+knownPower+'。这里只统计你和已知普通狼队友'+
     (p.role==='nightmare'&&w.nightmareMetWolves?'及已会合的梦魇':'')+'，不包含、也不提示机械狼是否存活。'+
     '这只是确定票，不显示其他玩家总票数，也不代表整体票权已经占优；能否绑票必须结合公开票向自行判断。'+threatText+
-    '若你判断已能无视神职反制，也不必继续伪装深水；但未知机械狼仍必须按公开行为判断，不能默认它一定跟票。';
+    '若你判断已能无视神职反制，也不必继续伪装深水；但未知机械狼仍必须按公开行为判断，不能默认它一定跟票。'+
+    (wwWolfOpenRallyInfo(w,p)?('\n'+wwWolfOpenRallyText(w,p)):'');
 }
 function wwLastOwnSpeech(p){
   var a=(V.ww&&V.ww.log)||[];
