@@ -16304,12 +16304,14 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-11-06 */
+   最后更新：2026-11-07 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-07】
+狼人杀通灵师警徽链已修正：真通灵师每次公开发言必须自然留下“今晚验谁、验到好人谁接徽、验到狼人或机械狼谁接徽或撕徽”。改验后旧分支自动失效。通灵师夜里刚验出结果就出局时，警徽 AI 会直接读取最新私有查验；没有匹配的最新计划时，优先把警徽交给最后一夜仍存活的查验好人，旧金水不能无理由压过新结果。若 AI 仍选错，程序会静默重选并按最新金水兜底，避免机械狼接徽。接徽者不会直接获得私有验人原文，但其他玩家会按警徽去向把她视作高概率金水。
+狼人杀狼坑规则已统一：完整总狼坑可以包括已经出局、已经判断为狼的死者；今天实际票口只能从活人中选择。不能仅因为狼坑名单里有死狼，就攻击玩家“拿死人凑人头”或判她逻辑差、狼面高。只有把死人当成今天要投的人、说成尚未出局，或把未翻牌死者直接写成确定身份，才算问题。
 狼人杀“重新说一遍”改为只加强生成提示，不做事后删句：旧原话和纠错备注只给角色内部参考，最终公开发言必须像该角色这一轮第一次开口，不得出现“我刚刚/上一句/我说错了/纠正一下/重新说”等自指修补，也不得解释自己为什么改口。
 狼人杀新增“公开查验原话事实卡”：所有 AI 会直接看到每条查验的发言人、发言编号、目标和精确级别，例如“2号 D1-P2-1 验6号＝村民（精确职业，目标本人确认）”。精确“村民/猎人/女巫”等不能被旧身份盘或场记摘要改写成“模糊好人身份”，不同夜晚的结果也不能合并成“首夜连报两条”。
 狼人终局新增“真人公开收队声明”：真人公开自认机械狼/狼人、要求队友停止伪装并合票时，AI 狼会看到这条公开声明和对应票口，但系统不会确认真人真实阵营，也不会代替 AI 算票或强制改票。AI 要自己结合她过去是否持续给狼递话、给好人发查杀、公开票向、票权人数、警长票以及猎人/骑士等反制，判断她是真队友还是好人在冒充机械狼骗狼。判断是真合作就优先合票，判断是诈骗就不跟；不能因为怕暴露机械切割，也不能因为是真人座位就盲信。
@@ -16559,7 +16561,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=136;  /* 136：收队信号去掉真实阵营与票权系统判定，交给狼 AI 自行推理 */
+const GUIDE_VER=137;  /* 137：通灵师警徽计划与最新验人优先；完整狼坑可包含死狼 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34050,8 +34052,8 @@ function wwOwnMediumChecks(txt){
 function wwBadgeFlowBranches(txt){
   var out=[],seen={};
   String(txt||'').split(/[。！？!?；;\n]+/).forEach(function(clause){
-    var reGood=/(\d{1,2})\s*号?[^，,]{0,12}?(?:好人|金水)[^，,]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^，,]{0,8}?(?:接徽|拿徽|警徽)?/g;
-    var reWolf=/(\d{1,2})\s*号?[^，,]{0,12}?(?:狼人|狼|查杀)[^，,]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^，,]{0,8}?(?:接徽|拿徽|警徽)?/g;
+    var reGood=/(\d{1,2})\s*号?[^。！？!?；;\n]{0,12}?(?:好人|好身份|金水|村民|平民|神职金水|神职|民及民以上)[^。！？!?；;\n]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^。！？!?；;\n]{0,8}?(?:接徽|拿徽|警徽)?/g;
+    var reWolf=/(\d{1,2})\s*号?[^。！？!?；;\n]{0,12}?(?:机械狼|机械身份|狼人|狼|查杀)[^。！？!?；;\n]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^。！？!?；;\n]{0,8}?(?:接徽|拿徽|警徽)?/g;
     var m;
     while((m=reGood.exec(clause))){
       var key='good|'+m[1]+'|'+m[2];
@@ -34069,13 +34071,119 @@ function wwBadgeFlowBranches(txt){
 function wwBadgeFlowPlanRows(w){
   if(!w)return [];
   var b=wwBoard(w.count,w),claimRole=b.medium?'medium':'seer';
+  var activeClaim={};
+  try{
+    (wwSeerCommitmentLedger(w).claims||[]).forEach(function(c){
+      if(c&&c.p&&c.p.uid)activeClaim[c.p.uid]=c;
+    });
+  }catch(e){}
   return wwPublicEventRows(w).filter(function(r){
-    return r&&/(?:警徽流|接徽|递徽|警徽给)/.test(r.text)&&
-      wwClaimIdentityRoles(r.text,r.p.seq).indexOf(claimRole)>=0;
+    if(!r||!/(?:警徽流|接徽|递徽|警徽给)/.test(r.text))return false;
+    var direct=wwClaimIdentityRoles(r.text,r.p.seq).indexOf(claimRole)>=0;
+    var earlier=activeClaim[r.uid];
+    return direct||!!(earlier&&!earlier.retractedDay);
   }).slice(-4).map(function(r){
     var parser=b.medium?wwOwnMediumChecks:wwOwnSeerChecks;
     return {p:r.p,row:r,checks:parser(r.text),branches:wwBadgeFlowBranches(r.text)};
   });
+}
+function wwBadgePlanTargetFromText(txt){
+  var clauses=String(txt||'').split(/[。！？!?；;\n]+/);
+  for(var i=clauses.length-1;i>=0;i--){
+    var m=clauses[i].match(/(?:今晚|今夜|明晚|准备|计划|改验)[^。！？!?；;\n]{0,24}?(?:验|查验|摸)\s*(\d{1,2})\s*号/);
+    if(m)return Number(m[1])||0;
+  }
+  return 0;
+}
+function wwBadgeLatestPrivateCheck(sh){
+  if(!sh)return null;
+  if(sh.role==='medium'){
+    var m=(sh.check||[]).filter(function(c){return c&&c.kind==='medium'});
+    return m.length?m[m.length-1]:null;
+  }
+  if(sh.role==='seer'){
+    var s=(sh.check||[]).filter(function(c){return c&&!c.kind});
+    return s.length?s[s.length-1]:null;
+  }
+  return null;
+}
+function wwBadgeCheckIsGood(sh,c){
+  if(!c)return false;
+  if(sh&&sh.role==='seer')return !c.isWolf;
+  return !wwIsWolf({role:c.role||''});
+}
+function wwBadgeLivingGoods(sh){
+  var seen={},out=[];
+  (sh&&sh.check||[]).forEach(function(c){
+    if(!c||!c.uid||seen[c.uid]||!wwBadgeCheckIsGood(sh,c))return;
+    var p=wwPlayerByUid(c.uid);
+    if(!p||!p.alive)return;
+    seen[c.uid]=1;
+    out.push({p:p,c:c,day:Number(c.day)||0});
+  });
+  out.sort(function(a,b){return b.day-a.day});
+  return out;
+}
+function wwBadgePlanForCheck(sh,latest){
+  if(!sh||!latest)return null;
+  var t=wwPlayerByUid(latest.uid),seq=t?Number(t.seq):0;
+  if(!seq)return null;
+  var rows=wwBadgeFlowPlanRows(V.ww).filter(function(x){return x.p&&x.p.uid===sh.uid});
+  for(var i=rows.length-1;i>=0;i--){
+    var x=rows[i],txt=String(x.row&&x.row.text||'');
+    if(wwBadgePlanTargetFromText(txt)!==seq)continue;
+    var branches=(x.branches||[]).filter(function(b){return Number(b.condition)===seq});
+    var good=branches.filter(function(b){return b.result==='好人'})[0]||null;
+    var wolf=branches.filter(function(b){return b.result==='狼人'})[0]||null;
+    var tear=/撕徽|撕警徽|不交徽|谁都不给/.test(txt);
+    return {row:x.row,p:x.p,targetSeq:seq,branches:branches,good:good,wolf:wolf,tear:tear,
+      complete:!!(good&&(wolf||tear)),text:txt};
+  }
+  return null;
+}
+function wwBadgeDecisionData(sh,w){
+  w=w||V.ww;
+  if(!w||!sh)return null;
+  var latest=wwBadgeLatestPrivateCheck(sh);
+  if(!latest)return null;
+  var target=wwPlayerByUid(latest.uid),latestGood=wwBadgeCheckIsGood(sh,latest);
+  var plan=wwBadgePlanForCheck(sh,latest);
+  var planRecipient=null,planTear=false;
+  if(plan&&plan.complete){
+    var branch=latestGood?plan.good:plan.wolf;
+    if(branch&&branch.recipient){
+      var pr=wwPlayerByUidTarget(w,Number(branch.recipient));
+      if(pr&&pr.alive)planRecipient=pr;
+    }else if(!latestGood&&plan.tear){
+      planTear=true;
+    }
+  }
+  var goods=wwBadgeLivingGoods(sh);
+  var recommended=planTear?null:(planRecipient||(target&&target.alive&&latestGood?target:null)||(goods[0]&&goods[0].p)||null);
+  return {latest:latest,target:target,latestGood:latestGood,plan:plan,planRecipient:planRecipient,
+    planTear:planTear,goods:goods,recommendedUid:recommended?recommended.uid:'',recommendedTear:planTear||!recommended,
+    hasAnyPlan:wwBadgeFlowPlanRows(w).some(function(x){return x.p&&x.p.uid===sh.uid})};
+}
+function wwBadgeDecisionCardText(sh,w){
+  var d=wwBadgeDecisionData(sh,w);
+  if(!d)return '';
+  var role=sh.role==='seer'?(d.latest.isWolf?'狼人':'好人'):(WW_ROLE_NAME[d.latest.role]||d.latest.role||'未知');
+  var L=['【出局警长·警徽决策卡（程序按你的私有记录整理）】',
+    '· 最新私有查验：第 '+(Number(d.latest.day)||Number(w.day)||1)+' 夜，'+
+      (d.target?wwTag(d.target):'已出局玩家')+' = '+role+(d.target&&d.target.alive?'（仍存活）':'（已出局）')+'。'];
+  if(d.plan){
+    L.push('· 最近与最新查验目标匹配的公开警徽流：'+wwTag(d.plan.p)+'，'+
+      (d.plan.complete?'分支完整':'分支不完整')+'。原话：'+wwClipSpeech(d.plan.text,220,90));
+  }else{
+    L.push('· 最近公开警徽流：'+(d.hasAnyPlan?'存在旧计划，但没有一条是针对最新查验目标、可供直接执行的完整分支；旧计划已过期。':'没有可执行记录。'));
+  }
+  var rec=d.recommendedUid?wwPlayerByUid(d.recommendedUid):null;
+  L.push('· 默认推荐：'+(rec?wwTag(rec):'撕毁警徽')+'。');
+  L.push('【执行顺序】最新查验结果和最新完整警徽流优先，早验金水不能无理由压过新验结果；'+
+    '最新目标是好人且存活，优先把徽给她；最新目标是狼或已死亡，才退到最近仍存活的已验好人。'+
+    (wwBoard(w.count,w).mechanicwolf?'在机械狼板里仍保留“最新金水可能是学过该身份的机械狼”这一例外，但不能因此无脑跳过最新完整计划。':'')+
+    '如果实际选择偏离默认推荐，必须有本轮可明确表达的硬理由。');
+  return L.join('\n');
 }
 function wwBadgeFlowSemanticsText(w){
   var plans=wwBadgeFlowPlanRows(w);
@@ -35500,10 +35608,28 @@ function wwConditionalAssertionIssue(say,w){
   }
   return null;
 }
+function wwWolfPitScopeText(){
+  return '【狼坑范围】完整总狼坑可以包含已经出局、你已经判断为狼的死者；盘点狼队组成、解释还剩几狼时，把死狼列进去是正常的。今天实际票口只能从存活玩家中选择。不能仅因为某人的狼坑名单包含死者，就说她“拿死人凑人头”、逻辑差或是狼；只有她把死者当成今天要投的人、声称死者尚未出局，或把未翻牌死者直接写成已确认身份时，才是真问题。';
+}
+function wwDeadPitAttackText(txt){
+  var clauses=String(txt||'').split(/[。！？!?；;\n]+/);
+  for(var i=0;i<clauses.length;i++){
+    var c=String(clauses[i]||'');
+    var safe=/(?:总狼坑|完整狼坑|历史狼坑)[^。！？!?；;\n]{0,36}(?:可以|能够|允许|应该)[^。！？!?；;\n]{0,24}(?:包括|包含|列入|算进|放进)/
+      .test(c)||/(?:不能|不得|不应|不是)[^。！？!?；;\n]{0,20}(?:因为|仅因|只因)[^。！？!?；;\n]{0,32}(?:死者|死人|死狼|出局)[^。！？!?；;\n]{0,32}(?:狼坑|凑人头|凑数)/.test(c);
+    if(safe)continue;
+    var a=/(?:别|不要|不能|凭什么|怎么能)[^。！？!?；;\n]{0,14}(?:拿|用|把)?[^。！？!?；;\n]{0,12}(?:死人|死者|死狼|已经?出局[^。！？!?；;\n]{0,8}|出去的人)[^。！？!?；;\n]{0,22}(?:凑人头|凑数|占坑|占狼坑|塞进狼坑|放进狼坑|列进狼坑|算进狼坑)/.test(c);
+    var b=/(?:死人|死者|死狼|已经?出局|出去的人)[^。！？!?；;\n]{0,28}(?:放|列|塞|算)[^。！？!?；;\n]{0,10}(?:狼坑|狼位)[^。！？!?；;\n]{0,28}(?:就是|所以|说明|算|属于)[^。！？!?；;\n]{0,14}(?:凑人头|凑数|狼点|有问题|不合理)/.test(c);
+    if(a||b)return c;
+  }
+  return '';
+}
 function wwClaimReasoningIssue(say,w){
   var all=String(say||''),clauses=all.split(/[。！？!?；;\n]+/),out=[];
   var core=wwCoreReasoningIssue(all,w);
   if(core)out.push(core);
+  var deadPit=wwDeadPitAttackText(all);
+  if(deadPit)out.push({kind:'deadPit',text:deadPit});
   if(/(?:遗言|死狼)[\s\S]{0,180}(?:全对|都对|几条对|大部分对)[\s\S]{0,180}(?:也|就|更)(?:倾向)?(?:是真的|可信|可以信)/.test(all)&&
     !/(?:不能|不代表|不证明|只有|但|然而|可是|唯独)/.test(all)){
     out.push({kind:'deadWolfParts',text:all.slice(0,320)});
@@ -35716,6 +35842,8 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
     correction='被女巫毒死只说明有人声称对她用了毒，或者夜里出现毒杀线索；不能证明她是狼。女巫可能毒错，被毒死的也可能是真通灵师或其他好人。请改为比较女巫声明真假、毒人时机和票局收益，不要用死亡反推阵营。';
   }else if(bad.kind==='styleOnly'){
     correction='推理快、结论准、分析全面、发言强势，或把警徽流好坏两个分支都讲完整，都是表达和思考风格，不是身份证据。必须具体指出哪条事实前提错误、哪条规则冲突、哪条时间线或票型承诺矛盾；如果指不出来，就不能单凭“后路太整齐、说太完整”这类理由怀疑或投票。';
+  }else if(bad.kind==='deadPit'){
+    correction=wwWolfPitScopeText()+'请删掉“把死者列进完整狼坑就是凑人头/狼点”的指责；可以要求她今天从活人里给票，但不能因为总狼坑包含死者而攻击她。';
   }
   try{
     var ask='【内部推理核对】你刚才准备公开说：“'+bad.text+'”。这句话与记录或规则不合：'+correction+
@@ -35739,6 +35867,9 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
   }
   if(bad.kind==='phantomGold'){
     return '先确认一件事：'+bad.target+'号目前只是待验位，不是已经验出的金水。请把'+bad.target+'号是不是今晚的查验位置直接说清楚。';
+  }
+  if(bad.kind==='deadPit'){
+    return '狼坑要说清范围：完整狼坑可以包括已经出局的狼，今天票口才只能从活人里选。仅因为名单里有死者，不能算拿死人凑人头或狼点。';
   }
   if(bad.kind==='mechanicTiming'){
     return '这里我只把规则说清：机械狼学习后，表面身份立即变成学到的身份；下一夜起才可用的是主动技能。学到女巫后，通灵师查到的是女巫，不是机械狼本体。';
@@ -36268,6 +36399,11 @@ function wwSpeakTask(p,base){
     wwMinorityWorldlineSpeechHint()+wwGoodLeadDefenseHint(p)+
     wwDayPlayStyleNeutralityText(p,V.ww,false)+
     (wwVoteFactText(V.ww)?'\n'+wwVoteFactText(V.ww):'');
+  plain+='\n'+wwWolfPitScopeText();
+  if(p&&p.role==='medium'&&V.ww&&wwSheriffOn()&&!V.ww.badgeGone&&p.alive){
+    plain+='\n【真通灵警徽计划】本轮公开发言必须自然说清：今晚验谁；被验成好人身份时谁接徽；被验成狼人或机械狼时谁接徽或撕徽。'+
+      '改验时要把新旧目标和分支重新说完整，不能只改号码沿用旧分支。不要写成内部卡片或提提示词，按角色口吻用一两句说清。';
+  }
   if(wwIsWolf(p))plain+=wwWolfEarlyWagerHint(p)+wwWolfMidgameClaimHint(p)+wwWolfEndgameClaimHint(p)+wwWolfDoomedClaimHint(p,V.ww)+wwWolfOpenRallyText(V.ww,p);
   var titleAsk='先写【标题】：单独一行，最多 12 字。标题会被用户看见，必须客观概括公开说了什么、站了谁，不判断身份和动机；狼也不能暴露身份或写出“装作村民、装好人、潜伏”等真实意图。例：站边1号 / 查杀1号 / 这轮划水 / 无信息发言。';
   if(((p&&p.role==='seer')||wwWolfJobOf(p)==='jump')&&V.ww&&Number(V.ww.day)===1){
@@ -36429,6 +36565,48 @@ async function wwGuardMediumSpeech(p,sys,say){
   p._lastSayTitle='报验'+wwTag(target)+'真相';
   return '我昨晚验的是 '+wwTag(target)+'，'+(specialMech?'是机械通灵师，也就是机械狼查杀。':(wwIsWolf({role:actualRole})?'是查杀。':'是好人身份。'))+
     '前面的具体身份表述以这条为准，这轮先按这条真实结果和场上票型走。';
+}
+function wwMediumBadgePlanComplete(txt){
+  var target=wwBadgePlanTargetFromText(txt);
+  if(!target)return false;
+  var branches=wwBadgeFlowBranches(txt).filter(function(b){return Number(b.condition)===target});
+  var good=branches.some(function(b){return b.result==='好人'&&Number(b.recipient)>0});
+  var wolf=branches.some(function(b){return b.result==='狼人'&&Number(b.recipient)>0});
+  var tear=/撕徽|撕警徽|不交徽|谁都不给/.test(String(txt||''));
+  return !!(good&&(wolf||tear));
+}
+async function wwGuardMediumBadgePlanSpeech(p,sys,say){
+  var w=V.ww;
+  if(!w||!p||p.role!=='medium'||!p.alive||!wwSheriffOn()||w.badgeGone||w.phase!=='day')return say;
+  if(wwMediumBadgePlanComplete(say))return say;
+  var ask='【真通灵警徽计划核对】你刚才准备公开说：“'+String(say||'').slice(0,700)+'”。'+
+    '这轮缺一条完整、可执行的警徽计划。请保持角色口吻和原任务格式重写公开整段发言，自然补清：今晚验谁；目标为好人身份时谁接徽；目标为狼人或机械狼时谁接徽，若没有合适已知好人就明确撕徽。'+
+    '每个分支都要重复座位号，例如“7号是好人就让7号接徽；7号是狼人就撕徽”。'+
+    '如果改了验人目标，旧目标对应的分支不能继续沿用。不要写系统、核对、提示词，也不要说“重新说/我漏了”。';
+  try{
+    var fixed='';
+    p._lastSayTitle='';
+    var cr=wwTakeTitle(p,String(await wwCall(sys,ask,wwSayMax(),.65)||'').trim());
+    var cb=wwTakeIdentityBoard(p,cr);cr=cb.text;
+    var sp=wwSplitDraft(cr);
+    fixed=wwStripLead(sp.say||'');
+    if(sp.draft)p.scratch=sp.draft;
+    fixed=wwStripInternalSpeechLeak(fixed);
+    if(fixed&&wwMediumBadgePlanComplete(fixed))return fixed;
+  }catch(e){}
+  var target=wwPlayerByUidTarget(w,wwBadgePlanTargetFromText(say));
+  if(!target){
+    try{target=await wwMediumChoose(p)}catch(e){}
+  }
+  if(!target)target=wwAlive().filter(function(x){return x!==p})[0]||null;
+  if(!target)return say;
+  var goods=wwBadgeLivingGoods(p).filter(function(x){return x.p&&x.p.uid!==target.uid});
+  var fallback=goods.length?goods[0].p:null;
+  var ts=wwTag(target);
+  var plan='今晚我验'+ts+'。'+ts+'是好人身份，就让'+ts+'接徽；'+ts+'是狼人或机械狼，'+
+    (fallback?('警徽交给'+wwTag(fallback)):'我就撕徽')+'。';
+  p._lastSayTitle='报验与警徽计划';
+  return String(say||'').replace(/[。！？!?；;]+$/,'')+'。'+plan;
 }
 function wwActivePublicSeerClaim(p,w){
   if(!p||!w)return null;
@@ -36622,6 +36800,7 @@ async function wwSpeak(p,sys,resay){
   if(p&&!p.isUser&&wwIsPackWolf(p))out=await wwGuardMechanicClothingSpeech(p,sys,out);
   if(p&&!p.isUser&&p.role==='seer')out=await wwGuardSeerSpeech(p,sys,out);
   if(p&&!p.isUser&&p.role==='medium')out=await wwGuardMediumSpeech(p,sys,out);
+  if(p&&!p.isUser&&p.role==='medium')out=await wwGuardMediumBadgePlanSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardOffPoliceSeerSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardSpeechCompleteness(p,sys,out);
   if(p&&!p.isUser)out=wwStripInternalSpeechLeak(out);
@@ -36865,7 +37044,8 @@ function wwReasoningDisciplineText(){
     '真人局里预判别人可能怎么发言、明天可能刀谁、自己死后怎么安排票和警徽，都是正常策略。使用“可能、大概、如果、我猜、下一步看”等表达时，不得当狼点，也不要用“预判让我不舒服、发言扣分、像在写台词”反复施压。只有把尚未发生的话说成已经发生、把预测直接当定罪事实，或本人已经实际回答后仍用预测代替原话，才需要指出；指出一次即可，之后听本人回答。'+
     '单边高可信神职出现小口误、语气差、用词不准时，可以要求她简短澄清；澄清后不得反复拿同一个措辞问题施压，更不能仅因此投她。只有与规则、时间线、查验结果或票型承诺发生正面硬冲突，且没有替代解释时，才能降级身份判断。'+
     '同一核心理由如果前面已经有两名玩家完整说过，后续发言只能补充新的对象、新增事实或指出前一条推导的具体缺口；也可以直接说“我认同这条，不重复”，不能换一批词复读成多个独立证据。'+
-    '实际接徽人不在生前报的某一条分支里，不能单独证明被验者必狼：可能存在临时改验、原接徽人当夜死亡、转交最信任好人或狼警长做局。只有公开交接说明与规则、时间线、查验数量或实际落点同时正面冲突且没有替代解释时，才降级判断。';
+    '实际接徽人不在生前报的某一条分支里，不能单独证明被验者必狼：可能存在临时改验、原接徽人当夜死亡、转交最信任好人或狼警长做局。只有公开交接说明与规则、时间线、查验数量或实际落点同时正面冲突且没有替代解释时，才降级判断。'+
+    '\n'+wwWolfPitScopeText();
 }
 function wwSpecificRoleResult(result){
   var r=String(result||'');
@@ -38775,6 +38955,7 @@ async function wwVoteAI(p,pool){
       ' 本轮再解释后改票，但她已经发言结束，不能再回应。不要继续等待这个条件，直接按现有原话决定最终票。':'')):'';
   var goodHint='\n按狼坑位置投，自行判断归票是否可信。按开局狼数、当前人数最多剩几狼，和是否有定狼已出局'+
     '（自爆/被骑士戳/跳预的全死=至少1狼死）粗估剩余狼数。再分析你想票的候选：若她是狼，队友是谁，'+
+    '完整总狼坑可以包括已出局且你判断为狼的死者，今天实际票口只从存活玩家中选择；不能仅因她保留死狼在总狼坑，就判她“拿死人凑人头”或扣狼点。'+
     '若她不是狼，是否有更像在狼队的人。票型一边倒时思考狼队是跟票投狼做身份，还是在冲票好人；'+
     '一个人有人保或没人保都不能靠这个定身份。特别检查长期投“安全正确票”、从不承担救队友风险的人；投过一次必出的狼队友只能轻微减分，不能长期免检。'+
     '除主持人公开事实和你的私有结果外，别人报的查验都只是待核验说法；只有你用独立理由暂信某条验人线后，她的查杀才算较强证据。不能因为对方“报了查验、验人线自洽、警徽流完整”就先信、站边或再拖一轮。'+
@@ -41609,11 +41790,21 @@ async function wwOrderAI(sh,alive){
   return {uid:who?who.uid:'',dir:/逆|倒/.test(txt)?-1:1};
 }
 /* 一个 AI 警长决定警徽交给谁 / 撕毁 */
-async function wwBadgeAI(sh,pool){
-  var sys=wwSysFor(sh,'你（警长）出局了，要处理警徽：可以把警徽交给场上一个还活着的人（交给谁，等于把你手上的信息托付给她），也可以直接把警徽撕掉（谁都不给）。\n'+
+async function wwBadgeAI(sh,pool,strictUid){
+  var task='你（警长）出局了，要处理警徽：可以把警徽交给场上一个还活着的人（交给谁，等于把你手上的信息托付给她），也可以直接把警徽撕掉（谁都不给）。\n'+
     '如果你竞选或发言时报过警徽流，优先按自己报的分支交徽。常见做法是：验到好人，让被验者接徽；验到狼，交给已知金水或可信好人，没有就撕徽。别人会按“实际接徽人对应哪一支”来理解你最后的验人信息，不能随口交给相反的人。\n'+
     '可选的人：'+pool.map(wwName).join('、')+
-    '\n【输出格式】第一行写「移交」或「撕毁」；如果写移交，第二行再写那个人的编号或名字（例如「3号」）。');
+    '\n【输出格式】第一行写「移交」或「撕毁」；如果写移交，第二行再写那个人的编号或名字（例如「3号」）。';
+  var card=wwBadgeDecisionCardText(sh,V.ww);
+  if(card)task+='\n'+card;
+  if(strictUid){
+    var preferred=wwPlayerByUid(strictUid);
+    if(preferred&&pool.some(function(x){return x.uid===strictUid})){
+      task+='\n【程序规则校验】按最新完整计划、最新存活金水优先的顺序，当前应优先移交给'+wwTag(preferred)+
+        '。除非你能从公开事实指出她刚刚死亡、警徽计划明确指定了别的活人，或她有本轮可核验的硬冲突，否则请选择她。';
+    }
+  }
+  var sys=wwSysFor(sh,task);
   var txt=String(await wwCall(sys,'请决定警徽的去向。',40,.85)||'');
   if(/撕毁|撕掉|撕警徽|撕/.test(txt))return {tear:true,uid:''};
   var who=wwMatch(txt,pool);
@@ -41853,8 +42044,17 @@ async function wwBadgePass(){
     await wwStep('轮到警长「'+wwTag(sh)+'」处理警徽');
     if(wwStaleG(gen))return;
     w.msg='👮 警长「'+wwTag(sh)+'」正在决定警徽的去向…';render(true);
-    var res=await wwBadgeAI(sh,pool);
+    var decision=wwBadgeDecisionData(sh,w);
+    var res=await wwBadgeAI(sh,pool,decision&&decision.recommendedUid);
     if(wwStaleG(gen))return;
+    if(decision&&decision.planTear){
+      res={tear:true,uid:''};
+    }else if(decision&&decision.recommendedUid&&(!res||res.tear||res.uid!==decision.recommendedUid)){
+      var strict=await wwBadgeAI(sh,pool,decision.recommendedUid);
+      if(wwStaleG(gen))return;
+      if(strict&&!strict.tear&&strict.uid===decision.recommendedUid)res=strict;
+      else res={tear:false,uid:decision.recommendedUid};
+    }
     if(res&&!res.tear&&res.uid)to=wwPlayerByUid(res.uid);
     if(!to)tear=true;
   }
