@@ -45477,10 +45477,10 @@ function wwCareerBars(map,labelFn,emptyText){
   if(!keys.length)return '<p class="gx-hint" style="margin:4px 0">'+(emptyText||'还没有数据')+'</p>';
   return keys.map(function(k){
     var b=map[k],pct=wwCareerPct(b);
-    return '<div style="padding:8px 0;border-bottom:1px dashed var(--line)">'+
-      '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--txt)">'+
+    return '<div style="padding:9px 0;border-bottom:1px dashed rgba(194,211,235,.2)">'+
+      '<div style="display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--txt)">'+
       '<b style="font-weight:600">'+esc(labelFn(k))+'</b><span style="color:var(--meta);white-space:nowrap">'+b.wins+'/'+b.games+' · '+pct+'%</span></div>'+
-      '<div style="height:6px;margin-top:6px;border-radius:999px;background:var(--bg2);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;border-radius:999px;background:linear-gradient(90deg,var(--acc),var(--acc2))"></i></div></div>';
+      '<div style="height:7px;margin-top:7px;border-radius:999px;background:var(--bg2);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;border-radius:999px;background:linear-gradient(90deg,var(--acc),var(--acc2))"></i></div></div>';
   }).join('');
 }
 function wwProfileHTML(){
@@ -45491,37 +45491,37 @@ function wwProfileHTML(){
   var bestBoard=wwCareerBest(s,s.boards,3,wwCareerBoardLabel);
   var bestRole=wwCareerBest(s,s.roles,3,function(k){return WW_ROLE_NAME[k]||k});
   var unlocked=WW_ACHIEVEMENTS.filter(function(d){var a=s.ach[d.id];return a&&Number(a.tier)>0}).length;
-  var h='<div class="ww-mkmodal" onclick="GAME.wwProfile(0)" style="position:fixed;inset:0;bottom:var(--kb,0px);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:14px;background:rgba(3,5,8,.72);overflow:auto">'+
-    '<div class="ww-mkbox" onclick="event.stopPropagation()" style="width:100%;max-width:520px;max-height:calc(100vh - 28px - var(--kb,0px));overflow:auto">'+
+  var h='<div class="ww-mkmodal" onclick="GAME.wwProfile(0)" style="position:fixed;inset:0;bottom:var(--kb,0px);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:14px;background:rgba(3,5,8,.72);overflow:auto;--txt:#eef4fb;--meta:#b8c6d8;--dim:#a7b7ca;--line:rgba(194,211,235,.2);--panel:#111b27;--bg2:#1b2a3a;--acc:#8fb2ff;--acc2:#bad0ff;--accdim:rgba(103,143,224,.22)">'+
+    '<div class="ww-mkbox" onclick="event.stopPropagation()" style="width:100%;max-width:520px;max-height:calc(100vh - 28px - var(--kb,0px));overflow:auto;color:var(--txt);background:#111b27">'+
       '<div class="ww-pophead"><b>狼人杀个人主页</b><button class="ww-popx" type="button" aria-label="关闭" onclick="GAME.wwProfile(0)">'+WW_IC_X+'</button></div>'+
       '<div style="display:flex;align-items:center;gap:13px;padding:8px 2px 13px">'+avBox(meAvObj(),64)+
-        '<div style="min-width:0"><b style="display:block;font-size:19px;color:var(--txt)">'+esc(userName())+'</b>'+
-        '<span style="display:block;margin-top:5px;font-size:12.5px;color:var(--meta)">'+total+' 场 · 胜率 '+rate+'%</span></div></div>'+
+        '<div style="min-width:0"><b style="display:block;font-size:20px;color:var(--txt)">'+esc(userName())+'</b>'+
+        '<span style="display:block;margin-top:5px;font-size:13px;color:var(--meta)">'+total+' 场 · 胜率 '+rate+'%</span></div></div>'+
       '<div class="gx-memseg" style="display:flex;margin:0 0 12px">'+
         '<button class="'+(tab==='overview'?'on':'')+'" onclick="GAME.wwProfileTab(\'overview\')">数据</button>'+
         '<button class="'+(tab==='achievements'?'on':'')+'" onclick="GAME.wwProfileTab(\'achievements\')">成就</button></div>';
   if(tab==='overview'){
     h+='<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px">'+
-      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:21px;color:var(--txt)">'+total+'</b><span style="font-size:10.5px;color:var(--meta)">有效对局</span></div>'+
-      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:21px;color:#2fbf71">'+wins+'</b><span style="font-size:10.5px;color:var(--meta)">胜场</span></div>'+
-      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:21px;color:var(--acc)">'+rate+'%</b><span style="font-size:10.5px;color:var(--meta)">总胜率</span></div></div>'+
+      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:22px;color:var(--txt)">'+total+'</b><span style="font-size:11.5px;color:var(--meta)">有效对局</span></div>'+
+      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:22px;color:#58d58d">'+wins+'</b><span style="font-size:11.5px;color:var(--meta)">胜场</span></div>'+
+      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:22px;color:var(--acc)">'+rate+'%</b><span style="font-size:11.5px;color:var(--meta)">总胜率</span></div></div>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px">'+
-      '<div class="gx-card" style="margin:0;padding:11px"><b style="display:block;font-size:11px;color:var(--meta);font-weight:600">最擅长板子</b><span style="display:block;margin-top:5px;font-size:14px;color:var(--txt)">'+esc(bestBoard?bestBoard.label:'数据积累中')+'</span>'+(bestBoard?'<small style="color:var(--acc)">'+bestBoard.games+' 场 · '+bestBoard.rate+'%</small>':'')+'</div>'+
-      '<div class="gx-card" style="margin:0;padding:11px"><b style="display:block;font-size:11px;color:var(--meta);font-weight:600">最擅长角色</b><span style="display:block;margin-top:5px;font-size:14px;color:var(--txt)">'+esc(bestRole?bestRole.label:'数据积累中')+'</span>'+(bestRole?'<small style="color:var(--acc)">'+bestRole.games+' 场 · '+bestRole.rate+'%</small>':'')+'</div></div>'+
-      '<div class="gx-sec">阵营</div><div class="gx-card">'+wwCareerBars(s.camps,function(k){return k==='wolf'?'狼人阵营':'好人阵营'})+'</div>'+
-      '<div class="gx-sec">身份</div><div class="gx-card">'+wwCareerBars(s.roles,function(k){return WW_ROLE_NAME[k]||k},'还没有身份数据')+'</div>'+
-      '<div class="gx-sec">板子</div><div class="gx-card">'+wwCareerBars(s.boards,wwCareerBoardLabel,'还没有板子数据')+'</div>'+
-      '<div class="gx-sec">对局方式</div><div class="gx-card">'+wwCareerBars(s.modes,wwCareerModeLabel)+'</div>';
+      '<div class="gx-card" style="margin:0;padding:11px"><b style="display:block;font-size:12px;color:var(--meta);font-weight:600">最擅长板子</b><span style="display:block;margin-top:5px;font-size:15px;color:var(--txt)">'+esc(bestBoard?bestBoard.label:'数据积累中')+'</span>'+(bestBoard?'<small style="color:var(--acc)">'+bestBoard.games+' 场 · '+bestBoard.rate+'%</small>':'')+'</div>'+
+      '<div class="gx-card" style="margin:0;padding:11px"><b style="display:block;font-size:12px;color:var(--meta);font-weight:600">最擅长角色</b><span style="display:block;margin-top:5px;font-size:15px;color:var(--txt)">'+esc(bestRole?bestRole.label:'数据积累中')+'</span>'+(bestRole?'<small style="color:var(--acc)">'+bestRole.games+' 场 · '+bestRole.rate+'%</small>':'')+'</div></div>'+
+      '<div class="gx-sec" style="font-size:13px;color:var(--meta);letter-spacing:.08em">阵营</div><div class="gx-card">'+wwCareerBars(s.camps,function(k){return k==='wolf'?'狼人阵营':'好人阵营'})+'</div>'+
+      '<div class="gx-sec" style="font-size:13px;color:var(--meta);letter-spacing:.08em">身份</div><div class="gx-card">'+wwCareerBars(s.roles,function(k){return WW_ROLE_NAME[k]||k},'还没有身份数据')+'</div>'+
+      '<div class="gx-sec" style="font-size:13px;color:var(--meta);letter-spacing:.08em">板子</div><div class="gx-card">'+wwCareerBars(s.boards,wwCareerBoardLabel,'还没有板子数据')+'</div>'+
+      '<div class="gx-sec" style="font-size:13px;color:var(--meta);letter-spacing:.08em">对局方式</div><div class="gx-card">'+wwCareerBars(s.modes,wwCareerModeLabel)+'</div>';
   }else{
-    h+='<p class="gx-hint" style="text-align:right;margin:0 2px 8px">已解锁 '+unlocked+'/'+WW_ACHIEVEMENTS.length+'</p><div style="display:flex;flex-direction:column;gap:9px">'+
+    h+='<p class="gx-hint" style="text-align:right;margin:0 2px 8px;font-size:12.5px;color:var(--meta)">已解锁 '+unlocked+'/'+WW_ACHIEVEMENTS.length+'</p><div style="display:flex;flex-direction:column;gap:9px">'+
       WW_ACHIEVEMENTS.map(function(d){
         var a=s.ach[d.id]||{},tier=Math.max(0,Number(a.tier)||0),best=Math.max(0,Number(a.best)||0);
         var next=tier<d.levels.length?d.levels[tier]:d.levels[d.levels.length-1];
         var pct=next>0?Math.min(100,Math.round(best*100/next)):0;
         return '<div class="gx-card" style="margin:0;padding:12px;'+(tier?'':'opacity:.62')+'">'+
-          '<div style="display:flex;align-items:center;gap:9px"><span style="font-size:25px">'+d.icon+'</span><div style="flex:1;min-width:0"><b style="display:block;color:var(--txt)">'+esc((WW_ROLE_NAME[d.role]||d.role)+' · '+d.name)+'</b><span style="font-size:11.5px;color:var(--meta)">'+esc(d.desc)+'</span></div><span style="font-size:11px;color:'+(tier?'var(--acc)':'var(--dim)')+';font-weight:700">'+(tier?'已解锁 '+wwAchRoman(tier):'未解锁')+'</span></div>'+
+          '<div style="display:flex;align-items:center;gap:9px"><span style="font-size:25px">'+d.icon+'</span><div style="flex:1;min-width:0"><b style="display:block;color:var(--txt)">'+esc((WW_ROLE_NAME[d.role]||d.role)+' · '+d.name)+'</b><span style="font-size:12px;color:var(--meta)">'+esc(d.desc)+'</span></div><span style="font-size:12px;color:'+(tier?'var(--acc)':'var(--dim)')+';font-weight:700">'+(tier?'已解锁 '+wwAchRoman(tier):'未解锁')+'</span></div>'+
           '<div style="height:6px;margin-top:9px;border-radius:999px;background:var(--bg2);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:999px"></i></div>'+
-          '<div style="margin-top:5px;text-align:right;font-size:10.5px;color:var(--meta)">'+best+' / '+next+'</div></div>';
+          '<div style="margin-top:5px;text-align:right;font-size:11.5px;color:var(--meta)">'+best+' / '+next+'</div></div>';
       }).join('')+'</div>';
   }
   h+='<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwProfile(0)">关闭</button></div></div></div>';
