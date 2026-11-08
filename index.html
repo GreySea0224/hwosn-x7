@@ -14593,6 +14593,8 @@ async function backupPayload(){
     mtagAi:load(LS.mtagai,{}),mtagAiLast:load(LS.mtagaiLast,null),
     /* 【新增】「谁是卧底」的对局记录（含赛后聊天）；老备份里没有这个字段，导入时会跳过 */
     gameRec:load('wh_gamerec',[]),
+    /* 狼人杀生涯统计与角色成就；收藏状态随 gameRec 一起保存 */
+    wwCareer:load('wh_wwcareer',null),
     /* 【新增】「心愿小铺」的进度（贝壳 / 任务 / 礼物墙）；老备份里没有这个字段，导入时会跳过 */
     shop:load('wh_shop',null),
     /* 看图文字缓存：换模型后同一张图不需要重新识图 */
@@ -14740,6 +14742,7 @@ function importBackupExtraData(d){
   if(d.actMsgs)Object.keys(d.actMsgs).forEach(k=>{if(d.actMsgs[k])save('wh_actmsg_'+k,d.actMsgs[k])});
   /* 【新增】「谁是卧底」的对局记录（含赛后聊天）。老备份里没有这个字段，就不动本机现有的。 */
   if(Array.isArray(d.gameRec))save('wh_gamerec',d.gameRec);
+  if(d.wwCareer&&typeof d.wwCareer==='object')save('wh_wwcareer',d.wwCareer);
   /* 【新增】「心愿小铺」的进度。老备份里没有这个字段，就不动本机现有的。 */
   if(d.shop&&typeof d.shop==='object')save('wh_shop',d.shop);
   if(d.visionCache&&typeof d.visionCache==='object')save('wh_visioncache',d.visionCache);
@@ -14907,6 +14910,7 @@ function storageNameOf(k){
   if(k==='wh_arcs')return '档案列表';
   if(k.indexOf('wh_p5_art_')===0)return '画册';
   if(k==='wh_gamerec')return '游戏对局记录';
+  if(k==='wh_wwcareer')return '狼人杀生涯数据与成就';
   if(k==='wh_fic')return '番外';
   if(k==='wh_mtag_ai'||k==='wh_mtag_ai_last')return 'AI 标签';
   if(k==='wh_stickers'||k==='wh_sticker_cats')return '表情包';
@@ -16310,6 +16314,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-08】
+所有游戏的战绩详情新增“收藏战绩”：收藏会置顶并永久绕过最近 80 条普通战绩的清理上限，取消收藏或明确删除后会恢复正常清理规则；收藏状态随游戏记录一起备份。
+狼人杀右上角新增个人主页，准备页和牌桌都能打开。主页累计统计用户本人参加并分出胜负的对局，展示总胜率、好人/狼人阵营胜率、不同身份胜率、各板子胜率、网杀/面杀数据和至少 3 局后评选出的最擅长板子/角色。生涯数据独立于历史记录上限保存，旧战绩会被安全回填，普通战绩被清理后胜率不会缩水。
+狼人杀新增首批角色成就：守卫“铜墙”（单局连续守中狼刀 2/3/5 夜）、预言家“天眼”（单局连续验到狼人 2/3/4 次）、女巫“毒手”（累计毒中狼人 1/3/5 次）、猎人“枪响”（累计枪中狼人 1/3/5 次）、骑士“审判”（累计决斗命中狼人 1/3/5 次）、狼美人“祸水”（跟随出局完成屠边 1/3 次）。成就触发时会立即提示并保存，也会写进当局战绩详情；连续类成就按单局计算。
 狼人杀修复了警上身份声明的“举例误判”：引号里的“我是预言家”，以及“别喊一句我是预言家”“如果谁跳预言家”这类教学或引用，不再算成本人跳身份。普通上警后正常退水也不会再被误标成“疑似代跳、查验作废”，系统不会再向没有跳验人身份的玩家追问首验理由或警徽流。
 狼人杀验人结果开始按板子区分：预言家板只允许报“金水/查杀”，通灵师板才允许报具体表面职业。无通灵师板里悍跳狼或真预言家若把“村民、女巫、守卫、猎人”等具体职业当成验人结果，公开发言显示前会自动改成金水或查杀。
 警上普通听发言的玩家不再背系统提示词。首置位、无信息、不争警徽时会直接说“我是好人，没信息，来听竞选，听完我就退水”，不再讲预言家标准、警徽偏好或后续教学。所有警上玩家也会看到一句总则：没人需要这些内容时，不要复述提示词里的规则和判断标准。
@@ -29919,7 +29926,8 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     policeAll:[],upSpoke:{},electing:false,pendingDeaths:null,speechStart:'',speechDir:1,
     board:'std',guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',charmTarget:'',charmWinPending:false,kingBoom:false,kingNote:'',dayOver:0,
     knightUsed:false,knightAsk:null,knightSelected:'',knightPending:false,inPK:false,dualSeerClaims:false,
-    voteMode:'',votePick:null,voteHit:'',votePool:[],voteLeft:0,voteResolve:null,witchLog:[]}};
+    voteMode:'',votePick:null,voteHit:'',votePool:[],voteLeft:0,voteResolve:null,witchLog:[],
+    achStreaks:{},achUnlocks:[],profileOpen:false,profileTab:'overview'}};
 var MEMC={};
 
 /* ---------- 对局记录（存在本地，跟着备份走） ---------- */
@@ -29927,9 +29935,33 @@ var LS_GAME='wh_gamerec';
 var LS_WWSAVE='wh_wwsave';      /* 狼人杀：没打完那一局的进度（只留最近一份，换局就覆盖） */
 var LS_WWREWIND='wh_wwrewind';  /* 最近几个夜晚开始前的检查点，只给回溯用 */
 function recStore(){try{var a=load(LS_GAME,[]);return Array.isArray(a)?a:[]}catch(e){return []}}
-function recPut(list){
+var REC_NORMAL_LIMIT=80;
+function recFavorite(r){return !!(r&&r.favorite)}
+function recTrim(list){
+  var seen={},favorites=[],normal=[];
+  (Array.isArray(list)?list:[]).forEach(function(r,i){
+    if(!r||!r.id||seen[r.id])return;
+    seen[r.id]=1;
+    (recFavorite(r)?favorites:normal).push({r:r,i:i,t:Number(r.t||r.at||0)||0});
+  });
+  function newest(a,b){return b.t-a.t||a.i-b.i}
+  favorites.sort(newest);normal.sort(newest);
+  return favorites.concat(normal.slice(0,REC_NORMAL_LIMIT)).map(function(x){return x.r});
+}
+function recPut(list,opts){
   try{
     var previous=load(LS_GAME,[]);
+    var incoming=Array.isArray(list)?list.filter(Boolean):[];
+    var keep={};
+    incoming.forEach(function(r){if(r&&r.id)keep[r.id]=1});
+    var merged=incoming.slice();
+    /* 兼容旧调用里先 slice(0,80) 再保存的写法：上一轮已经收藏的旧战绩不能丢。 */
+    if(!(opts&&opts.dropMissingFavorites)){
+      (Array.isArray(previous)?previous:[]).forEach(function(r){
+        if(recFavorite(r)&&r.id&&!keep[r.id]){keep[r.id]=1;merged.push(r)}
+      });
+    }
+    var next=recTrim(merged);
     var before={};
     (Array.isArray(previous)?previous:[]).forEach(function(r){if(r&&r.id)before[r.id]=r});
     var sig=function(r){
@@ -29937,11 +29969,11 @@ function recPut(list){
       return [r.game,r.id,r.t,r.finished?1:0,r.title||'',r.winner||'',r.endText||'',r.judge||'',
         ((r.log||[]).length),((r.chat||[]).length),((r.reacts||[]).length),((r.rec||[]).length)].join('|');
     };
-    save(LS_GAME,list);
+    save(LS_GAME,next);
     if(typeof scheduleBackup==='function')scheduleBackup();
     if(window.ROAM&&typeof ROAM.syncGameRecords==='function'){
       var done=[];
-      list.forEach(function(r){
+      next.forEach(function(r){
         if(!r||!r.finished)return;
         var old=before[r.id];
         if(old&&sig(old)===sig(r))return;
@@ -29961,6 +29993,156 @@ function recPut(list){
       }
     }
   }catch(e){}
+}
+function recSetFavorite(id,on){
+  var list=recStore(),hit=false;
+  list.forEach(function(r){
+    if(!r||r.id!==id)return;
+    hit=true;
+    if(on){r.favorite=true;r.favoriteAt=Date.now()}
+    else{delete r.favorite;delete r.favoriteAt}
+  });
+  if(!hit)return false;
+  recPut(list,{dropMissingFavorites:false});
+  return true;
+}
+var LS_WW_CAREER='wh_wwcareer';
+var WW_ACHIEVEMENTS=[
+  {id:'guard_streak',role:'guard',icon:'🛡️',name:'铜墙',desc:'单局连续守中狼刀',levels:[2,3,5]},
+  {id:'seer_streak',role:'seer',icon:'🔮',name:'天眼',desc:'单局连续验到狼人',levels:[2,3,4]},
+  {id:'witch_poison',role:'witch',icon:'🧪',name:'毒手',desc:'累计毒中狼人',levels:[1,3,5]},
+  {id:'hunter_shot',role:'hunter',icon:'🔫',name:'枪响',desc:'累计开枪命中狼人',levels:[1,3,5]},
+  {id:'knight_hit',role:'knight',icon:'⚔️',name:'审判',desc:'累计决斗命中狼人',levels:[1,3,5]},
+  {id:'wolfbeauty_edge',role:'wolfbeauty',icon:'🌹',name:'祸水',desc:'跟随出局直接完成屠边',levels:[1,3]}
+];
+function wwAchDef(id){
+  for(var i=0;i<WW_ACHIEVEMENTS.length;i++)if(WW_ACHIEVEMENTS[i].id===id)return WW_ACHIEVEMENTS[i];
+  return null;
+}
+function wwCareerBlank(){
+  return {v:1,processed:{},total:0,wins:0,roles:{},camps:{good:{games:0,wins:0},wolf:{games:0,wins:0}},
+    boards:{},modes:{online:{games:0,wins:0},face:{games:0,wins:0}},ach:{},counters:{},updatedAt:0};
+}
+function wwCareerBucket(map,key){
+  key=String(key||'unknown');
+  if(!map[key]||typeof map[key]!=='object')map[key]={games:0,wins:0};
+  map[key].games=Math.max(0,Number(map[key].games)||0);
+  map[key].wins=Math.max(0,Number(map[key].wins)||0);
+  return map[key];
+}
+function wwCareerRoleIsWolf(role){
+  return ['wolf','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(String(role||''))>=0;
+}
+function wwCareerBoardKey(rec){
+  var n=Number(rec&&rec.count)||0;
+  if(n&&n!==12)return 'n'+n;
+  var board=String(rec&&rec.board||'');
+  if(board==='wolfking'||board==='wolfkingguard'||board==='knightking'||board==='wolfbeautyknight'||
+     board==='gravegargoyle'||board==='nightmareguard'||board==='mechanicmedium'||board==='std')return board;
+  var roles={};(rec&&rec.players||[]).forEach(function(p){if(p&&p.role)roles[p.role]=1});
+  if(roles.mechanicwolf||roles.medium)return 'mechanicmedium';
+  if(roles.wolfbeauty)return 'wolfbeautyknight';
+  if(roles.nightmare)return 'nightmareguard';
+  if(roles.gravekeeper||roles.gargoyle)return 'gravegargoyle';
+  if(roles.knight)return 'knightking';
+  if(roles.wolfkingdeath)return 'wolfkingguard';
+  if(roles.wolfking||roles.guard)return 'wolfking';
+  return 'std';
+}
+function wwCareerBoardLabel(key){
+  var m=String(key||'').match(/^n(\d+)$/);
+  if(m)return m[1]+' 人标准板';
+  return wwBoardLabel(key||'std');
+}
+function wwCareerModeLabel(key){return key==='face'?'面杀':'网杀'}
+function wwCareerAddRecord(s,rec){
+  if(!s||!rec||!rec.id||rec.game!=='ww'||rec.finished===false||s.processed[rec.id])return false;
+  if(rec.mode==='watch'||(rec.winner!=='good'&&rec.winner!=='wolf'))return false;
+  var me=null;(rec.players||[]).forEach(function(p){if(p&&p.isUser)me=p});
+  if(!me||!me.role)return false;
+  var win=wwCareerRoleIsWolf(me.role)?rec.winner==='wolf':rec.winner==='good';
+  var camp=wwCareerRoleIsWolf(me.role)?'wolf':'good';
+  s.processed[rec.id]=1;s.total++;if(win)s.wins++;
+  var rb=wwCareerBucket(s.roles,me.role);rb.games++;if(win)rb.wins++;
+  var cb=wwCareerBucket(s.camps,camp);cb.games++;if(win)cb.wins++;
+  var bb=wwCareerBucket(s.boards,wwCareerBoardKey(rec));bb.games++;if(win)bb.wins++;
+  var mb=wwCareerBucket(s.modes,rec.table==='face'?'face':'online');mb.games++;if(win)mb.wins++;
+  s.updatedAt=Date.now();
+  return true;
+}
+function wwCareerLoad(syncRecords){
+  var raw=null;try{raw=load(LS_WW_CAREER,null)}catch(e){}
+  var s=Object.assign(wwCareerBlank(),(raw&&typeof raw==='object')?raw:{});
+  if(!s.processed||typeof s.processed!=='object')s.processed={};
+  if(!s.roles||typeof s.roles!=='object')s.roles={};
+  if(!s.boards||typeof s.boards!=='object')s.boards={};
+  if(!s.camps||typeof s.camps!=='object')s.camps={good:{games:0,wins:0},wolf:{games:0,wins:0}};
+  if(!s.modes||typeof s.modes!=='object')s.modes={online:{games:0,wins:0},face:{games:0,wins:0}};
+  if(!s.ach||typeof s.ach!=='object')s.ach={};
+  if(!s.counters||typeof s.counters!=='object')s.counters={};
+  s.total=Math.max(0,Number(s.total)||0);s.wins=Math.max(0,Math.min(s.total,Number(s.wins)||0));
+  wwCareerBucket(s.camps,'good');wwCareerBucket(s.camps,'wolf');
+  wwCareerBucket(s.modes,'online');wwCareerBucket(s.modes,'face');
+  if(syncRecords){
+    var changed=false;
+    recStore().forEach(function(r){if(wwCareerAddRecord(s,r))changed=true});
+    if(changed)wwCareerSave(s);
+  }
+  return s;
+}
+function wwCareerSave(s){
+  if(!s)return;
+  s.updatedAt=Date.now();
+  try{save(LS_WW_CAREER,s)}catch(e){}
+  try{if(typeof scheduleBackup==='function')scheduleBackup()}catch(e){}
+}
+function wwCareerRecord(rec){
+  var s=wwCareerLoad(false);
+  if(wwCareerAddRecord(s,rec))wwCareerSave(s);
+}
+function wwAchRoman(n){return ['','I','II','III','IV','V'][Number(n)||0]||String(Number(n)||0)}
+function wwAchTierFor(value,levels){
+  var tier=0;(levels||[]).forEach(function(v,i){if(Number(value)>=Number(v))tier=i+1});
+  return tier;
+}
+function wwCareerAchSet(id,value,meta){
+  var def=wwAchDef(id);if(!def)return;
+  var s=wwCareerLoad(false);
+  var a=s.ach[id]||(s.ach[id]={best:0,tier:0,unlockedAt:0,lastValue:0,gameId:'',gameTitle:'',role:def.role});
+  value=Math.max(0,Number(value)||0);
+  var oldBest=Math.max(0,Number(a.best)||0),oldTier=Math.max(0,Number(a.tier)||0);
+  var newTier=wwAchTierFor(value,def.levels);
+  var changed=false;
+  if(value>oldBest){a.best=value;a.lastValue=value;changed=true}
+  if(newTier>oldTier){
+    a.tier=newTier;a.unlockedAt=Date.now();a.lastValue=value;
+    if(meta){
+      a.gameId=String(meta.gameId||'');
+      a.gameTitle=String(meta.gameTitle||'狼人杀对局');
+    }
+    changed=true;
+    var label=(WW_ROLE_NAME[def.role]||'狼人杀')+' · '+def.name+' '+wwAchRoman(newTier);
+    if(meta&&meta.w){
+      meta.w.achUnlocks=meta.w.achUnlocks||[];
+      if(meta.w.achUnlocks.indexOf(label)<0)meta.w.achUnlocks.push(label);
+    }
+    try{toast('成就解锁 · '+label)}catch(e){}
+  }
+  if(changed)wwCareerSave(s);
+}
+function wwAchCounter(id,amount,meta){
+  var s=wwCareerLoad(false);
+  var value=Math.max(0,Number(s.counters[id])||0)+(Number(amount)||1);
+  s.counters[id]=value;wwCareerSave(s);
+  wwCareerAchSet(id,value,meta);
+}
+function wwAchStreak(id,hit,meta){
+  if(!meta||!meta.w)return;
+  var w=meta.w;
+  if(!w.achStreaks||typeof w.achStreaks!=='object')w.achStreaks={};
+  var value=hit?(Math.max(0,Number(w.achStreaks[id])||0)+1):0;
+  w.achStreaks[id]=value;
+  if(value>0)wwCareerAchSet(id,value,meta);
 }
 try{
   window.ROAM_GAME_HELPERS={
@@ -33102,6 +33284,7 @@ function wwSmear(){
 /* 齿轮 / 叉号（右上角「设置」用） */
 /* 【改】设置图标：原来那个是"圆圈 + 八条放射线"，看着像太阳；换成真正的齿轮（实心 + 中孔，evenodd 挖洞） */
 var WW_IC_GEAR='<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61zM12 15.6A3.6 3.6 0 1 1 15.6 12 3.6 3.6 0 0 1 12 15.6z"/></svg>';
+var WW_IC_PROFILE='<svg viewBox="0 0 24 24"><circle cx="9" cy="7.2" r="3.4"/><path d="M3.2 19.2c0-3.3 2.5-5.6 5.8-5.6 2.1 0 3.8.9 4.8 2.5"/><path d="M16.2 15.4v4.9M18.6 13v7.3M21 16.2v4.1"/></svg>';
 var WW_IC_X='<svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 /* 【新·皮肤·第二批】现在该铺哪张场景图。
    优先级：结束＝处刑、你的房间＝夜、夜里＝午夜、然后看流程里显式打的场景标记
@@ -37118,7 +37301,11 @@ function wwWolfBeautyFollow(source,reveal){
   w.rec.push({d:w.day,t:(reveal?'狼美人 '+wwTag(source)+' 翻牌；':'狼美人 '+wwTag(source)+' 出局；')+'魅惑目标 '+wwTag(target)+' 跟随出局'});
   var alive=wwAlive(),villagers=alive.filter(function(p){return p.role==='villager'}).length;
   var wolves=alive.filter(wwIsWolf).length,gods=Math.max(0,alive.length-wolves-villagers);
-  if(w.count===12&&(villagers===0||gods===0))w.charmWinPending=true;
+  var causedEdge=w.count===12&&(villagers===0||gods===0)&&!w.charmWinPending;
+  if(causedEdge){
+    w.charmWinPending=true;
+    if(source.isUser)wwAchCounter('wolfbeauty_edge',1,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
+  }
   try{wwFx(target.uid,'hit',2200)}catch(e){}
   return [target];
 }
@@ -41292,12 +41479,20 @@ async function wwNight(){
     }
     render(true);
   }
+  if(me&&me.alive&&me.role==='guard'){
+    var knifeTargets=(w.night.mechKills||[]).slice();
+    if(w.night.wolf&&knifeTargets.indexOf(w.night.wolf)<0)knifeTargets.push(w.night.wolf);
+    wwAchStreak('guard_streak',!!(w.night.guard&&knifeTargets.indexOf(w.night.guard)>=0),{
+      w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'
+    });
+  }
   /* 预言家 */
   var seer=wwAlive().filter(function(p){return p.role==='seer'})[0];
   var seerBlocked=!!(seer&&wwFearedNow(seer));
   if(seerBlocked){
     w.rec.push({d:w.day,t:'预言家被梦魇恐惧，今晚不能验人'});
     if(seer.isUser)w.log.push({k:'me',text:'🔮 你被梦魇恐惧，本夜不能验人。'});
+    if(seer.isUser)wwAchStreak('seer_streak',false,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
     render(true);
   }
   if(seer&&!seerBlocked){
@@ -41322,6 +41517,7 @@ async function wwNight(){
         w.marks=w.marks||{};
         if(!isW&&!w.marks[tgt.uid])w.marks[tgt.uid]='good';      /* 验到金水：自动给 TA 标上"好人" */
         w.log.push({k:'me',text:'🔮 '+wwTag(tgt)+'是'+(isW?'狼人（查杀）':'好人（金水）')});
+        wwAchStreak('seer_streak',isW,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
         render(true);
       }
     }
@@ -41476,6 +41672,9 @@ function wwResolveNightDamage(w){
       if(follow&&deaths.indexOf(follow)<0)deaths.push(follow);
     });
   });
+  var me=wwMe();
+  if(me&&me.role==='witch'&&pz&&deaths.indexOf(pz)>=0&&wwIsWolf(pz))
+    wwAchCounter('witch_poison',1,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
   return deaths;
 }
 
@@ -41600,6 +41799,7 @@ async function wwHunterCheck(p){
     w.log.push({k:'sys',text:'💥 '+wwTag(p)+'出局前带走了'+wwTag(tgt)+'。'});
     w.rec.push({d:w.day,t:(p.role==='hunter'?'猎人':'机械狼猎枪')+'开枪带走：'+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
     wwFx(tgt.uid,'hit',2200);        /* 被带走的人头像上闪一下中枪特效 */
+    if(p.isUser&&wwIsWolf(tgt))wwAchCounter('hunter_shot',1,{w:V.ww,gameId:V.ww.recId||'',gameTitle:V.ww.title||'狼人杀对局'});
     var charmDeaths=wwWolfBeautyFollow(tgt,true);
     await wwHunterCheck(tgt);
     if(wwStaleG(gen))return;
@@ -42516,6 +42716,7 @@ async function wwKnightDuel(p,tgt,byUser){
   w.knightUsed=true;
   if(wwIsWolf(tgt)){
     tgt.alive=false;tgt.killedBy='knight';
+    if(p.isUser)wwAchCounter('knight_hit',1,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
     w.log.push({k:'sys',text:'⚔ 骑士 '+wwTag(p)+' 决斗 '+wwTag(tgt)+'：'+wwTag(tgt)+'是狼人，立即出局；白天结束。'});
     w.rec.push({d:w.day,t:'骑士 '+wwTag(p)+' 决斗 '+wwTag(tgt)+'：'+wwTag(tgt)+'是狼人，白天立即结束'});
     w.dayOver=w.day;
@@ -43083,6 +43284,7 @@ function wwSnap(){
     wolfBlown:!!w.wolfBlown,blownWolves:(w.blownWolves||[]).slice(),
     roomMemory:(w.roomMemory||[]).slice(),wordsDone:!!w.wordsDone,
     scribe:wwCloneScribe(w.scribe||wwEmptyScribe()),
+    achStreaks:Object.assign({},w.achStreaks||{}),achUnlocks:(w.achUnlocks||[]).slice(),
     pendingDeaths:(w.pendingDeaths&&w.pendingDeaths.length)?w.pendingDeaths.map(function(x){return {uid:x.uid,killedBy:x.killedBy||'wolf'}}):null
   };
 }
@@ -43125,7 +43327,7 @@ function wwSnapFromRec(rec){
     board:(players.some(function(p){return p.role==='mechanicwolf'||p.role==='medium'})?'mechanicmedium':(players.some(function(p){return p.role==='nightmare'})?'nightmareguard':(players.some(function(p){return p.role==='gravekeeper'||p.role==='gargoyle'})?'gravegargoyle':(players.some(function(p){return p.role==='wolfbeauty'})?'wolfbeautyknight':(players.some(function(p){return p.role==='knight'})?'knightking':(players.some(function(p){return p.role==='wolfkingdeath'})?'wolfkingguard':(players.some(function(p){return p.role==='wolfking'||p.role==='guard'})?'wolfking':'std'))))))),guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',charmTarget:'',charmWinPending:false,kingBoom:false,kingNote:'',mechKnifeStartedDay:0,dayOver:0,knightUsed:false,inPK:false,seerRetractions:seerRetractions,
     wolfRoles:Object.assign({},rec.wolfRoles||{}),wolfRolesDone:!!rec.wolfRolesDone,
     table:'online',peekDone:true,        /* 老记录不知道当初选的是不是面杀：按网杀接着玩，抿身份也不再补 */
-    wolfBlown:false,blownWolves:[],roomMemory:null,wordsDone:true,   /* 老记录没有这段收刀结局 */
+    wolfBlown:false,blownWolves:[],roomMemory:null,wordsDone:true,achStreaks:{},achUnlocks:[],   /* 老记录没有这段收刀结局 */
     scribe:wwCloneScribe(rec.scribe||wwEmptyScribe()),
     sheriff:false,sheriffUid:null,badgeGone:false,sheriffDone:true,policeUp:[],policeOrder:[],policeAll:[],speechStart:'',speechDir:1};
 }
@@ -43173,6 +43375,7 @@ function wwApplySnap(s,recId){
   w.wolfBlown=!!s.wolfBlown;w.blownWolves=(s.blownWolves||[]).slice();
   w.roomMemory=(s.roomMemory||[]).slice();w.wordsDone=!!s.wordsDone;w.blownHist=[];
   w.scribe=wwCloneScribe(s.scribe||wwEmptyScribe());w.scribeBusy=false;
+  w.achStreaks=Object.assign({},s.achStreaks||{});w.achUnlocks=(s.achUnlocks||[]).slice();
   w.cids=w.players.filter(function(p){return !p.isUser&&p.cid}).map(function(p){return p.cid});   /* 让「再来一局」还能用同一批角色 */
   w.judge='';w.mvpUid='';w.title='';w.reacts=[];w.reacting=false;
   w.night=s.night?{wolf:byUid[s.night.wolf]||null,save:!!s.night.save,poison:byUid[s.night.poison]||null,
@@ -43194,6 +43397,7 @@ function wwApplySnap(s,recId){
   w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
   w.marks={};w.markMode='';w.markUid=null;w.resayIdx=null;w.resayOn=false;
   w.room=null;w.roomResolve=null;      /* 【新·面杀】读档时把「你的房间」那段戏清干净 */
+  w.profileOpen=false;w.profileTab='overview';
   w.fx=null;
   w.thinkOpen={};
   w.gen=(w.gen||0)+1;
@@ -43689,6 +43893,7 @@ function wwSave(silent){
     sheriffUid:w.sheriffUid||null,sheriff:(w.sheriff!==false),
     wolfRoles:Object.assign({},w.wolfRoles||{}),wolfRolesDone:!!w.wolfRolesDone,
     log:wwHistoryLog(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||'',notes:Object.assign({},w.notes||{}),
+    achievements:(w.achUnlocks||[]).slice(),
     scribe:wwCloneScribe(w.scribe||wwEmptyScribe())};
   if(unfinished){
     try{var sp=wwSnap();sp.id=rec.id;save(LS_WWSAVE,sp)}catch(e){}          /* 存一份能接着玩的进度（只留最近一份） */
@@ -43700,6 +43905,7 @@ function wwSave(silent){
   for(var k=0;k<list.length;k++){if(list[k]&&list[k].id===rec.id){i=k;break}}
   if(i>=0)list[i]=rec;else list.unshift(rec);
   recPut(list.slice(0,80));
+  if(!unfinished)wwCareerRecord(rec);
   /* 【新】要是这局是角色拉她进的房间：打完了就往聊天里发一张战绩卡（只发一次） */
   if(!unfinished&&w.inviteFrom&&!w.inviteRecSent){
     w.inviteRecSent=true;
@@ -43796,6 +44002,7 @@ function wwStart(){
   w.wordsDone=false;                  /* 【新·面杀】新的一局：遗言按老规矩来 */
   w.wolfBlown=false;w.blownWolves=[];w.roomMemory=null;w.blownHist=[];   /* 【新·面杀】新的一局：狼队还没收刀 */
   w.wolfRoles={};w.wolfRolesDone=false;   /* 【新】9/12 人局首夜由狼队自己选择分工 */
+  w.achStreaks={};w.achUnlocks=[];w.profileOpen=false;w.profileTab='overview';
   w.scene='';                        /* 【修】新的一局：场景标记清空（免得上一局的黄昏带过来） */
   w.scribe=wwEmptyScribe();w.scribeBusy=false;
   w.gen=(w.gen||0)+1;                 /* 新一局的新编号：老循环认不出自己就会自动收手 */
@@ -43984,7 +44191,7 @@ function hallHTML(){
       h+='<div class="fic-li" onclick="GAME.histOpen(\''+esc(r.id)+'\')">'+
          (bd?('<span class="gx-badge '+bd.cls+'">'+esc(bd.text)+'</span>'):'')+
          '<div class="fic-lm">'+
-         '<div class="fic-lt">'+esc(recTitle(r))+'</div>'+
+         '<div class="fic-lt">'+(recFavorite(r)?'<span style="color:#d9a928">★ </span>':'')+esc(recTitle(r))+'</div>'+
          '<div class="fic-ld">'+(recIsMvpUser(r)?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+esc(recSub(r))+'</div></div>'+
          ((r.game==='ww'&&!r.winner&&!r.endText&&!r.spoiled)?('<button class="ghost" type="button" style="color:var(--acc)" onclick="event.stopPropagation();GAME.wwResume(\''+esc(r.id)+'\')">继续</button>'):'')+
          '<button class="rec-x" type="button" aria-label="删除" onclick="event.stopPropagation();GAME.histDel(\''+esc(r.id)+'\')">'+REC_IC_X+'</button>'+
@@ -44774,6 +44981,7 @@ function wwSetupHTML(){
   h+='<div class="ww-topbar">'+
        backBtn('GAME.hall()')+
        '<div style="flex:1"></div>'+
+       '<button class="ww-gear" type="button" aria-label="个人主页" title="个人主页" onclick="GAME.wwProfile(1,\'overview\')" style="margin-right:8px">'+WW_IC_PROFILE+'</button>'+
        '<button class="ww-gear" type="button" aria-label="设置" onclick="GAME.wwCfg(1)">'+WW_IC_GEAR+'</button>'+
      '</div>';
   /* 【改·排版】大标题放到上半部分（和参考图一致：标题在上、印记居中、村子铺满） */
@@ -44787,6 +44995,7 @@ function wwSetupHTML(){
     h+='<div class="gx-card"><p class="gx-hint" style="margin:0">先去「角色」里建一个角色，再来玩。</p></div>'+
        '<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button><button class="ghost" onclick="closeSheet()">关闭</button></div>';
     h+='</div>';
+    if(w.profileOpen)h+=wwProfileHTML();
     return '<div class="ww-setup">'+h+'</div>';
   }
   /* 【新】大厅布局：左边玩法/身份，右边人数/模式，中间开始，下面显示板子，最底下预设和邀请 */
@@ -44818,6 +45027,7 @@ function wwSetupHTML(){
   h+='</div>';                                 /* 关掉 .ww-inner（全屏背景那一层） */
  if(w.cfgOpen)h+=wwCfgHTML();                  /* 右上角「设置」打开时，把浮层叠上去 */
   if(w.pop)h+=wwPopHTML();                      /* 人数/身份/邀请/预设 的浮窗 */
+  if(w.profileOpen)h+=wwProfileHTML();
   return '<div class="ww-setup">'+h+'</div>';   /* 【新·皮肤】这层壳只给狼人杀准备页上皮肤，别的游戏页不受影响 */
 }
 /* ================= 狼人杀 BGM =================
@@ -45245,6 +45455,78 @@ function wwRewindHTML(){
     '<div class="gx-row">'+(w.rec&&w.rec.length?'<button class="ghost" type="button" onclick="GAME.wwRewindLastNight()">按当前记录撤回上一夜</button>':'')+
     '<button class="ghost" type="button" onclick="GAME.wwRewindOpen(0)">关闭</button></div></div></div>';
 }
+function wwCareerPct(b){
+  b=b||{games:0,wins:0};
+  return Number(b.games)>0?Math.round(Number(b.wins||0)*100/Number(b.games)):0;
+}
+function wwCareerBest(s,map,minGames,labelFn){
+  var best=null;
+  Object.keys(map||{}).forEach(function(k){
+    var b=map[k];if(!b||Number(b.games)<minGames)return;
+    var row={key:k,games:Number(b.games)||0,wins:Number(b.wins)||0,rate:wwCareerPct(b)};
+    if(!best||row.rate>best.rate||(row.rate===best.rate&&row.games>best.games))best=row;
+  });
+  return best?{key:best.key,label:labelFn?labelFn(best.key):best.key,rate:best.rate,games:best.games}:null;
+}
+function wwCareerBars(map,labelFn,emptyText){
+  var keys=Object.keys(map||{}).filter(function(k){return map[k]&&Number(map[k].games)>0});
+  keys.sort(function(a,b){
+    var A=map[a],B=map[b];
+    return Number(B.games)-Number(A.games)||wwCareerPct(B)-wwCareerPct(A);
+  });
+  if(!keys.length)return '<p class="gx-hint" style="margin:4px 0">'+(emptyText||'还没有数据')+'</p>';
+  return keys.map(function(k){
+    var b=map[k],pct=wwCareerPct(b);
+    return '<div style="padding:8px 0;border-bottom:1px dashed var(--line)">'+
+      '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--txt)">'+
+      '<b style="font-weight:600">'+esc(labelFn(k))+'</b><span style="color:var(--meta);white-space:nowrap">'+b.wins+'/'+b.games+' · '+pct+'%</span></div>'+
+      '<div style="height:6px;margin-top:6px;border-radius:999px;background:var(--bg2);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;border-radius:999px;background:linear-gradient(90deg,var(--acc),var(--acc2))"></i></div></div>';
+  }).join('');
+}
+function wwProfileHTML(){
+  var w=V.ww;
+  if(!w||!w.profileOpen)return '';
+  var s=wwCareerLoad(true),tab=w.profileTab==='achievements'?'achievements':'overview';
+  var total=Number(s.total)||0,wins=Number(s.wins)||0,rate=total?Math.round(wins*100/total):0;
+  var bestBoard=wwCareerBest(s,s.boards,3,wwCareerBoardLabel);
+  var bestRole=wwCareerBest(s,s.roles,3,function(k){return WW_ROLE_NAME[k]||k});
+  var unlocked=WW_ACHIEVEMENTS.filter(function(d){var a=s.ach[d.id];return a&&Number(a.tier)>0}).length;
+  var h='<div class="ww-mkmodal" onclick="GAME.wwProfile(0)" style="position:fixed;inset:0;bottom:var(--kb,0px);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:14px;background:rgba(3,5,8,.72);overflow:auto">'+
+    '<div class="ww-mkbox" onclick="event.stopPropagation()" style="width:100%;max-width:520px;max-height:calc(100vh - 28px - var(--kb,0px));overflow:auto">'+
+      '<div class="ww-pophead"><b>狼人杀个人主页</b><button class="ww-popx" type="button" aria-label="关闭" onclick="GAME.wwProfile(0)">'+WW_IC_X+'</button></div>'+
+      '<div style="display:flex;align-items:center;gap:13px;padding:8px 2px 13px">'+avBox(meAvObj(),64)+
+        '<div style="min-width:0"><b style="display:block;font-size:19px;color:var(--txt)">'+esc(userName())+'</b>'+
+        '<span style="display:block;margin-top:5px;font-size:12.5px;color:var(--meta)">'+total+' 场 · 胜率 '+rate+'%</span></div></div>'+
+      '<div class="gx-memseg" style="display:flex;margin:0 0 12px">'+
+        '<button class="'+(tab==='overview'?'on':'')+'" onclick="GAME.wwProfileTab(\'overview\')">数据</button>'+
+        '<button class="'+(tab==='achievements'?'on':'')+'" onclick="GAME.wwProfileTab(\'achievements\')">成就</button></div>';
+  if(tab==='overview'){
+    h+='<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px">'+
+      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:21px;color:var(--txt)">'+total+'</b><span style="font-size:10.5px;color:var(--meta)">有效对局</span></div>'+
+      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:21px;color:#2fbf71">'+wins+'</b><span style="font-size:10.5px;color:var(--meta)">胜场</span></div>'+
+      '<div class="gx-card" style="padding:11px 8px;text-align:center;margin:0"><b style="display:block;font-size:21px;color:var(--acc)">'+rate+'%</b><span style="font-size:10.5px;color:var(--meta)">总胜率</span></div></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px">'+
+      '<div class="gx-card" style="margin:0;padding:11px"><b style="display:block;font-size:11px;color:var(--meta);font-weight:600">最擅长板子</b><span style="display:block;margin-top:5px;font-size:14px;color:var(--txt)">'+esc(bestBoard?bestBoard.label:'数据积累中')+'</span>'+(bestBoard?'<small style="color:var(--acc)">'+bestBoard.games+' 场 · '+bestBoard.rate+'%</small>':'')+'</div>'+
+      '<div class="gx-card" style="margin:0;padding:11px"><b style="display:block;font-size:11px;color:var(--meta);font-weight:600">最擅长角色</b><span style="display:block;margin-top:5px;font-size:14px;color:var(--txt)">'+esc(bestRole?bestRole.label:'数据积累中')+'</span>'+(bestRole?'<small style="color:var(--acc)">'+bestRole.games+' 场 · '+bestRole.rate+'%</small>':'')+'</div></div>'+
+      '<div class="gx-sec">阵营</div><div class="gx-card">'+wwCareerBars(s.camps,function(k){return k==='wolf'?'狼人阵营':'好人阵营'})+'</div>'+
+      '<div class="gx-sec">身份</div><div class="gx-card">'+wwCareerBars(s.roles,function(k){return WW_ROLE_NAME[k]||k},'还没有身份数据')+'</div>'+
+      '<div class="gx-sec">板子</div><div class="gx-card">'+wwCareerBars(s.boards,wwCareerBoardLabel,'还没有板子数据')+'</div>'+
+      '<div class="gx-sec">对局方式</div><div class="gx-card">'+wwCareerBars(s.modes,wwCareerModeLabel)+'</div>';
+  }else{
+    h+='<p class="gx-hint" style="text-align:right;margin:0 2px 8px">已解锁 '+unlocked+'/'+WW_ACHIEVEMENTS.length+'</p><div style="display:flex;flex-direction:column;gap:9px">'+
+      WW_ACHIEVEMENTS.map(function(d){
+        var a=s.ach[d.id]||{},tier=Math.max(0,Number(a.tier)||0),best=Math.max(0,Number(a.best)||0);
+        var next=tier<d.levels.length?d.levels[tier]:d.levels[d.levels.length-1];
+        var pct=next>0?Math.min(100,Math.round(best*100/next)):0;
+        return '<div class="gx-card" style="margin:0;padding:12px;'+(tier?'':'opacity:.62')+'">'+
+          '<div style="display:flex;align-items:center;gap:9px"><span style="font-size:25px">'+d.icon+'</span><div style="flex:1;min-width:0"><b style="display:block;color:var(--txt)">'+esc((WW_ROLE_NAME[d.role]||d.role)+' · '+d.name)+'</b><span style="font-size:11.5px;color:var(--meta)">'+esc(d.desc)+'</span></div><span style="font-size:11px;color:'+(tier?'var(--acc)':'var(--dim)')+';font-weight:700">'+(tier?'已解锁 '+wwAchRoman(tier):'未解锁')+'</span></div>'+
+          '<div style="height:6px;margin-top:9px;border-radius:999px;background:var(--bg2);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:999px"></i></div>'+
+          '<div style="margin-top:5px;text-align:right;font-size:10.5px;color:var(--meta)">'+best+' / '+next+'</div></div>';
+      }).join('')+'</div>';
+  }
+  h+='<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwProfile(0)">关闭</button></div></div></div>';
+  return h;
+}
 function wwInfoHTML(){
   var w=V.ww;if(!w||!w.helpOpen)return '';
   var b=wwBoard(w.count),rules=[],alive=wwAlive().length,me=wwMe(),mine=[],actions='',snapList='';
@@ -45371,6 +45653,7 @@ function wwHTML(){
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
      ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='knight'&&wwKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="骑士决斗" onclick="GAME.wwKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
+     '<button class="ww-snd" type="button" aria-label="个人主页" title="个人主页" onclick="GAME.wwProfile(1,\'overview\')">'+WW_IC_PROFILE+'</button>'+
      (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="本局设置" title="本局设置" onclick="GAME.wwInfo(1)">'+WW_IC_GEAR+'</button>')+
      '</div>';
   h+='</div>';   /* 关掉顶部信息条 .ww-head */
@@ -45389,6 +45672,7 @@ function wwHTML(){
   if(w.over){
     h+='<div id="wwResultVerdict" class="gx-verdict ww-verdict '+(w.winner==='good'?'win':(w.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
        '<div class="gx-vsub">'+esc(w.endText||'')+'</div></div>';
+    if((w.achUnlocks||[]).length)h+='<div class="gx-sec">本局解锁</div><div class="gx-card"><div class="gx-vs">'+w.achUnlocks.map(function(x){return '🏅 '+esc(x)}).join('<br>')+'</div></div>';
     /* 【新】裁判还在写复盘 / 评 MVP 的时候：先显示一排跳动的点点，让她知道是在等裁判 */
     if(w.judging&&!w.judge){
       h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
@@ -45515,6 +45799,7 @@ function wwHTML(){
   }
   if(w.helpOpen)h+=wwInfoHTML();
   if(w.rewindOpen)h+=wwRewindHTML();
+  if(w.profileOpen)h+=wwProfileHTML();
   /* 【新·皮肤·第二批】先铺一层全屏场景图（白天/黄昏/夜里/处刑自动换），再叠原来的早晚氛围层，
      最后才是牌桌内容 —— 所有面板在这一批里都换成了暗色，压在村庄图上很清楚。 */
   var sc=wwSceneKey();
@@ -45600,6 +45885,7 @@ function wwHistHTML(rec){
      '<div class="gx-sub">'+(rec.title?(esc(rec.title)+' · '):'')+esc(recWhen(rec.t))+' · '+(rec.mode==='watch'?'旁观局':'你参与了')+' · '+esc(String(rec.count||''))+' 人</div></div>';
   h+='<div class="gx-verdict '+(rec.winner==='good'?'win':(rec.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(unfinished?'尚未结束':(rec.winner==='good'?'好人获胜':(rec.winner==='wolf'?'狼人获胜':'平局')))+'</div>'+
      '<div class="gx-vsub">'+esc(unfinished?(rec.spoiled?'已查看身份，本局不能继续':'身份已隐藏，避免继续游戏前被剧透'):(rec.endText||''))+'</div></div>';
+  if((rec.achievements||[]).length)h+='<div class="gx-sec">本局成就</div><div class="gx-card"><div class="gx-vs">'+rec.achievements.map(function(x){return '🏅 '+esc(x)}).join('<br>')+'</div></div>';
   if(locked){
     h+='<div class="gx-card" style="border-color:var(--acc)"><div class="gx-vs" style="line-height:1.7"><b>这局还没打完</b><br>身份、夜间行动和狼队频道已隐藏。建议直接继续游戏；如果现在查看身份，这局将不能继续。</div>'+
       '<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续游戏</button><button class="ghost" style="color:var(--warn)" onclick="GAME.wwRevealUnfinished(\''+esc(rec.id)+'\')">直接查看身份</button></div></div>'+
@@ -46233,17 +46519,25 @@ function roundsHTML(rounds){
   });
   return h;
 }
+function histFavBar(rec){
+  if(!rec||!rec.id)return '';
+  var on=recFavorite(rec);
+  return '<div class="gx-row" style="justify-content:flex-end;margin:-4px 0 8px">'+
+    '<button class="ghost" type="button" style="flex:0 0 auto;padding-left:14px;padding-right:14px" onclick="GAME.histFav(\''+esc(rec.id)+'\')">'+
+    (on?'★ 已收藏':'☆ 收藏战绩')+'</button></div>';
+}
 function histHTML(){
   var rec=null;
   recStore().forEach(function(x){if(x&&x.id===V.histId)rec=x});
   if(!rec){V.view='hall';return hallHTML()}
-  if(rec.game==='turtle')return tsHistHTML(rec);
-  if(rec.game==='murder')return murHistHTML(rec);
-  if(rec.game==='tad')return tadHistHTML(rec);
-  if(rec.game==='mq')return mqHistHTML(rec);
-  if(rec.game==='dg')return dgHistHTML(rec);
-  if(rec.game==='hm')return hmHistHTML(rec);
-  if(rec.game==='ww')return wwHistHTML(rec);
+  var fav=histFavBar(rec);
+  if(rec.game==='turtle')return fav+tsHistHTML(rec);
+  if(rec.game==='murder')return fav+murHistHTML(rec);
+  if(rec.game==='tad')return fav+tadHistHTML(rec);
+  if(rec.game==='mq')return fav+mqHistHTML(rec);
+  if(rec.game==='dg')return fav+dgHistHTML(rec);
+  if(rec.game==='hm')return fav+hmHistHTML(rec);
+  if(rec.game==='ww')return fav+wwHistHTML(rec);
   var h='';
   h+='<div class="gx-cover sm">'+backBtn('GAME.hall()')+
      '<div class="gx-vol"><span>GAME LOG</span><i></i><span>UNDERCOVER</span></div>'+
@@ -46275,7 +46569,7 @@ function histHTML(){
   }
   h+='<div class="gx-row"><button class="ghost" onclick="GAME.hall()">返回大厅</button>'+
      '<button class="ghost" style="color:var(--warn)" onclick="GAME.histDel(\''+esc(rec.id)+'\')">删除这一局</button></div>';
-  return h;
+  return fav+h;
 }
 function render(scroll){
   var el=gel('gx');if(!el)return;
@@ -47785,9 +48079,18 @@ window.GAME={
     for(i=0;i<list.length;i++){if(list[i]&&list[i].id===rec.id){list[i]=rec;break}}
     recPut(list);render(false);
   },
+  histFav:function(id){
+    var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
+    if(!rec)return toast('这条战绩找不到了');
+    var on=!recFavorite(rec);
+    if(!recSetFavorite(id,on))return toast('收藏状态没有保存成功');
+    toast(on?'已收藏，不会被 80 条上限清理':'已取消收藏');
+    render(false);
+  },
   histDel:function(id){
-    if(!confirm('删掉这一局的记录吗？删了就找不回来了。'))return;
-    recPut(recStore().filter(function(x){return !x||x.id!==id}));
+    var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
+    if(!confirm('删掉这一局的记录吗？删了就找不回来了。'+(recFavorite(rec)?'\n\n这条战绩已收藏，删除后也会从收藏中永久移除。':'')))return;
+    recPut(recStore().filter(function(x){return !x||x.id!==id}),{dropMissingFavorites:true});
     if(V.histId===id){V.histId=null;V.view='hall'}
     render(false);
   },
@@ -48242,6 +48545,19 @@ window.GAME={
   wwReactGo:function(){wwReactGo()},
   wwStop:function(){wwStop()},
   wwInfo:function(on){var w=V.ww;if(!w)return;w.helpOpen=!!on;if(!on){w.snapPick=false;w.snapPlanOpen=false}render(false)},
+  wwProfile:function(on,tab){
+    var w=V.ww;if(!w)return;
+    w.profileOpen=!!on;
+    if(on){
+      w.profileTab=(tab==='achievements')?'achievements':'overview';
+      w.helpOpen=false;w.cfgOpen=false;w.pop='';w.rewindOpen=false;w.noteOpen=false;
+    }
+    render(false);
+  },
+  wwProfileTab:function(tab){
+    var w=V.ww;if(!w||!w.profileOpen)return;
+    w.profileTab=(tab==='achievements')?'achievements':'overview';render(false);
+  },
   wwSnapKillOpen:function(){
     var w=V.ww,me=wwMe();
     if(!wwSnapKillReady(me))return;
