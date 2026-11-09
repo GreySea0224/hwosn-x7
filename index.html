@@ -16314,6 +16314,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-09】
+狼人杀赛后裁判卡片新增“向裁判申诉改判 MVP”：玩家可以填写具体理由，把当前 MVP、原复盘、申诉原文和整局记录一起交给中立裁判重新核对。裁判会判断维持还是改判，不会因为收到申诉就机械顺从；对局结算页和历史战绩详情都能使用，申诉改判不会重复发放 MVP 贝壳。
 狼人杀警长票规则已收紧：警长票是“支持谁当选”，仍未退水的候选人本轮不投票；第一次平票后每位候选人只补一次 PK 发言，PK后重投仍平票就直接判本局无警长，不再补第二次 PK。退水玩家可以在重投阶段投票。
 狼人杀“公开查验事实卡”修正了转述误算：像“2号跳通灵报3号村民”只会算2号的声明，不会变成6号自己的查验；只有本人第一人称过去时报验才进入查验账，计划验人和引用别人结果都不算。事实卡标题与引用原话冲突时以原话为准，该条作废。
 狼人杀守卫新增只给本人看的守人履历：本局设置里会显示每一夜真实守了谁、下一夜还未选择，夜间选守人时也会显示这份记录。公开发言可以不按真实盾口说，故意放假盾口骗狼是策略，不会自动被纠正或直接算失误。
@@ -16583,7 +16584,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=140;  /* 140：修复验人转述误判、警长票权、唯一PK、守卫私密履历与MVP分项 */
+const GUIDE_VER=141;  /* 141：新增赛后向裁判申诉复核MVP */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -29910,7 +29911,7 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     players:[],day:1,phase:'setup',dayStage:'',over:false,winner:'',endText:'',
     night:null,votes:{},log:[],rec:[],witchSave:true,witchPoison:true,
     userAsk:null,resolve:null,gate:{},gateResolve:null,
-    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',title:'',tips:{},marks:{},notes:{},noteOpen:false,markMode:'',markUid:null,sayTok:0,stopped:false,
+    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',title:'',tips:{},marks:{},notes:{},noteOpen:false,markMode:'',markUid:null,sayTok:0,stopped:false,judgeAppealing:false,judgeAppealMsg:'',
     resayIdx:null,
     resayOn:false,
     fx:null,
@@ -39918,7 +39919,7 @@ async function wwReactGo(){
 }
 /* ---------- 赛后：中立裁判复盘 + MVP ---------- */
 /* 把一局的「上帝视角资料」拼成给裁判的提示词（游戏里的那一局、战绩记录里的那一局都用它） */
-function wwJudgePrompt(src,result){
+function wwJudgePrompt(src,result,appeal,priorJudge){
   var L=[];
   L.push('你是一位中立、专业的狼人杀裁判兼解说。你没有参与这一局，只做赛后复盘。');
   L.push(wwGenderLine());   /* 【新】裁判写复盘提到人时也别默认男性：这一局里的人默认都是女生 */
@@ -39973,6 +39974,13 @@ function wwJudgePrompt(src,result){
     '误抗推不扣高光：若平民长期站对边、点齐狼坑、正确指出错误追问或给对神职建议，最后只是被其他好人基于无效因果票出，不能因此把她写成最惨失误，也不能抹掉她已完成的正确盘点和带队贡献。'+
     '战术献祭加权：若狼人牌（如狼王/白狼王/自刀狼）虽然在首日出局，但通过主动制定的战术（如自刀骗药、狼王枪杀队友做高深水狼身份）直接导致好人神职误毒/误判崩盘，该“总导演”狼人应获得最高 MVP 权重。'+
     '选最终 MVP 前，先在内部列出前两名，逐项比较首次准确解狼、实际技能阻止的死亡、关键票局贡献、错误前提与误投；只在综合贡献最高时给出最终一人，不得只看最后一天票是否命中。');
+  if(appeal){
+    if(priorJudge)L.push('【当前裁判原文（申诉前）】\n'+String(priorJudge).slice(0,2600));
+    L.push('【MVP 改判申诉】玩家对当前 MVP 评选提出了申诉，请重新、认真核看整局记录，再判断是否改判。'+
+      '申诉是玩家的观点，不是自动成立的事实；必须把它指出的具体贡献、错误前提、技能结果和票局影响逐项对回夜间行动、公开发言与票型。'+
+      '如果原 MVP 确实漏算、算错，或把错误前提下的“误中”当成完全正确的推理，应改判并说明；如果复核后原评仍然更合理，就维持原 MVP，并简短说明申诉为什么不改变结论。'+
+      '不能因为用户提出申诉就机械顺从，也不能因为要维持威严而拒绝承认可核验的错误。\n玩家的申诉原文：\n'+String(appeal).slice(0,2600));
+  }
   L.push('【输出格式】严格按下面五行输出，不要 markdown 或额外内容：\n'+
     '标题：6~12 字，概括本局最有戏之处，不加标点或引号，不出现「狼人杀」\n'+
     '复盘：2~4 句，说清楚这局大概发生了什么（谁刀了谁、谁被票出去、最后怎么结束的）\n'+
@@ -39982,7 +39990,7 @@ function wwJudgePrompt(src,result){
   return L.join('\n\n');
 }
 /* 游戏里的这一局：叫裁判复盘（用当前的 V.ww） */
-async function wwJudge(result){
+async function wwJudge(result,appeal,priorJudge){
   var w=V.ww;
   var src={
     count:w.count,
@@ -39993,7 +40001,7 @@ async function wwJudge(result){
     wolf:wwWolfChannelText(60)
   };
   var jt=wwSayMax();     /* 复盘不是角色发言，但同样别被截断：不限制就跟着不限，设了数就至少留 600 */
-  return String((await wwCall(wwJudgePrompt(src,result),'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
+  return String((await wwCall(wwJudgePrompt(src,result,appeal,priorJudge),appeal?'请结合申诉重新核对整局并裁定 MVP。':'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
 }
 /* ---------- 【新】战绩记录里的那一局：拿存下来的资料重新问裁判（重新评 MVP / 重新复盘） ---------- */
 function wwRecP(rec,uid){var a=(rec&&rec.players)||[];for(var i=0;i<a.length;i++){if(a[i]&&a[i].uid===uid)return a[i]}return null}
@@ -40032,7 +40040,7 @@ function wwMvpPlayerRec(players,txt){
   for(i=0;i<players.length;i++){p=players[i];if(p.name&&m.indexOf(p.name)>=0)return p}
   return null;
 }
-async function wwJudgeRec(rec,result){
+async function wwJudgeRec(rec,result,appeal,priorJudge){
   var src={
     count:rec.count||((rec.players||[]).length),
     roles:(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
@@ -40042,7 +40050,88 @@ async function wwJudgeRec(rec,result){
     wolf:wwWolfChannelRec(rec,60)
   };
   var jt=wwSayMax();
-  return String((await wwCall(wwJudgePrompt(src,result),'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
+  return String((await wwCall(wwJudgePrompt(src,result,appeal,priorJudge),appeal?'请结合申诉重新核对整局并裁定 MVP。':'请复盘这一局。',(jt?Math.max(jt,600):0),.8))||'').trim();
+}
+var WW_MVP_APPEAL_TARGET=null;
+function wwRecById(id){
+  var found=null;
+  recStore().forEach(function(x){if(x&&x.id===id)found=x});
+  return found;
+}
+function wwMvpAppealOpen(id){
+  var rec=id?wwRecById(id):null,w=id?null:V.ww;
+  if(id&&(!rec||rec.game!=='ww'))return toast('这一局的记录找不到了');
+  if(id&&(!rec.winner&&!rec.endText))return toast('这局还没打完，暂时不能申诉 MVP');
+  if(!id&&(!w||!w.over||!w.judge))return toast('这一局还没有裁判复盘，暂时不能申诉');
+  if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
+  var players=id?rec.players:w.players;
+  var uid=id?(rec.mvp||''):(w.mvpUid||'');
+  var cur=null;
+  (players||[]).some(function(p){if(p&&p.uid===uid){cur=p;return true}return false});
+  var curText=cur?((cur.seq?cur.seq+'号 · ':'')+cur.name+'（'+WW_ROLE_NAME[cur.role]+'）'):'裁判未识别出明确 MVP';
+  WW_MVP_APPEAL_TARGET=id?{id:id}:{live:true,gen:w.gen||0};
+  showSheet('<div class="ttl">🧑‍⚖️ 向裁判申诉 MVP</div>'+
+    '<p class="dim" style="font-size:13px;margin:8px 2px;line-height:1.65">当前 MVP：'+esc(curText)+'</p>'+
+    '<p class="dim" style="font-size:12px;margin:8px 2px;line-height:1.65">把你认为漏算的贡献、错误前提或误判写清楚。裁判会重新看整局记录；申诉不会自动改判，也可能维持原 MVP。</p>'+
+    '<textarea id="wwMvpAppealText" maxlength="2400" placeholder="例如：8号首日率先点齐2、5、7，且第二夜守住11号女巫；1号最后投9号的结论建立在错误的3号双金水前提上，请重新比较。"></textarea>'+
+    '<div class="gx-row" style="margin-top:10px"><button class="pri" type="button" onclick="GAME.wwMvpAppealSubmit()">提交给裁判复核</button><button class="ghost" type="button" onclick="closeSheet()">取消</button></div>',false);
+}
+async function wwMvpAppealLive(appeal,gen){
+  var w=V.ww;
+  if(!w||!w.over||!w.judge)return;
+  var oldMvp=w.mvpUid||'';
+  w.judgeAppealing=true;w.judgeAppealMsg='中立裁判正在阅读你的 MVP 申诉并重新核对整局…';render(true);
+  try{
+    var who=w.players.filter(wwIsWolf).map(function(p){return wwNum(p)+p.name}).join('、');
+    var result=(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'；本局的狼人是：'+who+'。'+(w.endText||'');
+    var txt=await wwJudge(result,appeal,w.judge);
+    if(gen!==(w.gen||0)||V.ww!==w)return;
+    var jj=wwJudgeParse(txt);
+    if(!txt||(!jj.sum&&!jj.mvp))throw new Error('裁判这次没写出内容');
+    var mv=wwMvpPlayer(jj.mvp);
+    w.judge=txt;
+    var tt=wwTitleClean(jj.title);if(tt)w.title=tt;
+    w.mvpUid=mv?mv.uid:'';
+    wwSave(true);
+    try{toast(w.mvpUid&&w.mvpUid!==oldMvp?'裁判复核后已改判 MVP':'裁判复核后维持原 MVP')}catch(e){}
+  }catch(e){
+    try{toast('申诉复核失败：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
+  }
+  if(V.ww===w){
+    w.judgeAppealing=false;w.judgeAppealMsg='';render(true);
+  }
+}
+async function wwMvpAppealRec(id,appeal){
+  var rec=wwRecById(id);
+  if(!rec||rec.game!=='ww')return toast('这一局的记录找不到了');
+  if(V.histJudgeBusy)return;
+  V.histJudgeBusy=true;V.histJudgeBusyMsg='中立裁判正在阅读你的 MVP 申诉并重新核对整局…';render(false);
+  try{
+    var result=wwResultLine(rec.players,rec.winner,rec.endText);
+    var txt=await wwJudgeRec(rec,result,appeal,rec.judge||'');
+    var jj=wwJudgeParse(txt);
+    if(!txt||(!jj.sum&&!jj.mvp))throw new Error('裁判这次没写出内容');
+    var mv=wwMvpPlayerRec(rec.players,jj.mvp);
+    rec.judge=txt;
+    var tt=wwTitleClean(jj.title);if(tt)rec.title=tt;
+    rec.mvp=mv?mv.uid:'';
+    var list=recStore(),i;
+    for(i=0;i<list.length;i++){if(list[i]&&list[i].id===rec.id){list[i]=rec;break}}
+    recPut(list);
+    try{toast('裁判已经重新核对 MVP')}catch(e){}
+  }catch(e){
+    try{toast('申诉复核失败：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
+  }
+  V.histJudgeBusy=false;V.histJudgeBusyMsg='';render(false);
+}
+async function wwMvpAppealSubmit(){
+  var ta=document.getElementById('wwMvpAppealText'),appeal=String(ta&&ta.value||'').trim();
+  if(appeal.length<4)return toast('请把申诉理由写得具体一点');
+  var target=WW_MVP_APPEAL_TARGET;
+  if(!target)return toast('申诉目标已经失效，请重新打开');
+  closeSheet();
+  if(target.live)return wwMvpAppealLive(appeal,target.gen);
+  return wwMvpAppealRec(target.id,appeal);
 }
 /* 战绩记录里点「重新评选」：重跑裁判，把复盘 / 标题 / MVP 都更新掉 */
 async function wwRejudgeRec(id){
@@ -40051,7 +40140,7 @@ async function wwRejudgeRec(id){
   if(V.histJudgeBusy)return;
   if(!cfg||!cfg.key)return toast('先去「设置 → 接口」填 API Key');
   if(!rec.winner&&!rec.endText)return toast('这局还没打完，暂时没法重新评选');
-  V.histJudgeBusy=true;render(false);
+  V.histJudgeBusy=true;V.histJudgeBusyMsg='中立裁判正在重新总结这一局（复盘 + 评 MVP）…';render(false);
   try{
     var result=wwResultLine(rec.players,rec.winner,rec.endText);
     var txt=await wwJudgeRec(rec,result);
@@ -40067,7 +40156,7 @@ async function wwRejudgeRec(id){
   }catch(e){
     try{toast('重新评选失败：'+String((e&&e.message)||e).slice(0,50))}catch(x){}
   }
-  V.histJudgeBusy=false;render(false);
+  V.histJudgeBusy=false;V.histJudgeBusyMsg='';render(false);
 }
 /* ---------- 【新】AI 复盘助手：拿整局记录做「提示词体检」（默认不跑，用户点一下才跑） ---------- */
 function wwAuditSys(rec){
@@ -44062,6 +44151,7 @@ function wwStart(){
   w.wolfBlown=false;w.blownWolves=[];w.roomMemory=null;w.blownHist=[];   /* 【新·面杀】新的一局：狼队还没收刀 */
   w.wolfRoles={};w.wolfRolesDone=false;   /* 【新】9/12 人局首夜由狼队自己选择分工 */
   w.achStreaks={};w.achUnlocks=[];w.profileOpen=false;w.profileTab='overview';
+  w.judgeAppealing=false;w.judgeAppealMsg='';
   w.scene='';                        /* 【修】新的一局：场景标记清空（免得上一局的黄昏带过来） */
   w.scribe=wwEmptyScribe();w.scribeBusy=false;
   w.gen=(w.gen||0)+1;                 /* 新一局的新编号：老循环认不出自己就会自动收手 */
@@ -45735,11 +45825,17 @@ function wwHTML(){
     h+='<div id="wwResultVerdict" class="gx-verdict ww-verdict '+(w.winner==='good'?'win':(w.winner==='wolf'?'lose':''))+'"><div class="gx-vbig">'+(w.winner==='good'?'好人获胜':(w.winner==='wolf'?'狼人获胜':'平局'))+'</div>'+
        '<div class="gx-vsub">'+esc(w.endText||'')+'</div></div>';
     if((w.achUnlocks||[]).length)h+='<div class="gx-sec">本局解锁</div><div class="gx-card"><div class="gx-vs">'+w.achUnlocks.map(function(x){return '🏅 '+esc(x)}).join('<br>')+'</div></div>';
-    /* 【新】裁判还在写复盘 / 评 MVP 的时候：先显示一排跳动的点点，让她知道是在等裁判 */
-    if(w.judging&&!w.judge){
+    /* 裁判正在首次复盘，或正在阅读 MVP 申诉时：在裁判卡片位置显示对应状态。 */
+    if(w.judgeAppealing){
+      h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
+         '<div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+esc(w.judgeAppealMsg||'中立裁判正在阅读你的 MVP 申诉…')+'</span></div></div>';
+    }else if(w.judging&&!w.judge){
       h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
          '<div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+'中立裁判正在总结这一局（复盘 + 评 MVP）…</span></div></div>';
-    }else h+=wwJudgeHTML(w.judge);
+    }else{
+      h+=wwJudgeHTML(w.judge);
+      if(w.judge)h+='<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwMvpAppealOpen()">'+wwUiIcon('chat')+'向裁判申诉改判 MVP</button></div>';
+    }
     h+=wwTransRow();
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
        w.players.map(function(p){return '<div class="mq-pick"><b'+(wwIsWolf(p)?' style="color:#e05a52"':'')+'>'+esc(wwName(p))+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
@@ -45959,12 +46055,13 @@ function wwHistHTML(rec){
     h+='<div class="gx-card"><div class="gx-vs"><b>已选择查看身份</b><br>为防止继续游戏时带着剧透信息，本局继续入口已关闭，只能查看记录。</div></div>';
   if(V.histJudgeBusy){
     /* 【新】正在叫裁判重新复盘：先显示跳动的点点 */
-    h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+'中立裁判正在重新总结这一局（复盘 + 评 MVP）…</span></div></div>';
+    h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard"><div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+esc(V.histJudgeBusyMsg||'中立裁判正在重新总结这一局（复盘 + 评 MVP）…')+'</span></div></div>';
   }else{
     h+=wwJudgeHTML(rec.judge||'');
     /* 【新】打完的局才能重新评选（没打完、没结局的记录不显示这个按钮） */
     if(rec.winner||rec.endText){
-      h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwRejudge(\''+esc(rec.id)+'\')">'+wwUiIcon('refresh')+'让裁判重新评选 MVP（连复盘一起重写）</button></div>';
+      h+='<div class="gx-row" style="flex-wrap:wrap;gap:8px"><button class="ghost" onclick="GAME.wwRejudge(\''+esc(rec.id)+'\')">'+wwUiIcon('refresh')+'让裁判重新评选 MVP（连复盘一起重写）</button>'+
+        '<button class="ghost" onclick="GAME.wwMvpAppealOpen(\''+esc(rec.id)+'\')">'+wwUiIcon('chat')+'向裁判申诉改判 MVP</button></div>';
     }
   }
   h+=wwTransRow();
@@ -48509,6 +48606,8 @@ window.GAME={
   },
   wwResume:function(id){wwResume(id)},
   wwRejudge:function(id){wwRejudgeRec(id)},
+  wwMvpAppealOpen:function(id){wwMvpAppealOpen(id)},
+  wwMvpAppealSubmit:function(){wwMvpAppealSubmit()},
   wwAudit:function(id){wwAuditRec(id)},
   wwCopyAudit:function(id){var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});wwCopyText(rec?rec.audit:'')},
   wwCopyDump:function(){try{wwCopyText(wwDumpText(V.ww))}catch(e){try{toast('复制失败：'+String((e&&e.message)||e).slice(0,40))}catch(x){}}},
