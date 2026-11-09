@@ -6816,7 +6816,7 @@ function rememberGameSeen(cid,id,title,gameAt){
 }
 /* 狼人杀名称表在后面的游戏脚本里才初始化；这里必须安全读取，不能让角色日常因战绩摘要而报错。 */
 function wwRoleLabel(role){
-  const fallback={wolf:'狼人',wolfbeauty:'狼美人',wolfking:'白狼王',wolfkingdeath:'狼王',mechanicwolf:'机械狼',villager:'村民',seer:'预言家',medium:'通灵师',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
+  const fallback={wolf:'狼人',wolfbeauty:'狼美人',awakenedwolfbeauty:'觉醒狼美人',wolfking:'白狼王',wolfkingdeath:'狼王',mechanicwolf:'机械狼',villager:'村民',seer:'预言家',medium:'通灵师',witch:'女巫',hunter:'猎人',guard:'守卫',awakenedguard:'觉醒守卫',idiot:'白痴',knight:'骑士',awakenedknight:'觉醒骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
   try{
     const map=window.WW_ROLE_NAME;
     if(map&&map[role])return String(map[role]);
@@ -6848,7 +6848,7 @@ function gameRecordCompactText(r,id,cid,fallbackT,brief){
     const result=gameRecordResultLine(r);if(result)L.push('结果：'+result);
     const ps=(r.players||[]).map(function(p){return p&&p.name}).filter(Boolean);
     if(ps.length)L.push('参与者：'+ps.slice(0,8).join('、')+(ps.length>8?' 等':''));
-    const names={wolf:'狼人',wolfbeauty:'狼美人',wolfking:'白狼王',wolfkingdeath:'狼王',mechanicwolf:'机械狼',villager:'村民',seer:'预言家',medium:'通灵师',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
+    const names={wolf:'狼人',wolfbeauty:'狼美人',awakenedwolfbeauty:'觉醒狼美人',wolfking:'白狼王',wolfkingdeath:'狼王',mechanicwolf:'机械狼',villager:'村民',seer:'预言家',medium:'通灵师',witch:'女巫',hunter:'猎人',guard:'守卫',awakenedguard:'觉醒守卫',idiot:'白痴',knight:'骑士',awakenedknight:'觉醒骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'};
     const userP=(r.players||[]).filter(function(p){return p&&p.isUser})[0]||null;
     const me=(r.players||[]).filter(function(p){return p&&p.cid===cid})[0]||null;
     if(userP&&userP.role)L.push('用户「'+(userP.name||userName())+'」'+(userP.seq?('（'+userP.seq+'号）'):'')+'在这局的身份：'+(names[userP.role]||userP.role));
@@ -6991,7 +6991,7 @@ function gameInvitePrompt(c){
   return '【一起玩游戏】'+UP+'随时可能想拉着你玩一局游戏（现在能拉的是「狼人杀」）。'
     +UP+'说「想和你玩狼人杀」「陪我玩一局」这类话时，用 invite_game 工具拉'+UP+'进房间：'
     +'人数用 count 填（6~12；6~8 人局结束快，9~12 人更热闹），12 人局再用 board 挑板子'
-    +'（std＝预女猎白，wolfking＝守卫白狼王，wolfkingguard＝狼王守卫，knightking＝骑士白狼王，wolfbeautyknight＝狼美人骑士，gravegargoyle＝守墓人石像鬼，nightmareguard＝梦魇守卫，mechanicmedium＝机械狼通灵师）。'
+    +'（std＝预女猎白，wolfking＝守卫白狼王，wolfkingguard＝狼王守卫，knightking＝骑士白狼王，wolfbeautyknight＝狼美人骑士，awakenedknight＝觉醒骑士，gravegargoyle＝守墓人石像鬼，nightmareguard＝梦魇守卫，mechanicmedium＝机械狼通灵师）。'
     +'调用之后，你这条消息下面会自动出现一张「邀请你加入房间」的卡片，'+UP+'点一下就进房间了——'
     +'卡片上只有人数和板子、不写你要说的话：你想说的（约'+UP+'、逗'+UP+'、交代'+UP+'别刀你之类）'
     +'就直接写在聊天消息里正常讲；也别用文字重复卡片上的信息（人数、板子那些）。'
@@ -16314,6 +16314,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-09】
+狼人杀新增 12 人「觉醒骑士」板子：3 个普通狼、1 个觉醒狼美人、4 个村民，以及预言家、女巫、觉醒骑士和觉醒守卫。觉醒骑士整局发动一次连锁决斗，白天放逐发言阶段可随时翻牌；命中狼人后可继续或停手，停手后出局者留遗言并入夜；命中好人则连锁停止、继续白天。每名玩家只能被决斗一次。觉醒守卫每天可在夜晚或白天使用一次觉醒守护，持续到当天结束，能挡刀、毒、放逐和觉醒骑士决斗，不能连续两天守同一人；保护觉醒狼美人本人会阻止替身，保护替身目标无效。觉醒狼美人属于狼队，不能自刀、不能自爆，每隔一晚魅惑一次，幻象只保护发动当夜和紧接的白天；第一次面临出局时由目标替代，目标已死或处于空窗期时没有替身。该板子、身份指定、邀请、预设、AI 提示词、战绩、续局和个人主页统计均已支持；新增“连斩”“圣域”“替身”三个角色成就。
 狼人杀验人对跳规则已补全：两名同职业验人位硬对跳后，声称下一验继续验对跳者不能产生区分真假的公开新信息，双方都能互报狼或机械通灵。真通灵和悍跳狼都应直接归票不退水的对跳者，并优先把下一验放到外置位；如果查验发生在对方起跳前、还没机会改计划，可以如实报但不能当成证明。裁判和投票也会使用同一标准。
 狼人杀赛后裁判卡片新增“向裁判申诉改判 MVP”：玩家可以填写具体理由，把当前 MVP、原复盘、申诉原文和整局记录一起交给中立裁判重新核对。裁判会判断维持还是改判，不会因为收到申诉就机械顺从；对局结算页和历史战绩详情都能使用，申诉改判不会重复发放 MVP 贝壳。
 狼人杀警长票规则已收紧：警长票是“支持谁当选”，仍未退水的候选人本轮不投票；第一次平票后每位候选人只补一次 PK 发言，PK后重投仍平票就直接判本局无警长，不再补第二次 PK。退水玩家可以在重投阶段投票。
@@ -25004,7 +25005,7 @@ var INVITE_GAME_TOOL={type:'function',function:{
   parameters:{type:'object',properties:{
     game:{type:'string',description:'要玩的游戏。现在只能填「狼人杀」'},
     count:{type:'integer',description:'总人数（含她），可以填 6~12。人少结束快：6~8 人一局很快，9~12 人更热闹'},
-    board:{type:'string',enum:['std','wolfking','wolfkingguard','knightking','wolfbeautyknight','gravegargoyle','nightmareguard','mechanicmedium'],description:'只有 12 人局才需要：std＝预女猎白（默认），wolfking＝守卫白狼王，wolfkingguard＝狼王守卫，knightking＝骑士白狼王，wolfbeautyknight＝狼美人骑士，gravegargoyle＝守墓人石像鬼，nightmareguard＝梦魇守卫，mechanicmedium＝机械狼通灵师'}
+    board:{type:'string',enum:['std','wolfking','wolfkingguard','knightking','wolfbeautyknight','awakenedknight','gravegargoyle','nightmareguard','mechanicmedium'],description:'只有 12 人局才需要：std＝预女猎白（默认），wolfking＝守卫白狼王，wolfkingguard＝狼王守卫，knightking＝骑士白狼王，wolfbeautyknight＝狼美人骑士，awakenedknight＝觉醒骑士，gravegargoyle＝守墓人石像鬼，nightmareguard＝梦魇守卫，mechanicmedium＝机械狼通灵师'}
   },required:['game']}
 }};
 window.INVITE_GAME_TOOL=INVITE_GAME_TOOL;   /* 挂到全局：toolsFor 要用 */
@@ -29949,6 +29950,9 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     policeAll:[],upSpoke:{},electing:false,pendingDeaths:null,speechStart:'',speechDir:1,
     board:'std',guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',charmTarget:'',charmWinPending:false,kingBoom:false,kingNote:'',dayOver:0,
     knightUsed:false,knightAsk:null,knightSelected:'',knightPending:false,inPK:false,dualSeerClaims:false,
+    awakenedKnightUsed:false,awakenedKnightDueled:{},awakenedKnightPending:false,awakenedKnightBatch:[],
+    awakenedGuardTarget:'',awakenedGuardDay:0,awakenedGuardLast:'',awakenedGuardLastDay:0,awakenedGuardActionDay:0,awakenedGuardSuccessDay:0,awakenedGuardPending:false,
+    awakenedWolfBeautyCharm:null,awakenedWolfBeautyCharmUsed:false,
     voteMode:'',votePick:null,voteHit:'',votePool:[],voteLeft:0,voteResolve:null,witchLog:[],
     achStreaks:{},achUnlocks:[],profileOpen:false,profileTab:'overview'}};
 var MEMC={};
@@ -30036,7 +30040,10 @@ var WW_ACHIEVEMENTS=[
   {id:'witch_poison',role:'witch',icon:'🧪',name:'毒手',desc:'累计毒中狼人',levels:[1,3,5]},
   {id:'hunter_shot',role:'hunter',icon:'🔫',name:'枪响',desc:'累计开枪命中狼人',levels:[1,3,5]},
   {id:'knight_hit',role:'knight',icon:'⚔️',name:'审判',desc:'累计决斗命中狼人',levels:[1,3,5]},
-  {id:'wolfbeauty_edge',role:'wolfbeauty',icon:'🌹',name:'祸水',desc:'跟随出局直接完成屠边',levels:[1,3]}
+  {id:'wolfbeauty_edge',role:'wolfbeauty',icon:'🌹',name:'祸水',desc:'跟随出局直接完成屠边',levels:[1,3]},
+  {id:'awakenedknight_chain',role:'awakenedknight',icon:'🗡️',name:'连斩',desc:'单次觉醒连锁命中狼人',levels:[2,3,4]},
+  {id:'awakenedguard_save',role:'awakenedguard',icon:'🔆',name:'圣域',desc:'累计成功阻止出局',levels:[1,3,5]},
+  {id:'awakenedwolfbeauty_save',role:'awakenedwolfbeauty',icon:'🥀',name:'替身',desc:'累计用挽歌幻象保命',levels:[1,3,5]}
 ];
 function wwAchDef(id){
   for(var i=0;i<WW_ACHIEVEMENTS.length;i++)if(WW_ACHIEVEMENTS[i].id===id)return WW_ACHIEVEMENTS[i];
@@ -30054,16 +30061,17 @@ function wwCareerBucket(map,key){
   return map[key];
 }
 function wwCareerRoleIsWolf(role){
-  return ['wolf','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(String(role||''))>=0;
+  return ['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(String(role||''))>=0;
 }
 function wwCareerBoardKey(rec){
   var n=Number(rec&&rec.count)||0;
   if(n&&n!==12)return 'n'+n;
   var board=String(rec&&rec.board||'');
-  if(board==='wolfking'||board==='wolfkingguard'||board==='knightking'||board==='wolfbeautyknight'||
+  if(board==='wolfking'||board==='wolfkingguard'||board==='knightking'||board==='wolfbeautyknight'||board==='awakenedknight'||
      board==='gravegargoyle'||board==='nightmareguard'||board==='mechanicmedium'||board==='std')return board;
   var roles={};(rec&&rec.players||[]).forEach(function(p){if(p&&p.role)roles[p.role]=1});
   if(roles.mechanicwolf||roles.medium)return 'mechanicmedium';
+  if(roles.awakenedwolfbeauty||roles.awakenedknight||roles.awakenedguard)return 'awakenedknight';
   if(roles.wolfbeauty)return 'wolfbeautyknight';
   if(roles.nightmare)return 'nightmareguard';
   if(roles.gravekeeper||roles.gargoyle)return 'gravegargoyle';
@@ -30279,7 +30287,7 @@ function recUserWonWW(r){
   ((r&&r.players)||[]).forEach(function(p){if(p&&p.isUser)me=p});
   if(!me||!me.role)return null;
   if(r.winner!=='good'&&r.winner!=='wolf')return null;
-  return (me.role==='wolf'||me.role==='wolfbeauty'||me.role==='wolfking'||me.role==='wolfkingdeath'||me.role==='mechanicwolf'||me.role==='gargoyle'||me.role==='nightmare')?(r.winner==='wolf'):(r.winner==='good');
+  return (me.role==='wolf'||me.role==='wolfbeauty'||me.role==='awakenedwolfbeauty'||me.role==='wolfking'||me.role==='wolfkingdeath'||me.role==='mechanicwolf'||me.role==='gargoyle'||me.role==='nightmare')?(r.winner==='wolf'):(r.winner==='good');
 }
 /* 这一局裁判评的 MVP 是不是「你」 */
 function recIsMvpUser(r){
@@ -30729,13 +30737,13 @@ var CSS=[
 '.ww-mk-wolf2{background:#b23c33;color:#fff;border:1px solid transparent}',
 '.ww-mk-seer,.ww-mk-medium{background:rgba(138,92,216,.20);color:#8a5cd8;border:1px solid rgba(138,92,216,.5)}',
 '.ww-mk-witch{background:rgba(58,165,93,.20);color:#2f8f52;border:1px solid rgba(58,165,93,.5)}',
-'.ww-mk-guard{background:rgba(70,160,210,.20);color:#3d8fbf;border:1px solid rgba(70,160,210,.55)}',
+'.ww-mk-guard,.ww-mk-awakenedguard{background:rgba(70,160,210,.20);color:#3d8fbf;border:1px solid rgba(70,160,210,.55)}',
 '.ww-mk-hunter{background:rgba(224,138,60,.22);color:#c07320;border:1px solid rgba(224,138,60,.5)}',
-'.ww-mk-knight{background:rgba(85,145,205,.22);color:#28679d;border:1px solid rgba(85,145,205,.5)}',
+'.ww-mk-knight,.ww-mk-awakenedknight{background:rgba(85,145,205,.22);color:#28679d;border:1px solid rgba(85,145,205,.5)}',
 '.ww-mk-gravekeeper{background:rgba(110,110,120,.20);color:#555560;border:1px solid rgba(110,110,120,.5)}',
 '.ww-mk-gargoyle{background:rgba(130,110,95,.22);color:#6d5748;border:1px solid rgba(130,110,95,.5)}',
 '.ww-mk-nightmare{background:rgba(115,78,165,.22);color:#5e3a91;border:1px solid rgba(115,78,165,.55)}',
-'.ww-mk-wolfking,.ww-mk-wolfkingdeath,.ww-mk-mechanicwolf,.ww-mk-wolfbeauty{background:rgba(196,120,40,.22);color:#a9661b;border:1px solid rgba(196,120,40,.55)}',
+'.ww-mk-wolfking,.ww-mk-wolfkingdeath,.ww-mk-mechanicwolf,.ww-mk-wolfbeauty,.ww-mk-awakenedwolfbeauty{background:rgba(196,120,40,.22);color:#a9661b;border:1px solid rgba(196,120,40,.55)}',
 '.ww-mk-idiot{background:rgba(210,90,160,.20);color:#bf4f8c;border:1px solid rgba(210,90,160,.5)}',
 '.ww-mk-good{background:var(--accdim);color:var(--acc);border:1px solid var(--acc)}',
 /* 座位窄，标记做成头像右下角的小徽章 */
@@ -30744,13 +30752,13 @@ var CSS=[
 '.ww-mkbadge.wolf2{background:#b23c33;color:#fff;border:1px solid transparent}',
 '.ww-mkbadge.seer,.ww-mkbadge.medium{background:#cdbdf0;color:#4b2f8a;border:1px solid #a98ee0}',
 '.ww-mkbadge.witch{background:#b3ddbe;color:#1f6b3a;border:1px solid #86c497}',
-'.ww-mkbadge.guard{background:#b9dcf0;color:#1f5d80;border:1px solid #89bedd}',
+'.ww-mkbadge.guard,.ww-mkbadge.awakenedguard{background:#b9dcf0;color:#1f5d80;border:1px solid #89bedd}',
 '.ww-mkbadge.hunter{background:#f0d0a2;color:#8a5310;border:1px solid #d9ab6a}',
-'.ww-mkbadge.knight{background:#c8e4f5;color:#225b82;border:1px solid #86bdd8}',
+'.ww-mkbadge.knight,.ww-mkbadge.awakenedknight{background:#c8e4f5;color:#225b82;border:1px solid #86bdd8}',
 '.ww-mkbadge.gravekeeper{background:#d8d8dd;color:#4b4b55;border:1px solid #aaaab4}',
 '.ww-mkbadge.gargoyle{background:#d8c8b9;color:#6d5748;border:1px solid #b9a28f}',
 '.ww-mkbadge.nightmare{background:#d9cbef;color:#563784;border:1px solid #b59bda}',
-'.ww-mkbadge.wolfking,.ww-mkbadge.wolfkingdeath,.ww-mkbadge.mechanicwolf,.ww-mkbadge.wolfbeauty{background:#e8cfa6;color:#6b4a12;border:1px solid #c9a45f}',
+'.ww-mkbadge.wolfking,.ww-mkbadge.wolfkingdeath,.ww-mkbadge.mechanicwolf,.ww-mkbadge.wolfbeauty,.ww-mkbadge.awakenedwolfbeauty{background:#e8cfa6;color:#6b4a12;border:1px solid #c9a45f}',
 '.ww-mkbadge.idiot{background:#f0c2de;color:#8a2d63;border:1px solid #d78fba}',
 '.ww-mkbadge.good{background:var(--accdim);color:var(--acc);border:1px solid var(--acc)}',
 '.ww-seat.mk-wolf1 .ww-seat-nm{color:#c0392b}',
@@ -33413,7 +33421,7 @@ function wwUiIcon(kind){
   return '<span class="ww-ui-ic" aria-hidden="true"><svg viewBox="0 0 24 24">'+(p[kind]||p.villager)+'</svg></span>';
 }
 var WW_UI_EMOJI={'🌙':'moon','🌑':'moon','☀️':'sun','☀':'sun','🏁':'flag','👀':'eye','🗳️':'ballot','🗳':'ballot','🙇':'retreat','👮':'sheriff','💥':'boom','⚔':'knight','🔮':'seer','🧪':'witch','🔫':'hunter','🐺':'wolf','🔪':'wolf','🛡️':'guard','🛡':'guard','👑':'wolfking','👤':'villager','🃏':'idiot','⚰️':'book','🗿':'wolf','😈':'wolf','🏆':'trophy','👉':'pointer','📖':'book','📋':'copy','🔁':'refresh','🧠':'scan','💬':'chat','🧑‍⚖️':'judge','👍':'thumb','😅':'alert','🪙':'coin'};
-var WW_ROLE_ICON={wolf:'wolf',wolfbeauty:'wolfking',wolfking:'wolfking',wolfkingdeath:'wolfking',mechanicwolf:'wolfking',villager:'villager',seer:'seer',medium:'seer',witch:'witch',hunter:'hunter',guard:'guard',idiot:'idiot',knight:'knight',gravekeeper:'book',gargoyle:'wolf',nightmare:'wolf'};
+var WW_ROLE_ICON={wolf:'wolf',wolfbeauty:'wolfking',awakenedwolfbeauty:'wolfking',wolfking:'wolfking',wolfkingdeath:'wolfking',mechanicwolf:'wolfking',villager:'villager',seer:'seer',medium:'seer',witch:'witch',hunter:'hunter',guard:'guard',awakenedguard:'guard',idiot:'idiot',knight:'knight',awakenedknight:'knight',gravekeeper:'book',gargoyle:'wolf',nightmare:'wolf'};
 function wwRoleIcon(role){return wwUiIcon(WW_ROLE_ICON[role]||'villager')}
 function wwCleanSystemText(t){
   return String(t==null?'':t).replace(/[ \t]+$/gm,'').replace(/。+(?=\n|$)/g,'').trim();
@@ -33445,9 +33453,9 @@ var WW_IC_CLAW='<svg viewBox="0 0 24 24">'+
  '<circle cx="14.1" cy="20" r="1.15"/><circle cx="18.9" cy="17.4" r="0.85"/><circle cx="15.9" cy="22.2" r="0.6"/>'+
  '</svg>';
 var WW_IC_HIT='<svg viewBox="0 0 24 24"><path d="M12 2.6l2.2 5.6 5.9-1.4-4.1 4.4 4.1 4.4-5.9-1.4L12 21.4l-2.2-5.8-5.9 1.4 4.1-4.4-4.1-4.4 5.9 1.4z"/></svg>';
-var WW_ROLE_NAME=Object.freeze({wolf:'狼人',wolfbeauty:'狼美人',wolfking:'白狼王',wolfkingdeath:'狼王',mechanicwolf:'机械狼',villager:'村民',seer:'预言家',medium:'通灵师',witch:'女巫',hunter:'猎人',guard:'守卫',idiot:'白痴',knight:'骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'});
+var WW_ROLE_NAME=Object.freeze({wolf:'狼人',wolfbeauty:'狼美人',awakenedwolfbeauty:'觉醒狼美人',wolfking:'白狼王',wolfkingdeath:'狼王',mechanicwolf:'机械狼',villager:'村民',seer:'预言家',medium:'通灵师',witch:'女巫',hunter:'猎人',guard:'守卫',awakenedguard:'觉醒守卫',idiot:'白痴',knight:'骑士',awakenedknight:'觉醒骑士',gravekeeper:'守墓人',gargoyle:'石像鬼',nightmare:'梦魇'});
 window.WW_ROLE_NAME=WW_ROLE_NAME;
-var WW_ROLE_EMOJI={wolf:'🐺',wolfbeauty:'🌹',wolfking:'👑',wolfkingdeath:'🐺',mechanicwolf:'⚙️',villager:'👤',seer:'🔮',medium:'👁️',witch:'🧪',hunter:'🔫',guard:'🛡️',idiot:'🃏',knight:'⚔️',gravekeeper:'⚰️',gargoyle:'🗿',nightmare:'😈'};
+var WW_ROLE_EMOJI={wolf:'🐺',wolfbeauty:'🌹',awakenedwolfbeauty:'🥀',wolfking:'👑',wolfkingdeath:'🐺',mechanicwolf:'⚙️',villager:'👤',seer:'🔮',medium:'👁️',witch:'🧪',hunter:'🔫',guard:'🛡️',awakenedguard:'🔆',idiot:'🃏',knight:'⚔️',awakenedknight:'🗡️',gravekeeper:'⚰️',gargoyle:'🗿',nightmare:'😈'};
 var WW_WOLF_JOB_NAME={jump:'悍跳狼',charge:'冲锋狼',hook:'倒钩狼',deep:'深水狼'};
 var WW_WOLF_JOB_HELP={
   jump:'悍跳是可选择的战术，不是必须完成到底的身份任务。一旦决定首轮悍跳，就要把力度给足：不要只发“好人、民及民以上”这种宽到没有压力的结果，可以给警下或外置位发村民金水、给像神的玩家发具体神职金水，也可以直接赌“X号就是某张具体神职”来诈回应；但只能报本局实际存在的职业，绝不能报本板没有的身份。每个夜晚只能报一个查验，首验理由不能用上警、发言等白天信息。发错后不要当场崩掉，要继续用目标是否否认、谁急着接话、谁替她解释来施压。一般情况下可以抢预言家身份并像真预一样报验，但一旦现场出现可信的机械狼身份线、机械狼开始给队友发神职衣服，或你的假通灵面已经明显送狼，应主动退水、放弃旧假验并转去配合她；配合机械狼优先于保住自己的悍跳分工。仍与真预/真通灵对跳时，主战场就是她：不要为了演得像而反射性编一个“查杀对跳者”的查验结果，但在公开站边和归票上必须直接把不退水的对跳者打进狼坑，不能无理由另开外置位抗推或分流票。下一夜验人计划应优先查外置位，不要浪费在已经起跳且不退水的对跳者身上；如果原计划在她起跳前已经定下，下一次发言应明确取消并改验外置位。若自己被票出且没有正式退水、也没有转接新身份，遗言才需要继续维持旧假身份，不能无故改口认假。编验人必须遵守真实时间线。',
@@ -33471,7 +33479,7 @@ var WW_WOLF_JOB_VOTE={
   hook:'按当前倒钩打法独立投：常规/阴阳可在关键时刻票好人，必要时票暴露队友，别公开保狼。',
   deep:'优先藏身份，跟随可信公共逻辑投票，不无脑救队友。每轮至少给出明确票向和一条独立理由；队友被冲时必须做一次有效回应或反打，不能整轮只表态。'
 };
-var WW_PICKS=[['random','随机'],['villager','村民'],['seer','预言家'],['medium','通灵师'],['witch','女巫'],['hunter','猎人'],['knight','骑士'],['guard','守卫'],['gravekeeper','守墓人'],['idiot','白痴'],['wolfbeauty','狼美人'],['wolfking','白狼王'],['wolfkingdeath','狼王'],['mechanicwolf','机械狼'],['gargoyle','石像鬼'],['nightmare','梦魇'],['wolf','狼人']];
+var WW_PICKS=[['random','随机'],['villager','村民'],['seer','预言家'],['medium','通灵师'],['witch','女巫'],['hunter','猎人'],['knight','骑士'],['awakenedknight','觉醒骑士'],['guard','守卫'],['awakenedguard','觉醒守卫'],['gravekeeper','守墓人'],['idiot','白痴'],['wolfbeauty','狼美人'],['awakenedwolfbeauty','觉醒狼美人'],['wolfking','白狼王'],['wolfkingdeath','狼王'],['mechanicwolf','机械狼'],['gargoyle','石像鬼'],['nightmare','梦魇'],['wolf','狼人']];
 /* NPC：每个都有短人设、只读自己的一条，不读任何角色记忆，用来凑人数又保留明显口吻差异。 */
 var WW_NPC_NAMES=['摸鱼选手','深夜不睡','柠檬不酸','干饭第一名','键盘侠阿伟','路过的风景','香菜退散','开麦就困','打工人小张','月亮不睡','一杯冰美式','网不太好'];
 var WW_NPC_FACES=['🐟','🦉','🍋','🍜','🎧','🌿','🥬','🐧','☕','🌙','🧋','📶'];
@@ -33549,6 +33557,9 @@ function wwTipsBlock(){
   if(bd.guard)extra+='\n【守卫】每晚守一人（含自己），不能连守；只挡狼刀，不挡女巫毒，同守同救会死。被守的人仍可能被毒死；单死夜也可能是毒死一人且狼刀被守。首夜通常空守更稳，但不是硬规则，也可以按开局前信息盲守。';
   if(bd.knight)extra+='\n【骑士】每局决斗一次。自己发言时可决斗，所有人发言完、投票前还能再考虑一次；警长竞选和平票 PK 不能决斗。命中狼人：对方出局、白天立即结束；命中好人：骑士自己出局、白天继续。';
   if(bd.wolfbeauty)extra+='\n【狼美人骑士】狼美人属于狼人阵营，和普通狼互认并共同刀人。每晚魅惑一名其他存活玩家，不能连续两晚魅惑同一人；狼美人因夜晚、放逐或猎人枪出局时，当前魅惑目标随之出局。因骑士决斗出局时不能发动魅惑，不翻牌，目标存活。';
+  if(bd.awakenedknight)extra+='\n【觉醒骑士】整局只能发动一次连锁决斗。白天放逐发言阶段可随时翻牌；命中狼人后可继续或停手，停手后当前出局者留遗言并入夜；命中好人则双方出局、留遗言后继续白天流程。每名玩家整局只能被决斗一次。';
+  if(bd.awakenedguard)extra+='\n【觉醒守卫】每天可任选夜晚或白天放逐发言阶段发动一次觉醒守护，每天只能守一人，不能连续两天守同一人。被守护者直到当天白天结束都不会以任何方式出局；能挡放逐、骑士决斗、狼刀和毒药，且不会与女巫解药触发同守同救。';
+  if(bd.awakenedwolfbeauty)extra+='\n【觉醒狼美人】属于狼队，不能自刀。每隔一晚（第1、3、5夜）可发动一次挽歌幻象；魅惑只保护发动当夜及紧接的白天。第一次面临出局时由目标替代，替身不能被觉醒守卫保住；觉醒狼美人本人被觉醒守卫保护时不触发替身。';
   if(bd.wolfking)extra+='\n【白狼王】白天可自爆带走一人并立即入夜，限一次；尽量炸关键神职或自救。';
   if(bd.wolfkingdeath)extra+='\n【狼王】狼人阵营，和普通狼一起刀人。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以不发动。';
   if(bd.medium)extra+='\n【通灵师】每晚查验一名存活玩家的具体身份。第一次发言或尚无更具体的对手查验时，可以报确切身份，也可以只报“好人身份/神职金水/民及民以上金水”；第一次模糊不等于假验。对手已报更具体身份后，本人下一次发言仍拒绝用确切身份回应，会成为强烈狼点；目标已死时继续藏身份的收益更低。验到女巫、守卫等关键弱神时可以在合理时机暂不报具体职业。但真通灵师如果验到另一个“通灵师”，那只可能是学过通灵师技能的机械狼，必须直接报机械通灵师/机械狼/查杀。';
@@ -33559,8 +33570,8 @@ function wwTipsBlock(){
   return '【狼人杀小抄】术语能对上就用，别硬堆词：\n'+WW_TIPS+extra;
 }
 /* 自己可以给角色打的标记（纯给自己看，不会发给 AI） */
-var WW_MARKS=[['wolf1','怀疑狼','wolf'],['wolf2','确定狼','wolf'],['seer','像预言家','seer'],['medium','像通灵师','seer'],['witch','像女巫','witch'],['guard','像守卫','guard'],['hunter','像猎人','hunter'],['knight','像骑士','knight'],['gravekeeper','像守墓人','book'],['wolfbeauty','像狼美人','wolfking'],['wolfking','像白狼王','wolfking'],['wolfkingdeath','像狼王','wolfking'],['mechanicwolf','像机械狼','wolfking'],['gargoyle','像石像鬼','wolf'],['nightmare','像梦魇','wolf'],['idiot','像白痴','idiot'],['good','像好人','villager']];
-var WW_MARK_TXT={wolf1:'狼',wolf2:'狼',seer:'预',medium:'灵',witch:'女',guard:'守',hunter:'猎',knight:'骑',gravekeeper:'墓',wolfbeauty:'美',wolfking:'白王',wolfkingdeath:'王',mechanicwolf:'机',gargoyle:'石',nightmare:'魇',idiot:'白',good:'好'};
+var WW_MARKS=[['wolf1','怀疑狼','wolf'],['wolf2','确定狼','wolf'],['seer','像预言家','seer'],['medium','像通灵师','seer'],['witch','像女巫','witch'],['guard','像守卫','guard'],['awakenedguard','像觉醒守卫','guard'],['hunter','像猎人','hunter'],['knight','像骑士','knight'],['awakenedknight','像觉醒骑士','knight'],['gravekeeper','像守墓人','book'],['wolfbeauty','像狼美人','wolfking'],['awakenedwolfbeauty','像觉醒狼美人','wolfking'],['wolfking','像白狼王','wolfking'],['wolfkingdeath','像狼王','wolfking'],['mechanicwolf','像机械狼','wolfking'],['gargoyle','像石像鬼','wolf'],['nightmare','像梦魇','wolf'],['idiot','像白痴','idiot'],['good','像好人','villager']];
+var WW_MARK_TXT={wolf1:'狼',wolf2:'狼',seer:'预',medium:'灵',witch:'女',guard:'守',awakenedguard:'觉守',hunter:'猎',knight:'骑',awakenedknight:'觉骑',gravekeeper:'墓',wolfbeauty:'美',awakenedwolfbeauty:'觉美',wolfking:'白王',wolfkingdeath:'王',mechanicwolf:'机',gargoyle:'石',nightmare:'魇',idiot:'白',good:'好'};
 /* 给编号圆圈上色的备选色（自己盘「谁和谁一边」时很有用） */
 var WW_COLORS=['#b23c33','#e0a23c','#4fae6b','#3f9ad8','#8a6fe0','#d86ba8','#2fb3a8','#7d8794'];
 /* 通灵师看到的“表面身份”：机械狼学习后会伪装成学到的角色；其余人显示真实身份。 */
@@ -33625,6 +33636,8 @@ function wwFactsFor(p){
       else if(x.killedBy==='boom')how='白天自爆后出局';
       else if(x.killedBy==='wolfking')how='白天被带走';
       else if(x.killedBy==='charmday')how='白天跟随狼美人出局';
+      else if(x.killedBy==='awbsubday')how='白天作为觉醒狼美人的替身出局';
+      else if(x.killedBy==='awduel')how='白天被觉醒骑士决斗出局';
       else if(x.killedBy==='flip')how='白天掀桌认输后被处刑';
       return wwName(x)+'（'+how+'）';
     }).join('、')+'\n  （夜里出局只报“出局”，死因自行判断）'):'')+
@@ -33657,10 +33670,21 @@ function wwFactsFor(p){
     if(w.night&&w.night.gargoyle)L.push('· 你昨晚查验了 '+wwName(wwPlayerByUid(w.night.gargoyle.uid))+'，身份是【'+(WW_ROLE_NAME[w.night.gargoyle.role]||w.night.gargoyle.role)+'】。');
   }else if(p&&p.role==='nightmare'&&!w.nightmareMetWolves){
     L.push('【梦魇真实情况（只有你知道，勿公开）】你属于狼人阵营。今晚你先单独恐惧一人，此时还不认识普通狼，也看不到狼队频道；完成空梦或恐惧后，你才会与狼队会合并一起刀人。');
+  }else if(p&&p.role==='awakenedguard'){
+    var agTarget=w.awakenedGuardTarget&&Number(w.awakenedGuardDay)===Number(w.day)?wwPlayerByUid(w.awakenedGuardTarget):null;
+    var agLast=w.awakenedGuardLast?wwPlayerByUid(w.awakenedGuardLast):null;
+    L.push('【觉醒守卫（只有你知道）】当前守护：'+(agTarget?wwName(agTarget):'今天尚未选择')+'。'+
+      (agLast?('\n上一保护目标：'+wwName(agLast)+'（第 '+w.awakenedGuardLastDay+' 天）。'):'')+
+      '\n保护持续到当天白天结束，能挡狼刀、毒药、放逐和觉醒骑士决斗；不能连续两天守同一人。');
+  }else if(p&&p.role==='awakenedknight'){
+    var akUsed=Object.keys(w.awakenedKnightDueled||{}).map(wwPlayerByUid).filter(Boolean).map(wwName);
+    L.push('【觉醒骑士（只有你知道）】'+(w.awakenedKnightUsed?'连锁决斗已发动。':'整局连锁决斗尚未发动。')+
+      '\n已经决斗过、不能重复选择：'+(akUsed.join('、')||'（还没有）')+
+      '\n命中狼人后可继续或停手；停手后本轮出局者留遗言并入夜。命中好人则连锁停止，之后继续白天流程。');
   }else if(p&&(wwIsPackWolf(p)||p.role==='nightmare')){
     var team=[p].concat(wwWolfMates(p));
     L.push('【狼队真实情况（只有你知道，勿公开）】'+
-      '\n· 狼队成员：'+team.map(function(x){return wwNum(x)+x.name+((x.role==='wolfbeauty')?'（狼美人）':((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':((x.role==='nightmare')?'（梦魇）':''))))+(x.alive?'（活）':'（出局）')}).join('、')+'。'+
+      '\n· 狼队成员：'+team.map(function(x){return wwNum(x)+x.name+((x.role==='wolfbeauty')?'（狼美人）':((x.role==='awakenedwolfbeauty')?'（觉醒狼美人）':((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':((x.role==='nightmare')?'（梦魇）':''))))) +(x.alive?'（活）':'（出局）')}).join('、')+'。'+
       '\n· 活着的狼队友：'+(team.filter(function(x){return x.alive&&x!==p}).map(wwName).join('、')||'（无，只剩你）')+'。'+
       '\n· 你是 '+wwNum(p)+p.name+'。'+
       (w.players.some(function(x){return x.role==='gargoyle'})?'本局另有一只石像鬼，但普通狼不知道她是谁。':'')+
@@ -33672,6 +33696,12 @@ function wwFactsFor(p){
         '夜晚出局时公开名单只列死者，不公布跟随关系；白天被放逐时你会翻牌并公开魅惑目标。'+
         (beautyTarget?'本夜之后不能继续把同一个人当作下一夜的新魅惑目标。':'')+
         '狼队友知道你是狼美人，但不会自动知道你的魅惑目标；不要当众泄露这张私有信息，除非你自己的策略需要。');
+    }
+    if(p.role==='awakenedwolfbeauty'){
+      var awbTarget=wwAwakenedWolfBeautyCharmActive(w)?wwPlayerByUid(w.awakenedWolfBeautyCharm.uid):null;
+      L.push('【觉醒狼美人（只有你知道，勿公开）】当前挽歌幻象：'+(awbTarget?wwName(awbTarget):'本夜没有有效替身')+'。'+
+        (w.awakenedWolfBeautyCharmUsed?'\n整局替身效果已经用掉，之后不能再替你出局。':'\n每隔一晚可在夜晚发动一次，可重复选择同一个目标；幻象只保护发动当夜及紧接的白天。')+
+        '\n你第一次面临出局时由目标替代；替身不能被觉醒守卫挡住，但如果你本人被觉醒守卫保护，则不会出局也不会触发替身。不能自刀或自爆。');
     }
     if(w.players.some(function(x){return x.role==='mechanicwolf'}))
       L.push('· 机械狼即使学到了通灵师/预言家的真验人能力，也完全可以故意报假结果给队友发衣服。不能用“她公开报的结果不符合真实身份”来反推她不是机械狼；狼阵营的公开查验本来就是话术，假查验反而可能是在做局。');
@@ -34012,7 +34042,7 @@ function wwKnownWolf(p){
   if(me.role==='medium'){
     var mc=me.check||[];
     for(var mi=0;mi<mc.length;mi++){
-      if(mc[mi].uid===p.uid&&(mc[mi].role==='查杀'||['wolf','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(mc[mi].role)>=0))return true;
+      if(mc[mi].uid===p.uid&&(mc[mi].role==='查杀'||['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare'].indexOf(mc[mi].role)>=0))return true;
     }
   }
   return false;
@@ -34059,8 +34089,8 @@ function wwGodNightHTML(){
       return '<div>第 '+esc(String(x.d||'?'))+' 天 · '+esc(x.t||'')+'</div>';
     }).join(''):'<div>第一夜还没开始行动。</div>')+'</div></details>';
 }
-function wwBoardSafe(bd){return (bd==='wolfking'||bd==='wolfkingguard'||bd==='knightking'||bd==='wolfbeautyknight'||bd==='gravegargoyle'||bd==='nightmareguard'||bd==='mechanicmedium')?bd:'std'}
-function wwBoardLabel(bd){return bd==='wolfkingguard'?'狼王守卫':(bd==='knightking'?'骑士白狼王':(bd==='wolfbeautyknight'?'狼美人骑士':(bd==='wolfking'?'守卫白狼王':(bd==='gravegargoyle'?'守墓人石像鬼':(bd==='nightmareguard'?'梦魇守卫':(bd==='mechanicmedium'?'机械狼通灵师':'预女猎白'))))))}
+function wwBoardSafe(bd){return (bd==='wolfking'||bd==='wolfkingguard'||bd==='knightking'||bd==='wolfbeautyknight'||bd==='awakenedknight'||bd==='gravegargoyle'||bd==='nightmareguard'||bd==='mechanicmedium')?bd:'std'}
+function wwBoardLabel(bd){return bd==='wolfkingguard'?'狼王守卫':(bd==='knightking'?'骑士白狼王':(bd==='wolfbeautyknight'?'狼美人骑士':(bd==='awakenedknight'?'觉醒骑士':(bd==='wolfking'?'守卫白狼王':(bd==='gravegargoyle'?'守墓人石像鬼':(bd==='nightmareguard'?'梦魇守卫':(bd==='mechanicmedium'?'机械狼通灵师':'预女猎白')))))))}
 function wwBoard(n,state){
   if(n===12){
     var bd=((state||V.ww)&&(state||V.ww).board)||'std';
@@ -34068,6 +34098,7 @@ function wwBoard(n,state){
     if(bd==='wolfkingguard')return {wolf:3,wolfkingdeath:1,villager:4,seer:1,witch:1,hunter:1,guard:1};
     if(bd==='knightking')return {wolf:3,wolfking:1,villager:4,seer:1,witch:1,hunter:1,knight:1};
     if(bd==='wolfbeautyknight')return {wolf:3,wolfbeauty:1,villager:4,seer:1,witch:1,hunter:1,knight:1};
+    if(bd==='awakenedknight')return {wolf:3,awakenedwolfbeauty:1,villager:4,seer:1,witch:1,awakenedknight:1,awakenedguard:1};
     if(bd==='gravegargoyle')return {wolf:3,gargoyle:1,villager:4,seer:1,witch:1,hunter:1,gravekeeper:1};
     if(bd==='nightmareguard')return {wolf:3,nightmare:1,villager:4,seer:1,witch:1,hunter:1,guard:1};
     if(bd==='mechanicmedium')return {wolf:3,mechanicwolf:1,villager:4,medium:1,witch:1,hunter:1,guard:1};
@@ -34079,7 +34110,7 @@ function wwBoard(n,state){
   return {wolf:2,villager:2,seer:1,witch:1,hunter:0};
 }
 function wwBoardRoleKeys(w){
-  var b=wwBoard(w&&w.count,w),order=['wolf','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','hunter','gravekeeper','knight','idiot','villager'];
+  var b=wwBoard(w&&w.count,w),order=['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','awakenedguard','hunter','gravekeeper','knight','awakenedknight','idiot','villager'];
   return order.filter(function(k){return Number(b[k])>0});
 }
 function wwBoardRoleNames(w){
@@ -34087,7 +34118,7 @@ function wwBoardRoleNames(w){
 }
 function wwRoleList(n){
   var b=wwBoard(n),out=[];
-  ['wolf','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','hunter','gravekeeper','idiot','knight','villager'].forEach(function(k){
+  ['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','awakenedguard','hunter','gravekeeper','idiot','knight','awakenedknight','villager'].forEach(function(k){
     for(var i=0;i<(b[k]||0);i++)out.push(k);
   });
   return out;
@@ -34096,6 +34127,7 @@ function wwRoleList(n){
 function wwBoardLine(){
   var w=V.ww,b=wwBoard(w.count),a=(b.wolf?['狼人 '+b.wolf+' 个']:[]);
   if(b.wolfbeauty)a.push('狼美人 '+b.wolfbeauty+' 个');
+  if(b.awakenedwolfbeauty)a.push('觉醒狼美人 '+b.awakenedwolfbeauty+' 个');
   if(b.wolfking)a.push('白狼王 '+b.wolfking+' 个');
   if(b.wolfkingdeath)a.push('狼王 '+b.wolfkingdeath+' 个');
   if(b.mechanicwolf)a.push('机械狼 '+b.mechanicwolf+' 个');
@@ -34105,9 +34137,11 @@ function wwBoardLine(){
   if(b.medium)a.push('通灵师 '+b.medium+' 个');
   if(b.witch)a.push('女巫 '+b.witch+' 个');
   if(b.guard)a.push('守卫 '+b.guard+' 个');
+  if(b.awakenedguard)a.push('觉醒守卫 '+b.awakenedguard+' 个');
   if(b.hunter)a.push('猎人 '+b.hunter+' 个');
   if(b.gravekeeper)a.push('守墓人 '+b.gravekeeper+' 个');
   if(b.knight)a.push('骑士 '+b.knight+' 个');
+  if(b.awakenedknight)a.push('觉醒骑士 '+b.awakenedknight+' 个');
   if(b.idiot)a.push('白痴 '+b.idiot+' 个');
   a.push('普通村民 '+b.villager+' 个');
   return '【公开板子】'+w.count+' 人：'+a.join('、')+'。只知道开局配置，不知道当前还剩几个狼或神，别凭空报。'+
@@ -34116,6 +34150,7 @@ function wwBoardLine(){
     (b.guard?('（守卫每晚守一人（含自己），不能连守；只挡狼刀，同守同救会死。）'):'')+
     (b.knight?('（骑士每局可决斗一次：自己发言时可以决斗，其他人全部发言完、投票前还可以再考虑一次。命中狼人则对方立即出局、白天结束；命中好人则骑士出局、白天继续。警长竞选和平票 PK 时不能决斗。）'):'')+
     (b.wolfbeauty?('（狼美人属于狼人阵营，和普通狼互认并共同刀人。每晚魅惑一名其他存活玩家，不能连续两晚魅惑同一人；狼美人因夜晚、放逐或猎人枪出局时，当前魅惑目标随之出局。因骑士决斗出局时不能发动魅惑，不翻牌，目标继续存活。夜晚出局不公开跟随关系；白天放逐时狼美人翻牌并公开当前魅惑目标。）'):'')+
+    (b.awakenedknight?('（觉醒骑士整局只能发动一次连锁决斗：白天放逐发言阶段可随时翻牌。命中狼人后可继续或停手，停手后当前出局者留遗言并入夜；命中好人则双方出局，留遗言后继续白天流程。每名玩家整局只能被决斗一次。觉醒守卫每天可在夜晚或白天放逐发言阶段发动一次保护，持续到当天白天结束，不能连续两天守同一人；保护觉醒狼美人本人可阻止替身触发，保护替身目标无效。觉醒狼美人每隔一晚魅惑一次，魅惑只保护发动当夜及紧接的白天，第一次面临出局时由目标替代。）'):'')+
     (b.wolfking?('（白狼王白天可自爆并带走一人，白天立刻结束；限一次。夜里是普通狼。）'):'')+
     (b.wolfkingdeath?('（狼王属于狼人阵营，与普通狼一起行动。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动。）'):'')+
     (b.mechanicwolf?('（机械狼属于狼人阵营，与小狼互不相认、不参加普通狼刀；小狼全灭后接刀。整局只能学习一名存活玩家一次；学习后表面身份立即变成学到的身份，只有主动技能次夜生效，学猎人当夜获得枪。）'):'')+
@@ -34287,7 +34322,7 @@ function wwGargoyleInference(p){
 /* ---------- AI 身份盘 ----------
    程序只整理公开声明和技能时间线，不读取真实身份；AI 再补“像不像、信多少”。
    这样既能防止模型忘记，也不会让它靠上帝视角开挂。 */
-var WW_IDENTITY_ROLE_ORDER=['seer','medium','witch','hunter','gravekeeper','knight','guard','idiot','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','villager'];
+var WW_IDENTITY_ROLE_ORDER=['seer','medium','witch','hunter','gravekeeper','knight','awakenedknight','guard','awakenedguard','idiot','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','villager'];
 function wwIdentityRoleName(role){return WW_ROLE_NAME[role]||role||'未知'}
 function wwCnSeatNum(s){
   var map={一:1,二:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10};
@@ -35655,7 +35690,7 @@ function wwQuestionTopics(txt){
 }
 function wwSingleClaimedGod(p,w){
   if(!p||!w)return false;
-  var data=wwPublicIdentityData(w),roles=['seer','medium','witch','hunter','gravekeeper','knight','guard','idiot'],hits=[];
+  var data=wwPublicIdentityData(w),roles=['seer','medium','witch','hunter','gravekeeper','knight','awakenedknight','guard','awakenedguard','idiot'],hits=[];
   roles.forEach(function(role){
     var ids=Object.keys(data[role]||{});
     if(ids.indexOf(p.uid)>=0&&ids.length===1)hits.push(role);
@@ -35956,7 +35991,7 @@ function wwCloneScribe(s){
 }
 function wwScribeRoleList(w){
   var b=wwBoard(w.count,w),out=[];
-  ['wolf','wolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','hunter','gravekeeper','idiot','knight','villager'].forEach(function(k){
+  ['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','awakenedguard','hunter','gravekeeper','idiot','knight','awakenedknight','villager'].forEach(function(k){
     if(b[k])out.push(k+'='+WW_ROLE_NAME[k]+'×'+b[k]);
   });
   return out.join('、');
@@ -36566,7 +36601,7 @@ function wwWolfEarlyWagerHint(p){
   if(wwActivePublicSeerClaim(p,w))return '';
   var roleName=claimRole==='medium'?'通灵师':'预言家';
   var exact=[];
-  ['witch','hunter','guard','knight','gravekeeper','idiot'].forEach(function(k){if(b[k])exact.push(WW_ROLE_NAME[k])});
+  ['witch','hunter','guard','awakenedguard','knight','awakenedknight','gravekeeper','idiot'].forEach(function(k){if(b[k])exact.push(WW_ROLE_NAME[k])});
   var exactText=exact.length?(exact.join('、')):'本板实际存在的具体神职';
   return '\n【前期悍跳拉杆】你决定悍跳'+roleName+'时，不能只报“好人身份、民及民以上”这种几乎不缩窄的结果；那种软悍跳容易被真'+roleName+
     '和普通好人直接压过去。首轮应主动给一个具体、能迫使目标回应的身份：可以给警下或外置位X号发“村民”金水；也可以给判断像神的Y号发神职金水；力度更大时，可以直接说“X号是'+exactText+
@@ -36597,7 +36632,7 @@ function wwWolfMidgameClaimHint(p){
 }
 function wwGoodLeadDefenseHint(p){
   if(!p||wwIsWolf(p))return '';
-  var keyRoles=['seer','medium','witch','guard','hunter','gravekeeper','knight','idiot'];
+  var keyRoles=['seer','medium','witch','guard','awakenedguard','hunter','gravekeeper','knight','awakenedknight','idiot'];
   if(keyRoles.indexOf(p.role)<0)return '';
   if(p.role==='guard'){
     return '\n【守卫身份公开成本】守卫默认隐藏身份，不要为了让别人相信你的分析就主动报守卫。只有这些情况才优先亮明：你已经在票台上、如果不亮身份很可能被推出；有人公开跟你对跳守卫；你掌握的关键守人结果能直接决定本轮票局；或终局必须靠守卫安排才能避免狼刀完成屠边。'+
@@ -37555,7 +37590,7 @@ function wwHasBadge(){var s=wwSheriffP();return !!(s&&s.alive)}
 function wwBadgeMark(p){return (p&&V.ww&&V.ww.sheriffUid===p.uid)?('<span class="ww-badge" title="警长">'+WW_IC_SHERIFF+'</span>'):''}
 /* 能投票、也能被票的人：翻牌后的白痴不算在里面 */
 function wwVotable(){return V.ww.players.filter(function(p){return p.alive&&!(p.role==='idiot'&&p.revealed)})}
-function wwIsPackWolf(p){return !!(p&&(p.role==='wolf'||p.role==='wolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'))}
+function wwIsPackWolf(p){return !!(p&&(p.role==='wolf'||p.role==='wolfbeauty'||p.role==='awakenedwolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'))}
 function wwIsWolfKiller(p){return !!(wwIsPackWolf(p)||(p&&p.role==='nightmare'))}
 function wwIsWolf(p){return !!(wwIsWolfKiller(p)||(p&&(p.role==='gargoyle'||p.role==='mechanicwolf')))}
 function wwWolfMates(p){
@@ -37569,6 +37604,49 @@ function wwWolfMates(p){
 function wwWolfBeautyCurrentTarget(w){
   w=w||V.ww;
   return w&&w.charmTarget?wwPlayerByUid(w.charmTarget):null;
+}
+function wwAwakenedGuardProtected(w,p){
+  return !!(w&&p&&w.awakenedGuardTarget===p.uid&&Number(w.awakenedGuardDay)===Number(w.day));
+}
+function wwAwakenedGuardMarkSuccess(w){
+  if(!w||Number(w.awakenedGuardSuccessDay)===Number(w.day))return;
+  var me=wwMe();
+  if(!me||me.role!=='awakenedguard')return;
+  w.awakenedGuardSuccessDay=Number(w.day)||1;
+  wwAchCounter('awakenedguard_save',1,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
+}
+function wwAwakenedWolfBeautyCharmActive(w){
+  if(!w||!w.awakenedWolfBeautyCharm||Number(w.awakenedWolfBeautyCharm.day)!==Number(w.day)||w.awakenedWolfBeautyCharmUsed)return false;
+  var target=wwPlayerByUid(w.awakenedWolfBeautyCharm.uid);
+  return !!(target&&target.alive);
+}
+/* 觉醒板统一的致命结算。守卫先于普通死亡，但觉醒狼美人的“替身死亡”优先于守卫。
+   返回 blocked=守卫挡住了原目标；sourceSurvived=狼美人用替身保住了自己。 */
+function wwAwakenedFatal(w,victim,cause){
+  var out={blocked:false,sourceSurvived:false,deaths:[],substitute:null};
+  if(!w||!victim||!victim.alive)return out;
+  if(wwAwakenedGuardProtected(w,victim)){
+    out.blocked=true;
+    wwAwakenedGuardMarkSuccess(w);
+    return out;
+  }
+  if(victim.role==='awakenedwolfbeauty'&&w.awakenedWolfBeautyCharm&&Number(w.awakenedWolfBeautyCharm.day)===Number(w.day)&&!w.awakenedWolfBeautyCharmUsed){
+    var charm=w.awakenedWolfBeautyCharm,sub=wwPlayerByUid(charm&&charm.uid);
+    if(sub&&sub!==victim&&sub.alive){
+      sub.alive=false;
+      sub.killedBy=(cause==='vote'||cause==='awduel')?'awbsubday':'awbsubnight';
+      w.awakenedWolfBeautyCharmUsed=true;w.awakenedWolfBeautyCharm=null;
+      if(cause==='vote')victim.revealed=true;
+      out.sourceSurvived=true;out.substitute=sub;out.deaths=[sub];
+      if(victim.isUser)wwAchCounter('awakenedwolfbeauty_save',1,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
+      w.rec.push({d:w.day,t:'觉醒狼美人 '+wwTag(victim)+' 的挽歌幻象生效；'+wwTag(sub)+' 替代出局'});
+      return out;
+    }
+    w.awakenedWolfBeautyCharm=null;
+  }
+  victim.alive=false;victim.killedBy=cause;
+  out.deaths=[victim];
+  return out;
 }
 /* 狼美人的跟随死亡只在这里落地。夜晚调用时不写公开日志；白天才翻牌并公开目标。 */
 function wwWolfBeautyFollow(source,reveal){
@@ -38381,12 +38459,15 @@ function wwSysFor(p,task){
 	     r==='witch'?'解药、毒药各一次，同夜只用一瓶。女巫全程不能自救。有守卫时首夜可救人；不乱毒，少暴露。被怀疑时只讲真实药况和救人时机，别为了圆场编药。若关键轮次你判断再被带错票会直接崩盘、准备亲自改变归票，主动报女巫可以增加带队可信度；报身份是为了让大家认真听你的纠错和安排毒药，不是用“银水”证明被救者一定好人或不是机械狼。狼可能盲刀、自刀，机械狼也可能被普通狼误刀。':
 	     r==='hunter'?'被刀或被票可开枪；被毒不能开枪。平时藏身份；只有在快被推出、必须与假猎人抢衣服、或亮枪能直接救回关键轮次时才报猎人。若公开亮枪只会让狼确认最后一个神职、下一夜直接被刀，应暗跳、用逻辑归票或让票型处理假猎人。':
      r==='knight'?'每局可决斗一次。自己发言时可以决斗；所有人发言结束、投票前还会再得到一次考虑机会。警长竞选和平票 PK 不能决斗。命中狼人则对方立即出局、白天结束；命中好人则你自己出局、白天继续。别在没证据时乱戳。':
+     r==='awakenedknight'?'好人阵营神职。整局只能发动一次连锁决斗，白天放逐发言阶段可随时翻牌。命中狼人后可继续或停手；停手后当前出局者留遗言并入夜。命中好人则连锁停止，你和目标按守卫、替身等实际结算后继续白天。每名玩家整局只能被你决斗一次。':
      r==='idiot'?'被票翻牌免死；之后能发言不能投票；夜里仍会死。平时可藏，稳定成为抗推位时及时翻牌自保。':
 	     r==='guard'?'每晚守一人，不能连守；只挡狼刀，不挡女巫毒，被守的人仍可能被毒死；同守同救会死。首夜通常空守更稳，但不是硬规则，也可以按开局前信息盲守；之后重点守真预/通灵。':
+	     r==='awakenedguard'?'好人阵营神职。每天可在夜晚或白天放逐发言阶段使用一次觉醒守护；每天只能守一人，不能连续两天守同一人。保护持续到当天白天结束，可挡狼刀、毒药、放逐和觉醒骑士决斗，也不会与解药同守同救。保护觉醒狼美人本人会让替身不触发；保护替身目标无效。':
 	     r==='gravekeeper'?'每晚得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份。第一夜、平票或无人被放逐时没有结果；用查验记录判断票型。':
 	     r==='gargoyle'?'狼人阵营，但不与普通狼互认、不参加普通狼的夜间刀人。每晚查验一名存活玩家的具体身份；普通狼全部出局后接刀。隐藏身份，利用具体身份信息判断神职和狼坑。':
 	     r==='nightmare'?'狼人阵营。每晚最先单独恐惧一名玩家，使其当晚不能使用技能；不能连续两晚恐惧同一人，也可以空梦。恐惧完成后才与普通狼会合并参加狼刀，首夜恐惧前不认识狼队友。':
 	     r==='wolfbeauty'?'狼人阵营，和普通狼互相认识并共同刀人。每晚在狼刀之后秘密魅惑一名其他存活玩家，不能连续两晚魅惑同一人。你因夜晚出局、白天被放逐或猎人枪出局时，当前魅惑目标跟随出局；因骑士决斗出局时技能不发动、不翻牌，目标存活。夜晚出局不公开跟随关系，白天被放逐则你会翻牌并公开目标。魅惑目标只属于你的私有信息，普通狼队友不会自动知道；发言时可以战略性隐藏，但不能编造自己拥有其他技能。':
+	     r==='awakenedwolfbeauty'?'狼人阵营，和普通狼互相认识并共同刀人，不能自刀、不能自爆。每隔一晚（第1、3、5夜）可发动一次挽歌幻象，可重复魅惑同一目标；幻象只保护发动当夜及紧接的白天。你第一次面临出局时由目标替代，替身不能被觉醒守卫保护；你本人被觉醒守卫保护时不触发替身。目标已死或幻象过期时空窗，没有替身。只有魅惑生效后白天被放逐才翻牌。':
 	     r==='wolfking'?'狼队成员。白天可自爆带走一人并立即入夜，限一次；被票前或能炸关键神职时用。':
 	     r==='wolfkingdeath'?'狼队成员，和普通狼互相认识、一起商量并刀人。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以不发动。平时优先隐藏身份；即将出局时衡量带走跳出的关键神职或能改变胜负的人，别为了泄愤带走低价值目标。':
 	     r==='mechanicwolf'?'狼人阵营，但普通小狼不认识你，你也不认识她们，不能进入狼队频道或参加普通狼刀。整局只能学习一名存活玩家一次；学习后立刻知道对方真实身份，通灵师从此会把你验成那个身份，主动技能次夜生效，学猎人的枪立即生效。小狼全灭后你接刀；学到普通狼时，首次接刀夜可以砍两刀。你就是全板唯一机械狼，任何其他玩家都不可能是机械狼；不要把别人标成机械通灵、机械守卫或机械女巫候选。':
@@ -38397,7 +38478,7 @@ function wwSysFor(p,task){
   if(wwIsPackWolf(p))L.push('【神职衣服默认接法】若有人公开点名你是某个具体神职（如守卫、女巫）而你不是，默认先接住，不要当场说“我不是这张牌”“我没跳过”。真通灵验小狼只会报狼，不会给狼发好人神职；因此发牌者更可能是在做局，未必是敌人。即使无法判断对方是好人代跳还是机械狼，也先把衣服穿上，把旧身份解释成藏牌、试探或挡刀。不能假定未翻牌的死者不是真女巫/真守卫，也不能把“真神可能还活着”当成拒绝接牌的理由；真神若对跳，正好借机把她逼出来，坚持自己的身份线，把对方打成抢衣服或假神，争取抗推，至少也为狼队锁定神职位置。狼队要敢跳身份和真神对抗，不要为了讨好真神主动否认。只有接牌会造成无法解释且狼队完全没有对跳、反打或夜间处理方案时，才改用模糊回应；仍然不要直接说“我不是X”。');
   if(p.anon)L.push('【你这一局匿名】其他玩家只知道你是 '+(p.seq||'?')+' 号，不会拿到你的真实名字。发言时用编号自称，绝不要说出自己的真实名字；就算你的人设里写着名字，也要把它当成只有自己知道的信息。');
   if(wwIsPackWolf(p)||(p.role==='nightmare'&&w.nightmareMetWolves)){
-    var mates=wwWolfMates(p).map(function(x){return wwNum(x)+x.name+((x.role==='wolfbeauty')?'（狼美人）':((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':((x.role==='nightmare')?'（梦魇）':''))))});
+    var mates=wwWolfMates(p).map(function(x){return wwNum(x)+x.name+((x.role==='wolfbeauty')?'（狼美人）':((x.role==='awakenedwolfbeauty')?'（觉醒狼美人）':((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':((x.role==='nightmare')?'（梦魇）':''))))) });
     L.push('你的狼队友：'+(mates.join('、')||'（没有别人，只有你自己）'));
   }
   if(r==='seer'){
@@ -38843,7 +38924,7 @@ function wwBlockBlindWolfSelfKill(w,attacker,target,logic){
 }
 function wwPublicGodGapData(w){
   var b=wwBoard(w&&w.count,w),gods=[],claimed={};
-  ['seer','medium','witch','hunter','guard','gravekeeper','knight','idiot'].forEach(function(k){if(b[k])gods.push(k)});
+  ['seer','medium','witch','hunter','guard','awakenedguard','gravekeeper','knight','awakenedknight','idiot'].forEach(function(k){if(b[k])gods.push(k)});
   ((w&&w.log)||[]).forEach(function(e){
     if(!e||e.k!=='say'||!e.who)return;
     var p=wwPlayerByUid(e.who),roles=p?wwClaimIdentityRoles(e.text,p.seq):[];
@@ -38874,7 +38955,7 @@ function wwWolfEndgameClaimHint(p){
   var w=V.ww;
   if(!w||!p||!wwIsWolf(p)||wwAlive().length>3)return '';
   var d=wwPublicGodGapData(w);
-  var claimable=(d.never||[]).filter(function(k){return k==='hunter'||k==='guard'});
+  var claimable=(d.never||[]).filter(function(k){return k==='hunter'||k==='guard'||k==='awakenedguard'||k==='awakenedknight'});
   if(!claimable.length)return '';
   var open=claimable.map(function(k){return WW_ROLE_NAME[k]||k}).join('、');
   var why=claimable.length===1
@@ -38885,7 +38966,7 @@ function wwWolfEndgameClaimHint(p){
     :('必须从【'+open+'】里选一张最像已死神职的牌主动穿');
   return '\n【终局抢神衣】'+why+'你不是这张牌，但终局只剩 '+wwAlive().length+
     ' 人，若票可能压到你，报村民硬扛通常等于等死。轮到你发言时，除非已有能直接反杀对方的硬证据，否则'+claim+'，把此前自称村民解释成藏身份；'+
-    (claimable.indexOf('hunter')>=0?'如果选择猎人，要明确报枪、给枪口方向，逼摇摆好人承担“推出真枪还是放过假枪”的风险。':'要给出守卫的守人思路或技能立场。')+
+    (claimable.indexOf('hunter')>=0?'如果选择猎人，要明确报枪、给枪口方向，逼摇摆好人承担“推出真枪还是放过假枪”的风险。':(claimable.indexOf('awakenedknight')>=0?'如果选择觉醒骑士，要说清连锁决斗的发动时机和怀疑目标，不能只报一个空身份。':'要给出守卫的守人思路或技能立场。'))+
     '真神可能当场对跳，要说她是在抢衣服，并用你一路的票向、归票和对方矛盾反打。不能只报“我村民，没什么好藏的”。'+
     '如果某个已死玩家很像某个未公开的神职、而场上没人能证明她的身份，优先穿那件“死无对证”的衣服。'+
     '这是内部策略：公开发言里不要提“公开神职盘、未明神、死无对证、系统提示、策略建议”，直接用角色口吻跳身份和反打。';
@@ -39064,7 +39145,7 @@ function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length;
   var board=wwBoard(w.count,w),claimName=board.medium?'通灵师':'预言家',hasGuard=!!board.guard;
   if(board.medium)seers=seers.concat(wwLivingPublicMediumClaims(w));
-  var boardGods=wwBoardRoleNames(w).filter(function(x){return ['预言家','通灵师','女巫','守卫','猎人','骑士','守墓人','白痴'].indexOf(x)>=0});
+  var boardGods=wwBoardRoleNames(w).filter(function(x){return ['预言家','通灵师','女巫','守卫','觉醒守卫','猎人','骑士','觉醒骑士','守墓人','白痴'].indexOf(x)>=0});
   var guardPlan=hasGuard
     ?'本板有守卫，但开局不等于知道守卫是谁。只有一名公开通灵/预言且守卫未死、守口不明时，她通常是最可能被守的位置；若刀她只能验证守卫、不能封住关键查验，默认优先考虑外置刀口或做假刀，不能只因“她是最大威胁”就硬撞盾。只有下一验可能直接锁定核心狼、追回轮次，且守卫不易守住她时，才提高刀口优先级。'
     :'本板没有守卫，不能盘守卫守人、连守、撞盾或双盾。判断平安夜和刀口时，只使用本板实际存在的机制：女巫解药、狼队空刀/收刀，以及本局实际存在的其他技能。';
@@ -39188,7 +39269,7 @@ function wwSnapSimulate(w,plan,dayStart){
   var witchSave=!!w.witchSave,witchPoison=!!w.witchPoison,knightUsed=!!w.knightUsed,guardLast=w.guardLast||'',lastFear=w.nightmareLast||'',whiteTarget=w.snapWhiteTarget||'',charmUid=w.charmTarget||'';
   function tag(p){var a=wwPlayerByUid(p&&p.uid);return a?wwTag(a):(p&&p.seq?p.seq+'号':'？')}
   function alive(){return sim.filter(function(p){return p.alive})}
-  function wolf(p){return !!(p&&(p.role==='wolf'||p.role==='wolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='nightmare'||p.role==='gargoyle'))}
+  function wolf(p){return !!(p&&(p.role==='wolf'||p.role==='wolfbeauty'||p.role==='awakenedwolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='nightmare'||p.role==='gargoyle'))}
   function good(p){return !!(p&&!wolf(p))}
   function liveWolves(){return alive().filter(wolf)}
   function byUid(uid){return sim.filter(function(p){return p.uid===uid})[0]||null}
@@ -39374,6 +39455,29 @@ async function wwWolfBeautyChoose(beauty,pool){
     '\n【输出格式】只输出编号或名字。');
   var txt=await wwCall(sys,'请决定今晚魅惑谁。',40,.82);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
+}
+async function wwAwakenedWolfBeautyChoose(beauty,pool){
+  if(!beauty||!pool||!pool.length)return null;
+  var sys=wwSysFor(beauty,'现在轮到你发动【挽歌幻象】。你是觉醒狼美人，属于狼队，可以魅惑一名其他存活玩家。'+
+    '今晚是第 '+V.ww.day+' 夜；幻象只保护发动当夜及紧接的白天，如果你第一次面临出局，魅惑目标会替代你出局。'+
+    '替身不能被觉醒守卫保护；但如果你本人被觉醒守卫保护，你不会出局，也不会触发替身。'+
+    '可以重复选择以前魅惑过的玩家，但不能选自己。'+
+    '\n可选：'+pool.map(wwName).join('、')+'\n结合自己明天被票、被觉醒骑士决斗和被女巫毒死的风险，选择最值得替你出局的人。'+
+    '\n【输出格式】只输出编号或名字。');
+  var txt=await wwCall(sys,'请决定今晚魅惑谁。',40,.82);
+  return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
+}
+async function wwAwakenedGuardChoose(guard,pool,phase){
+  if(!guard||!pool||!pool.length)return null;
+  var atNight=phase!=='day';
+  var sys=wwSysFor(guard,'现在轮到你使用【觉醒守护】。每天只能守护一名玩家，不能连续两天守同一名玩家；'+(atNight?'今晚选定后，白天不能更换。':'这是白天放逐发言阶段，选定后持续到当天结束。')+
+    '被守护者直到当天白天结束都不会以任何方式出局，可以挡狼刀、毒药、放逐和觉醒骑士决斗，也不会与女巫解药触发同守同救。'+
+    '若你守护觉醒狼美人本人，她不会出局，因此不会触发替身；但若你守护的是替身目标，替身仍会因狼美人优先级而死亡。'+
+    '注意：你守护觉醒骑士但没守护被他决斗的好人时，好人出局、骑士存活但连锁仍会停止。'+
+    '\n可选：'+pool.map(wwName).join('、')+'\n【输出格式】只输出编号或名字，或输出“不守护”。');
+  var txt=await wwCall(sys,atNight?'请决定今晚守护谁。':'请决定白天守护谁。',40,.82);
+  if(/不守护|不守|空守|放弃/.test(txt))return null;
+  return wwMatch(txt,pool)||null;
 }
 async function wwSeerChoose(seer){
   var w=V.ww,pool=wwAlive().filter(function(p){return p!==seer});
@@ -40596,7 +40700,7 @@ function wwDumpText(w){
   if(w.title)L.push('标题：'+w.title);
   L.push('结局：'+winner+(w.endText?('（'+w.endText+'）'):''));
   var wolves=players.filter(wwIsWolf);
-  if(wolves.length)L.push('本局狼人：'+wolves.map(function(p){return tag(p)+((p.role==='wolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='gargoyle'||p.role==='nightmare')?'（'+WW_ROLE_NAME[p.role]+'）':'')+((w.wolfRoles&&w.wolfRoles[p.uid])?'（'+WW_WOLF_JOB_NAME[w.wolfRoles[p.uid]]+'）':'')}).join('、'));
+  if(wolves.length)L.push('本局狼人：'+wolves.map(function(p){return tag(p)+((p.role==='wolfbeauty'||p.role==='awakenedwolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='gargoyle'||p.role==='nightmare')?'（'+WW_ROLE_NAME[p.role]+'）':'')+((w.wolfRoles&&w.wolfRoles[p.uid])?'（'+WW_WOLF_JOB_NAME[w.wolfRoles[p.uid]]+'）':'')}).join('、'));
   var me=find('u');
   if(!me)for(mi=0;mi<players.length;mi++){if(players[mi].isUser){me=players[mi];break}}
   if(me)L.push('我的身份：'+tag(me)+'（'+WW_ROLE_NAME[me.role]+'）');
@@ -40668,7 +40772,7 @@ function wwDumpShareText(w,compact,withWolf){
   if(finished&&me)L.push('我的身份：'+drawName(me)+'（'+WW_ROLE_NAME[me.role]+'）');
   var wolves=players.filter(wwIsWolf);
   if(finished&&wolves.length)L.push('本局狼人：'+wolves.map(function(p){
-    return drawName(p)+((p.role==='wolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='gargoyle'||p.role==='nightmare')?'（'+WW_ROLE_NAME[p.role]+'）':'')+
+    return drawName(p)+((p.role==='wolfbeauty'||p.role==='awakenedwolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='gargoyle'||p.role==='nightmare')?'（'+WW_ROLE_NAME[p.role]+'）':'')+
       ((w.wolfRoles&&w.wolfRoles[p.uid])?'（'+WW_WOLF_JOB_NAME[w.wolfRoles[p.uid]]+'）':'');
   }).join('、'));
   if(finished){
@@ -41414,7 +41518,7 @@ async function wwRoomTrigger(deaths){
   if(!w||!me||!wwFaceOn()||w.stopped)return false;
   var dead=(deaths||[]).some(function(p){return p&&p.uid===me.uid});
   if(!dead)return false;                        /* 你没真死（被守 / 被救回来）：不演 */
-  if(me.killedBy==='charmnight')return false;   /* 跟随出局不是狼队来房门口动刀，不能演成夜间密会。 */
+  if(me.killedBy==='charmnight'||me.killedBy==='awbsubnight')return false;   /* 替身死亡不是狼队来房门口动刀，不能演成夜间密会。 */
   var list=wwRoomKillers(me);
   if(!list.length)return false;
   return !!(await wwRoomScene((me.killedBy==='poison'||me.killedBy==='mechpoison')?'poison':'wolf',list,deaths));
@@ -41548,6 +41652,13 @@ async function wwNight(){
   w.wolfPicks=[];                     /* 今晚每只狼各自的刀人意见（下面商量刀谁时会填上） */
   w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
   w.speeches=[];
+  if(w.awakenedGuardTarget&&Number(w.awakenedGuardDay)<Number(w.day)){
+    w.awakenedGuardLast=w.awakenedGuardTarget;
+    w.awakenedGuardLastDay=Number(w.awakenedGuardDay)||0;
+    w.awakenedGuardTarget='';w.awakenedGuardDay=0;
+  }
+  if(w.awakenedWolfBeautyCharm&&Number(w.awakenedWolfBeautyCharm.day)!==Number(w.day))
+    w.awakenedWolfBeautyCharm=null;
   /* 机械狼最先行动：整局只能学习一次。学习后立即知道目标真实身份，但主动技能要下一夜才能使用。 */
   var mech0=wwAlive().filter(function(p){return p.role==='mechanicwolf'})[0];
   if(mech0&&!mech0.mechLearn){
@@ -41604,6 +41715,56 @@ async function wwNight(){
       if(nm0.isUser)w.log.push({k:'me',text:'😈 今晚你选择空梦。'});
     }
     w.nightmareMetWolves=true;
+    render(true);
+  }
+  /* 觉醒守卫：夜里可选择一次觉醒守护；若本夜不选，仍可在白天放逐发言阶段使用。 */
+  var ag0=wwAlive().filter(function(p){return p&&p.role==='awakenedguard'})[0];
+  if(ag0&&!w.awakenedGuardTarget&&Number(w.awakenedGuardActionDay)!==Number(w.day)){
+    var agPool=wwAlive().filter(function(p){
+      return !(w.awakenedGuardLast&&Number(w.awakenedGuardLastDay)===Number(w.day)-1&&p.uid===w.awakenedGuardLast);
+    });
+    var agTgt=null;
+    if(me&&me.alive&&ag0===me){
+      var rga=await wwAsk('🔆 你是觉醒守卫。今晚要觉醒守护谁？守护会持续到明天白天结束，也能挡放逐。',agPool,{none:'今晚不守'});
+      if(wwStaleG(gen))return;
+      agTgt=rga.uid?wwPlayerByUid(rga.uid):null;
+    }else if(agPool.length){
+      await wwStep('🌙 天黑请闭眼');
+      if(wwStaleG(gen))return;
+      w.msg='🌙 天黑请闭眼…';render(true);
+      agTgt=await wwAwakenedGuardChoose(ag0,agPool);
+      if(wwStaleG(gen))return;
+    }
+    if(agTgt){
+      w.awakenedGuardTarget=agTgt.uid;w.awakenedGuardDay=w.day;w.awakenedGuardActionDay=w.day;
+      w.rec.push({d:w.day,t:'觉醒守卫守护了 '+wwTag(agTgt),tk:(WW_LAST&&WW_LAST.reason)||''});
+      if(ag0.isUser)w.log.push({k:'me',text:'🔆 你觉醒守护了 '+wwTag(agTgt)+'，效果持续到明天白天结束。'});
+      render(true);
+    }
+  }
+  /* 觉醒狼美人：第 1、3、5……夜发动挽歌幻象；可以重复选择同一目标。 */
+  var awb0=wwAlive().filter(function(p){return p&&p.role==='awakenedwolfbeauty'})[0];
+  if(awb0&&!w.awakenedWolfBeautyCharmUsed&&Number(w.day)%2===1){
+    var awbPool=wwAlive().filter(function(p){return p!==awb0});
+    var awbTgt=null;
+    if(awbPool.length){
+      if(me&&me.alive&&awb0===me){
+        var rawb=await wwAsk('🥀 你是觉醒狼美人。今晚要魅惑谁？替身会保护你到明天白天结束。',awbPool,{none:'今晚不魅惑'});
+        if(wwStaleG(gen))return;
+        awbTgt=rawb.uid?wwPlayerByUid(rawb.uid):null;
+      }else{
+        if(!wwQuietNight()){await wwStep('🌙 天黑请闭眼');w.msg='🌙 天黑请闭眼…';render(true)}
+        awbTgt=await wwAwakenedWolfBeautyChoose(awb0,awbPool);
+        if(wwStaleG(gen))return;
+      }
+    }
+    if(awbTgt){
+      w.awakenedWolfBeautyCharm={uid:awbTgt.uid,day:w.day};
+      w.rec.push({d:w.day,t:'觉醒狼美人魅惑了 '+wwTag(awbTgt),tk:(WW_LAST&&WW_LAST.reason)||''});
+      if(awb0.isUser)w.log.push({k:'me',text:'🥀 你魅惑了 '+wwTag(awbTgt)+'。她会在你第一次面临出局时替代你，效果持续到明天白天结束。'});
+    }else{
+      w.rec.push({d:w.day,t:'觉醒狼美人本夜没有发动挽歌幻象'});
+    }
     render(true);
   }
   /* 【新】守卫：在狼人之前行动（她守人的时候还不知道刀口） */
@@ -41675,7 +41836,7 @@ async function wwNight(){
     }
     if(me&&me.alive&&wwIsWolfKiller(me)){
       /* 你能刀任何人，包括你自己和狼队友（自刀骗药也是战术） */
-      var prey=wwAlive();      /* 【改】可以刀任何人（包含你自己和队友）；也允许空刀，见下面那个「空刀」按钮 */
+      var prey=wwAlive().filter(function(p){return !(w.board==='awakenedknight'&&p.role==='awakenedwolfbeauty')});      /* 觉醒板禁止自刀觉醒狼美人 */
       var mates=wolves.filter(function(p){return !p.isUser});
       /* 【新】有狼队友时，先给狼队留言：这一夜一共 50 字；队友接下来商量刀谁时会看到、照着配合 */
       if(mates.length){
@@ -42077,7 +42238,21 @@ async function wwNight(){
 
 /* 夜间伤害统一结算：普通毒、机械毒、普通狼刀、机械狼接刀、普通守卫盾和机械盾。
    普通守卫不挡毒，机械盾能挡毒；两类盾同守同救仍会“奶死”，机械盾也不会挡猎枪。 */
+function wwResolveAwakenedNightDamage(w){
+  var n=(w&&w.night)||{},deaths=[],nightSaved={};
+  function add(d){if(d&&deaths.indexOf(d)<0)deaths.push(d)}
+  function resolve(v,cause){
+    if(!v||!v.alive||nightSaved[v.uid])return;
+    var r=wwAwakenedFatal(w,v,cause);
+    if(r.sourceSurvived)nightSaved[v.uid]=1;
+    (r.deaths||[]).forEach(add);
+  }
+  resolve(n.poison,'poison');
+  if(n.wolf&&!n.save)resolve(n.wolf,'wolf');
+  return deaths;
+}
 function wwResolveNightDamage(w){
+  if(w&&w.board==='awakenedknight')return wwResolveAwakenedNightDamage(w);
   var n=(w&&w.night)||{},deaths=[],v=n.wolf,pz=n.poison,mpz=n.mechPoison,
     gd=n.guard,mgd=n.mechGuard,sv=!!n.save;
   var killTargets=[];if(v)killTargets.push(v);
@@ -42294,6 +42469,13 @@ async function wwExile(p){
   var w=V.ww;
   var gen=wwGenNow();
   if(!p||!p.alive)return;
+  if(wwAwakenedGuardProtected(w,p)){
+    wwAwakenedGuardMarkSuccess(w);
+    w.log.push({k:'vote',text:'投票：'+wwTag(p)+'受到觉醒守护，平安日。'});
+    w.rec.push({d:w.day,t:'觉醒守护令 '+wwTag(p)+' 免疫放逐，直接进入黑夜'});
+    w.lastExile=null;w.dayOver=w.day;render(true);
+    return;
+  }
   /* 【改·规则】投票已经出结果、要放逐她的时候，白狼王就不能再自爆了（想炸得赶在投票出结果之前）。 */
   /* 白痴第一次被票：翻开身份牌、不出局（之后不能投票、也不能再被票出去） */
   if(p.role==='idiot'&&!p.revealed){
@@ -42303,7 +42485,25 @@ async function wwExile(p){
     render(true);
     return;
   }
-  p.alive=false;p.killedBy='vote';
+  var awakenedFate=null;
+  if(w.board==='awakenedknight')awakenedFate=wwAwakenedFatal(w,p,'vote');
+  if(awakenedFate&&awakenedFate.sourceSurvived){
+    var sub=awakenedFate.substitute;
+    w.lastExile={day:w.day,uid:sub?sub.uid:''};
+    w.scene='exec';
+    w.log.push({k:'vote',text:'投票：'+wwTag(p)+'翻牌；'+wwTag(sub)+'作为替身出局。'});
+    w.rec.push({d:w.day,t:'觉醒狼美人 '+wwTag(p)+' 翻牌；替身 '+wwTag(sub)+' 出局'});
+    render(true);
+    await wwAwakenedKnightFlushDeaths([sub]);
+    if(wwStaleG(gen))return;
+    wwCheckOver();
+    if(wwSheriffOn()&&!w.badgeGone)await wwBadgePass();
+    render(true);
+    return;
+  }
+  if(!awakenedFate)p.alive=false;
+  if(p.alive)p.alive=false;
+  p.killedBy='vote';
   w.lastExile={day:w.day,uid:p.uid};
   w.scene='exec';      /* 【第三批】这一幕是「处刑」：换成处刑台那张图（投票公布那一刻才是黄昏） */
   w.log.push({k:'vote',text:'投票：'+wwTag(p)+'出局。'});
@@ -42526,7 +42726,7 @@ function wwKingP(){var a=wwAlive().filter(function(p){return p.role==='wolfking'
 /* 给白狼王看的「精简局面」：最近几条发言各截一半、狼队频道只带最近几条 —— 尽量少花 token */
 function wwKingCtx(p){
   var w=V.ww,L=[];
-  var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfbeauty')?'（狼美人）':((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':'')))});
+  var mates=w.players.filter(function(x){return wwIsWolf(x)&&x!==p}).map(function(x){return wwNum(x)+x.name+((x.role==='wolfbeauty')?'（狼美人）':((x.role==='awakenedwolfbeauty')?'（觉醒狼美人）':((x.role==='wolfking')?'（白狼王）':((x.role==='wolfkingdeath')?'（狼王）':''))))});
   L.push('【你是谁】你是这一局的【白狼王】（狼人阵营）。你能在白天【自爆】：带走场上任意一个还活着的人，然后白天立刻结束、直接进入黑夜。自爆只能用一次。你的狼队友：'+(mates.join('、')||'（没有别人）')+'。');
   L.push('【活着的玩家】'+(wwAlive().map(function(x){return wwTag(x)+(x===p?'（你自己）':'')}).join('、')||'（没有了）'));
   var pub=[];
@@ -43267,6 +43467,194 @@ async function wwKnightUserStart(){
   }
   await wwKnightUserAction('⚔ 骑士决斗：选择一个人');
 }
+/* ---------- 觉醒守卫：白天放逐发言阶段可补一次守护 ---------- */
+function wwAwakenedGuardP(){
+  var a=wwAlive().filter(function(p){return p&&p.role==='awakenedguard'});
+  return a[0]||null;
+}
+function wwAwakenedGuardDayReady(p){
+  var w=V.ww;
+  return !!(w&&p&&p.alive&&p.role==='awakenedguard'&&!w.over&&w.phase==='day'&&
+    !w.electing&&!w.inPK&&!w.voteMode&&!w.userAsk&&!w.gateResolve&&!w.awakenedGuardPending&&!wwDayCut()&&
+    (!wwSheriffOn()||w.sheriffDone)&&
+    !wwAwakenedGuardProtected(w,p)&&
+    Number(w.awakenedGuardActionDay)!==Number(w.day));
+}
+function wwAwakenedGuardPool(p){
+  var w=V.ww;
+  return wwAlive().filter(function(q){
+    if(!q)return false;
+    return !(w.awakenedGuardLast&&Number(w.awakenedGuardLastDay)===Number(w.day)-1&&q.uid===w.awakenedGuardLast);
+  });
+}
+async function wwAwakenedGuardDayTry(p){
+  var w=V.ww,gen=wwGenNow();
+  if(!wwAwakenedGuardDayReady(p))return false;
+  var pool=wwAwakenedGuardPool(p);
+  if(!pool.length){w.awakenedGuardActionDay=w.day;return false}
+  var tgt=null;
+  if(p.isUser){
+    var r=await wwAsk('🔆 觉醒守护：选择今天要保护的人（会持续到白天结束）',pool,{none:'今天不守护'});
+    if(wwStaleG(gen))return false;
+    tgt=r.uid?wwPlayerByUid(r.uid):null;
+  }else{
+    await wwStep('轮到「'+wwTag(p)+'」决定是否发动觉醒守护');
+    if(wwStaleG(gen))return false;
+    w.msg='「'+wwTag(p)+'」正在发动觉醒守护…';render(true);
+    tgt=await wwAwakenedGuardChoose(p,pool,'day');
+    if(wwStaleG(gen))return false;
+  }
+  w.awakenedGuardActionDay=w.day;
+  if(tgt){
+    w.awakenedGuardTarget=tgt.uid;w.awakenedGuardDay=w.day;
+    w.rec.push({d:w.day,t:'觉醒守卫白天守护了 '+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
+    if(p.isUser)w.log.push({k:'me',text:'🔆 你觉醒守护了 '+wwTag(tgt)+'，持续到白天结束。'});
+    render(true);
+    return true;
+  }
+  render(true);
+  return false;
+}
+async function wwAwakenedGuardUserStart(){
+  var p=wwAwakenedGuardP();
+  if(!p||!p.isUser||!wwAwakenedGuardDayReady(p))return;
+  if(waitingInput())return;
+  var w=V.ww;
+  if(w.running&&!w.userAsk){w.awakenedGuardPending=true;render(true);return toast('已准备觉醒守护：当前这段发言结束后会让你选择')}
+  await wwAwakenedGuardDayTry(p);
+}
+function waitingInput(){var w=V.ww;return !!(w&&(w.userAsk||w.voteMode||w.gateResolve||w.room))}
+/* ---------- 觉醒骑士：一次发动，连锁决斗 ---------- */
+function wwAwakenedKnightP(){
+  var a=wwAlive().filter(function(p){return p&&p.role==='awakenedknight'});
+  return a[0]||null;
+}
+function wwAwakenedKnightReady(p){
+  var w=V.ww;
+  return !!(w&&p&&p.alive&&p.role==='awakenedknight'&&!w.awakenedKnightUsed&&!w.over&&w.phase==='day'&&
+    !w.electing&&!w.inPK&&!w.voteMode&&!w.userAsk&&!w.gateResolve&&!w.awakenedKnightPending&&!wwDayCut()&&
+    (!wwSheriffOn()||w.sheriffDone)&&!wwKnightPendingDead(p));
+}
+function wwAwakenedKnightTargets(p){
+  var w=V.ww;
+  return wwAlive().filter(function(q){
+    return q&&q!==p&&!wwKnightPendingDead(q)&&!(w.awakenedKnightDueled&&w.awakenedKnightDueled[q.uid]);
+  });
+}
+async function wwAwakenedKnightChoose(p,pool){
+  if(!p||!pool||!pool.length)return null;
+  var used=Object.keys(V.ww.awakenedKnightDueled||{}).map(wwPlayerByUid).filter(Boolean).map(wwName);
+  var sys=wwSysFor(p,'现在轮到你发动【觉醒骑士】连锁决斗。可选的人：'+pool.map(wwName).join('、')+
+    '\n规则：命中狼人后你可以继续或停手；停手后当前出局者留遗言并直接入夜。命中好人则你与目标按守卫情况结算，随后连锁结束并继续白天流程。'+
+    '每名玩家整局只能被你决斗一次。'+(used.length?('\n已经决斗过、不能再选：'+used.join('、')+'。'):'')+
+    '\n如果觉醒守卫保护了目标，目标可能不出局；如果目标是觉醒狼美人且挽歌幻象生效，可能由替身出局。你要根据公开信息独立判断。'+
+    '\n【输出格式】只输出“决斗：X号”，或只输出“停手”。');
+  var txt=String(await wwCall(sys,'请决定是否继续决斗、以及目标是谁。',40,.76)||'');
+  if(/停手|停止|不继续|不决斗|收手/.test(txt))return null;
+  return wwMatch(txt,pool)||null;
+}
+async function wwAwakenedKnightFlushDeaths(deaths){
+  var w=V.ww,gen=wwGenNow(),seen={};
+  for(var i=0;i<(deaths||[]).length;i++){
+    var p=deaths[i];
+    if(!p||!p.uid||seen[p.uid]||p.alive)continue;
+    seen[p.uid]=1;
+    if(p.isUser){
+      w.log.push({k:'sys',text:'你已出局。'});
+      var uw=await wwUserLastWords('你因觉醒骑士的连锁决斗出局，可以留一段遗言。');
+      if(wwStaleG(gen))return;
+      if(uw){if(!await wwPushUserSay(gen,p.uid,'【遗言】'+uw))return}
+      else w.log.push({k:'sys',text:'你没有留遗言。'});
+    }else{
+      await wwStep('轮到「'+wwTag(p)+'」留遗言');
+      if(wwStaleG(gen))return;
+      w.msg='「'+wwTag(p)+'」正在留遗言…';render(true);
+      var lw=await wwLastWords(p);
+      if(wwStaleG(gen))return;
+      if(!wwPushSay(gen,{k:'say',who:p.uid,text:'【遗言】'+lw,think:wwThinkOf(p)}))return;
+    }
+    render(true);
+  }
+}
+async function wwAwakenedKnightChain(p){
+  var w=V.ww,gen=wwGenNow(),deaths=[],hits=0;
+  if(!wwAwakenedKnightReady(p))return false;
+  var lastWasWolf=false,endsDay=false;
+  function addDeaths(a){((a||[]).forEach(function(q){if(q&&deaths.indexOf(q)<0)deaths.push(q)}))}
+  while(!w.over){
+    var pool=wwAwakenedKnightTargets(p);
+    if(!pool.length)break;
+    var tgt=null;
+    if(p.isUser){
+      var r=await wwAsk('🗡️ 觉醒骑士连锁决斗：继续选择一个人，或停手',pool,{none:'停手'});
+      if(wwStaleG(gen))return false;
+      tgt=r.uid?wwPlayerByUid(r.uid):null;
+    }else{
+      await wwStep('轮到「'+wwTag(p)+'」发动觉醒骑士决斗');
+      if(wwStaleG(gen))return false;
+      w.msg='「'+wwTag(p)+'」正在选择决斗目标…';render(true);
+      tgt=await wwAwakenedKnightChoose(p,pool);
+      if(wwStaleG(gen))return false;
+    }
+    if(!tgt)break;
+    w.awakenedKnightUsed=true;
+    w.awakenedKnightDueled[tgt.uid]=1;
+    var targetWolf=wwIsWolf(tgt);
+    if(targetWolf)hits++;
+    w.log.push({k:'sys',text:'🗡️ 觉醒骑士 '+wwTag(p)+' 决斗 '+wwTag(tgt)+'。'});
+    w.rec.push({d:w.day,t:'觉醒骑士 '+wwTag(p)+' 决斗 '+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
+    var tr=wwAwakenedFatal(w,tgt,'awduel');
+    addDeaths(tr.deaths);
+    if(tr.sourceSurvived){
+      w.log.push({k:'sys',text:'挽歌幻象生效：'+wwTag(tr.substitute)+' 替代 '+wwTag(tgt)+' 出局。'});
+      w.rec.push({d:w.day,t:'觉醒狼美人替身 '+wwTag(tr.substitute)+' 替代出局'});
+    }else if(tr.blocked){
+      w.log.push({k:'sys',text:'觉醒守护生效：'+wwTag(tgt)+' 没有出局。'});
+    }else{
+      w.log.push({k:'sys',text:targetWolf?('目标是狼人，'+wwTag(tgt)+'出局。'):('目标是好人，'+wwTag(tgt)+'出局。')});
+    }
+    render(true);
+    try{wwSave(true)}catch(e){}
+    if(targetWolf){
+      lastWasWolf=true;
+      if(tr.deaths&&tr.deaths.some(function(q){return q===p})){
+        endsDay=true;
+        break;
+      }
+      if(wwCheckOver())break;
+      continue;
+    }
+    var kr=wwAwakenedFatal(w,p,'awduel');
+    addDeaths(kr.deaths);
+    if(kr.blocked)w.log.push({k:'sys',text:'觉醒守卫生效：觉醒骑士 '+wwTag(p)+' 没有出局。'});
+    else w.log.push({k:'sys',text:'觉醒骑士 '+wwTag(p)+' 出局。'});
+    lastWasWolf=false;endsDay=false;
+    render(true);
+    break;
+  }
+  await wwAwakenedKnightFlushDeaths(deaths);
+  if(wwStaleG(gen))return false;
+  try{wwSave(true)}catch(e){}
+  if(p.isUser&&hits)wwCareerAchSet('awakenedknight_chain',hits,{w:w,gameId:w.recId||'',gameTitle:w.title||'狼人杀对局'});
+  if(wwSheriffOn()&&!w.badgeGone)await wwBadgePass();
+  if(wwStaleG(gen))return false;
+  if(!w.over&&lastWasWolf)endsDay=true;
+  if(!w.over&&endsDay){w.dayOver=w.day;w.log.push({k:'sys',text:'觉醒骑士连锁结束，进入黑夜。'});}
+  wwCheckOver();
+  render(true);
+  return true;
+}
+async function wwAwakenedKnightTry(p,reason){
+  if(!wwAwakenedKnightReady(p))return false;
+  return !!(await wwAwakenedKnightChain(p,reason));
+}
+async function wwAwakenedKnightUserStart(){
+  var w=V.ww,p=wwAwakenedKnightP();
+  if(!p||!p.isUser||!wwAwakenedKnightReady(p))return;
+  if(w.userAsk||w.voteMode)return toast('先完成当前的发言或投票，再发动觉醒骑士');
+  if(w.running&&!w.userAsk){w.awakenedKnightPending=true;render(true);return toast('已准备连锁决斗：当前这段发言结束后会停住')}
+  await wwAwakenedKnightChain(p);
+}
 /* 上警结束之后，才把昨夜押着的死讯落实、并公布出来 */
 /* 上警那局：死讯押后到警长选完才公布。这个函数现在要等一下「夜间 · 你的房间」那段戏，
    所以改成 async，调用它的地方记得 await。 */
@@ -43384,7 +43772,7 @@ async function wwDay(){
   var resumedElection=!!w._resumeElectionInProgress;
   w._resumeElectionInProgress=false;
   w.scene='noon';      /* 【修】新的一天从「白天」开始（中午那张）；投票时会切成黄昏 */
-  w.inPK=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;
+  w.inPK=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.awakenedKnightPending=false;w.awakenedGuardPending=false;
   if(!resumedDay&&!resumedElection){
     w.dayStage='speech';
     w.spoke={};          /* 新的一天：发言记录清空（座位上的「未发言/已发言」靠它） */
@@ -43511,11 +43899,27 @@ async function wwDay(){
       if(wwDayCut()){wwDayCutUI();return;}
       if(wwCheckOver())return;
     }
+    if(q.role==='awakenedknight'&&q.alive&&!q.isUser&&!wwDayCut()){
+      await wwAwakenedKnightTry(q,'speech');
+      if(wwStaleG(gen))return;
+      if(wwDayCut()){wwDayCutUI();return;}
+      if(wwCheckOver())return;
+    }
     if(w.knightPending){
       var meK=wwKnightP();
       if(meK&&meK.isUser&&wwKnightReady(meK)){
         w.knightPending=false;
         await wwKnightUserAction('⚔ 骑士决斗：选择一个人');
+        if(wwStaleG(gen))return;
+        if(wwDayCut()){wwDayCutUI();return;}
+        if(wwCheckOver())return;
+      }
+    }
+    if(w.awakenedKnightPending){
+      var meAK=wwAwakenedKnightP();
+      w.awakenedKnightPending=false;
+      if(meAK&&meAK.isUser&&wwAwakenedKnightReady(meAK)){
+        await wwAwakenedKnightChain(meAK);
         if(wwStaleG(gen))return;
         if(wwDayCut()){wwDayCutUI();return;}
         if(wwCheckOver())return;
@@ -43534,10 +43938,42 @@ async function wwDay(){
     if(wwDayCut()){wwDayCutUI();return;}
     if(wwCheckOver())return;
   }
+  if(w.awakenedGuardPending){
+    var meAGend=wwAwakenedGuardP();
+    w.awakenedGuardPending=false;
+    if(meAGend&&meAGend.isUser&&wwAwakenedGuardDayReady(meAGend)){
+      await wwAwakenedGuardDayTry(meAGend);
+      if(wwStaleG(gen))return;
+    }
+  }
+  var agEnd=wwAwakenedGuardP();
+  if(agEnd&&wwAwakenedGuardDayReady(agEnd)&&!w.over&&!wwDayCut()){
+    await wwAwakenedGuardDayTry(agEnd);
+    if(wwStaleG(gen))return;
+    if(wwDayCut()){wwDayCutUI();return;}
+    if(wwCheckOver())return;
+  }
+  var akEnd=wwAwakenedKnightP();
+  if(akEnd&&!akEnd.isUser&&wwAwakenedKnightReady(akEnd)&&!w.over&&!wwDayCut()){
+    await wwAwakenedKnightTry(akEnd,'beforeVote');
+    if(wwStaleG(gen))return;
+    if(wwDayCut()){wwDayCutUI();return;}
+    if(wwCheckOver())return;
+  }
   if(lastSpoken&&!lastSpoken.isUser&&!w.over&&!wwDayCut()){
     await wwGate('本轮发言结束。可以先检查最后一条；要重说就点右上角或长按它。',true,'准备投票 ›');
     if(wwStaleG(gen)||wwDayCut())return;
     if(wwCheckOver())return;
+  }
+  if(w.awakenedKnightPending){
+    var meAKend=wwAwakenedKnightP();
+    w.awakenedKnightPending=false;
+    if(meAKend&&meAKend.isUser&&wwAwakenedKnightReady(meAKend)){
+      await wwAwakenedKnightChain(meAKend);
+      if(wwStaleG(gen))return;
+      if(wwDayCut()){wwDayCutUI();return;}
+      if(wwCheckOver())return;
+    }
   }
   /* 投票 → 平票就 PK */
   /* 【新】投票之前：白狼王再想一次要不要自爆 */
@@ -43553,7 +43989,7 @@ async function wwDay(){
     var pk=top.list.map(wwPlayerByUid).filter(function(x){return x&&x.alive});
       var rest=wwVotable().filter(function(x){return pk.indexOf(x)<0});
     if(pk.length>1&&rest.length){
-      w.inPK=true;w.knightPending=false;w.knightAsk=null;w.knightSelected='';render(true);
+      w.inPK=true;w.knightPending=false;w.awakenedKnightPending=false;w.awakenedGuardPending=false;w.knightAsk=null;w.knightSelected='';render(true);
       w.log.push({k:'vote',text:'平票：'+pk.map(wwTag).join('、')+'进入 PK。'});
       render(true);
       var lastPk=null;
@@ -43754,6 +44190,12 @@ function wwSnap(){
     board:wwBoardSafe(w.board),guardLast:w.guardLast||'',lastExile:w.lastExile?{day:Number(w.lastExile.day)||0,uid:w.lastExile.uid}:null,
     nightmareMetWolves:!!w.nightmareMetWolves,nightmareLast:w.nightmareLast||'',charmTarget:w.charmTarget||'',charmWinPending:!!w.charmWinPending,kingBoom:!!w.kingBoom,kingNote:w.kingNote||'',mechKnifeStartedDay:Number(w.mechKnifeStartedDay)||0,
     knightUsed:!!w.knightUsed,inPK:!!w.inPK,
+    awakenedKnightUsed:!!w.awakenedKnightUsed,awakenedKnightDueled:Object.assign({},w.awakenedKnightDueled||{}),
+    awakenedGuardTarget:w.awakenedGuardTarget||'',awakenedGuardDay:Number(w.awakenedGuardDay)||0,
+    awakenedGuardLast:w.awakenedGuardLast||'',awakenedGuardLastDay:Number(w.awakenedGuardLastDay)||0,
+    awakenedGuardActionDay:Number(w.awakenedGuardActionDay)||0,awakenedGuardSuccessDay:Number(w.awakenedGuardSuccessDay)||0,
+    awakenedWolfBeautyCharm:w.awakenedWolfBeautyCharm?{uid:w.awakenedWolfBeautyCharm.uid,day:Number(w.awakenedWolfBeautyCharm.day)||0}:null,
+    awakenedWolfBeautyCharmUsed:!!w.awakenedWolfBeautyCharmUsed,
     wolfRoles:Object.assign({},w.wolfRoles||{}),wolfRolesDone:!!w.wolfRolesDone,
     table:(w.table==='face')?'face':'online',peekDone:!!w.peekDone,
     scene:w.scene||'',                     /* 【修】当前场景标记（清晨/黄昏这种临时阶段）：读档也要认回来 */
@@ -43801,7 +44243,8 @@ function wwSnapFromRec(rec){
     night:null,players:players,log:(rec.log||[]).slice(),rec:(rec.rec||[]).slice(),votes:{},
     witchSave:witchSave,witchPoison:witchPoison,witchLog:[],mem:{},tips:{},pick:'random',autoWatch:false,sayTok:0,
     looks:{},notes:Object.assign({},rec.notes||{}),
-    board:(players.some(function(p){return p.role==='mechanicwolf'||p.role==='medium'})?'mechanicmedium':(players.some(function(p){return p.role==='nightmare'})?'nightmareguard':(players.some(function(p){return p.role==='gravekeeper'||p.role==='gargoyle'})?'gravegargoyle':(players.some(function(p){return p.role==='wolfbeauty'})?'wolfbeautyknight':(players.some(function(p){return p.role==='knight'})?'knightking':(players.some(function(p){return p.role==='wolfkingdeath'})?'wolfkingguard':(players.some(function(p){return p.role==='wolfking'||p.role==='guard'})?'wolfking':'std'))))))),guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',charmTarget:'',charmWinPending:false,kingBoom:false,kingNote:'',mechKnifeStartedDay:0,dayOver:0,knightUsed:false,inPK:false,seerRetractions:seerRetractions,
+    board:(players.some(function(p){return p.role==='mechanicwolf'||p.role==='medium'})?'mechanicmedium':(players.some(function(p){return p.role==='nightmare'})?'nightmareguard':(players.some(function(p){return p.role==='gravekeeper'||p.role==='gargoyle'})?'gravegargoyle':(players.some(function(p){return p.role==='awakenedwolfbeauty'||p.role==='awakenedknight'||p.role==='awakenedguard'})?'awakenedknight':(players.some(function(p){return p.role==='wolfbeauty'})?'wolfbeautyknight':(players.some(function(p){return p.role==='knight'})?'knightking':(players.some(function(p){return p.role==='wolfkingdeath'})?'wolfkingguard':(players.some(function(p){return p.role==='wolfking'||p.role==='guard'})?'wolfking':'std')))))))),guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',charmTarget:'',charmWinPending:false,kingBoom:false,kingNote:'',mechKnifeStartedDay:0,dayOver:0,knightUsed:false,inPK:false,seerRetractions:seerRetractions,
+    awakenedKnightUsed:false,awakenedKnightDueled:{},awakenedGuardTarget:'',awakenedGuardDay:0,awakenedGuardLast:'',awakenedGuardLastDay:0,awakenedGuardActionDay:0,awakenedGuardSuccessDay:0,awakenedWolfBeautyCharm:null,awakenedWolfBeautyCharmUsed:false,
     wolfRoles:Object.assign({},rec.wolfRoles||{}),wolfRolesDone:!!rec.wolfRolesDone,
     table:'online',peekDone:true,        /* 老记录不知道当初选的是不是面杀：按网杀接着玩，抿身份也不再补 */
     wolfBlown:false,blownWolves:[],roomMemory:null,wordsDone:true,achStreaks:{},achUnlocks:[],   /* 老记录没有这段收刀结局 */
@@ -43845,6 +44288,14 @@ function wwApplySnap(s,recId){
   w.board=wwBoardSafe(s.board);w.guardLast=s.guardLast||'';w.lastExile=s.lastExile?{day:Number(s.lastExile.day)||0,uid:s.lastExile.uid}:null;
   w.nightmareMetWolves=!!s.nightmareMetWolves;w.nightmareLast=s.nightmareLast||'';w.charmTarget=s.charmTarget||'';w.charmWinPending=!!s.charmWinPending;w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.mechKnifeStartedDay=Number(s.mechKnifeStartedDay)||0;w.dayOver=0;
   w.knightUsed=!!s.knightUsed;w.knightAsk=null;w.knightSelected='';w.inPK=!!s.inPK;w.dualSeerClaims=false;
+  w.awakenedKnightUsed=!!s.awakenedKnightUsed;w.awakenedKnightDueled=Object.assign({},s.awakenedKnightDueled||{});w.awakenedKnightPending=false;w.awakenedKnightBatch=[];
+  w.awakenedGuardPending=false;
+  w.awakenedGuardTarget=s.awakenedGuardTarget||'';w.awakenedGuardDay=Number(s.awakenedGuardDay)||0;
+  w.awakenedGuardLast=s.awakenedGuardLast||'';w.awakenedGuardLastDay=Number(s.awakenedGuardLastDay)||0;
+  w.awakenedGuardActionDay=Number(s.awakenedGuardActionDay)||0;
+  w.awakenedGuardSuccessDay=Number(s.awakenedGuardSuccessDay)||0;
+  w.awakenedWolfBeautyCharm=s.awakenedWolfBeautyCharm?{uid:s.awakenedWolfBeautyCharm.uid,day:Number(s.awakenedWolfBeautyCharm.day)||0}:null;
+  w.awakenedWolfBeautyCharmUsed=!!s.awakenedWolfBeautyCharmUsed;
   w.wolfRoles=Object.assign({},s.wolfRoles||{});w.wolfRolesDone=!!s.wolfRolesDone;
   w.table=(s.table==='face')?'face':'online';w.peekDone=!!s.peekDone;   /* 【新·面杀】接着玩也保持同一个玩法 */
   w.scene=s.scene||'';
@@ -44021,6 +44472,8 @@ function wwPrepareNextNightAfterResume(w){
   w._voteExpected=[];w._voteTargetUids=[];
   w.spoke={};w.speaking=null;w.speechStart='';w.speechDir=1;w.speechMode='';
   w.inPK=false;w.knightPending=false;w.knightAsk=null;w.knightSelected='';
+  w.awakenedKnightPending=false;w.awakenedGuardPending=false;
+  w.awakenedKnightPending=false;w.awakenedGuardPending=false;
   w.electing=false;w.dayOver=0;w.wordsDone=false;w.scene='night';w.wolfPicks=[];
   w.auto=false;w.msg='第 '+w.day+' 夜继续。';
 }
@@ -44101,9 +44554,9 @@ window.execGameInvite=function(args,cid){
   window.GAME_INVITES=window.GAME_INVITES||[];
   window.GAME_INVITES.push(inv);
   var b=wwBoard(n);
-  return {ok:true,msg:'邀请卡已经发给她了：狼人杀 '+n+' 人局（狼人 '+((b.wolf||0)+(b.wolfbeauty||0)+(b.wolfking||0)+(b.wolfkingdeath||0)+(b.mechanicwolf||0))+' · 村民 '+(b.villager||0)
+  return {ok:true,msg:'邀请卡已经发给她了：狼人杀 '+n+' 人局（狼人 '+((b.wolf||0)+(b.wolfbeauty||0)+(b.awakenedwolfbeauty||0)+(b.wolfking||0)+(b.wolfkingdeath||0)+(b.mechanicwolf||0))+' · 村民 '+(b.villager||0)
     +(b.seer?' · 预言家 1':'')+(b.medium?' · 通灵师 1':'')+' · 女巫 1'
-    +(b.guard?' · 守卫 1':'')+(b.hunter?' · 猎人 1':'')+(b.knight?' · 骑士 1':'')+(b.gravekeeper?' · 守墓人 1':'')+(b.gargoyle?' · 石像鬼 1':'')+(b.wolfbeauty?' · 狼美人 1':'')+(b.wolfkingdeath?' · 狼王 1':'')+(b.mechanicwolf?' · 机械狼 1':'')+(b.idiot?' · 白痴 1':'')+'）。'
+    +(b.guard?' · 守卫 1':'')+(b.awakenedguard?' · 觉醒守卫 1':'')+(b.hunter?' · 猎人 1':'')+(b.knight?' · 骑士 1':'')+(b.awakenedknight?' · 觉醒骑士 1':'')+(b.gravekeeper?' · 守墓人 1':'')+(b.gargoyle?' · 石像鬼 1':'')+(b.wolfbeauty?' · 狼美人 1':'')+(b.awakenedwolfbeauty?' · 觉醒狼美人 1':'')+(b.wolfkingdeath?' · 狼王 1':'')+(b.mechanicwolf?' · 机械狼 1':'')+(b.idiot?' · 白痴 1':'')+'）。'
     +'她会自己点卡片进房间；你在文字里轻松说一句等她就行，别重复卡片上的信息。'};
 };
 /* ---------- 入场券：票身 SVG（圆角＋左右真缺口＋描金框）+ 左上弯月星 + 右边狼爪痕 ---------- */
@@ -44471,7 +44924,9 @@ function wwStart(){
   w.policeAll=[];w.upSpoke={};w.seerRetractions={};w.electionStage='';w.policeWaterDone={};w.policeRetired=[];
   w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
   w.guardLast='';w.kingBoom=false;w.kingNote='';w.dayOver=0;
-  w.knightUsed=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.inPK=false;w.dualSeerClaims=false;
+  w.knightUsed=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.awakenedKnightPending=false;w.awakenedGuardPending=false;w.inPK=false;w.dualSeerClaims=false;
+  w.awakenedKnightUsed=false;w.awakenedKnightDueled={};w.awakenedKnightPending=false;w.awakenedKnightBatch=[];
+  w.awakenedGuardTarget='';w.awakenedGuardDay=0;w.awakenedGuardLast='';w.awakenedGuardLastDay=0;w.awakenedGuardActionDay=0;w.awakenedGuardSuccessDay=0;w.awakenedWolfBeautyCharm=null;w.awakenedWolfBeautyCharmUsed=false;
   w.marks={};w.markMode='';w.markUid=null;
   w.notes={};w.noteOpen=false;
   w.colors={};
@@ -44962,7 +45417,7 @@ function wwSeatHTML(p){
   var upNow=!!(w.electing&&(w.policeUp||[]).indexOf(p.uid)>=0);
   var upOut=!!(w.electing&&!upNow&&(w.policeAll||[]).indexOf(p.uid)>=0);   /* 上过警、又退水了 */
   var upSpoke=!!(w.upSpoke&&w.upSpoke[p.uid]);
-  var st=p.alive?(w.electing?(upOut?'已退水':(upNow?(upSpoke?'已发言':'未发言'):'未上警')):((p.role==='idiot'&&p.revealed)?'白痴·已翻牌':(voted?'已投票':(dayOn?(spoke?'已发言':'未发言'):'在场')))):((w.over||p.revealed)?(WW_ROLE_NAME[p.role]||'出局'):'出局');
+  var st=p.alive?(w.electing?(upOut?'已退水':(upNow?(upSpoke?'已发言':'未发言'):'未上警')):((p.revealed&&WW_ROLE_NAME[p.role])?((WW_ROLE_NAME[p.role]||'身份')+'·已翻牌'):(voted?'已投票':(dayOn?(spoke?'已发言':'未发言'):'在场')))):((w.over||p.revealed)?(WW_ROLE_NAME[p.role]||'出局'):'出局');
   var fx=(w.fx&&w.fx.uid===p.uid)?('<span class="ww-fx '+(w.fx.kind||'claw')+'">'+(w.fx.kind==='hit'?WW_IC_HIT:WW_IC_CLAW)+'</span>'):'';
   var god=wwGodOn();
   return '<div class="ww-seat'+(p.alive?'':' out')+(p.isUser?' me':'')+((w.speaking&&w.speaking===p.uid)?' spk':'')+(pickable?' pick':'')+(votable?' pick':'')+(mypick?' mypick':'')+(hit?' hit':'')+(markable?' mkpick':'')+(knw?' knw':'')+(mk?(' mk-'+mk):'')+'"'+
@@ -45248,7 +45703,7 @@ function wwLogHTML(){
    把她调好的准备页配置存在本机 localStorage（key 前缀 wh_）。
    保存时自动成为「默认配置」；下次从大厅进狼人杀准备页会自动套用。 */
 var LS_WWPRESET='wh_wwpreset';
-var WW_ROLE_EN={random:'Random',villager:'Villager',seer:'Seer',medium:'Medium',witch:'Witch',hunter:'Hunter',knight:'Knight',guard:'Guard',gravekeeper:'Gravekeeper',idiot:'Idiot',wolfbeauty:'Wolf Beauty',wolfking:'White Wolf King',wolfkingdeath:'Wolf King',mechanicwolf:'Mechanical Wolf',gargoyle:'Gargoyle',nightmare:'Nightmare',wolf:'Werewolf'};
+var WW_ROLE_EN={random:'Random',villager:'Villager',seer:'Seer',medium:'Medium',witch:'Witch',hunter:'Hunter',knight:'Knight',awakenedknight:'Awakened Knight',guard:'Guard',awakenedguard:'Awakened Guard',gravekeeper:'Gravekeeper',idiot:'Idiot',wolfbeauty:'Wolf Beauty',awakenedwolfbeauty:'Awakened Wolf Beauty',wolfking:'White Wolf King',wolfkingdeath:'Wolf King',mechanicwolf:'Mechanical Wolf',gargoyle:'Gargoyle',nightmare:'Nightmare',wolf:'Werewolf'};
 function wwPresetRead(){
   try{
     /* 预设可能已经被 App 从 localStorage 搬到 IndexedDB 的 bulk 仓库。
@@ -45310,6 +45765,7 @@ function wwBoardCompo(){
   var b=wwBoard(V.ww.count),a=[];
   if(b.wolf)a.push(b.wolf+' 狼人');
   if(b.wolfbeauty)a.push(b.wolfbeauty+' 狼美人');
+  if(b.awakenedwolfbeauty)a.push(b.awakenedwolfbeauty+' 觉醒狼美人');
   if(b.wolfking)a.push(b.wolfking+' 白狼王');
   if(b.wolfkingdeath)a.push(b.wolfkingdeath+' 狼王');
   if(b.mechanicwolf)a.push(b.mechanicwolf+' 机械狼');
@@ -45320,9 +45776,11 @@ function wwBoardCompo(){
   if(b.medium)a.push(b.medium+' 通灵师');
   if(b.witch)a.push(b.witch+' 女巫');
   if(b.guard)a.push(b.guard+' 守卫');
+  if(b.awakenedguard)a.push(b.awakenedguard+' 觉醒守卫');
   if(b.hunter)a.push(b.hunter+' 猎人');
   if(b.gravekeeper)a.push(b.gravekeeper+' 守墓人');
   if(b.knight)a.push(b.knight+' 骑士');
+  if(b.awakenedknight)a.push(b.awakenedknight+' 觉醒骑士');
   if(b.idiot)a.push(b.idiot+' 白痴');
   return a.join(' · ');
 }
@@ -45367,7 +45825,7 @@ function wwPopHTML(){
     }).join('')+'</div>';
     if(w.count===12){
       h+='<div class="gx-sec" style="margin-top:12px">12 人局用哪个板子</div><div class="ww-ogrid">'+
-        '<button class="wwb'+((w.board!=='wolfking'&&w.board!=='wolfkingguard'&&w.board!=='knightking'&&w.board!=='wolfbeautyknight'&&w.board!=='gravegargoyle'&&w.board!=='nightmareguard'&&w.board!=='mechanicmedium')?' on':'')+'" onclick="GAME.wwBoardSet(\'std\')">'+wwBlot('A')+
+        '<button class="wwb'+((w.board!=='wolfking'&&w.board!=='wolfkingguard'&&w.board!=='knightking'&&w.board!=='wolfbeautyknight'&&w.board!=='awakenedknight'&&w.board!=='gravegargoyle'&&w.board!=='nightmareguard'&&w.board!=='mechanicmedium')?' on':'')+'" onclick="GAME.wwBoardSet(\'std\')">'+wwBlot('A')+
           '<span class="wwb-c">预女猎白</span><span class="wwb-e">Classic</span></button>'+
         '<button class="wwb'+(w.board==='wolfking'?' on':'')+'" onclick="GAME.wwBoardSet(\'wolfking\')">'+wwBlot('A')+
           '<span class="wwb-c">守卫白狼王</span><span class="wwb-e">Guard &amp; Wolf King</span></button>'+
@@ -45377,6 +45835,8 @@ function wwPopHTML(){
           '<span class="wwb-c">骑士白狼王</span><span class="wwb-e">Knight &amp; Wolf King</span></button>'+
         '<button class="wwb'+(w.board==='wolfbeautyknight'?' on':'')+'" onclick="GAME.wwBoardSet(\'wolfbeautyknight\')">'+wwBlot('A')+
           '<span class="wwb-c">狼美人骑士</span><span class="wwb-e">Wolf Beauty &amp; Knight</span></button>'+
+        '<button class="wwb'+(w.board==='awakenedknight'?' on':'')+'" onclick="GAME.wwBoardSet(\'awakenedknight\')">'+wwBlot('A')+
+          '<span class="wwb-c">觉醒骑士</span><span class="wwb-e">Awakened Knight</span></button>'+
         '<button class="wwb'+(w.board==='gravegargoyle'?' on':'')+'" onclick="GAME.wwBoardSet(\'gravegargoyle\')">'+wwBlot('A')+
           '<span class="wwb-c">守墓人石像鬼</span><span class="wwb-e">Gravekeeper &amp; Gargoyle</span></button>'+
         '<button class="wwb'+(w.board==='nightmareguard'?' on':'')+'" onclick="GAME.wwBoardSet(\'nightmareguard\')">'+wwBlot('A')+
@@ -46024,6 +46484,12 @@ function wwInfoHTML(){
       mine.push('守人记录：'+(guardRows.length?guardRows.map(function(x){return '第'+x.day+'夜 '+x.text}).join('；'):'还没有记录')+' · '+(w.over?'对局已结束':'下一夜：未选择'));
     }else if(me.role==='knight'){
       mine.push('决斗：'+(w.knightUsed?'已用':'可用'));
+    }else if(me.role==='awakenedknight'){
+      var akDone=Object.keys(w.awakenedKnightDueled||{}).map(wwPlayerByUid).filter(Boolean).map(wwTag);
+      mine.push('连锁决斗：'+(w.awakenedKnightUsed?'已发动':'可用')+' · 已决斗 '+(akDone.join('、')||'0 人'));
+    }else if(me.role==='awakenedguard'){
+      var agInfo=w.awakenedGuardTarget&&Number(w.awakenedGuardDay)===Number(w.day)?wwPlayerByUid(w.awakenedGuardTarget):null;
+      mine.push('觉醒守护：'+(agInfo?wwTag(agInfo):'今日未选择'));
     }else if(me.role==='gravekeeper'){
       var gr=(me.check||[]).filter(function(c){return c.kind==='grave'}).map(function(c){var t=wwPlayerByUid(c.uid);return (t?wwTag(t):'?')+'='+(c.isWolf?'狼':'好人')}).join('，');
       mine.push('守墓查验：'+(gr||'还没有结果'));
@@ -46041,6 +46507,9 @@ function wwInfoHTML(){
       if(me.mechLearn&&me.mechLearn.role==='witch')mine.push('毒药：'+(me.mechPoisonUsed?'已用':'可用'));
     }else if(me.role==='wolfbeauty'){
       mine.push('魅惑：'+(wwWolfBeautyCurrentTarget(w)?wwTag(wwWolfBeautyCurrentTarget(w)):'尚未选择')+' · 出局时跟随');
+    }else if(me.role==='awakenedwolfbeauty'){
+      var awbInfo=wwAwakenedWolfBeautyCharmActive(w)?wwPlayerByUid(w.awakenedWolfBeautyCharm.uid):null;
+      mine.push('挽歌幻象：'+(w.awakenedWolfBeautyCharmUsed?'已用':(awbInfo?wwTag(awbInfo):'本夜无替身')));
     }else if(wwIsWolf(me)){
       var mateN=wwWolfMates(me).map(function(p){return (p.seq||'?')+'号'}).join('、');
       mine.push('狼队：'+(mateN||'没有队友')+(me.role==='wolfking'?(w.kingBoom?' · 💥已用':' · 💥可用'):''));
@@ -46052,6 +46521,9 @@ function wwInfoHTML(){
   if(b.mechanicwolf)rules.push('机械狼：与小狼互不相认，小狼全灭后接刀；整局学习一名存活玩家一次。'+WW_MECHANIC_DISPLAY_RULE+'学猎人当夜获得枪。学守卫得到只能使用一次、可自守、能挡刀和毒的机械盾，不能挡枪。');
   if(b.wolfkingdeath)rules.push('狼王：属于狼人阵营，与普通狼一起行动。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动；带走猎人时，猎人仍按原规则决定是否开枪。');
   if(b.knight)rules.push('骑士：每局决斗一次。自己发言时可决斗，所有人发言完、投票前还能再考虑一次；警长竞选和平票 PK 不能决斗。命中狼人则对方出局、白天立即结束；命中好人则骑士出局、白天继续。');
+  if(b.awakenedknight)rules.push('觉醒骑士：整局只能发动一次连锁决斗，白天放逐发言阶段可随时翻牌。命中狼人后可继续或停手；停手后出局者留遗言并入夜；命中好人则连锁停止、继续白天流程。每名玩家整局只能被决斗一次。');
+  if(b.awakenedguard)rules.push('觉醒守卫：每天可在夜晚或白天发动一次觉醒守护，每天只能守一人，不能连续两天守同一人。保护持续到当天白天结束，可挡狼刀、毒药、放逐和觉醒骑士决斗；保护觉醒狼美人本人会阻止替身，保护替身目标无效。');
+  if(b.awakenedwolfbeauty)rules.push('觉醒狼美人：属于狼队，不能自刀或自爆。每隔一晚魅惑一次，幻象只保护发动当夜及紧接的白天；第一次面临出局时由目标替代。替身不能被觉醒守卫保护，但狼美人本人被守护时不会触发替身。');
   if(b.wolfbeauty)rules.push('狼美人：与普通狼互认并共同刀人。每晚魅惑一名其他存活玩家，不能连续两晚魅惑同一人。夜晚出局时，跟随者只进入正常死亡名单，不公开跟随关系；白天被放逐时翻牌并公开跟随者。被骑士决斗出局时技能不发动、不翻牌，魅惑目标存活。跟随出局触发屠边时，狼人获胜。');
   if(b.gravekeeper)rules.push('守墓人：每晚查验上一白天被投票放逐者是好人还是狼人；第一夜、平票或无人被放逐时没有结果。');
   if(b.gargoyle)rules.push('石像鬼：狼人阵营。不与普通狼互认、不参加普通狼夜间刀人；每晚查验一名存活玩家的具体身份，普通狼全部出局后接刀。');
@@ -46115,7 +46587,16 @@ function wwHTML(){
     else if(me.role==='gargoyle')rb.push('石像鬼查验 '+((me.check||[]).filter(function(c){return c.kind==='gargoyle'}).length));
     else if(me.role==='nightmare')rb.push('梦魇恐惧 '+((me.check||[]).filter(function(c){return c.kind==='nightmare'}).length));
     else if(me.role==='mechanicwolf')rb.push(me.mechLearn?('已学·'+WW_ROLE_NAME[me.mechLearn.role]):'未学习');
+    else if(me.role==='awakenedknight')rb.push('连锁决斗 '+(w.awakenedKnightUsed?'已用':'可用'));
+    else if(me.role==='awakenedguard'){
+      var agTop=w.awakenedGuardTarget&&Number(w.awakenedGuardDay)===Number(w.day)?wwPlayerByUid(w.awakenedGuardTarget):null;
+      rb.push('守护 '+(agTop?wwTag(agTop):'未选'));
+    }
     else if(me.role==='wolfbeauty')rb.push('魅惑 '+(wwWolfBeautyCurrentTarget(w)?wwTag(wwWolfBeautyCurrentTarget(w)):'未选'));
+    else if(me.role==='awakenedwolfbeauty'){
+      var awbTop=wwAwakenedWolfBeautyCharmActive(w)?wwPlayerByUid(w.awakenedWolfBeautyCharm.uid):null;
+      rb.push('幻象 '+(w.awakenedWolfBeautyCharmUsed?'已用':(awbTop?wwTag(awbTop):'空窗')));
+    }
     else if(wwIsPackWolf(me)){
       var mates=wwWolfMates(me).map(function(p){return (p.seq||'?')+'号'}).join('、');
       rb.push('队友 '+(mates||'无'));
@@ -46134,6 +46615,8 @@ function wwHTML(){
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
      ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='knight'&&wwKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="骑士决斗" onclick="GAME.wwKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
+     ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='awakenedknight'&&wwAwakenedKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="觉醒骑士连锁决斗" title="觉醒骑士连锁决斗" onclick="GAME.wwAwakenedKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
+     ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='awakenedguard'&&wwAwakenedGuardDayReady(me))?'<button class="ww-snd" type="button" aria-label="觉醒守护" title="觉醒守护" onclick="GAME.wwAwakenedGuardStart()">'+wwUiIcon('guard')+'</button>':'')+
      '<button class="ww-snd" type="button" aria-label="个人主页" title="个人主页" onclick="GAME.wwProfile(1,\'overview\')">'+WW_IC_PROFILE+'</button>'+
      (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="本局设置" title="本局设置" onclick="GAME.wwInfo(1)">'+WW_IC_GEAR+'</button>')+
      '</div>';
@@ -46200,11 +46683,14 @@ function wwHTML(){
           var k=m[0],bd=wwBoard(w.count);
           if(k==='idiot')return !!bd.idiot;
           if(k==='guard')return !!bd.guard;
+          if(k==='awakenedguard')return !!bd.awakenedguard;
           if(k==='knight')return !!bd.knight;
+          if(k==='awakenedknight')return !!bd.awakenedknight;
           if(k==='gravekeeper')return !!bd.gravekeeper;
           if(k==='gargoyle')return !!bd.gargoyle;
           if(k==='nightmare')return !!bd.nightmare;
           if(k==='wolfbeauty')return !!bd.wolfbeauty;
+          if(k==='awakenedwolfbeauty')return !!bd.awakenedwolfbeauty;
           if(k==='wolfking')return !!bd.wolfking;
           if(k==='wolfkingdeath')return !!bd.wolfkingdeath;
           if(k==='medium')return !!bd.medium;
@@ -47172,7 +47658,7 @@ function shareSum(r){
   if(r.game==='mq')return '最懂你的是：'+(r.topName||'')+'（'+(r.topScore||0)+'/'+(((r.qs)||[]).length)+'）';
   if(r.game==='dg')return '你画的是：'+(r.answer||'');
   if(r.game==='ww')return '结果：'+(r.winner==='good'?'好人获胜':(r.winner==='wolf'?'狼人获胜':'平局'))+
-    '\n狼人：'+((r.players||[]).filter(function(p){return p.role==='wolf'||p.role==='wolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='gargoyle'||p.role==='nightmare'}).map(function(p){return p.name}).join('、'));
+    '\n狼人：'+((r.players||[]).filter(function(p){return p.role==='wolf'||p.role==='wolfbeauty'||p.role==='awakenedwolfbeauty'||p.role==='wolfking'||p.role==='wolfkingdeath'||p.role==='mechanicwolf'||p.role==='gargoyle'||p.role==='nightmare'}).map(function(p){return p.name}).join('、'));
   return recSub(r);
 }
 /* 普通聊天只带这一小段；完整过程留在游戏战绩里，需要时角色用 game_record_read 查看。 */
@@ -49035,6 +49521,8 @@ window.GAME={
   wwReactGo:function(){wwReactGo()},
   wwStop:function(){wwStop()},
   wwInfo:function(on){var w=V.ww;if(!w)return;w.helpOpen=!!on;if(!on){w.snapPick=false;w.snapPlanOpen=false}render(false)},
+  wwAwakenedKnightStart:function(){return wwAwakenedKnightUserStart()},
+  wwAwakenedGuardStart:function(){return wwAwakenedGuardUserStart()},
   wwProfile:function(on,tab){
     var w=V.ww;if(!w)return;
     w.profileOpen=!!on;
