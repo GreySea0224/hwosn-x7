@@ -16329,6 +16329,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀警上双跳新增内部对照卡：双方只有一金水/一查杀、警徽流都完整、都不认无结算代跳、都把对方视为狼时，只算共同项，不能区分真假；第三人先提、后跳者只复述而没有新增事实时，只算同一份弱线索。警徽流是否工整、发言是否完整顺耳，不再优先于可核验的查验力度。
 狼人杀修复骑士决斗后的白天收尾：如果玩家在下一位发言前的暂停点发动决斗并命中狼人，程序会立即清掉残留的“正在发言”状态、停止旧发言请求并结束白天，不再让下一位 AI 先开口才进黑夜。
 狼人杀公开发言完整性检查增强：中文逗号、顿号、冒号、分号结尾，或引号、括号没有闭合时，都会识别为截断并在后台静默重写；重写仍失败就不把半句话直接发到公共记录。第一次开口还会明确知道本轮此前谁真正发过言，不能再编造“刚才那轮、上一轮、我上一版”或评价尚未发言者已经说过的话。
+狼人杀修复“退水连坐”误判：只有说话人明确说“我退水”“我是好人代跳”“我的假验作废”，才算本人退水；像“7号，你如果退水，假验作废”只是要求别人退水，不能再把说话人自己标成退水。
+狼人杀修复警徽流分支解析：条件座位号后必须紧接“好人/狼”结果，不能跨过另一个座位号把“2号这张金水”误算成“8号好人”，也不会再把实际接徽人准确落在狼分支时沉默。
+狼人杀新增金水受益者自审：吃了某人金水或接了警徽的 AI 不能因为“我确实是好人”就反推发牌者是真验人；狼可以准确给好人金水做身份，受益者必须扣掉利益绑定，优先核对明骑士、已翻狼方向和票型。
+狼人杀新增翻狼行为方向账：程序会直接识别“票X/出X/归X”是在攻击X，不能写成“给X拉票”；已翻狼攻击一名起跳者、帮助另一条验人线时，必须明显调整两条线的可信度，同时保留狼卖队友的小概率世界线。
+狼人杀双跳对照卡现在会给每条查验标出假验风险低/中/高：目标在警下、已经发言或退水时即时反水风险低；目标仍在后置位且未发言时风险高。双方都是低风险时，AI 必须承认暂无明显力度差，不能硬选一方。
+狼人杀终局新增身份测试与低代价跟票规则：质问神职真假不等于冲神；一个狼队友已经基本必出时，狼跟票只是低代价卖队友，不能洗白此前连续投好人的记录。
 
 【最近更新 · 2026-11-08】
 所有游戏的战绩详情新增“收藏战绩”：收藏会置顶并永久绕过最近 80 条普通战绩的清理上限，取消收藏或明确删除后会恢复正常清理规则；收藏状态随游戏记录一起备份。
@@ -16593,7 +16599,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=144;  /* 144：补强骑士收尾、双跳验人力度与公开发言截断检查 */
+const GUIDE_VER=145;  /* 145：修复退水/警徽解析并补金水自审、翻狼方向与终局测试 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -33816,8 +33822,16 @@ function wwFlippedWolfSpeechAuditText(w){
     seen[p.uid]=1;
     var says=rows.filter(function(r){return r.uid===p.uid});
     if(!says.length)return;
+    var attacks=[],seenAttack={};
+    says.slice(-3).forEach(function(r){
+      wwOwnVoteIntentTargets(r.text).forEach(function(n){
+        if(!n||seenAttack[n])return;seenAttack[n]=1;attacks.push(n);
+      });
+    });
     out.push('· '+wwTag(p)+'已公开翻狼。必须回溯她翻牌前的公开立场：'+
-      says.slice(-2).map(function(r){return r.ref+'「'+wwClipSpeech(r.text,170,70)+'」'}).join('；'));
+      says.slice(-2).map(function(r){return r.ref+'「'+wwClipSpeech(r.text,170,70)+'」'}).join('；')+
+      (attacks.length?('\n  ↳ 程序识别出的公开票口/攻击方向：'+attacks.map(function(n){return n+'号'}).join('、')+'。'+
+        '“票X/出X/归X”是攻击X，不能改写为“给X拉票”。'):''));
   }
   function addSeats(txt){
     String(txt||'').replace(/\d{1,2}\s*号/g,function(x){
@@ -33840,7 +33854,26 @@ function wwFlippedWolfSpeechAuditText(w){
   });
   if(!out.length)return '';
   return '【已翻狼发言回溯】\n'+out.join('\n')+
-    '\n· 重点看她此前支持、保护、抬高或刻意回避了哪条验人线。若翻狼长期替某个跳预者说好话、避开其矛盾或帮其稳票，应提高该跳预者狼面；但狼也会卖队友，单次支持不能直接翻牌。';
+    '\n· 若已翻狼公开攻击A、却替B的验人线说好话或帮B稳票，应明显上调B的狼面、下调A的狼面；狼也可能故意卖队友，所以仍保留反世界线，但不能把这种方向完全忽略。';
+    '\n· “票X/出X/归X”一律是攻击X；“支持X、给X拉票、警长票给X”才是支持X。程序与发言都不能混淆这两个方向。';
+}
+function wwSeerBeneficiaryAuditText(w,p){
+  if(!w||!p)return '';
+  var claims=(wwSeerCommitmentLedger(w).claims||[]),out=[];
+  claims.forEach(function(c){
+    if(!c||!c.p||c.p.uid===p.uid||c.retractedDay)return;
+    (c.checks||[]).forEach(function(x){
+      if(Number(x.seq)!==Number(p.seq)||!wwPublicCheckIsGoodResult(x.result))return;
+      var gotBadge=w.sheriffUid===p.uid;
+      out.push('· '+wwTag(c.p)+'在 '+x.ref+' 报你是【'+x.result+'】'+
+        (gotBadge?'，你目前还持有警徽':'')+'。');
+    });
+  });
+  if(!out.length&&w.sheriffUid!==p.uid)return '';
+  return '【金水受益者自审】\n'+(out.join('\n')||('· 你目前持有警徽。'))+
+    '\n· 你知道自己是好人，只能说明这条金水没有报错，不能证明发金水者是真预言家；狼可以准确给好人发金水做身份。'+
+    '\n· 你收到金水或警徽后天然更容易维护发牌者。评价这条验人线时，必须扣掉这层个人利益，优先使用已翻狼行为、明骑士信息、查验时间线和票型等外部事实。'+
+    '\n· 若确认骑士或已翻狼的行为指向相反方向，必须明确比较，不能因为“我已经认了她的金水”就继续站原边。';
 }
 function wwSeerClaimContrastText(w,p){
   if(!w)return '';
@@ -33850,10 +33883,25 @@ function wwSeerClaimContrastText(w,p){
   var claimName=wwBoard(w.count,w).medium?'通灵师':'预言家';
   var rows=wwPublicEventRows(w),out=[];
   claims.sort(function(a,b){return (Number(a.day)||1)-(Number(b.day)||1)});
+  function riskForCheck(c,x){
+    var row=null;
+    rows.some(function(r){if(r.ref===x.ref){row=r;return true}return false});
+    var tgt=wwPlayerByUidTarget(w,Number(x.seq));
+    if(!tgt)return {level:'未知',why:'目标记录缺失'};
+    var before=row?rows.filter(function(r){return r.idx<row.idx&&r.uid===tgt.uid}):[];
+    var onPolice=(w.policeAll||[]).indexOf(tgt.uid)>=0;
+    var retired=(w.policeRetired||[]).indexOf(tgt.uid)>=0;
+    if(!onPolice)return {level:'低',why:'目标是警下位，按本局上警规则不能在同一轮警上立即反水立警'};
+    if(before.length||retired)return {level:'低',why:'目标在本条查验公开前已经发过言或退水，本轮即时反水风险低'};
+    var order=w.policeOrder||[],ti=order.indexOf(tgt.uid),ci=order.indexOf(c.p.uid);
+    if(ti>ci)return {level:'高',why:'目标仍在后置位且尚未发言，假验可能被当场反水立警'};
+    return {level:'中',why:'目标在警上，但公开时点不足以确认能否立即反水'};
+  }
   claims.forEach(function(c){
     var checks=(c.checks||[]).map(function(x){
       var tgt=wwPlayerByUidTarget(w,x.seq);
-      return wwTag(tgt||{seq:x.seq,name:'?'})+'＝'+x.result+'（'+x.ref+'）';
+      var risk=riskForCheck(c,x);
+      return wwTag(tgt||{seq:x.seq,name:'?'})+'＝'+x.result+'（'+x.ref+'，假验风险：'+risk.level+'；'+risk.why+'）';
     });
     out.push('· '+wwTag(c.p)+'：从 '+c.ref+' 起自称'+claimName+'；'+
       (checks.length?('公开查验 '+checks.join('、')+'.'):'目前没有可核验的已完成查验。'));
@@ -33869,6 +33917,7 @@ function wwSeerClaimContrastText(w,p){
     '\n· “一金水/一查杀”“警徽流完整”“分支分叉清楚”“不接受无结算的代跳”“把另一个对跳者视为狼”通常双方都能做到，不能单独区分真假，也不是投票主理由。'+
     '\n· 验人力度优先看：假如这条查验是假的，需要承担多大暴露风险。例如狼给警上后置位发金水，对方可能当场反水立警；给关键位发具体结果，可能被本人确认或立刻出现规则、时间线硬矛盾。假验越容易翻车，却仍选择这样报，通常力度越高；真验人知道自己结果是真的，可以承担这种风险。'+
     '\n· 风险力度是概率判断，不是“敢冒险必真”；狼也可能故意豪赌。必须同时核对查验时间线、目标实际反应、后续新验和票型。'+
+    '\n· 发言先后只用来判断起跳者当时已经知道什么，不是身份证据。两条查验若都被判为低风险，就必须明确写“暂无明显力度差”，不能硬选一个。'+
     '\n· 比较顺序应为：可核验查验力度与目标反应 > 规则/时间线硬矛盾 > 票型承诺 > 发言措辞、完整度和语感。若只有措辞差异，不能据此认定哪边为真。';
 }
 function wwSeerSurvivalPressureText(w,p){
@@ -33937,6 +33986,8 @@ function wwCurrentTurnText(w,p){
   if(knightClue)L.push(knightClue);
   var flippedWolf=wwFlippedWolfSpeechAuditText(w);
   if(flippedWolf)L.push(flippedWolf);
+  var beneficiary=wwSeerBeneficiaryAuditText(w,p);
+  if(beneficiary)L.push(beneficiary);
   var claimContrast=wwSeerClaimContrastText(w,p);
   if(claimContrast)L.push(claimContrast);
   var survival=wwSeerSurvivalPressureText(w,p);
@@ -34465,8 +34516,9 @@ function wwBadgeFlowBranches(txt,speakerSeq){
     var lead=String(clause||'').match(/^\s*(\d{1,2})\s*号/);
     if(lead&&speakerSeq&&Number(lead[1])!==Number(speakerSeq)&&/(?:警徽流|徽流|今晚|今夜)/.test(clause)&&/(?:验|查验|摸)/.test(clause))return;
     clause=String(clause||'').replace(/[“”"][^“”"\n]{0,220}[“”"]/g,'');
-    var reGood=/(\d{1,2})\s*号?[^。！？!?；;\n]{0,12}?(?:好人|好的|好身份|金水|村民|平民|神职金水|神职|民及民以上)[^。！？!?；;\n]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^。！？!?；;\n]{0,8}?(?:接徽|拿徽|警徽)?/g;
-    var reWolf=/(\d{1,2})\s*号?[^。！？!?；;\n]{0,12}?(?:机械狼|机械身份|狼人|狼|查杀)[^。！？!?；;\n]{0,20}?(?:给|交|让)?\s*(\d{1,2})\s*号?[^。！？!?；;\n]{0,8}?(?:接徽|拿徽|警徽)?/g;
+    /* 条件结果必须紧跟在条件座位号后；不能跨过“2号这张金水”反推成“8号好人”。 */
+    var reGood=/(\d{1,2})\s*号?\s*(?:如果|若|要是|假如|是|为)?\s*(?:好人|好的|好身份|金水|村民|平民|神职金水|神职|民及民以上)[^。！？!?；;\n]{0,30}?(?:(?:警徽)?(?:给|交|让|由)|接徽给|接徽人|就)\s*(\d{1,2})\s*号?/g;
+    var reWolf=/(\d{1,2})\s*号?\s*(?:如果|若|要是|假如|是|为)?\s*(?:机械狼|机械身份|狼人|狼|查杀)[^。！？!?；;\n]{0,32}?(?:(?:警徽)?(?:给|交|让|由)|接徽给|接徽人|就)\s*(\d{1,2})\s*号?/g;
     var m;
     while((m=reGood.exec(clause))){
       if(Number(m[1])!==target)continue;
@@ -34765,7 +34817,18 @@ function wwProtectionRelationText(w){
 function wwEndgameRiskText(w){
   if(!w||w.count!==12||wwAlive().length>5)return '';
   return '【终局风险】当前只剩 '+wwAlive().length+' 人。投票前先按自己的世界线计算：若候选是好人，她出局后是否会让村民或神职归零、直接输。'+
-    '这是关键票时，必须优先比较其发言视角、动机和硬逻辑；票型相撞、被狼踩过、投过狼或一句口风变化都不是身份定论。';
+    '这是关键票时，必须优先比较其发言视角、动机和硬逻辑；票型相撞、被狼踩过、投过狼或一句口风变化都不是身份定论。'+
+    '\n· 神职被要求解释身份、接受角色测试，不等于“冲神”。只要对方是在用身份关系缩小最后狼坑，不能只因她质疑你的枪或守卫身份就投她。'+
+    '\n· 最后一人已经形成压倒性多数、基本必出时，狼跟票该队友只是低代价卖队友。这次正确票不能抵消此前连续投好人，也不能直接洗白。'+
+    '\n· “票X/出X/归X”是攻击X；“支持X、给X拉票、警长票给X”才是支持X。两种方向不能写反。';
+}
+/* 退水必须由说话人明确作用于自己；“你如果退水”“请她退水”不能算成本人退水。 */
+function wwSpeechSelfRetracts(txt){
+  var s=String(txt||'');
+  return /(?:^|[，,；;：:])\s*(?:我|本人)\s*(?:现在|已经|正式)?\s*(?:退水|退出竞选)/.test(s)||
+    /(?:^|[，,；;：:])\s*(?:我|本人)\s*(?:只是|就是|是在|是)?\s*(?:普通)?好人\s*(?:代跳|压跳)/.test(s)||
+    /(?:^|[，,；;：:])\s*(?:我|本人)[^。！？!?；;\n]{0,12}(?:假验|假查验)[^。！？!?；;\n]{0,10}(?:作废|不算)/.test(s)||
+    /(?:^|[，,；;：:])\s*(?:我|本人)[^。！？!?；;\n]{0,10}(?:退水|代跳|压跳)[^。！？!?；;\n]{0,16}(?:作废|不算|是好人)/.test(s);
 }
 /* 公开跳预承诺账：漏报新查验、双线金水、自踩金水都只用公开信息计算。 */
 function wwSeerCommitmentLedger(w){
@@ -34791,8 +34854,7 @@ function wwSeerCommitmentLedger(w){
     var myRows=rows.filter(function(r){return r.uid===uid&&r.day>=c.day});
     myRows.forEach(function(r){
       var rt=String(r.text||'');
-      if(retractedDay||(!/(?:我|本人|\d{1,2}\s*号)[^。！？!?；;\n]{0,20}(?:退水|代跳|压跳|假验)[^。！？!?；;\n]{0,24}(?:作废|不算|是好人|这叫(?:代跳|压跳)|只是(?:代跳|压跳|试探))/.test(rt)&&
-        !/(?:警上|刚才)[^。！？!?；;\n]{0,24}(?:试探|压跳|代跳)[^。！？!?；;\n]{0,24}(?:退水|不是真预|实际是猎人|现在报猎人)/.test(rt)))return;
+      if(retractedDay||!wwSpeechSelfRetracts(rt))return;
       retractedDay=r.day;
     });
     var markedRetract=Number((w.seerRetractions&&w.seerRetractions[uid])||0);
@@ -36741,8 +36803,20 @@ function wwCoreReasoningIssue(say,w){
   }
   return null;
 }
+function wwVoteDirectionIssues(say){
+  var all=String(say||''),out=[];
+  var attack=/(\d{1,2})\s*号[^。！？!?；;\n]{0,36}?(?:票|投|出局|归票?)\s*(\d{1,2})\s*号/g,m;
+  var actors={};
+  while((m=attack.exec(all)))actors[m[1]+'|'+m[2]]=1;
+  var support=/(\d{1,2})\s*号[^。！？!?；;\n]{0,40}?(?:给|替|支持|保)\s*(\d{1,2})\s*号[^。！？!?；;\n]{0,10}?(?:拉票|站台|当选|撑腰)/g;
+  while((m=support.exec(all))){
+    if(actors[m[1]+'|'+m[2]])out.push(m[0]);
+  }
+  return out;
+}
 function wwPublicFactIssues(say,w){
   return wwVoteFactIssues(say,w)
+    .concat(wwVoteDirectionIssues(say))
     .concat(wwPoliceExileContradictionIssues(say))
     .concat(wwBadgeRecipientKnowledgeIssues(say));
 }
@@ -36878,9 +36952,10 @@ async function wwGuardPublicFactSpeech(p,sys,say){
   try{
     var ask='【公开事实核对】这段发言里有票型或警徽信息与公开记录不符。'+
       '\n'+(wwVoteFactText(V.ww)||'')+
-      '\n· 只能引用票型事实卡中实际存在的“某人→某人”。不能把别人的发言、预测或计划当成已经发生的投票。'+
-      '\n· 警长票是支持谁当选，放逐票是要求谁出局；同一个玩家先被支持当警长，听完发言后又被放逐，不自动构成矛盾。'+
-      '\n· 接警徽的人不会自动获得死者最后一夜的私有查验结果，也没有义务解释自己为什么被选中或替死者解释警徽流。接徽本身不是她的狼点，不能要求她说出自己无权知道的结果。'+
+    '\n· 只能引用票型事实卡中实际存在的“某人→某人”。不能把别人的发言、预测或计划当成已经发生的投票。'+
+    '\n· 警长票是支持谁当选，放逐票是要求谁出局；同一个玩家先被支持当警长，听完发言后又被放逐，不自动构成矛盾。'+
+    '\n· “票X、出X、归X、投X”都是攻击X；“支持X、给X拉票、警长票给X”才是支持X。尤其是已翻狼的行为方向不能写反。'+
+    '\n· 接警徽的人不会自动获得死者最后一夜的私有查验结果，也没有义务解释自己为什么被选中或替死者解释警徽流。接徽本身不是她的狼点，不能要求她说出自己无权知道的结果。'+
       '\n请保持原人设、身份盘、票向和已有判断，重写完整公开发言；若删掉错误事实后判断改变，可以改票并写清新理由。不要解释这条内部核对。\n原发言：'+String(say||'').slice(0,1000);
     var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
     fixed=wwTakeTitle(p,fixed);
@@ -37703,6 +37778,9 @@ function wwReasoningDisciplineText(){
     '更常见的另一种情况是：某人先起跳、后来退水称自己只是好人压跳、假验作废。此时必须比较两条世界线：①她真是好人压跳；②她本人就是狼队预排的原始悍跳位，首轮没压住真验人位，只能退水止损。退水不能自动选择①。若她的压跳没有钓出狼、没有产生信息，真验人位又当场把她顶回去，而场上也找不到另一条可信悍跳狼线，那么“失败后撤退的原跳狼”权重应明显上升。这个判断仍是概率，不是翻牌铁证。'+
     '【双跳先比验人力度】两个验人位对跳时，优先比较“假如这条查验是假的，她需要承担多大暴露风险”，而不是先比谁说得完整、顺耳或强势。狼给警上后置位发金水，后置位可能当场反水立警；假报关键位，可能被本人确认或立刻撞上规则、时间和票型硬矛盾。这种假验风险越高却仍敢报，通常查验力度越大；真验人知道结果是真的，不需要回避这类高风险报法。验低价值暗位、只给无法核验的泛指结果，或冲突已经形成后再验对跳者，力度通常更低。风险力度只是概率，不是“敢冒险就必真”，狼也会豪赌，仍要结合目标反应、后续查验和时间线。'+
     '【共同项与借刀质疑】双方都只有一金水/一查杀、警徽流都完整、分叉都清楚、都不认无结算的代跳、都把对方视为狼，这些都是双跳共同项，不能单独区分真假。第三人先提出某条质疑，后跳者只复述而没有新增查验、时间线或票型事实时，只能算同一份弱线索；多人复读不会增加证据数量。格式、语气和完整度永远排在可核验查验力度之后。'+
+    '【受益者自审】被某条验人线发过金水或接过警徽的人，不能因为“我确实是好人”就反推发牌者是真验人。狼可以准确给好人金水做身份，受水者也会天然维护给自己利益的人；评价发牌者时必须扣掉这层利益，优先看已翻狼行为、确认神职、时间线和票型。'+
+    '【票向方向】“票X、出X、归X、投X”都是攻击X；“支持X、给X拉票、警长票给X”才是支持X。已翻狼攻击A并帮助B时，应明显上调B线狼面、下调A线狼面，同时保留狼卖队友的小概率世界线。'+
+    ((gw&&gw.players&&gw.players.filter(function(x){return x&&x.alive}).length<=5)?'【终局身份测试】质疑一个神职的身份或要求别人认神，不等于冲神；如果这是在用身份关系缩小最后狼坑，不能只因对方质疑你的枪或守人身份就投她。一个已经被多数锁定、基本必出的狼，狼队友跟票只是低代价卖队友，不能洗白此前连续投好人。':'')+
     (beautyBoard?'【狼美人与悍跳分工】狼美人有额外的跟随死亡价值，实战中更常被安排成倒钩、深水或链子位；普通小狼更常承担正面悍跳。这个只是概率分工，不是硬规则：狼美人也可以悍跳。若某个强跳者像普通悍跳狼，另有一个低调、跟票或站位暧昧的狼美人候选，不要因为强跳者退水就把其自动洗白。':'')+
     '【第一夜刀口不是死亡结果】如果你知道狼队昨夜刀了谁（只有狼队知道），那也只是刀口，不是已经公布的死亡结果。除非已有确定信息表明刀中不能自救的真女巫且没有守卫等保护，否则默认女巫首夜大概率会开解药，刀口更可能形成平安夜。死讯公布前，不能把刀口当成“今天必出局的人”来安排警上站位、压跳或发言。'+
     (guardBoard?'【平安夜不等于守卫守住】首夜守卫通常空守；平安夜可能是女巫解药、狼队空刀或收刀，也可能是守卫恰好守住。没有明确的守卫技能结果时，不能写成“某人首夜被守卫守过”。即使某目标首夜被解药救过，第二夜女巫不能再救，但守卫仍可能改守她；不能把“解药已用”和“守卫也不能再守”混成同一件事。':'')+
@@ -37942,14 +38020,17 @@ function wwVillagerClaimAuditText(w){
 /* 警徽分支只作线索：原定接徽人若已死亡或实际改交给最信任好人，不能反推被验者必狼。 */
 function wwBadgeOutcomeAuditText(w){
   if(!w)return '';
-  var rows=wwPublicEventRows(w),plan=null;
+  var rows=wwPublicEventRows(w),plan=null,target=0;
   for(var i=rows.length-1;i>=0;i--){
-    var t=String(rows[i].text||''),vm=t.match(/(?:今晚|今夜|明晚)[^。！？!?；;\n]{0,24}?(?:验|查验|摸)\s*(\d{1,2})\s*号/);
-    if(!vm||!/警徽|接徽|徽给|给.*徽|撕徽/.test(t))continue;
-    var target=Number(vm[1]),badRe=new RegExp(target+'\\s*号?[^。！？!?；;\\n]{0,24}(?:狼|查杀)[^。！？!?；;\\n]{0,36}(?:给|交|接|转)\\s*(\\d{1,2})\\s*号');
-    var bm=t.match(badRe);
-    if(!bm)continue;
-    plan={row:rows[i],target:target,badTo:Number(bm[1])};break;
+    var t=String(rows[i].text||'');
+    if(!/警徽|接徽|徽给|给.*徽|撕徽/.test(t))continue;
+    target=wwBadgePlanTargetFromText(t);
+    if(!target)continue;
+    var branches=wwBadgeFlowBranches(t,rows[i].p.seq);
+    var good=branches.filter(function(b){return b.result==='好人'})[0]||null;
+    var wolf=branches.filter(function(b){return b.result==='狼人'})[0]||null;
+    if(!good&&!wolf)continue;
+    plan={row:rows[i],target:target,good:good,wolf:wolf};break;
   }
   if(!plan)return '';
   var hand=null;
@@ -37959,20 +38040,25 @@ function wwBadgeOutcomeAuditText(w){
     hand={seq:Number(m[1]),day:Number(x.d)||0,text:String(x.t||'')};return true;
   });
   if(!hand)return '';
-  if(hand.seq===plan.target&&wwBoard(w.count,w).mechanicwolf){
-    return '【警徽传送达的身份风险（程序核对）】'+wwTag(plan.row.p)+'在 D'+plan.row.day+
-      ' 公开说过：验 '+plan.target+'号，若为好人就把警徽交给 '+plan.target+'号。实际警徽也确实交给了 '+plan.target+
-      '号。这说明死者愿意按“'+plan.target+'号较好”的方向强烈认可她，'+plan.target+'号应按高概率金水处理；'+
-      '机械狼板里只额外保留'+plan.target+'号是学过该职业的机械狼这一例外。接徽本身不是'+plan.target+
-      '号的狼点，也不需要她解释为什么被选中。';
+  var goodTo=plan.good&&Number(plan.good.recipient)||0;
+  var wolfTo=plan.wolf&&Number(plan.wolf.recipient)||0;
+  var targetP=wwPlayerByUidTarget(w,plan.target),targetTag=targetP?wwTag(targetP):plan.target+'号';
+  var head='【警徽实际落点审查（程序核对）】'+wwTag(plan.row.p)+'在 D'+plan.row.day+
+    ' 的公开警徽流是：'+plan.target+'号好→'+(goodTo?goodTo+'号接徽':'未报')+
+    '；'+plan.target+'号狼→'+(wolfTo?wolfTo+'号接徽':'撕徽/未报')+'。';
+  if(goodTo&&hand.seq===goodTo&&hand.seq!==wolfTo){
+    return head+'实际警徽交给 '+hand.seq+'号，落在“'+plan.target+'号好”分支。'+
+      '这表示传徽者在表达对'+targetTag+'的认可，但不是主持人翻牌，也不能反过来证明传徽者一定是真预言家。';
   }
-  if(hand.seq===plan.target)return '';
-  var fallback=wwPlayerByUidTarget(w,plan.badTo);
-  if(hand.seq!==plan.target&&!(fallback&&!fallback.alive))return '';
-  return '【警徽实际落点审查（程序核对）】'+wwTag(plan.row.p)+'在 D'+plan.row.day+
-    ' 公开说过：验 '+plan.target+'号，若为狼则把徽给 '+plan.badTo+'号。后来警徽实际交给 '+hand.seq+
-    '号；原定狼分支接徽人 '+plan.badTo+'号'+(fallback&&!fallback.alive?'已经死亡':'不在实际落点')+
-    '。因此不能仅凭实际接徽人推出“'+plan.target+'号必狼”：还要保留临时改验、转交最信任好人、原接徽人无法接徽或狼警长做局等解释。';
+  if(wolfTo&&hand.seq===wolfTo&&hand.seq!==goodTo){
+    return head+'实际警徽交给 '+hand.seq+'号，准确落在“'+plan.target+'号狼”分支。'+
+      '若传徽者这条验人线可信，她就是在传达“'+plan.target+'号是狼”；若传徽者本身是悍跳狼，这条警徽信息也可能只是做局，不能把'+plan.target+'号直接写成主持人翻牌狼。'+
+      '不能改写成“好坏两条分支都交给同一个接徽人”。';
+  }
+  if(goodTo&&wolfTo&&goodTo===wolfTo&&hand.seq===goodTo){
+    return head+'实际接徽人 '+hand.seq+'号同时符合两条分支，因此这枚警徽不能区分'+plan.target+'号是好还是狼。';
+  }
+  return head+'实际警徽交给 '+hand.seq+'号，不在已解析的明确分支落点上；只能保留临时改验、转交可信好人和狼警做局等世界线，不能据此认定'+plan.target+'号必狼。';
 }
 /* 晚起跳是当前轮的新事件。投票前必须推翻或修订“起跳前”的旧判断，
    不能沿用旧身份盘直接投票；不额外强迫角色公开发长文。 */
