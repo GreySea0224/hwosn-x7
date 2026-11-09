@@ -16325,6 +16325,10 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀赛后裁判现在采用更严格的反事实标准：只有当时可避免、且能证明实际改变票局或胜负的个人行为才算失误；骑士决斗命中狼、猎人正确开枪、女巫毒中狼等成功操作，不能因为最终仍输就倒推成失误。没有可证明的单人错误时，允许写“无单一玩家 · 好人阵营轮次崩盘”，并单独说明女巫首夜出局、狼美人连带死亡、连续夜杀神职等结构性原因。
 狼人杀继续放宽合理打法：第一天明确标注的信息不足位置学只是暂猜；被验位建议改验外置位是正常策略；猎人只有在即将被推出、必须争夺假猎人或亮枪能救关键轮次时才需要公开，单纯藏枪避免暴露最后神职不算失误。
 狼人杀新增死亡后仍保留的高优先级线索：确认骑士的公开狼坑和条件毒人建议会持续供所有 AI 复核；已经翻狼的玩家，其此前支持、保护或回避的验人线会被回看。报验位活到第三天以后，尤其无守卫、无解药、连续只报安全结果或对跳者已经出局时，AI 必须主动质疑她为什么长期没被狼队处理，但存活本身仍不是翻牌证据。
+狼人杀双跳站边新增“验人力度”优先标准：先看一条查验如果为假，狼需要承担多大暴露风险，例如给警上后置位发金水可能被当场反水立警，假报关键位可能被本人确认或立刻撞上规则、时间线和票型硬矛盾。假验风险越高却仍这样报，通常查验力度越大；真验人知道自己结果是真的，可以承担这种风险。风险力度仍是概率，不是“敢冒险必真”，之后还要看目标反应、后续查验和票型。
+狼人杀警上双跳新增内部对照卡：双方只有一金水/一查杀、警徽流都完整、都不认无结算代跳、都把对方视为狼时，只算共同项，不能区分真假；第三人先提、后跳者只复述而没有新增事实时，只算同一份弱线索。警徽流是否工整、发言是否完整顺耳，不再优先于可核验的查验力度。
+狼人杀修复骑士决斗后的白天收尾：如果玩家在下一位发言前的暂停点发动决斗并命中狼人，程序会立即清掉残留的“正在发言”状态、停止旧发言请求并结束白天，不再让下一位 AI 先开口才进黑夜。
+狼人杀公开发言完整性检查增强：中文逗号、顿号、冒号、分号结尾，或引号、括号没有闭合时，都会识别为截断并在后台静默重写；重写仍失败就不把半句话直接发到公共记录。第一次开口还会明确知道本轮此前谁真正发过言，不能再编造“刚才那轮、上一轮、我上一版”或评价尚未发言者已经说过的话。
 
 【最近更新 · 2026-11-08】
 所有游戏的战绩详情新增“收藏战绩”：收藏会置顶并永久绕过最近 80 条普通战绩的清理上限，取消收藏或明确删除后会恢复正常清理规则；收藏状态随游戏记录一起备份。
@@ -16589,7 +16593,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=143;  /* 143：补强原始起跳位、裁判反事实与结构性败因判断 */
+const GUIDE_VER=144;  /* 144：补强骑士收尾、双跳验人力度与公开发言截断检查 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -33838,6 +33842,35 @@ function wwFlippedWolfSpeechAuditText(w){
   return '【已翻狼发言回溯】\n'+out.join('\n')+
     '\n· 重点看她此前支持、保护、抬高或刻意回避了哪条验人线。若翻狼长期替某个跳预者说好话、避开其矛盾或帮其稳票，应提高该跳预者狼面；但狼也会卖队友，单次支持不能直接翻牌。';
 }
+function wwSeerClaimContrastText(w,p){
+  if(!w)return '';
+  var ledger=wwSeerCommitmentLedger(w);
+  var claims=(ledger.claims||[]).filter(function(c){return c&&c.p&&c.p.alive&&!c.retractedDay});
+  if(claims.length<2)return '';
+  var claimName=wwBoard(w.count,w).medium?'通灵师':'预言家';
+  var rows=wwPublicEventRows(w),out=[];
+  claims.sort(function(a,b){return (Number(a.day)||1)-(Number(b.day)||1)});
+  claims.forEach(function(c){
+    var checks=(c.checks||[]).map(function(x){
+      var tgt=wwPlayerByUidTarget(w,x.seq);
+      return wwTag(tgt||{seq:x.seq,name:'?'})+'＝'+x.result+'（'+x.ref+'）';
+    });
+    out.push('· '+wwTag(c.p)+'：从 '+c.ref+' 起自称'+claimName+'；'+
+      (checks.length?('公开查验 '+checks.join('、')+'.'):'目前没有可核验的已完成查验。'));
+  });
+  var suspicion=rows.filter(function(r){
+    return /(?:不认代跳|不认什么代跳|谁再跳预|堵嘴|封死.*(?:起跳|代跳)|单金水.*(?:封|堵))/.test(String(r.text||''));
+  }).slice(0,6);
+  if(suspicion.length){
+    out.push('· 同类质疑的公开来源顺序：'+suspicion.map(function(r){return r.ref+' '+wwTag(r.p)}).join(' → ')+
+      '。后出现者若只是复述，没有新增查验、时间线或票型事实，只能算同一份弱线索，不能按人数或复读次数升级。');
+  }
+  return '【双跳验人力度对照（只按公开事实）】\n'+out.join('\n')+
+    '\n· “一金水/一查杀”“警徽流完整”“分支分叉清楚”“不接受无结算的代跳”“把另一个对跳者视为狼”通常双方都能做到，不能单独区分真假，也不是投票主理由。'+
+    '\n· 验人力度优先看：假如这条查验是假的，需要承担多大暴露风险。例如狼给警上后置位发金水，对方可能当场反水立警；给关键位发具体结果，可能被本人确认或立刻出现规则、时间线硬矛盾。假验越容易翻车，却仍选择这样报，通常力度越高；真验人知道自己结果是真的，可以承担这种风险。'+
+    '\n· 风险力度是概率判断，不是“敢冒险必真”；狼也可能故意豪赌。必须同时核对查验时间线、目标实际反应、后续新验和票型。'+
+    '\n· 比较顺序应为：可核验查验力度与目标反应 > 规则/时间线硬矛盾 > 票型承诺 > 发言措辞、完整度和语感。若只有措辞差异，不能据此认定哪边为真。';
+}
 function wwSeerSurvivalPressureText(w,p){
   if(!w||Number(w.day)<3)return '';
   var ledger=wwSeerCommitmentLedger(w),out=[];
@@ -33889,6 +33922,14 @@ function wwCurrentTurnText(w,p){
   if(aliveActive.length<=1&&(retired.length||deadActive.length)){
     L.push('· 可以说历史上有人起跳、退水或出局，但不能说现在仍有“几位对跳/多人对跳”。当前存活且未退水的'+claimName+'线只有 '+(aliveActive.length?wwTag(aliveActive[0]):'0 条')+'。');
   }
+  if(p){
+    var todayRows=wwPublicEventRows(w).filter(function(r){return Number(r.day)===Number(w.day)});
+    var mineToday=todayRows.filter(function(r){return r.uid===p.uid});
+    L.push('· 本轮截至目前真正公开发过言的人：'+(todayRows.length?todayRows.slice(-10).map(function(r){return r.ref+' '+wwTag(r.p)}).join('、'):'暂无')+'。');
+    if(!mineToday.length){
+      L.push('· 你本轮此前没有公开发言。不能写“刚才那轮、上一轮、我上次说、我上一版、重新说、又说一遍”，也不能评价尚未发过言的人已经说了什么；这是你本轮第一次开口。');
+    }
+  }
   if(deadActive.length){
     L.push('· 起跳者死亡不等于退水，也不等于放弃身份。只要出局者此前没有正式退水或作废身份，就不能仅因为场上只剩另一名活着的起跳者，就把她封成没有争议的单边真'+claimName+'。');
   }
@@ -33896,6 +33937,8 @@ function wwCurrentTurnText(w,p){
   if(knightClue)L.push(knightClue);
   var flippedWolf=wwFlippedWolfSpeechAuditText(w);
   if(flippedWolf)L.push(flippedWolf);
+  var claimContrast=wwSeerClaimContrastText(w,p);
+  if(claimContrast)L.push(claimContrast);
   var survival=wwSeerSurvivalPressureText(w,p);
   if(survival)L.push(survival);
   var attributionAudit=wwClaimAttributionAuditText(w);
@@ -36030,7 +36073,18 @@ function wwStripLead(t){
 function wwSpeechLooksCut(txt){
   var s=String(txt||'').trim();
   if(!s)return true;
+  /* 公开发言必须形成完整句意。以逗号、顿号、冒号、分号结尾，
+     或引号/括号没有闭合，都属于接口截断，不能直接发到桌上。 */
+  if(/[，,、：:；;—–-]$/.test(s))return true;
+  var pairs=[['“','”'],['「','」'],['『','』'],['（','）'],['(',')'],['【','】'],['[',']']];
+  for(var i=0;i<pairs.length;i++){
+    var a=s.split(pairs[i][0]).length-1,b=s.split(pairs[i][1]).length-1;
+    if(a>b)return true;
+  }
   if(/[。！？!?；;…”」』）)\]】]$/.test(s))return false;
+  /* 太短又没有句末标点，通常不是完整公开发言。 */
+  var plain=s.replace(/[“”「」『』（）()【】\[\]\s]/g,'');
+  if(plain.length<24)return true;
   return /(?:我反过来问你|我还想|我还得|我想问|我想说|我现在|但是|因为|所以|然后|而且|如果|要是|比如|例如|也就是说|这就|那这|并且|或者)$/.test(s);
 }
 function wwStripInternalSpeechLeak(txt){
@@ -37337,16 +37391,25 @@ async function wwGuardOffPoliceSeerSpeech(p,sys,say){
 async function wwGuardSpeechCompleteness(p,sys,out){
   out=wwStripInternalSpeechLeak(out);
   if(!wwSpeechLooksCut(out))return out;
-  try{
-    var fixed=String(await wwCall(sys,'上一段公开发言最后停在了半句话，没有形成完整句意。请保持原人设、已经确认的事实和原票向，从头重写完整公开发言；不要只补最后几个字，不要解释为什么重写，不要提内部检查或系统提示。上一版：'+String(out||'').slice(0,900),wwSayMax(),.62)||'').trim();
-    fixed=wwTakeTitle(p,fixed);
-    fixed=wwTakeIdentityBoard(p,fixed).text;
-    var sp=wwSplitDraft(fixed);fixed=wwStripLead(sp.say||fixed);
-    if(sp.draft)p.scratch=sp.draft;
-    fixed=wwStripInternalSpeechLeak(fixed);
-    if(fixed&&!wwSpeechLooksCut(fixed))return fixed;
-  }catch(e){}
-  return wwStripInternalSpeechLeak(out);
+  var last=out;
+  for(var pass=0;pass<2;pass++){
+    try{
+      var ask=(pass?'上一版仍然没有形成完整句意。':'上一段公开发言最后停在了半句话。')+
+        '请保持原人设、已经确认的事实和原票向，像本轮第一次开口一样，从头写一段完整、可直接公开说的话。'+
+        '最后必须有明确句末标点，控制在适合桌游发言的长度；不要只补最后几个字，不要出现“重新说、我说错了、刚才那句、上一版”这类自指修补，不要提内部检查或系统提示。'+
+        (pass?'如果内容太多，就缩短为三到六句，只保留身份、核心判断和票向。':'')+
+        '上一版：'+String(last||'').slice(0,900);
+      var fixed=String(await wwCall(sys,ask,wwSayMax(),pass?.55:.62)||'').trim();
+      fixed=wwTakeTitle(p,fixed);
+      fixed=wwTakeIdentityBoard(p,fixed).text;
+      var sp=wwSplitDraft(fixed);fixed=wwStripLead(sp.say||fixed);
+      if(sp.draft)p.scratch=sp.draft;
+      fixed=wwStripInternalSpeechLeak(fixed);
+      if(fixed)last=fixed;
+      if(fixed&&!wwSpeechLooksCut(fixed))return fixed;
+    }catch(e){}
+  }
+  return wwSpeechLooksCut(last)?'这轮我先按已经听到的公开发言和现有票型判断，完整结论下一轮再补。':wwStripInternalSpeechLeak(last);
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
@@ -37638,6 +37701,8 @@ function wwReasoningDisciplineText(){
     '【原始悍跳位】“已起跳位”是谁已经公开跳身份；“原始悍跳位”是高概率由狼队提前安排、专门负责悍跳的小狼。9/12 人 AI 狼局通常都会安排一只悍跳狼，临场改跳、退水可以发生，但“狼队完全没有悍跳安排”不是默认高概率世界线。'+
     '若先跳验人位的 x 可信，y 知道自己是好人且不是验人位，则 x 之后、原本最可能接位的 z 是后置原始悍跳位的高优先候选。'+
     '更常见的另一种情况是：某人先起跳、后来退水称自己只是好人压跳、假验作废。此时必须比较两条世界线：①她真是好人压跳；②她本人就是狼队预排的原始悍跳位，首轮没压住真验人位，只能退水止损。退水不能自动选择①。若她的压跳没有钓出狼、没有产生信息，真验人位又当场把她顶回去，而场上也找不到另一条可信悍跳狼线，那么“失败后撤退的原跳狼”权重应明显上升。这个判断仍是概率，不是翻牌铁证。'+
+    '【双跳先比验人力度】两个验人位对跳时，优先比较“假如这条查验是假的，她需要承担多大暴露风险”，而不是先比谁说得完整、顺耳或强势。狼给警上后置位发金水，后置位可能当场反水立警；假报关键位，可能被本人确认或立刻撞上规则、时间和票型硬矛盾。这种假验风险越高却仍敢报，通常查验力度越大；真验人知道结果是真的，不需要回避这类高风险报法。验低价值暗位、只给无法核验的泛指结果，或冲突已经形成后再验对跳者，力度通常更低。风险力度只是概率，不是“敢冒险就必真”，狼也会豪赌，仍要结合目标反应、后续查验和时间线。'+
+    '【共同项与借刀质疑】双方都只有一金水/一查杀、警徽流都完整、分叉都清楚、都不认无结算的代跳、都把对方视为狼，这些都是双跳共同项，不能单独区分真假。第三人先提出某条质疑，后跳者只复述而没有新增查验、时间线或票型事实时，只能算同一份弱线索；多人复读不会增加证据数量。格式、语气和完整度永远排在可核验查验力度之后。'+
     (beautyBoard?'【狼美人与悍跳分工】狼美人有额外的跟随死亡价值，实战中更常被安排成倒钩、深水或链子位；普通小狼更常承担正面悍跳。这个只是概率分工，不是硬规则：狼美人也可以悍跳。若某个强跳者像普通悍跳狼，另有一个低调、跟票或站位暧昧的狼美人候选，不要因为强跳者退水就把其自动洗白。':'')+
     '【第一夜刀口不是死亡结果】如果你知道狼队昨夜刀了谁（只有狼队知道），那也只是刀口，不是已经公布的死亡结果。除非已有确定信息表明刀中不能自救的真女巫且没有守卫等保护，否则默认女巫首夜大概率会开解药，刀口更可能形成平安夜。死讯公布前，不能把刀口当成“今天必出局的人”来安排警上站位、压跳或发言。'+
     (guardBoard?'【平安夜不等于守卫守住】首夜守卫通常空守；平安夜可能是女巫解药、狼队空刀或收刀，也可能是守卫恰好守住。没有明确的守卫技能结果时，不能写成“某人首夜被守卫守过”。即使某目标首夜被解药救过，第二夜女巫不能再救，但守卫仍可能改守她；不能把“解药已用”和“守卫也不能再守”混成同一件事。':'')+
@@ -40093,6 +40158,8 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
     '最佳操作、MVP 和赌局转折要落在可核对的原话、票型、技能结果上；最惨失误必须说明它怎样实际改变票局或胜负。合理的可能性、普通口语转述、警上只说“后置位”而未指定身份、没有翻牌的自称，都不能单独列为失误。');
   L.push('【对跳查验判断】两名验人位硬对跳后，双方声称“我验了对手，所以对手是狼/机械通灵”并不能区分真假：真验人位和悍跳狼都能给出这套说法，结果本身没有公开验证力。评价验人线应看她们对非对跳者的查验是否准确、目标是否确认、结果是否精确、时间线是否成立，以及是否把宝贵查验机会放在能产生新信息的外置位。'+
     '在退水环节结束后，仍存在的对跳者中，一个对跳者一般不会去验另一个不退水的对跳者；他们应该都将对方视为悍跳狼，而不是声称自己会去验对方。起跳者死亡后不等于退水，也不等于放弃身份。如果查验发生在对方起跳前、尚未获得改计划机会，则不能反过来当事后狼点。对方正式退水并作废身份后，也不再是活跃对跳目标。'+
+    '比较两条起跳线时，优先估计“这条查验如果是假的，狼要承担多大暴露风险”：给警上后置位发金水可能被当场反水立警，假报关键位可能被本人确认或立刻撞上规则、时间和票型硬矛盾。假验风险越高却仍这样报，通常查验力度越大；真验人知道自己结果是真的，可以承担这种风险。验低价值暗位、无法核验的泛指结果，或冲突形成后再验对跳者，力度通常更低。风险力度是概率，不是“敢冒险必真”，狼也会豪赌。'+
+    '双方都一金水/一查杀、都有完整警徽流、都不认无结算代跳、都把对方视为狼时，这些是共同项，不能区分真假。后跳者只复述第三人先提出的质疑而没有新增事实时，不能按独立新证据计算。发言是否完整、顺耳、强势和警徽流写得多工整，只能评价表达，不能优先于查验力度。'+
     '普通预言家板只有金水/查杀，被验者说“我是好人/我认金水”只是自述，不能独立验证验人者；通灵师板认下具体表面职业才有较强核对价值。');
   L.push('【最惨失误与反事实因果】“最惨失误”必须是玩家在当时信息下可避免、且实际改变了胜负的具体行为。不能只用“如果她不这样做，别人可能就会投另一个狼”定罪：必须检查当时是否已有足够票数、明确归票承诺和能通过的替代方案。骑士决斗命中狼人后按规则白天立即结束，这是技能机制，不是额外阻止投票；除非有硬证据证明原本已有更优票口必然出局，否则不能把“没有继续投票”写成骑士失误。'+
     '成功的骑士决斗、猎人正确开枪、女巫毒中狼等已经产生正向结果的操作，不能因为最终仍输就倒推成失误。女巫首夜被刀、狼美人形成连带死亡、连续夜杀神职造成的好人结构性轮次劣势，必须单独写明；不能把好人本来就极低的胜率全部压到某一个正确命中狼的操作上。'+
@@ -42363,6 +42430,12 @@ function wwNotesHTML(){
 /* ---------- 【新】白狼王自爆 ---------- */
 /* 今天是不是已经被「自爆」提前结束了 */
 function wwDayCut(){var w=V.ww;return !!(w&&w.dayOver===w.day)}
+function wwDayCutUI(){
+  var w=V.ww;if(!w)return;
+  w.speaking=null;
+  if(!w.msg||/正在|生成中|请稍等/.test(String(w.msg||'')))w.msg='白天已结束，准备进入黑夜。';
+  render(true);
+}
 function wwKingP(){var a=wwAlive().filter(function(p){return p.role==='wolfking'});return a[0]||null}
 /* 给白狼王看的「精简局面」：最近几条发言各截一半、狼队频道只带最近几条 —— 尽量少花 token */
 function wwKingCtx(p){
@@ -42642,11 +42715,27 @@ async function wwPoliceWater(p){
 }
 /* 一个 AI（警下）投警长票 */
 async function wwPoliceVote(p,pool){
-  var sys=wwSysFor(p,'现在是警长票。投给谁＝支持谁当选警长，不是放逐、不是反对谁。请从仍在竞选的人里，选一个你比较信得过、愿意让她拿警徽的人：'+pool.map(wwName).join('、')+
+  var task='现在是警长票。投给谁＝支持谁当选警长，不是放逐、不是反对谁。请从仍在竞选的人里，选一个你比较信得过、愿意让她拿警徽的人：'+pool.map(wwName).join('、')+
     '\n别因为讨厌某个人就把票投给她；投出去的票表示你支持她当警长。'+
-    '\n【输出格式】只输出你要支持的那个人编号或名字（例如「3号」）。');
-  var txt=await wwCall(sys,'请投票。',40,.8);
-  return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
+    '\n【双跳站边顺序】先比“假如某个起跳者的查验是假的，她要冒多大暴露风险”：给警上后置位发金水后可能被反水立警、假报关键位可能被本人确认或撞上规则/时间线硬矛盾，这类高风险报验的力度通常更大。再比目标反应、后续查验和票型。'+
+    '\n“警徽流完整、分叉清楚、表达流畅、听起来更像”是中性项，双方都能做到，不能作为主要支持理由。后跳者只复述第三人先提出的质疑、没有新增事实时，也不能获得更高可信度。'+
+    '\n【内部核对】你选择支持某人之前，必须能说出另一个候选人无法同样做到的一条可核验差异；如果只有格式或语感差异，就不能用这个理由定她更像真验人位。'+
+    '\n【输出格式】第一行只写“支持：编号或名字”；第二行只写“关键差异：一句话”。不要写第三行。';
+  var sys=wwSysFor(p,task);
+  function parse(out){
+    var lines=String(out||'').split(/\n+/).map(function(x){return x.trim()}).filter(Boolean);
+    var first=lines[0]||String(out||'');
+    var who=wwMatch(first,pool)||wwMatch(String(out||''),pool);
+    return {who:who,reason:lines.slice(1).join(' ')};
+  }
+  var txt=await wwCall(sys,'请投票。',100,.8);
+  var got=parse(txt);
+  var styleOnly=/^(?:她|对方)?(?:警徽流|徽流|分支|表达|发言).{0,18}(?:清楚|完整|工整|流畅|好|顺|漂亮)$/.test(got.reason.replace(/^关键差异[：:]\s*/,'').trim());
+  if(!got.who||!got.reason||styleOnly){
+    var fixed=await wwCall(sys,'上一版没有给出足够的关键差异，或只用了“警徽流更清楚/表达更完整”这类中性理由。请重新比较两份公开查验：哪一种报法如果为假，更容易被后置位反水、本人确认或规则时间线当场拆穿？只按这个可核验风险差异重新选择。仍按两行格式回答。',100,.65);
+    got=parse(fixed);
+  }
+  return got.who||pool[Math.floor(Math.random()*pool.length)];
 }
 /* 一个 AI 警长决定今天的发言顺序 */
 async function wwOrderAI(sh,alive){
@@ -43007,6 +43096,10 @@ async function wwKnightDuel(p,tgt,byUser){
     w.log.push({k:'sys',text:'⚔ 骑士 '+wwTag(p)+' 决斗 '+wwTag(tgt)+'：'+wwTag(tgt)+'是狼人，立即出局；白天结束。'});
     w.rec.push({d:w.day,t:'骑士 '+wwTag(p)+' 决斗 '+wwTag(tgt)+'：'+wwTag(tgt)+'是狼人，白天立即结束'});
     w.dayOver=w.day;
+    w.speaking=null;
+    w.knightPending=false;
+    w.msg='⚔ 骑士命中狼人，白天结束，准备进入黑夜。';
+    try{if(_WWAC){_WWAC.abort();_WWAC=null}}catch(e){}
     try{wwFx(tgt.uid,'hit',2200)}catch(e){}
     render(true);
     if(wwSheriffOn()&&!w.badgeGone&&w.sheriffUid===tgt.uid){try{await wwBadgePass()}catch(e){}}
@@ -43063,8 +43156,7 @@ async function wwKnightUserAction(label){
   if(!r.uid)return false;
   var tgt=wwPlayerByUid(r.uid);
   if(!tgt)return false;
-  await wwKnightDuel(p,tgt,true);
-  return true;
+  return await wwKnightDuel(p,tgt,true);
 }
 async function wwKnightUserStart(){
   var w=V.ww,p=wwKnightP();
@@ -43072,7 +43164,14 @@ async function wwKnightUserStart(){
   if(w.resayOn)return toast('等这段重新说完再发动决斗');
   if(w.userAsk||w.voteMode)return toast('先完成当前的发言或投票，再发动决斗');
   if(w.gateResolve){
-    await wwKnightUserAction('⚔ 骑士决斗：选择一个人');
+    var duelRes=await wwKnightUserAction('⚔ 骑士决斗：选择一个人');
+    if(duelRes==='wolf'){
+      var gr=w.gateResolve;
+      w.gate={};w.gateResolve=null;
+      w.speaking=null;w.msg='⚔ 骑士命中狼人，白天结束，准备进入黑夜。';render(true);
+      if(gr)try{gr()}catch(e){}
+      return;
+    }
     if(w.gateResolve&&!w.resayOn)wwGo();
     return;
   }
@@ -43310,9 +43409,11 @@ async function wwDay(){
     }else{
       await wwStep('轮到「'+wwTag(q)+'」发言');
       if(wwStaleG(gen))return;
+      if(wwDayCut()){wwDayCutUI();return;}
       w.msg='「'+wwTag(q)+'」正在发言…';render(true);
       var s=await wwSpeech(q);
-      if(wwStaleG(gen)||wwDayCut())return;   /* 【新】这中间白狼王自爆了：这段发言作废、不再写进记录 */
+      if(wwStaleG(gen))return;
+      if(wwDayCut()){wwDayCutUI();return;}   /* 这中间决斗命中狼或白狼王自爆：这段发言作废、不再写进记录 */
       if(!wwPushSay(gen,{k:'say',who:q.uid,text:s,think:wwThinkOf(q)}))return;   /* 中间换了局就别写进去 */
       w.spoke[q.uid]=1;
       wwSave(true);
@@ -43320,7 +43421,8 @@ async function wwDay(){
     lastSpoken=q;
     if(q.role==='knight'&&q.alive&&!q.isUser&&!wwDayCut()){
       var kres0=await wwKnightTry(q,'speech');
-      if(wwStaleG(gen)||wwDayCut())return;
+      if(wwStaleG(gen))return;
+      if(wwDayCut()){wwDayCutUI();return;}
       if(wwCheckOver())return;
     }
     if(w.knightPending){
@@ -43328,7 +43430,8 @@ async function wwDay(){
       if(meK&&meK.isUser&&wwKnightReady(meK)){
         w.knightPending=false;
         await wwKnightUserAction('⚔ 骑士决斗：选择一个人');
-        if(wwStaleG(gen)||wwDayCut())return;
+        if(wwStaleG(gen))return;
+        if(wwDayCut()){wwDayCutUI();return;}
         if(wwCheckOver())return;
       }
     }
@@ -43341,7 +43444,8 @@ async function wwDay(){
   var kpEnd=wwKnightP();
   if(kpEnd&&!kpEnd.isUser&&wwKnightReady(kpEnd)&&!w.over&&!wwDayCut()){
     await wwKnightTry(kpEnd,'beforeVote');
-    if(wwStaleG(gen)||wwDayCut())return;
+    if(wwStaleG(gen))return;
+    if(wwDayCut()){wwDayCutUI();return;}
     if(wwCheckOver())return;
   }
   if(lastSpoken&&!lastSpoken.isUser&&!w.over&&!wwDayCut()){
