@@ -16381,6 +16381,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀修复了重新发言和刷新续局的上下文问题：重说完成后不会再拿旧身份盘覆盖当前角色进度；白天已经出现发言时会保留现场，从还没发言的人继续；当天已经被骑士决斗结束的局也能正确续到下一夜。AI 发言检查失败时只保留角色原话，不再把系统核对句贴上公屏。觉醒骑士按钮在等待继续、场记总结和 AI 发言期间保持可见，重复点击会被拦住；真人使用骑士/觉醒骑士决斗、觉醒守护、女巫药、猎人枪或狼王技能前都会再确认一次，防止手滑。
 狼人杀警上发言现在按已有信息量检查：前面已经有多名验人位时，普通上警者不能只复述“先听、再记、谁经得起核对就投谁”，必须点名比较并给出当前警长票倾向。已由主持人翻成狼或其他身份的旧跳预者，不再算当前有效对跳。唯一存活且没有未翻牌死者竞争的预言家/通灵师，普通好人没有夜数、漏报、规则、查验或明确假验硬冲突时，不能只凭狼坑数量反投。跳预承诺账也修掉了把同一天第二次发言误记成下一天漏报的问题；改票必须引用本人上次发言之后的新事件，“太顺、划水、像写好的”等弱评价不再进入跨轮核心质问。
 狼人杀修复了觉醒守卫身份泄露：AI 守卫白天考虑使用觉醒守护，或觉醒骑士准备决斗时考虑给盾，界面只显示“某位玩家正在考虑是否发动技能”，不再显示具体座位号；只有你自己是觉醒守卫时，才显示你的守护选择。
+狼人杀觉醒守卫的骑士协同现在不会偷看底牌硬猜：只有觉醒骑士本人已经公开声称身份，或主持人已经公开确认她，守卫才会进入给盾流程；否则直接跳过，不消耗当天守护。确认骑士后，AI 守卫的候选也只保留这名已公开骑士，不会再把盾随机送给狼人。
 
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
@@ -16612,7 +16613,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=149;  /* 149：修复AI觉醒守卫行动提示泄露座位身份 */
+const GUIDE_VER=150;  /* 150：觉醒守卫不知道骑士时不猜盾，已知骑士时只守该骑士 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -43750,19 +43751,34 @@ async function wwAwakenedGuardDayTry(p,reason){
   render(true);
   return false;
 }
+function wwAwakenedGuardKnowsKnight(w,knight){
+  if(!w||!knight||!knight.alive)return false;
+  var data=wwPublicIdentityData(w),rows=data.awakenedknight||{};
+  if(rows[knight.uid])return true;
+  var seq=String(Number(knight.seq)||0);
+  if(!seq||seq==='0')return false;
+  var re=new RegExp('(?:觉醒骑士|骑士)\\s*'+seq+'\\s*号\\s*决斗');
+  return (w.log||[]).some(function(e){
+    return e&&e.k==='sys'&&re.test(String(e.text||''));
+  });
+}
 async function wwAwakenedGuardKnightSync(knight){
   var w=V.ww,guard=wwAwakenedGuardP(),gen=wwGenNow();
   if(!w||!knight||!guard||guard===knight||!wwAwakenedGuardDayReady(guard))return false;
   var pool=wwAwakenedGuardPool(guard);
   if(!pool.length)return false;
+  /* 守卫不知道谁是骑士时，不能靠系统知道底牌硬猜，更不能把盾扔给狼。 */
+  if(!wwAwakenedGuardKnowsKnight(w,knight))return false;
   if(guard.isUser){
     await wwAwakenedGuardDayTry(guard,'knight');
     return true;
   }
+  var knightPool=pool.filter(function(x){return x&&x.uid===knight.uid});
+  if(!knightPool.length)return false;
   await wwStep('某位玩家正在考虑是否给骑士提供保护');
   if(wwStaleG(gen))return false;
   w.msg='某位玩家正在考虑是否给骑士提供保护…';render(true);
-  var tgt=await wwAwakenedGuardChoose(guard,pool,'day','knight');
+  var tgt=await wwAwakenedGuardChoose(guard,knightPool,'day','knight');
   if(wwStaleG(gen))return false;
   w.awakenedGuardActionDay=w.day;
   if(tgt){
