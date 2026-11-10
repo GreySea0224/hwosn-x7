@@ -16336,6 +16336,13 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀新增翻狼行为方向账：程序会直接识别“票X/出X/归X”是在攻击X，不能写成“给X拉票”；已翻狼攻击一名起跳者、帮助另一条验人线时，必须明显调整两条线的可信度，同时保留狼卖队友的小概率世界线。
 狼人杀双跳对照卡现在会给每条查验标出假验风险低/中/高：目标在警下、已经发言或退水时即时反水风险低；目标仍在后置位且未发言时风险高。双方都是低风险时，AI 必须承认暂无明显力度差，不能硬选一方。
 狼人杀终局新增身份测试与低代价跟票规则：质问神职真假不等于冲神；一个狼队友已经基本必出时，狼跟票只是低代价卖队友，不能洗白此前连续投好人的记录。
+狼人杀觉醒骑士板修正守卫/骑士简称：本板只有觉醒守卫时，“我是守卫”会识别成觉醒守卫；本板只有觉醒骑士时，“我是骑士”会识别成觉醒骑士，不再提示“本板不存在的身份”。普通守卫和觉醒守卫的板子判断也统一了，不再出现一边有觉醒守卫、一边说本板没有守卫。
+狼人杀觉醒守卫新增骑士协同：首夜默认优先空守或自守，保留白天守护机会；觉醒骑士准备发动连锁决斗时，如果守卫当天还没使用守护，会先让守卫考虑给骑士盾。AI 守卫会收到“优先保骑士容错”的短提示，但仍自行决定。
+狼人杀觉醒骑士决斗按钮在白天发言阶段持续可见，等待继续和 AI 正在发言时也能打开。AI 发言中点击会中断当前请求、作废未完成发言并直接选择决斗目标；投票、PK、夜里和已经用过技能时仍不可用。
+狼人杀新增觉醒守卫夜间保护矩阵：公开守人记录若指向X，会提示下一夜不能连守X；若刀X可直接屠民或屠神，优先比较这条必死终局刀，不能再盲目撞可能自守的守卫。
+狼人杀普通预言家板不再追问“认不认金水”，也不把目标承认金水当成验人验证；只有通灵师板确认具体表面职业才有核对价值。
+狼人杀神职起跳新增死亡双线：有人单边跳女巫、守卫、猎人等神职且无人对跳时，只要场上有未翻牌死者，就必须保留“死者才是真神，活人是狼刀神后穿衣服”的世界线；必须有守人命中、药线、枪、决斗结果等硬证据才能提高可信度。
+狼人杀普通听发言的上警兜底改为自然短句，不再用“重点看完整查验、警徽优先给真预”整段替换成固定系统口吻。
 
 【最近更新 · 2026-11-08】
 所有游戏的战绩详情新增“收藏战绩”：收藏会置顶并永久绕过最近 80 条普通战绩的清理上限，取消收藏或明确删除后会恢复正常清理规则；收藏状态随游戏记录一起备份。
@@ -16600,7 +16607,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=145;  /* 145：修复退水/警徽解析并补金水自审、翻狼方向与终局测试 */
+const GUIDE_VER=146;  /* 146：修正觉醒板守卫识别、骑士协同、决斗按钮与神职死亡双线 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -29950,7 +29957,7 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     policeAll:[],upSpoke:{},electing:false,pendingDeaths:null,speechStart:'',speechDir:1,
     board:'std',guardLast:'',lastExile:null,nightmareMetWolves:false,nightmareLast:'',charmTarget:'',charmWinPending:false,kingBoom:false,kingNote:'',dayOver:0,
     knightUsed:false,knightAsk:null,knightSelected:'',knightPending:false,inPK:false,dualSeerClaims:false,
-    awakenedKnightUsed:false,awakenedKnightDueled:{},awakenedKnightPending:false,awakenedKnightBatch:[],
+    awakenedKnightUsed:false,awakenedKnightDueled:{},awakenedKnightPending:false,awakenedKnightInterrupt:false,awakenedKnightBatch:[],
     awakenedGuardTarget:'',awakenedGuardDay:0,awakenedGuardLast:'',awakenedGuardLastDay:0,awakenedGuardActionDay:0,awakenedGuardSuccessDay:0,awakenedGuardPending:false,
     awakenedWolfBeautyCharm:null,awakenedWolfBeautyCharmUsed:false,
     voteMode:'',votePick:null,voteHit:'',votePool:[],voteLeft:0,voteResolve:null,witchLog:[],
@@ -33717,8 +33724,10 @@ function wwFactsFor(p){
     if(w.night&&w.night.wolf&&!w.night.spared)
       L.push('· 你们狼队昨晚刀的是 '+wwName(w.night.wolf)+(w.pendingDeaths?'（死讯还没公布，先别声张）':(w.night.wolf.alive?'，TA 现在还活着（多半是女巫的解药救回来了）':''))+
         '。（仅狼队知道，白天别说。'+(
-          wwBoard(w.count,w).guard
-            ?'平安夜不等于守卫守住：首夜守卫通常空守，更常见的解释是女巫解药，也可能是空刀、收刀或少数情况下的盲守；不能据此认定解药已经用掉，也不能认定目标今夜一定没人能守。'
+          wwBoardHasGuard(w)
+            ?(wwBoardHasAwakenedGuard(w)
+              ?'本板有觉醒守卫：她可以自守，保护能挡狼刀、毒药、放逐和觉醒骑士决斗，且不能连续两天守同一人。平安夜可能是她挡住，也可能是解药或狼队空刀/收刀。'
+              :'平安夜不等于守卫守住：首夜守卫通常空守，更常见的解释是女巫解药，也可能是空刀、收刀或少数情况下的盲守；不能据此认定解药已经用掉，也不能认定目标今夜一定没人能守。')
             :'本板没有守卫；平安夜只能优先考虑女巫解药，或狼队空刀、收刀等实际发生的情况，不能盘守卫挡刀或守卫改守。'
         )+
         (w.electing&&Number(w.day)===1?' 现在还在警上、死讯尚未公布：刀口不等于已经死亡，除非确定刀中不能自救的真女巫且无人保护，否则默认对方更可能被女巫首夜救起，不能按“她今天一定出局”安排战术。':'')+'）');
@@ -33905,6 +33914,47 @@ function wwSeerBeneficiaryAuditText(w,p){
     '\n· 你收到金水或警徽后天然更容易维护发牌者。评价这条验人线时，必须扣掉这层个人利益，优先使用已翻狼行为、明骑士信息、查验时间线和票型等外部事实。'+
     '\n· 若确认骑士或已翻狼的行为指向相反方向，必须明确比较，不能因为“我已经认了她的金水”就继续站原边。';
 }
+function wwCheckedTargetShieldText(w,p){
+  if(!w||!w.players||!w.players.length)return '';
+  var ledger=wwSeerCommitmentLedger(w),rows=wwPublicEventRows(w),out=[],seen={};
+  (ledger.claims||[]).forEach(function(c){
+    if(!c||!c.p||c.retractedDay)return;
+    (c.checks||[]).forEach(function(x){
+      if(!wwCheckResultIsWolf(x.result))return;
+      var target=wwPlayerByUidTarget(w,x.seq);
+      if(!target)return;
+      rows.forEach(function(r){
+        if(!r||r.uid===c.p.uid||r.uid===target.uid)return;
+        var t=String(r.text||'');
+        if(!wwMentionsSeq(t,target.seq))return;
+        if(!/(?:我认|认下|像|更像|偏向|就是).{0,8}(?:村民|好人|不是狼)|(?:村民|好人|不是狼).{0,8}(?:味道|面|反应)/.test(t))return;
+        var key=r.uid+'|'+target.uid+'|'+x.ref;
+        if(seen[key])return;seen[key]=1;
+        out.push('· '+wwTag(r.p)+'在 '+r.ref+' 没有对 '+wwTag(target)+' 的查验，却公开把她往村民/好人方向认。'+
+          (target.revealed&&wwIsWolf(target)?' 现在'+wwTag(target)+'已翻狼，这次公开保人应作为强共边线索重审。':' 这是听感或保人，不是验人结果。'));
+      });
+    });
+  });
+  if(!out.length)return '';
+  return '【查杀目标的无验保人】\n'+out.slice(-3).join('\n')+
+    '\n· 另一名起跳者或普通玩家公开保被查杀者，不等于被查杀者身份被验证。若目标翻狼，保人者与目标同狼的世界线必须显著上调；不能再用“狼不会这么保队友”直接排除。';
+}
+function wwDeadGodClaimWorldlineText(w){
+  if(!w||!w.players||!w.players.length)return '';
+  var data=wwPublicIdentityData(w),deadUnknown=w.players.filter(function(p){return p&&!p.alive&&!p.revealed});
+  if(!deadUnknown.length)return '';
+  var roleKeys=['witch','guard','awakenedguard','hunter','knight','awakenedknight'],out=[];
+  roleKeys.forEach(function(role){
+    var rows=data[role]?Object.keys(data[role]).map(function(k){return data[role][k]}).filter(function(x){return x&&x.p&&x.p.alive}):[];
+    if(rows.length!==1)return;
+    var p=rows[0].p;
+    out.push('· '+wwTag(p)+'单边自称'+wwIdentityRoleName(role)+'，目前无人对跳；但 '+deadUnknown.map(wwTag).join('、')+
+      ' 尚未翻牌，其中可能已有真'+wwIdentityRoleName(role)+'。');
+  });
+  if(!out.length)return '';
+  return '【神职存活/死亡双线】\n'+out.slice(-2).join('\n')+
+    '\n· “无人对跳”不等于单边真神。若死者中可能已有该神，狼刀神后原地起跳穿衣服也能形成无对跳。必须看起跳者有没有可核验的硬证据：真实守人挡住、救毒时间线、枪、决斗结果或其他可外部验证的信息。没有硬证据时，只能保留“活神”和“死者才是真神、活人是假神”两条世界线。';
+}
 function wwSeerClaimContrastText(w,p){
   if(!w)return '';
   var ledger=wwSeerCommitmentLedger(w);
@@ -33921,11 +33971,21 @@ function wwSeerClaimContrastText(w,p){
     var before=row?rows.filter(function(r){return r.idx<row.idx&&r.uid===tgt.uid}):[];
     var onPolice=(w.policeAll||[]).indexOf(tgt.uid)>=0;
     var retired=(w.policeRetired||[]).indexOf(tgt.uid)>=0;
-    if(!onPolice)return {level:'低',why:'目标是警下位，按本局上警规则不能在同一轮警上立即反水立警'};
-    if(before.length||retired)return {level:'低',why:'目标在本条查验公开前已经发过言或退水，本轮即时反水风险低'};
+    var killResult=/查杀|狼人|狼王|白狼王|机械狼|机械通灵/.test(String(x.result||''));
+    var strongBefore=before.some(function(r){return /(?:觉醒骑士|骑士|女巫|觉醒守卫|守卫|猎人)/.test(String(r.text||''))});
+    if(!onPolice){
+      return killResult
+        ?{level:'中',why:'目标是警下位，不能警上反水立警；但查杀可能激出骑士、女巫、猎人等强神反制'}
+        :{level:'低',why:'目标是警下位，不能警上反水立警；金水通常会被接受，假报即时风险低'};
+    }
+    if(before.length||retired){
+      return killResult
+        ?{level:strongBefore?'高':'中',why:'目标已发言或退水，不能再立警；但查杀仍可能激出强神技能反制'}
+        :{level:'低',why:'目标已发言或退水，本轮不能再立警；金水假报的即时反水风险低'};
+    }
     var order=w.policeOrder||[],ti=order.indexOf(tgt.uid),ci=order.indexOf(c.p.uid);
-    if(ti>ci)return {level:'高',why:'目标仍在后置位且尚未发言，假验可能被当场反水立警'};
-    return {level:'中',why:'目标在警上，但公开时点不足以确认能否立即反水'};
+    if(ti>ci)return {level:killResult?'高':'中高',why:'目标仍在后置位且尚未发言，可能当场反水立警'};
+    return {level:killResult?'中':'低',why:'目标在警上但已无立即后置发言优势；查杀压力仍高于金水'};
   }
   claims.forEach(function(c){
     var checks=(c.checks||[]).map(function(x){
@@ -33945,7 +34005,7 @@ function wwSeerClaimContrastText(w,p){
   }
   return '【双跳验人力度对照（只按公开事实）】\n'+out.join('\n')+
     '\n· “一金水/一查杀”“警徽流完整”“分支分叉清楚”“不接受无结算的代跳”“把另一个对跳者视为狼”通常双方都能做到，不能单独区分真假，也不是投票主理由。'+
-    '\n· 验人力度优先看：假如这条查验是假的，需要承担多大暴露风险。例如狼给警上后置位发金水，对方可能当场反水立警；给关键位发具体结果，可能被本人确认或立刻出现规则、时间线硬矛盾。假验越容易翻车，却仍选择这样报，通常力度越高；真验人知道自己结果是真的，可以承担这种风险。'+
+    '\n· 同位置下“查杀”通常比“金水”更有力度。警下目标虽不能立刻反水立警，但被查杀后可能亮强神、引觉醒骑士决斗、让女巫或猎人反制；警下金水通常最容易被接受，力度最低。'+
     '\n· 风险力度是概率判断，不是“敢冒险必真”；狼也可能故意豪赌。必须同时核对查验时间线、目标实际反应、后续新验和票型。'+
     '\n· 发言先后只用来判断起跳者当时已经知道什么，不是身份证据。两条查验若都被判为低风险，就必须明确写“暂无明显力度差”，不能硬选一个。'+
     '\n· 比较顺序应为：可核验查验力度与目标反应 > 规则/时间线硬矛盾 > 票型承诺 > 发言措辞、完整度和语感。若只有措辞差异，不能据此认定哪边为真。';
@@ -33961,7 +34021,7 @@ function wwSeerSurvivalPressureText(w,p){
       var t=String(e.text||'');
       return /(?:我是女巫|女巫)/.test(t)&&/(?:解药|毒药)[^。]{0,16}(?:没了|用完|用掉|没有)|两药[^。]{0,10}(?:没了|用完)/.test(t);
     });
-    var noGuard=!wwBoard(w.count,w).guard;
+    var noGuard=!wwBoardHasGuard(w);
     if(!noGuard&&!publicWitchGone&&caught>0)return;
     var self=!!(p&&c.p.uid===p.uid);
     out.push('· '+wwTag(c.p)+'从 D'+c.day+' 起持续公开自称'+
@@ -34018,6 +34078,10 @@ function wwCurrentTurnText(w,p){
   if(flippedWolf)L.push(flippedWolf);
   var beneficiary=wwSeerBeneficiaryAuditText(w,p);
   if(beneficiary)L.push(beneficiary);
+  var checkedShield=wwCheckedTargetShieldText(w,p);
+  if(checkedShield)L.push(checkedShield);
+  var deadGod=wwDeadGodClaimWorldlineText(w);
+  if(deadGod)L.push(deadGod);
   var claimContrast=wwSeerClaimContrastText(w,p);
   if(claimContrast)L.push(claimContrast);
   var survival=wwSeerSurvivalPressureText(w,p);
@@ -34108,6 +34172,31 @@ function wwBoard(n,state){
   if(n===9)return {wolf:3,villager:3,seer:1,witch:1,hunter:1};
   if(n===7)return {wolf:2,villager:3,seer:1,witch:1,hunter:0};
   return {wolf:2,villager:2,seer:1,witch:1,hunter:0};
+}
+function wwBoardHasGuard(w){
+  var b=wwBoard(w&&w.count,w);
+  return !!(b.guard||b.awakenedguard);
+}
+function wwBoardHasAwakenedGuard(w){
+  return !!wwBoard(w&&w.count,w).awakenedguard;
+}
+function wwPublicAwakenedGuardTargetHint(w){
+  if(!w||!wwBoardHasAwakenedGuard(w))return 0;
+  var last=0;
+  (w.log||[]).forEach(function(e){
+    if(!e||e.k!=='say')return;
+    var t=String(e.text||'');
+    if(!/(?:觉醒守卫|守卫)/.test(t))return;
+    var re=/(?:守(?:护)?(?:的是|了|过|在)?|保护(?:的是|了)?)\s*(\d{1,2})\s*号/g,m;
+    while((m=re.exec(t)))last=Number(m[1])||last;
+  });
+  return last;
+}
+function wwNormalizeIdentityRole(role,w){
+  var b=wwBoard(w&&w.count,w);
+  if(role==='guard'&&b.awakenedguard&&!b.guard)return 'awakenedguard';
+  if(role==='knight'&&b.awakenedknight&&!b.knight)return 'awakenedknight';
+  return role;
 }
 function wwBoardRoleKeys(w){
   var b=wwBoard(w&&w.count,w),order=['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','gargoyle','nightmare','seer','medium','witch','guard','awakenedguard','hunter','gravekeeper','knight','awakenedknight','idiot','villager'];
@@ -34392,7 +34481,8 @@ function wwClaimIdentityRoles(txt,speakerSeq){
   var clauses=s.split(/[。！？!?；;\n]+/);
   clauses.forEach(function(clause){
     WW_IDENTITY_ROLE_ORDER.forEach(function(role){
-      if(seen[role])return;
+      var normRole=wwNormalizeIdentityRole(role,V.ww);
+      if(seen[role]||seen[normRole])return;
       if(role==='villager'){
         if(!wwDirectVillagerClaim(clause,speakerSeq))return;
         seen[role]=1;out.push(role);
@@ -34420,7 +34510,7 @@ function wwClaimIdentityRoles(txt,speakerSeq){
         (m7&&(!speakerSeq||Number(m7[1])===Number(speakerSeq)))||
         (m8&&(!speakerSeq||Number(m8[1])===Number(speakerSeq))));
       if(selfSeat||p3.test(clause)||p4.test(clause)||p5.test(clause)||p6.test(clause)){
-        seen[role]=1;out.push(role);
+        seen[normRole]=1;out.push(normRole);
       }
     });
   });
@@ -35403,7 +35493,7 @@ function wwPublicRoleClaimAuditText(w){
   var data=wwPublicIdentityData(w),roundDone=wwAllLivingSpoke(w),items=[],allowed=wwBoardRoleKeys(w),allowedMap={};
   allowed.forEach(function(k){allowedMap[k]=1});
   var claimedRoles=Object.keys(data).filter(function(role){
-    return ['medium','seer','guard','witch','hunter','knight','gravekeeper','idiot'].indexOf(role)>=0||data[role];
+    return ['medium','seer','guard','awakenedguard','witch','hunter','knight','awakenedknight','gravekeeper','idiot'].indexOf(role)>=0||data[role];
   });
   claimedRoles.forEach(function(role){
     if(!allowedMap[role]){
@@ -35413,7 +35503,7 @@ function wwPublicRoleClaimAuditText(w){
       return;
     }
   });
-  ['medium','seer','guard','witch','hunter','knight','gravekeeper','idiot'].filter(function(role){return allowedMap[role]}).forEach(function(role){
+  ['medium','seer','guard','awakenedguard','witch','hunter','knight','awakenedknight','gravekeeper','idiot'].filter(function(role){return allowedMap[role]}).forEach(function(role){
     var rows=data[role]?Object.keys(data[role]).map(function(k){return data[role][k]}):[];
     if(!rows.length)return;
     var who=rows.map(function(x){return wwTag(x.p)+(x.p.alive?'':'（已出局）')}).join('、');
@@ -36849,9 +36939,19 @@ function wwVoteDirectionIssues(say){
   }
   return out;
 }
+function wwGoldRecognitionQuestionIssues(say,w){
+  if(!w||wwBoard(w.count,w).medium)return [];
+  var out=[];
+  String(say||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    if(!/(?:认不认|接不接|认下|确认).{0,10}金水|金水.{0,10}(?:认不认|接不接|认下|确认)/.test(c))return;
+    out.push(c.trim());
+  });
+  return out;
+}
 function wwPublicFactIssues(say,w){
   return wwVoteFactIssues(say,w)
     .concat(wwVoteDirectionIssues(say))
+    .concat(wwGoldRecognitionQuestionIssues(say,w))
     .concat(wwPoliceExileContradictionIssues(say))
     .concat(wwBadgeRecipientKnowledgeIssues(say));
 }
@@ -36990,6 +37090,7 @@ async function wwGuardPublicFactSpeech(p,sys,say){
     '\n· 只能引用票型事实卡中实际存在的“某人→某人”。不能把别人的发言、预测或计划当成已经发生的投票。'+
     '\n· 警长票是支持谁当选，放逐票是要求谁出局；同一个玩家先被支持当警长，听完发言后又被放逐，不自动构成矛盾。'+
     '\n· “票X、出X、归X、投X”都是攻击X；“支持X、给X拉票、警长票给X”才是支持X。尤其是已翻狼的行为方向不能写反。'+
+    (wwBoard(V.ww.count,V.ww).medium?'':'\n· 普通预言家板不要追问“你认不认金水”或把目标认金水当成验人验证；好人当然会认自己不是狼，狼给好人金水也会被认。' )+
     '\n· 接警徽的人不会自动获得死者最后一夜的私有查验结果，也没有义务解释自己为什么被选中或替死者解释警徽流。接徽本身不是她的狼点，不能要求她说出自己无权知道的结果。'+
       '\n请保持原人设、身份盘、票向和已有判断，重写完整公开发言；若删掉错误事实后判断改变，可以改票并写清新理由。不要解释这条内部核对。\n原发言：'+String(say||'').slice(0,1000);
     var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
@@ -37047,6 +37148,7 @@ function wwDayPlayStyleNeutralityText(p,w,forVote){
   var when=forVote?'投票前':'公开发言前';
   return '\n【玩家打法中性·'+when+'核对】评价任何玩家时，先把可核验事实和表达风格分开。激进、直接点多个狼坑、主动指挥验人/毒人/归票、使用听感或预判、说话短或跳跃、提出少数世界线、拒绝回答明显不合理的追问，这些都只是打法风格，不能单独当成狼点。'+
     '第一天或信息不足时使用位置学、相邻座位范围、警上警下分布做初步猜测，是真人局常见打法；若本人明确说“纯位置学、信息不足、只是暂猜”，只能当待更新假设，不能要求她像已经掌握硬证据一样解释，也不能事后用“当时没讲圆”直接定狼。'+
+    '被查杀后只说“我是村民、你验错了、我没慌”，没有时间线、技能、票型或规则反证时，是零信息自辩；好人和狼都能冷静，不能因为不慌、口齿清楚就给好人分。'+
     '被验位说“别浪费验在我身上，可以改验X”是正常策略建议，不等于心虚、推验或自爆；要看建议的X是否是难判断、值得验的位置，以及她后续票向。多个 AI 复读同一条软质疑不会变成多份独立证据。'+
     '主要证据只能来自可核验内容：身份声明与时间线冲突、验人或技能结果矛盾、票型与明确承诺冲突、已知信息不可能、明显的假验或对跳问题、后续方案实际伤害好人。'+
     '不要因为“我看不懂她、她不像常规好人、她太主动、她说话太绝对、她不肯回答无效问题”就投票。换成其他任何玩家、任何风格，也用同一标准；硬矛盾存在时仍可正常怀疑和投票。'+
@@ -37529,6 +37631,7 @@ async function wwSpeak(p,sys,resay){
   var resayPrompt=wwResayCorrectionText(resay,'发言');
   if(resayPrompt)sys=String(sys||'')+'\n\n'+resayPrompt;
   var raw=String(await wwCall(sys,(resayPrompt?'请按重说要求重新发言。':'请发言。'),wwSayMax(),.9)||'').trim();
+  if(V.ww&&V.ww.awakenedKnightInterrupt)return '';
   var searchQ=wwParseSourceQuery(raw);
   if(searchQ){
     var hits=wwSearchPublicRaw(V.ww,searchQ);
@@ -37842,7 +37945,8 @@ function wwPublicLog(maxN,detail){
 function wwReasoningDisciplineText(){
   var gw=(typeof V!=='undefined'&&V&&V.ww)||null;
   var mechBoard=!!(gw&&wwBoard(gw.count,gw).mechanicwolf);
-  var guardBoard=!!(gw&&wwBoard(gw.count,gw).guard);
+  var guardBoard=!!(gw&&wwBoardHasGuard(gw));
+  var awakenedGuardBoard=!!(gw&&wwBoardHasAwakenedGuard(gw));
   var beautyBoard=!!(gw&&wwBoard(gw.count,gw).wolfbeauty);
   var boardRoleText=gw?wwBoardRoleNames(gw).join('、'):'当前板子的神职和普通身份';
   return '【事实·可能·结论】\n'+
@@ -37861,7 +37965,8 @@ function wwReasoningDisciplineText(){
     ((gw&&gw.players&&gw.players.filter(function(x){return x&&x.alive}).length<=5)?'【终局身份测试】质疑一个神职的身份或要求别人认神，不等于冲神；如果这是在用身份关系缩小最后狼坑，不能只因对方质疑你的枪或守人身份就投她。一个已经被多数锁定、基本必出的狼，狼队友跟票只是低代价卖队友，不能洗白此前连续投好人。':'')+
     (beautyBoard?'【狼美人与悍跳分工】狼美人有额外的跟随死亡价值，实战中更常被安排成倒钩、深水或链子位；普通小狼更常承担正面悍跳。这个只是概率分工，不是硬规则：狼美人也可以悍跳。若某个强跳者像普通悍跳狼，另有一个低调、跟票或站位暧昧的狼美人候选，不要因为强跳者退水就把其自动洗白。':'')+
     '【第一夜刀口不是死亡结果】如果你知道狼队昨夜刀了谁（只有狼队知道），那也只是刀口，不是已经公布的死亡结果。除非已有确定信息表明刀中不能自救的真女巫且没有守卫等保护，否则默认女巫首夜大概率会开解药，刀口更可能形成平安夜。死讯公布前，不能把刀口当成“今天必出局的人”来安排警上站位、压跳或发言。'+
-    (guardBoard?'【平安夜不等于守卫守住】首夜守卫通常空守；平安夜可能是女巫解药、狼队空刀或收刀，也可能是守卫恰好守住。没有明确的守卫技能结果时，不能写成“某人首夜被守卫守过”。即使某目标首夜被解药救过，第二夜女巫不能再救，但守卫仍可能改守她；不能把“解药已用”和“守卫也不能再守”混成同一件事。':'')+
+    (awakenedGuardBoard?'【觉醒守卫与平安夜】觉醒守卫可以自守，保护能挡狼刀、毒药、放逐和觉醒骑士决斗，且不能连续两天守同一人。平安夜可能是她守住，也可能是解药或狼队空刀/收刀；只有在独立证据已确认上一夜守了X时，才能用“不能连守”判断下一夜可直接回刀X。':
+      (guardBoard?'【平安夜不等于守卫守住】首夜守卫通常空守；平安夜可能是女巫解药、狼队空刀或收刀，也可能是守卫恰好守住。没有明确的守卫技能结果时，不能写成“某人首夜被守卫守过”。即使某目标首夜被解药救过，第二夜女巫不能再救，但守卫仍可能改守她；不能把“解药已用”和“守卫也不能再守”混成同一件事。':''))+
     '确认某人是“单边X神”之前，X必须是本板实际存在的身份；同时满足公开同职业声明只有一份、声明者仍活跃、本轮所有存活玩家已经完成发言。出现两名以上同职业声明，或有存活玩家尚未发言，就不能叫“单边X神”，只能叫“当前暂未出现对跳”。狼可以在真神还没发言时抢先跳同一身份，先跳不证明真假。但发言完整结束后，若其他竞争声明都已退水、无人继续对跳，单边通灵/预言默认按真验人位处理。除非出现明确夜数错误、规则冲突、假验或查验结果硬矛盾，不要再盘“真通灵一直躲着没出来”的超级小概率鬼故事。'+
     '死者曾自称同一神职、表现过明确技能，或被人报过该表面职业时，也要保留为同职业候选；这会让活人最多只能称为“活人中单边”，不能写成全板已经确认只有一个。'+
     '说“她可能推断后在配合”时，不能改写成“她和小狼已经互认/私下商量”。机械狼与小狼开局不相认，只表示没有私密频道、开局不知道彼此身份；不代表她们不能根据公开发言、票型、刀口、身份声明和技能结果互相推断，也不能据此判定“两人不可能配合”。'+
@@ -38588,8 +38693,10 @@ function wwSysFor(p,task){
     '发言长短、语气、施压、反问、预判和口癖不是身份证据。公开预判狼队可能恐谁、刀谁只是视角；猜中也不能反推她是狼或梦魇。'+
     '只有本轮所有存活玩家都发言完、且同职业公开声明只有一份时，才可以称“单边神职”；仍在发言过程中或已有多人同职业声明，只能写“目前暂未对跳”。单边验人位报查杀时优先处理查杀目标，不把“单边神职先不投”反过来保护被查杀者。');
   L.push(wwReasoningDisciplineText());
-  L.push((wwBoard(w.count,w).guard
-    ?'【夜死 · 盾毒 · 遗言】守卫只挡狼刀，不挡女巫毒；被守住的人仍可能被毒死。夜里只死一人时，要同时保留“女巫毒死A且狼刀被守卫挡下”和“狼刀杀死A且女巫没开毒”两种世界线。禁止用“守卫不挡毒”反驳第一种：这句话只能反驳“守卫替中毒者挡下了毒”，不能反驳“毒杀对象与狼刀对象是两个人”。'
+  L.push((wwBoardHasGuard(w)
+    ?(wwBoardHasAwakenedGuard(w)
+      ?'【夜死 · 觉醒守护 · 遗言】觉醒守卫的保护能挡狼刀、毒药、放逐和觉醒骑士决斗，且不能连续两天守同一人。若已确认上一夜守了X，本夜X不能再被连守；但平安夜本身不能单独证明守了谁。'
+      :'【夜死 · 盾毒 · 遗言】守卫只挡狼刀，不挡女巫毒；被守住的人仍可能被毒死。夜里只死一人时，要同时保留“女巫毒死A且狼刀被守卫挡下”和“狼刀杀死A且女巫没开毒”两种世界线。禁止用“守卫不挡毒”反驳第一种：这句话只能反驳“守卫替中毒者挡下了毒”，不能反驳“毒杀对象与狼刀对象是两个人”。')
     :'【夜死 · 毒药 · 遗言】本板没有守卫，不存在守卫挡刀、连守、双盾或同守同救。讨论夜死时只能按本板实际存在的狼刀、女巫毒药和遗言信息判断，不要套用守卫公式。')+
     '夜死和遗言都是未经翻牌的自述，不是主持人事实；自称女巫、死在夜里、两药未用都不能单独证明真女巫。机械狼学过女巫也会被验成女巫，通灵结果“女巫”不能排除机械狼。'+
     '普通狼与机械狼互不相认：不得把某个公开配合者当已知队友，也不得因机械狼被普通狼抗推就判程序泄露；只能按公开发言、票型和行为推断。');
@@ -38603,7 +38710,7 @@ function wwSysFor(p,task){
   L.push('【身份与票型】平民可以藏神，之后说“身份很硬、我有身份”是软跳，不是具体身份矛盾；“我有身份”“我的作用明天能看到”“可以验我”“别守我”也都不等于明确报了具体神职，平民可以用这些话挡刀、诈狼或接受查验。只有明确报具体神职后又改报另一具体神职，才是硬冲突；不能把“先暗示自己有身份、后承认其实是村民”写成先跳神后缩回村民。'+
     '发言位次由警长或系统安排，不是玩家选择。警长票＝支持当选，放逐票＝要求出局，二者不要求同号；违背明确承诺才算票型矛盾。'+
     '金水只证明预言家声称的验人结果，不要求金水与预言家同票；金水在没有明确承诺跟票时独立投别人，不能证明预言家是假预，也不能证明金水是狼。'+
-    (wwBoard(w.count,w).guard?'守卫等神职早期可能为躲刀而投疑似狼预或刻意示弱，这本身不是硬矛盾；后来单边跳出具体神职、无对跳且技能结果没有正面冲突时，早先的泛投票可用“当时藏身份”解释，不能反复拿旧票型要求重开。':'本板没有守卫；不要把“早期藏守卫身份”或“守卫守人路线”当成任何人的辩护或狼点。'));
+    (wwBoardHasGuard(w)?(wwBoardHasAwakenedGuard(w)?'觉醒守卫早期可能为躲刀而投疑似狼预、空守或自守，这本身不是硬矛盾；后来单边跳出具体神职、无对跳且守人结果没有正面冲突时，早先的泛投票可用“当时藏身份”解释。':'守卫等神职早期可能为躲刀而投疑似狼预或刻意示弱，这本身不是硬矛盾；后来单边跳出具体神职、无对跳且技能结果没有正面冲突时，早先的泛投票可用“当时藏身份”解释，不能反复拿旧票型要求重开。'):'本板没有守卫；不要把“早期藏守卫身份”或“守卫守人路线”当成任何人的辩护或狼点。'));
   L.push('【跳预判断】多名跳预者时保留 1～2 条世界线。报出查验、按原计划报验或警徽流完整只说明发言自洽，不能证明真预；真预可临时改验，狼也能背完整假验。'+
     '死亡不证明假预，存活或“唯一还活着的跳预者”也不证明真预。首夜已发生的查验不能被后来的“今晚验X”倒推成故意撞车；首验理由双方都随意时，不能只扣一方。'+
     '真预把多名对跳者都当狼、狼考虑好人代跳，都是正常视野，不能只凭“太满”判身份。可信守墓人证明其为好时落到真预；'+
@@ -39135,7 +39242,7 @@ function wwUserWolfDirectiveText(w){
     advisory.slice(-2).map(function(x){return '· '+(x.d?('第'+x.d+'天 '):'')+x.text}).join('\n')+
     '\n· 这只说明已出局小狼可能留下了想让狼队注意的目标，不是最高优先级命令，也不能自动覆盖狼队根据公开局势做出的刀口判断。');
   if(!L.length)return '';
-  L.push((wwBoard(w.count,w).guard
+  L.push((wwBoardHasGuard(w)
     ?'如果真人狼队频道要求“注意守卫/找神”，不要只看警徽；先比较守卫、女巫和最后未明神的位置。'
     :'本板没有守卫，禁止把“找守卫”当成夜间目标；只比较本板实际存在且尚未明确出局的神职。')+
     (wwWolfUserPreferenceText(w)?('\n'+wwWolfUserPreferenceText(w)):''));
@@ -39143,14 +39250,22 @@ function wwUserWolfDirectiveText(w){
 }
 function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length;
-  var board=wwBoard(w.count,w),claimName=board.medium?'通灵师':'预言家',hasGuard=!!board.guard;
+  var board=wwBoard(w.count,w),claimName=board.medium?'通灵师':'预言家',hasGuard=wwBoardHasGuard(w),awakenedGuard=!!board.awakenedguard;
   if(board.medium)seers=seers.concat(wwLivingPublicMediumClaims(w));
   var boardGods=wwBoardRoleNames(w).filter(function(x){return ['预言家','通灵师','女巫','守卫','觉醒守卫','猎人','骑士','觉醒骑士','守墓人','白痴'].indexOf(x)>=0});
   var guardPlan=hasGuard
-    ?'本板有守卫，但开局不等于知道守卫是谁。只有一名公开通灵/预言且守卫未死、守口不明时，她通常是最可能被守的位置；若刀她只能验证守卫、不能封住关键查验，默认优先考虑外置刀口或做假刀，不能只因“她是最大威胁”就硬撞盾。只有下一验可能直接锁定核心狼、追回轮次，且守卫不易守住她时，才提高刀口优先级。'
+    ?(awakenedGuard
+      ?'本板有觉醒守卫，可自守；保护能挡狼刀、毒、放逐和觉醒骑士决斗，且不能连续两天守同一人。公开守人记录若可信：上一夜被守的X今夜不能再守X，若刀X就能直接屠民/屠神，应优先执行终局刀；攻击公开守卫前必须考虑她是否能自守。'
+      :'本板有守卫，但开局不等于知道守卫是谁。只有一名公开通灵/预言且守卫未死、守口不明时，她通常是最可能被守的位置；若刀她只能验证守卫、不能封住关键查验，默认优先考虑外置刀口或做假刀，不能只因“她是最大威胁”就硬撞盾。只有下一验可能直接锁定核心狼、追回轮次，且守卫不易守住她时，才提高刀口优先级。')
     :'本板没有守卫，不能盘守卫守人、连守、撞盾或双盾。判断平安夜和刀口时，只使用本板实际存在的机制：女巫解药、狼队空刀/收刀，以及本局实际存在的其他技能。';
+  var publicGuardTarget=awakenedGuard?wwPublicAwakenedGuardTargetHint(w):0;
+  var guardMatrix=publicGuardTarget
+    ?('\n【公开守卫线】有人公开声称最近守过 '+publicGuardTarget+'号。若这条守人线可信，觉醒守卫不能连续两晚守同一人，本夜刀 '+publicGuardTarget+'号是必须优先比较的终局刀；先核对她是否已出局、是否有女巫解药或其他保护，再决定。')
+    :'';
   var nightPeacePlan=hasGuard
-    ?'【平安夜与回刀】平安夜不等于守卫守住。首夜守卫通常空守；狼刀X却平安时，主线通常先考虑女巫解药救X，也可能是狼队空刀或收刀，少数才是守卫盲守X。若X是女巫，她不能自救、首夜守卫又通常空守，所以她恰好是女巫属于小概率，不应写成正常主世界线。若X首夜是被女巫解药救下，第二夜女巫不能再救，但守卫仍可能改守X；若X首夜是被守卫守住，第二夜才不能连守。狼队无法仅凭平安夜判断到底是哪一种，所以不能写成“X今夜一定没人能守”或“回刀几乎必中”。只有当独立事实已经确认上一夜确实是守卫守住了X，才可以用“守卫不能连守”决定下一夜优先回刀；仅凭平安夜不能推出守卫已经用掉对X的保护。即使回刀，也要把守卫改守风险写进判断。'
+    ?(awakenedGuard
+      ?'【觉醒守卫与回刀】觉醒守卫可以自守，不能连续两天守同一人。若公开记录或可靠信息确认上一夜守了X，则X今夜不能继续被守卫保护；只要没有女巫药，刀X就是确定的死亡路线。若X出局会直接屠民或屠神，必须优先选择X，而不是攻击可能自守的守卫。平安夜本身不能单独证明守了谁。'
+      :'【平安夜与回刀】平安夜不等于守卫守住。首夜守卫通常空守；狼刀X却平安时，主线通常先考虑女巫解药救X，也可能是狼队空刀或收刀，少数才是守卫盲守X。若X是女巫，她不能自救、首夜守卫又通常空守，所以她恰好是女巫属于小概率，不应写成正常主世界线。若X首夜是被女巫解药救下，第二夜女巫不能再救，但守卫仍可能改守X；若X首夜是被守卫守住，第二夜才不能连守。狼队无法仅凭平安夜判断到底是哪一种，所以不能写成“X今夜一定没人能守”或“回刀几乎必中”。只有当独立事实已经确认上一夜确实是守卫守住了X，才可以用“守卫不能连守”决定下一夜优先回刀；仅凭平安夜不能推出守卫已经用掉对X的保护。即使回刀，也要把守卫改守风险写进判断。')
     :'【平安夜判断】本板没有守卫。狼刀X后出现平安夜，只能优先考虑女巫首夜解药，或狼队空刀、收刀等实际发生的情况；不要再提守卫挡刀、守卫连守或守卫改守。若女巫解药已经确认使用，第二夜狼刀通常能直接命中，但仍要按存活神职和轮次计算。';
   var base='【自刀/刀队友检查】'+
     (seers.length?('场上仍有 '+seers.map(wwTag).join('、')+' 以'+claimName+'身份活动。'):('当前没有明确的活跃'+claimName+'。'))+
@@ -39162,7 +39277,7 @@ function wwWolfNightPlanHint(p){
     nightPeacePlan+
     '若刀口收益只是杀一个没验到核心狼的通灵，先比较其他刀路。';
   var god=wwPublicGodGapText(w,p),sig=wwWolfLastVoteKnifeHint(p,w),cmd=wwUserWolfDirectiveText(w);
-  return base+(cmd?'\n'+cmd:'')+(god?'\n'+god:'')+(sig?'\n'+sig:'');
+  return base+guardMatrix+(cmd?'\n'+cmd:'')+(god?'\n'+god:'')+(sig?'\n'+sig:'');
 }
 /* 【改·省调用】一只狼夜里一次搞定三件事：想刀谁、为什么这样刀、给队友留一句悄悄话。
    以前分多次请求，现在合成一次，狼多的时候能省请求。
@@ -39467,13 +39582,15 @@ async function wwAwakenedWolfBeautyChoose(beauty,pool){
   var txt=await wwCall(sys,'请决定今晚魅惑谁。',40,.82);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
 }
-async function wwAwakenedGuardChoose(guard,pool,phase){
+async function wwAwakenedGuardChoose(guard,pool,phase,reason){
   if(!guard||!pool||!pool.length)return null;
   var atNight=phase!=='day';
   var sys=wwSysFor(guard,'现在轮到你使用【觉醒守护】。每天只能守护一名玩家，不能连续两天守同一名玩家；'+(atNight?'今晚选定后，白天不能更换。':'这是白天放逐发言阶段，选定后持续到当天结束。')+
     '被守护者直到当天白天结束都不会以任何方式出局，可以挡狼刀、毒药、放逐和觉醒骑士决斗，也不会与女巫解药触发同守同救。'+
     '若你守护觉醒狼美人本人，她不会出局，因此不会触发替身；但若你守护的是替身目标，替身仍会因狼美人优先级而死亡。'+
     '注意：你守护觉醒骑士但没守护被他决斗的好人时，好人出局、骑士存活但连锁仍会停止。'+
+    (atNight&&Number(V.ww.day)===1?'\n首夜倾向空守或自守。没有明确收益时不要盲守身份未知的外置位，优先保留白天的守护机会给公开准备发动决斗的觉醒骑士。':'')+
+    (reason==='knight'?'\n当前觉醒骑士已经准备发动连锁决斗。除非你有明确的更高价值保护目标，否则优先给骑士盾；骑士被决斗反伤致死时，这面盾能保住好人容错。':'')+
     '\n可选：'+pool.map(wwName).join('、')+'\n【输出格式】只输出编号或名字，或输出“不守护”。');
   var txt=await wwCall(sys,atNight?'请决定今晚守护谁。':'请决定白天守护谁。',40,.82);
   if(/不守护|不守|空守|放弃/.test(txt))return null;
@@ -42966,7 +43083,7 @@ async function wwPoliceSpeech(p,resay){
         '警徽优先支持能报验的真'+claimName+'；以听发言、评价竞选为主。若你只是上警听发言，说明目的并准备退水。'+
         '只有明确好人代跳时才可争取。不要解释这条内部修正。'+base)),resay);
       if(!wwPoliceGoodProxy(p,say)&&wwPoliceSeekBadge(say)){
-        say='我先上警听发言，重点看谁能报出完整查验。警徽优先给能报验的真'+claimName+'，这轮我不强势抢徽，听完再决定是否退水。';
+        say='我先听一轮，暂时没信息，不站边，听完再决定，过。';
       }
     }
   }
@@ -43487,21 +43604,21 @@ function wwAwakenedGuardPool(p){
     return !(w.awakenedGuardLast&&Number(w.awakenedGuardLastDay)===Number(w.day)-1&&q.uid===w.awakenedGuardLast);
   });
 }
-async function wwAwakenedGuardDayTry(p){
+async function wwAwakenedGuardDayTry(p,reason){
   var w=V.ww,gen=wwGenNow();
   if(!wwAwakenedGuardDayReady(p))return false;
   var pool=wwAwakenedGuardPool(p);
   if(!pool.length){w.awakenedGuardActionDay=w.day;return false}
   var tgt=null;
   if(p.isUser){
-    var r=await wwAsk('🔆 觉醒守护：选择今天要保护的人（会持续到白天结束）',pool,{none:'今天不守护'});
+    var r=await wwAsk(reason==='knight'?'🔆 觉醒骑士准备开戳：要给骑士盾吗？':'🔆 觉醒守护：选择今天要保护的人（会持续到白天结束）',pool,{none:'今天不守护'});
     if(wwStaleG(gen))return false;
     tgt=r.uid?wwPlayerByUid(r.uid):null;
   }else{
     await wwStep('轮到「'+wwTag(p)+'」决定是否发动觉醒守护');
     if(wwStaleG(gen))return false;
     w.msg='「'+wwTag(p)+'」正在发动觉醒守护…';render(true);
-    tgt=await wwAwakenedGuardChoose(p,pool,'day');
+    tgt=await wwAwakenedGuardChoose(p,pool,'day',reason);
     if(wwStaleG(gen))return false;
   }
   w.awakenedGuardActionDay=w.day;
@@ -43514,6 +43631,29 @@ async function wwAwakenedGuardDayTry(p){
   }
   render(true);
   return false;
+}
+async function wwAwakenedGuardKnightSync(knight){
+  var w=V.ww,guard=wwAwakenedGuardP(),gen=wwGenNow();
+  if(!w||!knight||!guard||guard===knight||!wwAwakenedGuardDayReady(guard))return false;
+  var pool=wwAwakenedGuardPool(guard);
+  if(!pool.length)return false;
+  if(guard.isUser){
+    await wwAwakenedGuardDayTry(guard,'knight');
+    return true;
+  }
+  await wwStep('轮到「'+wwTag(guard)+'」考虑是否给骑士盾');
+  if(wwStaleG(gen))return false;
+  w.msg='「'+wwTag(guard)+'」正在考虑是否给骑士盾…';render(true);
+  var tgt=await wwAwakenedGuardChoose(guard,pool,'day','knight');
+  if(wwStaleG(gen))return false;
+  w.awakenedGuardActionDay=w.day;
+  if(tgt){
+    w.awakenedGuardTarget=tgt.uid;w.awakenedGuardDay=w.day;
+    w.rec.push({d:w.day,t:'觉醒守卫白天守护了 '+wwTag(tgt),tk:(WW_LAST&&WW_LAST.reason)||''});
+    w.log.push({k:'sys',text:'🔆 觉醒守卫在骑士决斗前完成了守护。'});
+  }
+  render(true);
+  return !!tgt;
 }
 async function wwAwakenedGuardUserStart(){
   var p=wwAwakenedGuardP();
@@ -43529,11 +43669,15 @@ function wwAwakenedKnightP(){
   var a=wwAlive().filter(function(p){return p&&p.role==='awakenedknight'});
   return a[0]||null;
 }
-function wwAwakenedKnightReady(p){
+function wwAwakenedKnightCanStart(p){
   var w=V.ww;
   return !!(w&&p&&p.alive&&p.role==='awakenedknight'&&!w.awakenedKnightUsed&&!w.over&&w.phase==='day'&&
-    !w.electing&&!w.inPK&&!w.voteMode&&!w.userAsk&&!w.gateResolve&&!w.awakenedKnightPending&&!wwDayCut()&&
+    !w.electing&&!w.inPK&&!w.voteMode&&!w.awakenedKnightPending&&!wwDayCut()&&
     (!wwSheriffOn()||w.sheriffDone)&&!wwKnightPendingDead(p));
+}
+function wwAwakenedKnightReady(p,force){
+  var w=V.ww;
+  return !!(wwAwakenedKnightCanStart(p)&&(force||(!w.userAsk&&!w.gateResolve)));
 }
 function wwAwakenedKnightTargets(p){
   var w=V.ww;
@@ -43576,9 +43720,12 @@ async function wwAwakenedKnightFlushDeaths(deaths){
     render(true);
   }
 }
-async function wwAwakenedKnightChain(p){
+async function wwAwakenedKnightChain(p,force){
   var w=V.ww,gen=wwGenNow(),deaths=[],hits=0;
-  if(!wwAwakenedKnightReady(p))return false;
+  if(!wwAwakenedKnightReady(p,force))return false;
+  w.awakenedKnightPending=true;render(true);
+  await wwAwakenedGuardKnightSync(p);
+  if(wwStaleG(gen))return false;
   var lastWasWolf=false,endsDay=false;
   function addDeaths(a){((a||[]).forEach(function(q){if(q&&deaths.indexOf(q)<0)deaths.push(q)}))}
   while(!w.over){
@@ -43641,19 +43788,32 @@ async function wwAwakenedKnightChain(p){
   if(!w.over&&lastWasWolf)endsDay=true;
   if(!w.over&&endsDay){w.dayOver=w.day;w.log.push({k:'sys',text:'觉醒骑士连锁结束，进入黑夜。'});}
   wwCheckOver();
+  w.awakenedKnightPending=false;
   render(true);
   return true;
 }
 async function wwAwakenedKnightTry(p,reason){
   if(!wwAwakenedKnightReady(p))return false;
-  return !!(await wwAwakenedKnightChain(p,reason));
+  return !!(await wwAwakenedKnightChain(p,false));
 }
 async function wwAwakenedKnightUserStart(){
   var w=V.ww,p=wwAwakenedKnightP();
-  if(!p||!p.isUser||!wwAwakenedKnightReady(p))return;
-  if(w.userAsk||w.voteMode)return toast('先完成当前的发言或投票，再发动觉醒骑士');
-  if(w.running&&!w.userAsk){w.awakenedKnightPending=true;render(true);return toast('已准备连锁决斗：当前这段发言结束后会停住')}
-  await wwAwakenedKnightChain(p);
+  if(!p||!p.isUser||!wwAwakenedKnightCanStart(p))return;
+  if(w.voteMode)return toast('投票阶段不能发动觉醒骑士');
+  if(w.userAsk)return toast('先完成当前输入，再发动觉醒骑士');
+  if(w.gateResolve){
+    var gr=w.gateResolve;w.gate={};w.gateResolve=null;render(true);
+    await wwAwakenedKnightChain(p,true);
+    if(!wwStaleG(w.gen)&&gr)try{gr()}catch(e){}
+    return;
+  }
+  if(w.running){
+    var canInterrupt=!!(_WWAC&&w.speaking&&!w.userAsk);
+    w.awakenedKnightPending=true;w.awakenedKnightInterrupt=canInterrupt;render(true);
+    if(canInterrupt)try{_WWAC.abort();_WWAC=null}catch(e){}
+    return toast(canInterrupt?'已打断当前 AI 发言，马上选择决斗目标':'已准备连锁决斗：当前步骤结束后会停住');
+  }
+  await wwAwakenedKnightChain(p,false);
 }
 /* 上警结束之后，才把昨夜押着的死讯落实、并公布出来 */
 /* 上警那局：死讯押后到警长选完才公布。这个函数现在要等一下「夜间 · 你的房间」那段戏，
@@ -43772,7 +43932,7 @@ async function wwDay(){
   var resumedElection=!!w._resumeElectionInProgress;
   w._resumeElectionInProgress=false;
   w.scene='noon';      /* 【修】新的一天从「白天」开始（中午那张）；投票时会切成黄昏 */
-  w.inPK=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.awakenedKnightPending=false;w.awakenedGuardPending=false;
+  w.inPK=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedGuardPending=false;
   if(!resumedDay&&!resumedElection){
     w.dayStage='speech';
     w.spoke={};          /* 新的一天：发言记录清空（座位上的「未发言/已发言」靠它） */
@@ -43888,9 +44048,16 @@ async function wwDay(){
       var s=await wwSpeech(q);
       if(wwStaleG(gen))return;
       if(wwDayCut()){wwDayCutUI();return;}   /* 这中间决斗命中狼或白狼王自爆：这段发言作废、不再写进记录 */
-      if(!wwPushSay(gen,{k:'say',who:q.uid,text:s,think:wwThinkOf(q)}))return;   /* 中间换了局就别写进去 */
-      w.spoke[q.uid]=1;
-      wwSave(true);
+      if(w.awakenedKnightInterrupt){
+        w.awakenedKnightInterrupt=false;
+        w.spoke[q.uid]=1;
+        w.speaking=null;w.msg='';
+        render(true);
+      }else{
+        if(!wwPushSay(gen,{k:'say',who:q.uid,text:s,think:wwThinkOf(q)}))return;   /* 中间换了局就别写进去 */
+        w.spoke[q.uid]=1;
+        wwSave(true);
+      }
     }
     lastSpoken=q;
     if(q.role==='knight'&&q.alive&&!q.isUser&&!wwDayCut()){
@@ -43989,7 +44156,7 @@ async function wwDay(){
     var pk=top.list.map(wwPlayerByUid).filter(function(x){return x&&x.alive});
       var rest=wwVotable().filter(function(x){return pk.indexOf(x)<0});
     if(pk.length>1&&rest.length){
-      w.inPK=true;w.knightPending=false;w.awakenedKnightPending=false;w.awakenedGuardPending=false;w.knightAsk=null;w.knightSelected='';render(true);
+      w.inPK=true;w.knightPending=false;w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedGuardPending=false;w.knightAsk=null;w.knightSelected='';render(true);
       w.log.push({k:'vote',text:'平票：'+pk.map(wwTag).join('、')+'进入 PK。'});
       render(true);
       var lastPk=null;
@@ -44288,7 +44455,7 @@ function wwApplySnap(s,recId){
   w.board=wwBoardSafe(s.board);w.guardLast=s.guardLast||'';w.lastExile=s.lastExile?{day:Number(s.lastExile.day)||0,uid:s.lastExile.uid}:null;
   w.nightmareMetWolves=!!s.nightmareMetWolves;w.nightmareLast=s.nightmareLast||'';w.charmTarget=s.charmTarget||'';w.charmWinPending=!!s.charmWinPending;w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.mechKnifeStartedDay=Number(s.mechKnifeStartedDay)||0;w.dayOver=0;
   w.knightUsed=!!s.knightUsed;w.knightAsk=null;w.knightSelected='';w.inPK=!!s.inPK;w.dualSeerClaims=false;
-  w.awakenedKnightUsed=!!s.awakenedKnightUsed;w.awakenedKnightDueled=Object.assign({},s.awakenedKnightDueled||{});w.awakenedKnightPending=false;w.awakenedKnightBatch=[];
+  w.awakenedKnightUsed=!!s.awakenedKnightUsed;w.awakenedKnightDueled=Object.assign({},s.awakenedKnightDueled||{});w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedKnightBatch=[];
   w.awakenedGuardPending=false;
   w.awakenedGuardTarget=s.awakenedGuardTarget||'';w.awakenedGuardDay=Number(s.awakenedGuardDay)||0;
   w.awakenedGuardLast=s.awakenedGuardLast||'';w.awakenedGuardLastDay=Number(s.awakenedGuardLastDay)||0;
@@ -44472,8 +44639,8 @@ function wwPrepareNextNightAfterResume(w){
   w._voteExpected=[];w._voteTargetUids=[];
   w.spoke={};w.speaking=null;w.speechStart='';w.speechDir=1;w.speechMode='';
   w.inPK=false;w.knightPending=false;w.knightAsk=null;w.knightSelected='';
-  w.awakenedKnightPending=false;w.awakenedGuardPending=false;
-  w.awakenedKnightPending=false;w.awakenedGuardPending=false;
+  w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedGuardPending=false;
+  w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedGuardPending=false;
   w.electing=false;w.dayOver=0;w.wordsDone=false;w.scene='night';w.wolfPicks=[];
   w.auto=false;w.msg='第 '+w.day+' 夜继续。';
 }
@@ -44924,8 +45091,8 @@ function wwStart(){
   w.policeAll=[];w.upSpoke={};w.seerRetractions={};w.electionStage='';w.policeWaterDone={};w.policeRetired=[];
   w.snapKillUid='';w.snapPick=false;w.snapPlan=[];w.snapPlanOpen=false;w.snapPlanCount=0;w.snapPlanDayStart=false;w.snapPendingTarget='';w.snapChoosingFear=false;w.snapWhiteTarget='';
   w.guardLast='';w.kingBoom=false;w.kingNote='';w.dayOver=0;
-  w.knightUsed=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.awakenedKnightPending=false;w.awakenedGuardPending=false;w.inPK=false;w.dualSeerClaims=false;
-  w.awakenedKnightUsed=false;w.awakenedKnightDueled={};w.awakenedKnightPending=false;w.awakenedKnightBatch=[];
+  w.knightUsed=false;w.knightAsk=null;w.knightSelected='';w.knightPending=false;w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedGuardPending=false;w.inPK=false;w.dualSeerClaims=false;
+  w.awakenedKnightUsed=false;w.awakenedKnightDueled={};w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedKnightBatch=[];
   w.awakenedGuardTarget='';w.awakenedGuardDay=0;w.awakenedGuardLast='';w.awakenedGuardLastDay=0;w.awakenedGuardActionDay=0;w.awakenedGuardSuccessDay=0;w.awakenedWolfBeautyCharm=null;w.awakenedWolfBeautyCharmUsed=false;
   w.marks={};w.markMode='';w.markUid=null;
   w.notes={};w.noteOpen=false;
@@ -46615,7 +46782,7 @@ function wwHTML(){
      '<button class="ww-snd'+(WWBGM.on?' on':'')+'" type="button" aria-label="背景音乐开关" onclick="GAME.wwBgm()">'+WW_IC_MUSIC+'</button>'+
      ((!w.over&&w.phase==='day'&&me&&me.alive&&me.role==='wolfking'&&!w.kingBoom)?'<button class="ww-stop" type="button" aria-label="白狼王自爆" onclick="GAME.wwBoom()">'+wwUiIcon('boom')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='knight'&&wwKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="骑士决斗" onclick="GAME.wwKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
-     ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='awakenedknight'&&wwAwakenedKnightReady(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="觉醒骑士连锁决斗" title="觉醒骑士连锁决斗" onclick="GAME.wwAwakenedKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
+     ((wwAwakenedKnightCanStart(me))?'<button class="ww-snd ww-knightbtn" type="button" aria-label="觉醒骑士连锁决斗" title="觉醒骑士连锁决斗" onclick="GAME.wwAwakenedKnightStart()">'+wwUiIcon('knight')+'</button>':'')+
      ((!w.over&&w.phase==='day'&&me&&me.isUser&&me.role==='awakenedguard'&&wwAwakenedGuardDayReady(me))?'<button class="ww-snd" type="button" aria-label="觉醒守护" title="觉醒守护" onclick="GAME.wwAwakenedGuardStart()">'+wwUiIcon('guard')+'</button>':'')+
      '<button class="ww-snd" type="button" aria-label="个人主页" title="个人主页" onclick="GAME.wwProfile(1,\'overview\')">'+WW_IC_PROFILE+'</button>'+
      (w.over?'':'<button class="ww-snd ww-helpbtn" type="button" aria-label="本局设置" title="本局设置" onclick="GAME.wwInfo(1)">'+WW_IC_GEAR+'</button>')+
