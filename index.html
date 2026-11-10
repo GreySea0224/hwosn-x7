@@ -16377,6 +16377,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀第一夜出局者说完遗言后会停下来，等用户点「继续」再处理下一步，方便刷新或检查。未结束的狼人杀战绩默认隐藏身份、夜间行动和狼队频道，只显示公开记录；可以从详情直接继续游戏，也可以选择“直接查看身份”，但查看后这局就不能再继续。
 狼人杀对跳验人新增世界线成本规则：未证实的验人不能因为“刚好能解释对方为什么知道某身份”就被当成是真的；目标先公开并确认某个身份时，后来者说“她其实是机械狼”仍只是另一条声明，不能让后来者因为解释完整就自动取得更高可信度。
 
+【最近更新 · 2026-11-10】
+狼人杀修复了重新发言和刷新续局的上下文问题：重说完成后不会再拿旧身份盘覆盖当前角色进度；白天已经出现发言时会保留现场，从还没发言的人继续；当天已经被骑士决斗结束的局也能正确续到下一夜。AI 发言检查失败时只保留角色原话，不再把系统核对句贴上公屏。觉醒骑士按钮在等待继续、场记总结和 AI 发言期间保持可见，重复点击会被拦住；真人使用骑士/觉醒骑士决斗、觉醒守护、女巫药、猎人枪或狼王技能前都会再确认一次，防止手滑。
+
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
 所有狼人杀 AI 现在会按本局真实板子生成身份和技能规则。6 人局没有守卫时，不会盘守卫守人、连守、撞盾、双盾或守卫救平安夜；夜间只会考虑本板实际存在的女巫、狼刀、空刀/收刀等机制。投票、发言和赛场复盘也不会把不存在的职业当成有效世界线。
@@ -16607,7 +16610,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=146;  /* 146：修正觉醒板守卫识别、骑士协同、决斗按钮与神职死亡双线 */
+const GUIDE_VER=147;  /* 147：修复重说/续局上下文、去掉规则句替换，并给真人技能加二次确认 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -36302,7 +36305,7 @@ async function wwGuardSpeechOrder(p,sys,say){
     if(fixed&&!wwSpeechOrderBad(fixed))return fixed;
   }catch(e){}
   var cleaned=wwDropOrderSentences(say);
-  return cleaned||'我先按已经出现的发言内容判断，这轮保留结论。';
+  return cleaned||String(say||'');
 }
 /* 只拦会造成判断结果的确定性错误，不拿“逐字一致”挑普通转述的毛病。
    普通复述允许口语化，但不能把“可能/如果”改成“必然”，或把不相认改成不能配合。 */
@@ -36600,46 +36603,7 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
   }catch(e){}
   var cleaned=wwStripExactReasonClause(say,bad.text);
   if(cleaned&&!wwSpeechLooksCut(cleaned)&&!wwClaimReasoningIssue(cleaned,V.ww))return cleaned;
-  if(bad.kind==='vague'){
-    var who=bad.target?(bad.target+'号，'):'';
-    return who+'我还没听明白你刚才那段推理：你具体想从哪个前提推出哪个结论？中间依据是哪一条？';
-  }
-  if(bad.kind==='conditionalAssertion'){
-    return bad.seq+'号原话里的那段身份判断有条件前提，不是已经认定事实；这个前提目前还没坐实，先按世界线保留，不能把条件句改成定论。';
-  }
-  if(bad.kind==='phantomGold'){
-    return '先确认一件事：'+bad.target+'号目前只是待验位，不是已经验出的金水。请把'+bad.target+'号是不是今晚的查验位置直接说清楚。';
-  }
-  if(bad.kind==='deadPit'){
-    return '狼坑要说清范围：完整狼坑可以包括已经出局的狼，今天票口才只能从活人里选。仅因为名单里有死者，不能算拿死人凑人头或狼点。';
-  }
-  if(bad.kind==='mechanicTiming'){
-    return '这里我只把规则说清：机械狼学习后，表面身份立即变成学到的身份；下一夜起才可用的是主动技能。学到女巫后，通灵师查到的是女巫，不是机械狼本体。';
-  }
-  if(bad.kind==='silverWater'){
-    return '这里要把银水单独说清：救过人只能证明她当过狼刀目标，不能证明阵营。狼可以自刀，所以这道查杀和救人记录可以同时成立，不能只用银水把查杀判成假的。';
-  }
-  if(bad.kind==='selfKnife'){
-    return '自刀是合法战术，不能拿“狼不会自刀”排除世界线。这里仍要按事实看查验、票型和后续行为，不能先认定自刀不可能。';
-  }
-  if(bad.kind==='retiredLine'){
-    return '退水并作废假验的人已经不再是活跃验人位。现在只比较仍维持声明的那条验人线，不再把退水者算作正常对跳。';
-  }
-  if(bad.kind==='nonClaimant'){
-    return '上警听发言不等于必须跳通灵师。没有公开自称验人位的人，可以只是普通好人；不能仅凭这一点推她是狼，也不能反推她必须在藏一张真验人牌。';
-  }
-  if(bad.kind==='badgeRecipient'){
-    return '接单边高可信验人位的警徽，主要是传徽者在认可接徽者，应按高概率金水看；机械狼板只留机械狼例外。接徽者不需要解释为什么是她，这不构成她的狼点。';
-  }
-  if(bad.kind==='deadRole'){
-    return '未翻牌出局只说明离场，不能把她的真实身份写成已经确定；这里只能保留判断和相应概率。';
-  }
-  if(bad.kind==='poisonWolf'){
-    return String(say||'');
-  }
-  if(bad.kind==='styleOnly'){
-    return '我不拿推理快、完整或强势当狼点。要比较就比具体事实、时间线、查验和票型；没有这些硬冲突，这条怀疑不成立。';
-  }
+  /* 重写失败时保留角色原稿，绝不把内部检查句贴到公屏。 */
   return say;
 }
 /* 给一段发言自动起一个短标题：去掉「遗言 / 竞选发言」这类前缀，最多保留第一句前 28 个字 */
@@ -37079,7 +37043,7 @@ async function wwGuardCurrentTurnSpeech(p,sys,say){
   }catch(e){}
   var safeBad=wwCurrentTurnIssues(say,V.ww,p).map(function(x){return x.text});
   var safe=wwStripQuestionClauses(say,safeBad);
-  return safe||'这轮按已经核对的当前局面重说：只投仍活着的人，旧轮次和已退水身份不当作今天的事实。';
+  return safe||String(say||'');
 }
 async function wwGuardPublicFactSpeech(p,sys,say){
   var bad=wwPublicFactIssues(say,V.ww);
@@ -37103,7 +37067,7 @@ async function wwGuardPublicFactSpeech(p,sys,say){
     if(cleaned&&!wwPublicFactIssues(cleaned,V.ww).length)return cleaned;
   }catch(e){}
   var safe=wwStripQuestionClauses(say,wwPublicFactIssues(say,V.ww));
-  return safe||'我按已经核对的公开票型和警徽流重说：只认事实卡里出现过的票；接徽者不需要解释为什么是她，也不要求她报出自己无权知道的查验结果。';
+  return safe||String(say||'');
 }
 async function wwGuardAnswerOpportunity(p,sys,say){
   var bad=wwAnswerRequestIssues(say,V.ww,p,false);
@@ -37138,7 +37102,7 @@ async function wwGuardAnswerOpportunity(p,sys,say){
   }catch(e){}
   var fallback=String(say||''),fallbackBad=wwAnswerRequestIssues(fallback,V.ww,p,false).map(function(x){return x.text}).concat(wwNightKillExplanationIssues(fallback));
   var safe=wwStripQuestionClauses(fallback,fallbackBad);
-  return safe||'这轮按已有公开原话判断，不再要求已经发言的人当场补充，也不要求普通好人解释狼队刀口。';
+  return safe||String(say||'');
 }
 /* 只在白天发言/投票注入。真人标记不是身份信息，不能拿去影响夜间技能或替真人降低硬逻辑标准。 */
 function wwDayPlayStyleNeutralityText(p,w,forVote){
@@ -37439,7 +37403,7 @@ async function wwGuardNoBadgePlanSpeech(p,sys,say){
   var cleaned=String(say||'').split(/[。！？!?；;\n]+/).filter(function(c){
     return c&&!/(?:我|本人)[^。]{0,18}(?:警徽流|接徽|徽交给)|(?:今晚|验出|明天)[^。]{0,35}(?:警徽|接徽)/.test(c);
   }).join('。');
-  return cleaned||'我目前没有警徽，只报今晚的验人目标和归票，不再安排谁接徽。';
+  return cleaned||String(say||'');
 }
 async function wwGuardMediumBadgePlanSpeech(p,sys,say){
   var w=V.ww;
@@ -37621,7 +37585,7 @@ async function wwGuardSpeechCompleteness(p,sys,out){
       if(fixed&&!wwSpeechLooksCut(fixed))return fixed;
     }catch(e){}
   }
-  return wwSpeechLooksCut(last)?'这轮我先按已经听到的公开发言和现有票型判断，完整结论下一轮再补。':wwStripInternalSpeechLeak(last);
+  return wwStripInternalSpeechLeak(last||out||'');
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
@@ -38473,7 +38437,7 @@ async function wwGuardObsoletePostmortemSpeech(p,sys,say){
       if(fixed2&&!wwSpeechLooksCut(fixed2)&&wwDropObsoleteMinorInferences(fixed2,w)===String(fixed2).trim())return fixed2;
     }
   }catch(e){}
-  return cleaned||'这轮我只按当前存活玩家的发言和票型继续判断。';
+  return cleaned||String(say||'');
 }
 /* 赛后给角色的「这一局到底发生了什么」：夜里的行动全部揭晓 + 白天的发言/投票 */
 function wwAfterBlock(){
@@ -41151,6 +41115,10 @@ function wwAskOpt(label,opts){
     V.ww.resolve=res;render(true);
   });
 }
+async function wwConfirmSkillUse(label){
+  var r=await wwAskOpt(label,[['确认发动',1],['取消',0]]);
+  return !!(r&&r.val===1);
+}
 /* opt（可选）：{ok:'按钮文字', ph:'输入框里的提示语'} —— 抿身份那一段要换个说法用得上 */
 function wwAskSay(label,skipLabel,opt){
   return new Promise(function(res){
@@ -42248,11 +42216,14 @@ async function wwNight(){
           var r3=await wwAskOpt('🧪 今晚被刀的是'+wwTag(w.night.wolf)+(selfKnife?'（你）':'')+'，要救吗？',[['救',1],['不救',0]]);
           if(wwStaleG(gen))return;
           if(r3.val===1){
-            w.night.save=true;w.witchSave=false;
-            w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf)});
-            w.witchLog.push({d:w.day,k:'save',txt:wwNum(w.night.wolf)+w.night.wolf.name});
-            w.log.push({k:'me',text:'🧪 你用解药救了 '+wwTag(w.night.wolf)});
-            render(true);
+            if(await wwConfirmSkillUse('确认今晚使用解药救 '+wwTag(w.night.wolf)+'？')){
+              if(wwStaleG(gen))return;
+              w.night.save=true;w.witchSave=false;
+              w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf)});
+              w.witchLog.push({d:w.day,k:'save',txt:wwNum(w.night.wolf)+w.night.wolf.name});
+              w.log.push({k:'me',text:'🧪 你用解药救了 '+wwTag(w.night.wolf)});
+              render(true);
+            }
           }
         }
       }
@@ -42267,11 +42238,14 @@ async function wwNight(){
           if(r4.uid){
             var t2=wwPlayerByUid(r4.uid);
             if(t2){
-              w.night.poison=t2;w.witchPoison=false;
-              w.rec.push({d:w.day,t:'女巫毒了 '+wwTag(t2)});
-              w.witchLog.push({d:w.day,k:'poison',txt:wwNum(t2)+t2.name});
-              w.log.push({k:'me',text:'🧪 你用毒药毒了 '+wwTag(t2)});
-              render(true);
+              if(await wwConfirmSkillUse('确认今晚使用毒药毒 '+wwTag(t2)+'？')){
+                if(wwStaleG(gen))return;
+                w.night.poison=t2;w.witchPoison=false;
+                w.rec.push({d:w.day,t:'女巫毒了 '+wwTag(t2)});
+                w.witchLog.push({d:w.day,k:'poison',txt:wwNum(t2)+t2.name});
+                w.log.push({k:'me',text:'🧪 你用毒药毒了 '+wwTag(t2)});
+                render(true);
+              }
             }
           }
         }
@@ -42508,6 +42482,10 @@ async function wwHunterCheck(p){
                             '🔫 你的'+gunLabel+'可以发动——要带走一个人吗？'),pool,{none:'不开枪'});
     if(wwStaleG(gen))return;
     tgt=r.uid?wwPlayerByUid(r.uid):null;
+    if(tgt){
+      if(!await wwConfirmSkillUse('确认开枪带走 '+wwTag(tgt)+'？'))tgt=null;
+      if(wwStaleG(gen))return;
+    }
   }else{
     w.msg='某位玩家正在考虑是否发动技能…';render(true);
     tgt=await wwHunterShoot(p);
@@ -42559,6 +42537,10 @@ async function wwWolfKingDeathCheck(p){
     var r=await wwAsk('🐺 你是狼王，你出局了：点一下要带走的人（不想发动就按「不发动」）',pool,{none:'不发动'});
     if(wwStaleG(gen))return;
     tgt=r&&r.uid?wwPlayerByUid(r.uid):null;
+    if(tgt){
+      if(!await wwConfirmSkillUse('确认发动狼王技能带走 '+wwTag(tgt)+'？'))tgt=null;
+      if(wwStaleG(gen))return;
+    }
   }else{
     await wwStep('某位玩家正在考虑是否发动技能');
     if(wwStaleG(gen))return;
@@ -43559,6 +43541,8 @@ async function wwKnightUserAction(label){
   if(!r.uid)return false;
   var tgt=wwPlayerByUid(r.uid);
   if(!tgt)return false;
+  if(!await wwConfirmSkillUse('确认对 '+wwTag(tgt)+' 发动骑士决斗？命中好人时你自己会出局。'))return false;
+  if(wwStaleG(w.gen))return false;
   return await wwKnightDuel(p,tgt,true);
 }
 async function wwKnightUserStart(){
@@ -43614,6 +43598,10 @@ async function wwAwakenedGuardDayTry(p,reason){
     var r=await wwAsk(reason==='knight'?'🔆 觉醒骑士准备开戳：要给骑士盾吗？':'🔆 觉醒守护：选择今天要保护的人（会持续到白天结束）',pool,{none:'今天不守护'});
     if(wwStaleG(gen))return false;
     tgt=r.uid?wwPlayerByUid(r.uid):null;
+    if(tgt){
+      if(!await wwConfirmSkillUse('确认今天觉醒守护 '+wwTag(tgt)+'？'))return false;
+      if(wwStaleG(gen))return false;
+    }
   }else{
     await wwStep('轮到「'+wwTag(p)+'」决定是否发动觉醒守护');
     if(wwStaleG(gen))return false;
@@ -43672,7 +43660,7 @@ function wwAwakenedKnightP(){
 function wwAwakenedKnightCanStart(p){
   var w=V.ww;
   return !!(w&&p&&p.alive&&p.role==='awakenedknight'&&!w.awakenedKnightUsed&&!w.over&&w.phase==='day'&&
-    !w.electing&&!w.inPK&&!w.voteMode&&!w.awakenedKnightPending&&!wwDayCut()&&
+    !w.electing&&!w.inPK&&!w.voteMode&&!wwDayCut()&&
     (!wwSheriffOn()||w.sheriffDone)&&!wwKnightPendingDead(p));
 }
 function wwAwakenedKnightReady(p,force){
@@ -43736,6 +43724,10 @@ async function wwAwakenedKnightChain(p,force){
       var r=await wwAsk('🗡️ 觉醒骑士连锁决斗：继续选择一个人，或停手',pool,{none:'停手'});
       if(wwStaleG(gen))return false;
       tgt=r.uid?wwPlayerByUid(r.uid):null;
+      if(tgt){
+        if(!await wwConfirmSkillUse('确认对 '+wwTag(tgt)+' 发动觉醒决斗？')){tgt=null;break}
+        if(wwStaleG(gen))return false;
+      }
     }else{
       await wwStep('轮到「'+wwTag(p)+'」发动觉醒骑士决斗');
       if(wwStaleG(gen))return false;
@@ -43799,6 +43791,7 @@ async function wwAwakenedKnightTry(p,reason){
 async function wwAwakenedKnightUserStart(){
   var w=V.ww,p=wwAwakenedKnightP();
   if(!p||!p.isUser||!wwAwakenedKnightCanStart(p))return;
+  if(w.awakenedKnightPending)return toast('决斗目标正在处理中，请等这一步完成');
   if(w.voteMode)return toast('投票阶段不能发动觉醒骑士');
   if(w.userAsk)return toast('先完成当前输入，再发动觉醒骑士');
   if(w.gateResolve){
@@ -44309,7 +44302,7 @@ function wwHistoryLog(arr,max){
 function wwSnap(){
   var w=V.ww;
   return {
-    day:w.day,phase:w.phase,dayStage:w.dayStage||'',mode:w.mode,count:w.count,winner:w.winner||'',endText:w.endText||'',
+    day:w.day,phase:w.phase,dayStage:w.dayStage||'',dayOver:Number(w.dayOver)||0,mode:w.mode,count:w.count,winner:w.winner||'',endText:w.endText||'',
     nightDone:!!w.nightDone,
     night:w.night?{
       wolf:(w.night.wolf&&w.night.wolf.uid)||null,save:!!w.night.save,
@@ -44453,7 +44446,7 @@ function wwApplySnap(s,recId){
   w.policeWaterDone=Object.assign({},s.policeWaterDone||{});w.policeRetired=(s.policeRetired||[]).slice();
   w.pendingDeaths=(s.pendingDeaths&&s.pendingDeaths.length)?s.pendingDeaths.slice():null;
   w.board=wwBoardSafe(s.board);w.guardLast=s.guardLast||'';w.lastExile=s.lastExile?{day:Number(s.lastExile.day)||0,uid:s.lastExile.uid}:null;
-  w.nightmareMetWolves=!!s.nightmareMetWolves;w.nightmareLast=s.nightmareLast||'';w.charmTarget=s.charmTarget||'';w.charmWinPending=!!s.charmWinPending;w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.mechKnifeStartedDay=Number(s.mechKnifeStartedDay)||0;w.dayOver=0;
+  w.nightmareMetWolves=!!s.nightmareMetWolves;w.nightmareLast=s.nightmareLast||'';w.charmTarget=s.charmTarget||'';w.charmWinPending=!!s.charmWinPending;w.kingBoom=!!s.kingBoom;w.kingNote=s.kingNote||'';w.mechKnifeStartedDay=Number(s.mechKnifeStartedDay)||0;w.dayOver=Number(s.dayOver)||0;
   w.knightUsed=!!s.knightUsed;w.knightAsk=null;w.knightSelected='';w.inPK=!!s.inPK;w.dualSeerClaims=false;
   w.awakenedKnightUsed=!!s.awakenedKnightUsed;w.awakenedKnightDueled=Object.assign({},s.awakenedKnightDueled||{});w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedKnightBatch=[];
   w.awakenedGuardPending=false;
@@ -44613,6 +44606,7 @@ function wwRollbackLastNight(){
 }
 function wwResumeDayAlreadyResolved(w){
   if(!w)return false;
+  if(Number(w.dayOver)===Number(w.day))return true;
   if(w.dayStage==='resolved')return true;
   if(w.lastExile&&Number(w.lastExile.day)===Number(w.day))return true;
   var day=Number(w.day)||1,inDay=false;
@@ -44673,7 +44667,8 @@ function wwResume(id){
       wwLoop();
       return;
     }
-    var hasDayProgress=!!(s.speaking||Object.keys(s.spoke||{}).length);
+    var hasDayProgress=!!(s.speaking||Object.keys(s.spoke||{}).length||
+      wwPublicEventRows(w).some(function(r){return r&&Number(r.day)===Number(w.day)}));
     if(hasDayProgress){
       /* 已经进入白天发言：保留现场记录，只从还没发言的人继续，绝不把整天重演。 */
       w.night={wolf:null,save:false,poison:null,check:null,charm:null,nokill:false,deaths:[]};
@@ -44691,7 +44686,7 @@ function wwResume(id){
     /* 【修·bug】网杀的早上那句是「第 N 天早上：…」，面杀写的是「第 N 天 · 集会堂：…」。
        以前只认网杀那一种，面杀（尤其 6/7 人、没有上警的局）找不到锚点，
        这一天就会被整个重演一遍、记录里出现两遍。现在两种都认。 */
-    var _mor=new RegExp('第 '+w.day+' 天\\s*(早上|·\\s*集会堂)');
+    var _mor=new RegExp('第\\s*'+w.day+'\\s*天\\s*(?:早上|[:：]|·\\s*集会堂)');
     for(i=log.length-1;i>=0;i--){if(log[i]&&log[i].k==='sys'&&_mor.test(String(log[i].text||''))){cut=i;break}}
     if(cut>=0)w.log=log.slice(0,cut+1);   /* 保留「第 N 天早上」那条死讯，只清掉之后要重演的内容 */
     w.night={wolf:null,save:false,poison:null,check:null,charm:null,nokill:false,deaths:[]};   /* 死讯已经在上面的记录里了：别再播一遍、也别让猎人重复开枪 */
@@ -45743,19 +45738,8 @@ async function wwResayGo(){
         (wasCampaign?('【竞选发言】'+await wwPoliceSpeech(p,resay)):await wwSpeech(p,resay));
     }catch(err){t=''}
     var newThink=t?wwThinkOf(p):'';
-    var newPrivate=t?{
-      scratch:String(p.scratch||''),readBoard:String(p.readBoard||''),readBoardVer:Number(p.readBoardVer)||0,
-      readBoardDay:Number(p.readBoardDay)||0,readBoardLog:(p.readBoardLog||[]).map(function(x){return Object.assign({},x)})
-    }:null;
     /* 恢复当前真实进度和这条发言之后已经存在的记录。 */
     restoreLiveState();
-    if(newPrivate){
-      var np=wwPlayerByUid(p.uid);
-      if(np){
-        np.scratch=newPrivate.scratch;np.readBoard=newPrivate.readBoard;np.readBoardVer=newPrivate.readBoardVer;
-        np.readBoardDay=newPrivate.readBoardDay;np.readBoardLog=newPrivate.readBoardLog;
-      }
-    }
     if(gen!==(w.gen||0)||w.log!==log){w.resayOn=false;return}   /* 已经开了新的一局：这次结果丢掉，免得出现"上一局的人" */
     if(t){
       w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:newThink,title:(p&&p._lastSayTitle)||'',resayNote:note,ctx:oldSay.ctx||null});
