@@ -16379,6 +16379,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-11-10】
 狼人杀修复了重新发言和刷新续局的上下文问题：重说完成后不会再拿旧身份盘覆盖当前角色进度；白天已经出现发言时会保留现场，从还没发言的人继续；当天已经被骑士决斗结束的局也能正确续到下一夜。AI 发言检查失败时只保留角色原话，不再把系统核对句贴上公屏。觉醒骑士按钮在等待继续、场记总结和 AI 发言期间保持可见，重复点击会被拦住；真人使用骑士/觉醒骑士决斗、觉醒守护、女巫药、猎人枪或狼王技能前都会再确认一次，防止手滑。
+狼人杀警上发言现在按已有信息量检查：前面已经有多名验人位时，普通上警者不能只复述“先听、再记、谁经得起核对就投谁”，必须点名比较并给出当前警长票倾向。已由主持人翻成狼或其他身份的旧跳预者，不再算当前有效对跳。唯一存活且没有未翻牌死者竞争的预言家/通灵师，普通好人没有夜数、漏报、规则、查验或明确假验硬冲突时，不能只凭狼坑数量反投。跳预承诺账也修掉了把同一天第二次发言误记成下一天漏报的问题；改票必须引用本人上次发言之后的新事件，“太顺、划水、像写好的”等弱评价不再进入跨轮核心质问。
 
 【最近更新 · 2026-11-05】
 狼人杀 AI 现在会把“狼队昨夜刀了谁”和“谁已经死亡”分开：死讯公布前不预设刀口一定出局；除明确刀中不能自救的真女巫等情况外，默认女巫首夜大概率救人，更可能形成平安夜。机械狼板里，如果怀疑某人是机械狼，AI 会继续判断她第一夜学了谁：学到女巫、守卫等具体职业时可能准确发身份增加验人力度；学到小狼时可能故意给她发好人衣服递话。只有学到真通灵师、形成“机械通灵师”分支时，才常说“先手查杀真通灵师”的专项打法，这不是所有机械狼的固定任务；机械通灵师第一夜没有正式验人技能，但可能利用学习到的身份信息，后续才拥有真实查验能力。真正的机械狼也知道自己是全场唯一机械狼，不会再把别人列成机械候选。
@@ -16610,7 +16611,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=147;  /* 147：修复重说/续局上下文、去掉规则句替换，并给真人技能加二次确认 */
+const GUIDE_VER=148;  /* 148：修警上空泛发言、唯一活跃验人位保护、D2漏报假阳性和改票门槛 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34052,14 +34053,21 @@ function wwCurrentTurnText(w,p){
   var data=wwPublicIdentityData(w),claimRole=(wwBoard(w.count,w).medium?'medium':'seer');
   var claimName=(claimRole==='medium'?'通灵师':'预言家');
   var activeRows=data[claimRole]?Object.keys(data[claimRole]).map(function(k){return data[claimRole][k].p}).filter(Boolean):[];
-  var aliveActive=activeRows.filter(function(p){return p.alive});
-  var deadActive=activeRows.filter(function(p){return !p.alive});
+  var aliveActive=activeRows.filter(function(p){return p.alive&&!wwPublicClaimClosedByFlip(w,p,claimRole)});
+  var deadActive=activeRows.filter(function(p){return !p.alive&&!wwPublicClaimClosedByFlip(w,p,claimRole)});
+  var deadClosed=[];
+  activeRows.forEach(function(p){
+    if(p.alive||!wwPublicClaimClosedByFlip(w,p,claimRole))return;
+    var flip=wwPublicConfirmedFlip(w,p);
+    deadClosed.push({p:p,label:(flip&&flip.label)||'其他身份'});
+  });
   var retired=[];
   (w.players||[]).forEach(function(q){
     if(q&&w.seerRetractions&&w.seerRetractions[q.uid])retired.push({p:q,day:Number(w.seerRetractions[q.uid])||0});
   });
   L.push('· 当前仍存活且未退水的验人线：'+(aliveActive.length?aliveActive.map(wwTag).join('、'):'暂无')+'。');
   if(deadActive.length)L.push('· 历史未退水、但已经出局的验人声明者：'+deadActive.map(wwTag).join('、')+'；不能把她们写成今天还在场的验人位。');
+  if(deadClosed.length)L.push('· 历史跳'+claimName+'者已由主持人排除：'+deadClosed.map(function(x){return wwTag(x.p)+'已翻为'+x.label}).join('、')+'；她们不再构成当前有效对跳。');
   if(retired.length)L.push('· 历史已退水/作废的验人声明：'+retired.map(function(x){return wwTag(x.p)+(x.day?'（D'+x.day+'）':'')}).join('、')+'。');
   if(aliveActive.length<=1&&(retired.length||deadActive.length)){
     L.push('· 可以说历史上有人起跳、退水或出局，但不能说现在仍有“几位对跳/多人对跳”。当前存活且未退水的'+claimName+'线只有 '+(aliveActive.length?wwTag(aliveActive[0]):'0 条')+'。');
@@ -34074,6 +34082,10 @@ function wwCurrentTurnText(w,p){
   }
   if(deadActive.length){
     L.push('· 起跳者死亡不等于退水，也不等于放弃身份。只要出局者此前没有正式退水或作废身份，就不能仅因为场上只剩另一名活着的起跳者，就把她封成没有争议的单边真'+claimName+'。');
+  }
+  if(aliveActive.length===1&&!deadActive.length){
+    L.push('· 当前唯一存活且未退水、也没有未翻牌死者竞争的'+claimName+'是 '+wwTag(aliveActive[0])+
+      '；没有正面硬冲突时，不能仅凭“她也可能是狼”的纯世界线反投。');
   }
   var knightClue=wwConfirmedKnightClueText(w);
   if(knightClue)L.push(knightClue);
@@ -34996,7 +35008,7 @@ function wwSeerCommitmentLedger(w){
     });
     checksBySeat[p.seq]=checks;
     var currentRows=myRows.filter(function(r){return r.day===Number(w.day)});
-    var hasCurrentSaid=currentRows.length||!!(w.spoke&&w.spoke[uid]);
+    var hasCurrentSaid=currentRows.length>0;
     for(var d=c.day+1;d<=Number(w.day);d++){
       if(retractedDay&&d>=retractedDay)break;
       var dayRows=myRows.filter(function(r){return r.day===d});
@@ -35066,10 +35078,12 @@ function wwPublicCheckFactsText(w){
 }
 function wwSeerCommitmentText(w){
   var a=wwSeerCommitmentLedger(w),L=[],bySeat={};
-  var claimName=(w&&wwBoard(w.count,w).medium)?'跳通灵':'跳预';
+  var claimRole=(w&&wwBoard(w.count,w).medium)?'medium':'seer';
+  var claimName=claimRole==='medium'?'跳通灵':'跳预';
   a.claims.forEach(function(c){
     bySeat[c.p.seq]=c;
     if(c.retractedDay)return;
+    if(wwPublicClaimClosedByFlip(w,c.p,claimRole==='medium'?'medium':'seer'))return;
     if(c.conflicts&&c.conflicts.length){
       L.push('· '+wwTag(c.p)+'：D'+c.conflicts.join('、D')+' 的同一次发言被解析出多个互相冲突的查验结果【同日多查验异常】。这些结果不能当作承诺账证据，也不能组成双线金水；必须回到原话确认主语，只有“我验/我查了”才算她本人的查验，转述别人“学到、知道、验到”的结果不能算。');
     }
@@ -35340,6 +35354,31 @@ function wwPublicIdentityData(w){
   });
   return data;
 }
+/* 主持人已经公开翻出的身份，不能再作为同职业的有效竞争者。
+   这里只读主持人日志；未翻牌死亡仍然保留原来的身份世界线。 */
+function wwPublicConfirmedFlip(w,p){
+  if(!w||!p)return null;
+  if(p.revealed){
+    return wwIsWolf(p)
+      ?{key:'wolf',label:'狼人'}
+      :{key:p.role||'unknown',label:wwIdentityRoleName(p.role||'unknown')};
+  }
+  var seq=String(Number(p.seq)||0);
+  if(!seq||seq==='0')return null;
+  var texts=(w.log||[]).filter(function(e){return e&&e.k==='sys'}).map(function(e){return String(e.text||'')});
+  var wolfRe=new RegExp('目标是狼人[^\\n]{0,12}'+seq+'\\s*号出局|'+seq+'\\s*号是狼人|(?:翻牌|确认)[^\\n]{0,8}'+seq+'\\s*号[^\\n]{0,8}狼人');
+  if(texts.some(function(t){return wolfRe.test(t)}))return {key:'wolf',label:'狼人'};
+  var knightRe=new RegExp('(?:觉醒骑士|骑士)[^\\n]{0,14}'+seq+'\\s*号[^\\n]{0,8}决斗');
+  if(texts.some(function(t){return knightRe.test(t)})){
+    var key=(p.role==='awakenedknight'?'awakenedknight':'knight');
+    return {key:key,label:wwIdentityRoleName(key)};
+  }
+  return null;
+}
+function wwPublicClaimClosedByFlip(w,p,role){
+  var flip=wwPublicConfirmedFlip(w,p);
+  return !!(flip&&flip.key&&String(flip.key)!==String(role));
+}
 /* 公开验人归属账：只把“本人直接自称/本人直接报验”记到本人名下。
    转述、引用、分析别人验人，不生成新的验人线。 */
 function wwClaimAttributionData(w){
@@ -35443,7 +35482,7 @@ function wwPublicRoleCollisionText(w){
   ['hunter','guard','witch','medium','seer','knight','gravekeeper','idiot'].filter(function(role){return allowed.indexOf(role)>=0}).forEach(function(role){
     var rows=data[role]?Object.keys(data[role]).map(function(k){return data[role][k]}):[];
     var alive=rows.filter(function(x){return x.p&&x.p.alive});
-    var dead=rows.filter(function(x){return x.p&&!x.p.alive});
+    var dead=rows.filter(function(x){return x.p&&!x.p.alive&&!wwPublicClaimClosedByFlip(w,x.p,role)});
     if(!alive.length||!dead.length)return;
     alive.forEach(function(a){
       dead.forEach(function(d){
@@ -35507,7 +35546,13 @@ function wwPublicRoleClaimAuditText(w){
     }
   });
   ['medium','seer','guard','awakenedguard','witch','hunter','knight','awakenedknight','gravekeeper','idiot'].filter(function(role){return allowedMap[role]}).forEach(function(role){
-    var rows=data[role]?Object.keys(data[role]).map(function(k){return data[role][k]}):[];
+    var rawRows=data[role]?Object.keys(data[role]).map(function(k){return data[role][k]}):[];
+    var closed=rawRows.filter(function(x){return x&&x.p&&wwPublicClaimClosedByFlip(w,x.p,role)});
+    var rows=rawRows.filter(function(x){return x&&x.p&&!wwPublicClaimClosedByFlip(w,x.p,role)});
+    if(closed.length)items.push('· 历史'+wwIdentityRoleName(role)+'声明已排除：'+closed.map(function(x){
+      var flip=wwPublicConfirmedFlip(w,x.p);
+      return wwTag(x.p)+'已翻为'+((flip&&flip.label)||'其他身份');
+    }).join('、')+'；不再算当前对跳。');
     if(!rows.length)return;
     var who=rows.map(function(x){return wwTag(x.p)+(x.p.alive?'':'（已出局）')}).join('、');
     var status;
@@ -35540,7 +35585,10 @@ function wwSpeechOpportunityText(w,p,atVote){
 }
 function wwSoleClaimKillData(w){
   if(!w||!w.players||!w.players.length)return null;
-  var a=wwSeerCommitmentLedger(w),claims=(a.claims||[]).filter(function(c){return c&&c.p&&!c.retractedDay});
+  var roleKey=wwBoard(w.count,w).medium?'medium':'seer';
+  var a=wwSeerCommitmentLedger(w),claims=(a.claims||[]).filter(function(c){
+    return c&&c.p&&!c.retractedDay&&!wwPublicClaimClosedByFlip(w,c.p,roleKey);
+  });
   if(claims.length!==1)return null;
   var c=claims[0];
   if(!c.p.alive)return null;
@@ -35553,6 +35601,25 @@ function wwSoleClaimKillData(w){
   if(!hit)return null;
   hit.roundComplete=wwAllLivingSpoke(w);
   return hit;
+}
+function wwSoleActiveClaimData(w){
+  if(!w||!w.players||!w.players.length)return null;
+  var roleKey=wwBoard(w.count,w).medium?'medium':'seer';
+  var a=wwSeerCommitmentLedger(w),claims=(a.claims||[]).filter(function(c){
+    return c&&c.p&&!c.retractedDay&&!wwPublicClaimClosedByFlip(w,c.p,roleKey);
+  });
+  if(claims.some(function(c){return c&&c.p&&!c.p.alive}))return null;
+  claims=claims.filter(function(c){return c&&c.p&&c.p.alive});
+  if(claims.length!==1)return null;
+  return {claim:claims[0],roundComplete:wwAllLivingSpoke(w),roleKey:roleKey};
+}
+function wwSoleActiveClaimHasHardConflict(w,d,logic){
+  if(!w||!d||!d.claim)return false;
+  var s=String(logic||''),c=d.claim;
+  if(c.conflicts&&c.conflicts.length&&/(?:冲突|矛盾|同一天|多查验|夜数|验人)/.test(s))return true;
+  if(c.missing&&c.missing.length&&/(?:漏报|少报|缺一|没报|新增查验|改验|时间线)/.test(s))return true;
+  var core=wwCoreReasoningIssue(s,w);
+  return !!(core&&/(?:查验|验人|规则|时间线|身份|冲突|矛盾|假验)/.test(s));
 }
 function wwPublicProxySettlementText(w){
   if(!w||!w.players||!w.players.length)return '';
@@ -35797,6 +35864,9 @@ function wwMinorWordingOnly(txt){
 }
 function wwQuestionLacksHardBasis(txt,w){
   var s=String(txt||'');
+  var styleOnly=/(?:太顺|理得太顺|说得太顺|像写好的|像提前写好|太完整|太全面|太整齐|太飘|太满|太绝对|划水|话少|话多|语气|态度|听感|不舒服|不像自己琢磨)/.test(s);
+  var styleHard=/(?:时间线|夜数|规则冲突|技能结果|查验结果|报验结果|假验|对跳|票型承诺|明确承诺|正面矛盾|前后矛盾|硬冲突|身份.{0,10}(?:冲突|矛盾)|验人.{0,10}(?:冲突|矛盾))/.test(s);
+  if(styleOnly&&!styleHard)return true;
   if(/(?:金水|接徽|备位)[^。！？!?；;\n]{0,34}(?:还是|到底|既|又|同时|矛盾|二选一)/.test(s)&&
     !/(?:时间线|规则|查验结果|技能结果|票型承诺|正面冲突)/.test(s))return true;
   if(/(?:接徽|递徽|警徽流)[^。！？!?；;\n]{0,48}(?:没验|未验|几时验|什么时候验|没被验|没验过)|(?:没验|未验|几时验|什么时候验|没被验|没验过)[^。！？!?；;\n]{0,48}(?:接徽|递徽|警徽流)/.test(s)){
@@ -36926,7 +36996,8 @@ function wwCurrentTurnIssues(say,w,p){
   var fullSay=String(say||''),out=[],clauses=fullSay.split(/[。！？!?；;\n]+/);
   var data=wwPublicIdentityData(w),claimRole=(wwBoard(w.count,w).medium?'medium':'seer');
   var active=data[claimRole]?Object.keys(data[claimRole]).filter(function(uid){
-    var row=data[claimRole][uid];return row&&row.p&&row.p.alive;
+    var row=data[claimRole][uid];
+    return row&&row.p&&row.p.alive&&!wwPublicClaimClosedByFlip(w,row.p,claimRole);
   }).length:0;
   var exactByUid={},claimBySeat={};
   (wwSeerCommitmentLedger(w).claims||[]).forEach(function(c){
@@ -39947,8 +40018,22 @@ function wwVoteChangeNeedsNewFact(p,w,own,voteSeq,logic){
   if(!p||!w||!own||!voteSeq)return null;
   var intents=wwOwnVoteIntentTargets(own);
   if(intents.length!==1||Number(intents[0])===Number(voteSeq))return null;
-  var hard=/(?:D\d|第\s*\d+\s*[天夜]|昨晚|昨夜|原话|改口|退水|认假验|票型|实际投|警徽|时间线|技能结果|条件[^。！？!?；;\n]{0,8}(?:成立|失效)|新增|承认|认错)/.test(String(logic||''));
-  if(hard)return null;
+  var rows=wwPublicEventRows(w),ownIdx=-1;
+  rows.forEach(function(r){if(r&&r.uid===p.uid)ownIdx=Math.max(ownIdx,Number(r.idx)||-1)});
+  var s=String(logic||'');
+  var later=ownIdx>=0?rows.filter(function(r){return r&&Number(r.idx)>ownIdx}):[];
+  var evidenceWord=/(?:退水|假验|改验|改口|认错|承认|新增|刚刚|随后|之后|后来|出局|死亡|翻牌|实际投|实际(?:接徽|落点)|警徽[^。！？!?；;\n]{0,12}(?:交出|交给|移交|撕毁)|条件[^。！？!?；;\n]{0,10}(?:成立|触发|失效)|查验|验出|查杀|金水|技能结果)/;
+  var freshAfterSpeech=later.some(function(r){
+    var seat=Number(r.p&&r.p.seq)||0,name=r.p&&r.p.name?String(r.p.name):'';
+    return evidenceWord.test(s)&&((seat&&new RegExp('(?:^|[^0-9])'+seat+'\\s*号').test(s))||(name&&s.indexOf(name)>=0));
+  });
+  var freshSystem=false;
+  (w.log||[]).slice(Math.max(0,ownIdx+1)).forEach(function(e){
+    if(!e||e.k!=='sys')return;
+    var t=String(e.text||''),m=t.match(/(\d{1,2})\s*号/);
+    if(m&&s.indexOf(Number(m[1])+'号')>=0&&evidenceWord.test(s))freshSystem=true;
+  });
+  if(freshAfterSpeech||freshSystem)return null;
   return {from:Number(intents[0]),to:Number(voteSeq)};
 }
 async function wwVoteAI(p,pool){
@@ -39958,6 +40043,7 @@ async function wwVoteAI(p,pool){
   var roleCollision=wwPublicRoleCollisionText(w);
   var claimAudit=wwPublicRoleClaimAuditText(w);
   var soleKill=wwSoleClaimKillData(w);
+  var soleActive=wwSoleActiveClaimData(w);
   var voteTurn=wwSpeechOpportunityText(w,p,true);
   var jobHint=job?('你的分工是'+WW_WOLF_JOB_NAME[job]+'：'+WW_WOLF_JOB_VOTE[job]+'这只是默认建议，不压过真人玩家的明确指挥或本夜狼队讨论；不要无脑帮队友冲票。'):'';
   var bindHint=wwWolfBindVoteText(p);
@@ -39998,6 +40084,11 @@ async function wwVoteAI(p,pool){
     (soleKill.roundComplete?'本轮发言已结束，':'本轮尚未全部发言完，暂不能封成最终单边，')+
     wwTag(soleKill.claim)+'当前是唯一未退水验人线，曾报 '+wwTag(soleKill.target)+'＝'+soleKill.result+'。'+
     (soleKill.roundComplete?'没有验人位自身的硬矛盾时，默认票查杀目标 '+wwTag(soleKill.target)+'，不能把票投回单边验人位。':'若到投票时仍保持唯一验人线，没有验人位自身硬矛盾时应优先处理查杀目标。');
+  if(soleActive)goodHint+='\n【唯一活跃验人位本人保护】'+
+    (soleActive.roundComplete?'本轮发言已经完整结束，':'投票阶段仍需按当前存活状态核对，')+
+    wwTag(soleActive.claim.p)+'是当前唯一存活、未退水，且没有未翻牌死者竞争的'+
+    (soleActive.roleKey==='medium'?'通灵师':'预言家')+'。'+
+    '普通好人不能仅凭“她也可能是狼”、狼坑数量刚好凑齐、发言风格或旧世界线反投她；必须有夜数、漏报、规则、查验结果或明确假验的正面硬冲突。';
   var seerAudit=wwSeerCommitmentText(w);
   if(seerAudit)goodHint+='\n投票硬检查：\n'+seerAudit;
   var disclosureAudit=wwIdentityDisclosureAuditText(w);
@@ -40121,6 +40212,24 @@ async function wwVoteAI(p,pool){
     }catch(e){}
   }
   var pick=vote.pick;
+  if(pick&&soleActive&&soleActive.roundComplete&&!wwIsWolf(p)&&pick===soleActive.claim.p.uid&&
+    !wwSoleActiveClaimHasHardConflict(w,soleActive,vote.logic)){
+    try{
+      var activeReply=await wwCall(sys,'【唯一活跃验人位投票复核】上一条票投给了当前唯一存活、未退水且没有未翻牌死者竞争的 '+
+        wwTag(soleActive.claim.p)+'，但判断里没有夜数、漏报、规则、查验结果或明确假验的正面硬冲突。'+
+        '这种局面不能只凭狼坑数量或“她可能是狼”反投唯一验人位。请回到你刚才公开承诺的票向，或改投其他证据更硬的目标。'+
+        '严格只写两行：投票、判断。',120,.62);
+      var activeVote=wwReadVoteReply(activeReply,pool);
+      if(activeVote.pick&&activeVote.pick!==soleActive.claim.p.uid){txt=activeReply;vote=activeVote;pick=activeVote.pick}
+      else{
+        var activeAlt=wwVoteFallbackTarget(p,pool.filter(function(x){return x&&x.uid!==soleActive.claim.p.uid}),soleActive.claim.p.uid);
+        if(activeAlt){pick=activeAlt;vote.logic='唯一活跃验人位没有可核验硬冲突，复核后回到原公开票向或改投其他目标。'}
+      }
+    }catch(e){
+      var activeAlt2=wwVoteFallbackTarget(p,pool.filter(function(x){return x&&x.uid!==soleActive.claim.p.uid}),soleActive.claim.p.uid);
+      if(activeAlt2){pick=activeAlt2;vote.logic='唯一活跃验人位没有可核验硬冲突，复核后回到原公开票向或改投其他目标。'}
+    }
+  }
   if(pick&&soleKill&&soleKill.roundComplete&&!wwIsWolf(p)&&pick===soleKill.claim&&soleKill.target!==pick){
     try{
       var sv=await wwCall(sys,'【单边验人位投票复核】上一条票投给了当前唯一的未退水验人位 '+wwTag(soleKill.claim)+
@@ -40146,9 +40255,9 @@ async function wwVoteAI(p,pool){
   }
   return pick;
 }
-function wwVoteFallbackTarget(p,pool){
+function wwVoteFallbackTarget(p,pool,explicitBanUid){
   if(!p||!pool||!pool.length)return null;
-  var soleKill=wwSoleClaimKillData(V.ww),banUid=null;
+  var soleKill=wwSoleClaimKillData(V.ww),banUid=explicitBanUid||null;
   if(soleKill&&soleKill.roundComplete&&pool.indexOf(soleKill.claim)>=0)banUid=soleKill.claim.uid;
   var intents=wwOwnVoteIntentTargets(wwLastOwnSpeech(p));
   for(var i=intents.length-1;i>=0;i--){
@@ -43002,6 +43111,17 @@ function wwPoliceGoodProxy(p,say){
   var claimKey=wwBoard(V.ww.count,V.ww).medium?'medium':'seer';
   return wwClaimIdentityRoles(say,p.seq).indexOf(claimKey)>=0;
 }
+function wwPoliceStanceIssue(say,priorClaims){
+  var claims=(priorClaims||[]).filter(Boolean);
+  if(claims.length<2)return false;
+  var s=String(say||''),refs=0;
+  claims.forEach(function(q){
+    if(q&&q.seq&&new RegExp('(?:^|[^0-9])'+Number(q.seq)+'\\s*号').test(s))refs++;
+  });
+  var preference=/(?:更信|更偏|暂站|先站|站边|倾向|警长票[^。！？!?；;\n]{0,12}(?:给|投)|(?:给|投)[^。！？!?；;\n]{0,10}(?:当警长|当选|警徽)|支持[^。！？!?；;\n]{0,10}(?:当选|拿徽))/;
+  var reason=/(?:查杀|金水|力度|风险|反水|时间线|警徽流|验人目标|正面冲突|矛盾|更实|更弱|更强|可信|不可信)/;
+  return refs<2||!preference.test(s)||!reason.test(s);
+}
 async function wwPoliceSpeech(p,resay){
   var up=wwPoliceUpP(),others=up.filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、');
   var order=wwPoliceOrderP(),pos=order.indexOf(p);
@@ -43012,19 +43132,22 @@ async function wwPoliceSpeech(p,resay){
   var checkWord=wwBoard(V.ww.count,V.ww).medium?'具体表面身份':'金水';
   var trueSeer=!!(p&&(p.role==='seer'||p.role==='medium'));
   var isJump=trueSeer||wwWolfJobOf(p)==='jump';
+  var claimedUids=wwKnightClaims();
+  var earlierClaims=earlier.filter(function(x){return claimedUids.indexOf(x.uid)>=0});
   var jumpTimelineHint=isJump
     ?'【验人时间线自检】首夜验人发生在任何上警发言、死讯和白天表现之前；首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能把“上警积极、发言、警徽表现”等白天信息说成首夜选人的原因。每天只报新增的一夜验人。若假验理由或警徽流无法自圆，宁可普通上警或退水，不要为了悍跳硬编到聊爆。'
     :'';
   var goodUpHint='你是不跳'+claimName+'的好人。默认路线是上警听发言，不当强势抢徽位；警徽优先支持能报验的真'+claimName+'。'+
     '只有你明确选择好人代跳、替真'+claimName+'挡刀或需要凭警徽传信息时，才可以争取。二选一：①普通上警听发言：说明目的；'+
-    (earlier.length
+    (earlierClaims.length>=2
+      ?('排在你前面已经有多条'+claimName+'声明。不能只写“我先听、我记着、谁最经得起核对就投谁”。必须点名比较前面至少两条线，说出当前更信谁或警长票当前倾向谁，并给出一条查验力度、风险或时间线差异；可以说明这个倾向后续会更新，但不能完全没有判断。')
+      :(earlier.length
       ?('排在你前面按本局“随机起点＋正序或逆序”的座位顺序发言的有'+earlier.map(wwTag).join('、')+'，评价她们的竞选、说想投谁当警长及理由，可指出谁聊爆；')
-      :'你是第一个发言。没人给过信息时，只用1～2句自然说明自己是好人、暂时没信息、先听竞选，并表达没有留下收益就准备退水；按你的人设口吻说，不要评价尚未发言的人，不要讲判断标准或教学，也不要复述系统提示。')+
+      :'你是第一个发言。没人给过信息时，只用1～2句自然说明自己是好人、暂时没信息、先听竞选，并表达没有留下收益就准备退水；按你的人设口吻说，不要评价尚未发言的人，不要讲判断标准或教学，也不要复述系统提示。'))+
     '明确说自己是好人，可退水。②好人代跳：直接假跳'+claimName+'，不必说“我是来听发言”；'+
     '可给可信者报'+checkWord+'或做假查杀试探，尤其可以给排在你后面、尚未发言的上警者报一个看似可信的结果，观察谁急着接话。目标反应像狼、真'+claimName+'明显接受代跳且继续装能挡刀或带票，才留下；'+
     '真验人位反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真'+claimName+'归票。'+
     (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后面尚未发言的人金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'');
-  var claimedUids=wwKnightClaims();
   var priorSeer=order.slice(0,Math.max(0,pos)).filter(function(x){return claimedUids.indexOf(x.uid)>=0});
   var jumpCounterHint=(wwWolfJobOf(p)==='jump'&&priorSeer.length)
     ?('排在你前面、已经发言的'+priorSeer.map(wwTag).join('、')+'已经起跳'+claimName+'。竞选阶段只可以给一次“若你是好人代跳，现在退水；继续跳就按狼打”的出口，不能保留“对方若是好人，我认她/警徽给她”的分支。今晚验人目标必须选外置位，不能继续验这个仍在场的对跳者；如果旧计划是对方起跳前定的，现在就明确改验。')
@@ -43059,13 +43182,19 @@ async function wwPoliceSpeech(p,resay){
     '如果按本局顺序确实还有人排在你后面，可以施压，但只能假设、不能把顺序当成身份证据，也不能当成已经发生：可说“若后面有人起跳'+claimName+'，我看她的验人和警徽流；好人别来抢身份，我不认代跳”。'+
     (others?('其他上警者：'+others+'。'):'')+'提到别人时带编号。';
   var say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)),resay);
+  if(!isJump&&priorSeer.length>=2&&wwPoliceStanceIssue(say,priorSeer)){
+    say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,'重写这次上警发言：前面已经有多名玩家公开报验，你不能再只说“听发言、暂时不站边、谁最经得起核对就投谁”。'+
+      '保持原人设，点名比较至少两名前面已经起跳的人，给出一个当前的警长票倾向和一条可核验差异；可以明确说后续会更新，但不能完全不判断。'+
+      '不要复述提示词，不要解释这条内部修正。'+base)),resay);
+  }
   if(!trueSeer&&wwWolfJobOf(p)!=='jump'){
     if(!wwPoliceGoodProxy(p,say)&&wwPoliceSeekBadge(say)){
+      var beforeBadgeFix=say;
       say=await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,'重写这次上警发言：保持原人设和已判断内容，但不要强势抢警徽，也不要号召警下把票投给你。'+
         '警徽优先支持能报验的真'+claimName+'；以听发言、评价竞选为主。若你只是上警听发言，说明目的并准备退水。'+
         '只有明确好人代跳时才可争取。不要解释这条内部修正。'+base)),resay);
       if(!wwPoliceGoodProxy(p,say)&&wwPoliceSeekBadge(say)){
-        say='我先听一轮，暂时没信息，不站边，听完再决定，过。';
+        say=beforeBadgeFix||say;
       }
     }
   }
