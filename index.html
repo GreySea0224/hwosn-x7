@@ -16308,10 +16308,13 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-11-09 */
+   最后更新：2026-11-11 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-11-11】
+狼人杀推理和赛后 MVP 评估已细化：场记摘要只作目录，判断争议回到原话；没被验过不等于狼，夜死不等于翻牌，两名跳通灵者报出同一个表面身份不算撞车。机械狼板每条世界线要交代唯一机械狼和真通灵占位，条件句不能被改写成断言。AI 最终投票会检查自己公开发言里的“不投她”“解释清楚就不投她”等承诺，目标已回应后没有新硬证据不能反投。重说一条发言后会保留新草稿和身份盘，并提醒后文可能回应旧版本。赛后裁判会先生成关键事件首提表，区分首提、关键论证、警长执行和跟随复述；MVP 比较会扣除身份本职和盲验运气，普通村民无视野下的正确判断会加权，并比较前两名与失误因果。
 
 【最近更新 · 2026-11-09】
 狼人杀新增 12 人「觉醒骑士」板子：3 个普通狼、1 个觉醒狼美人、4 个村民，以及预言家、女巫、觉醒骑士和觉醒守卫。觉醒骑士整局发动一次连锁决斗，白天放逐发言阶段可随时翻牌；命中狼人后可继续或停手，停手后出局者留遗言并入夜；命中好人则连锁停止、继续白天。每名玩家只能被决斗一次。觉醒守卫每天可在夜晚或白天使用一次觉醒守护，持续到当天结束，能挡刀、毒、放逐和觉醒骑士决斗，不能连续两天守同一人；保护觉醒狼美人本人会阻止替身，保护替身目标无效。觉醒狼美人属于狼队，不能自刀、不能自爆，每隔一晚魅惑一次，幻象只保护发动当夜和紧接的白天；第一次面临出局时由目标替代，目标已死或处于空窗期时没有替身。该板子、身份指定、邀请、预设、AI 提示词、战绩、续局和个人主页统计均已支持；新增“连斩”“圣域”“替身”三个角色成就。
@@ -16616,7 +16619,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=153;  /* 153：扩展风格过滤、警上位置卡、身份盘防泄漏和死狼遗言来源卡 */
+const GUIDE_VER=154;  /* 154：狼人杀证据、条件票、重说记忆和MVP首提贡献 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34916,6 +34919,43 @@ function wwOwnVoteIntentTargets(txt){
   });
   return out;
 }
+/* 公开承诺不只包括“我要投谁”，也包括“我不投谁”和“对方解释清楚就不投谁”。
+   最终投票必须兑现这些条件；否则后置位按规则发言后仍可能被无条件反投。 */
+function wwOwnVoteExclusionData(p,w){
+  var own=wwLastOwnSpeech(p),rows=wwPublicEventRows(w),out=[],seen={},ownRow=null;
+  if(!p||!w||!own)return out;
+  for(var i=rows.length-1;i>=0;i--){
+    if(rows[i]&&rows[i].uid===p.uid){ownRow=rows[i];break}
+  }
+  var ownIdx=ownRow?Number(ownRow.idx):-1;
+  function add(seq,kind,reason){
+    seq=Number(seq);
+    if(!seq||seq===Number(p.seq))return;
+    var target=wwPlayerByUidTarget(w,seq);
+    if(!target)return;
+    var key=target.uid+'|'+kind;
+    if(seen[key])return;seen[key]=1;
+    var fulfilled=kind==='explicit';
+    if(kind==='conditional'){
+      fulfilled=rows.some(function(r){return r&&r.uid===target.uid&&Number(r.idx)>ownIdx});
+    }
+    out.push({uid:target.uid,seq:seq,kind:kind,fulfilled:fulfilled,reason:reason});
+  }
+  String(own).split(/[。！？!?；;\n]+/).forEach(function(c){
+    c=String(c||'').trim();
+    if(!c)return;
+    var m=c.match(/(?:我|本人|这边)[^。！？!?；;\n]{0,18}(?:不投|不票|不归|不动|不咬|不会投|不会票)[^。！？!?；;\n]{0,4}(\d{1,2})\s*号/);
+    if(m){add(m[1],'explicit',c);return}
+    m=c.match(/(\d{1,2})\s*号\s*(?:我|本人|这边)?[^。！？!?；;\n]{0,10}(?:不投|不票|不归|不动|不咬|不会投|不会票)/);
+    if(m){add(m[1],'explicit',c);return}
+    var hasPositiveCondition=/(?:讲得通|解释清楚|表水成立|理由成立)/.test(c);
+    if(/(?:解释不通|讲不通|没解释清楚|不清楚|圆不上|表水不成立)/.test(c)&&!hasPositiveCondition)return;
+    m=c.match(/(\d{1,2})\s*号[^。！？!?；;\n]{0,36}(?:解释|讲清|说明|回答|表水|回应)[^。！？!?；;\n]{0,22}(?:清楚|完整|成立|讲得通|圆上|没问题|过了)[^。！？!?；;\n]{0,16}(?:我|就|那)?[^。！？!?；;\n]{0,8}(?:不投|不票|不动|不咬|放过|我认)/);
+    if(!m)m=c.match(/(\d{1,2})\s*号[^。！？!?；;\n]{0,30}(?:讲得通|解释清楚|表水成立|理由成立)[^。！？!?；;\n]{0,16}(?:等|先听|再听|我认|放过|不投|不票|不动|不咬)/);
+    if(m)add(m[1],'conditional',c);
+  });
+  return out;
+}
 function wwExclusiveVoteCommitmentFor(txt,seq){
   var n=Number(seq);
   if(!n)return false;
@@ -36302,7 +36342,9 @@ function wwScribeSys(w,rows){
     '2. 摘要 60～140 个汉字，写成 2～3 句；极短发言可写 30～80 字。不能只复述标题。\n'+
     '3. 必须保留这条发言里的事实：怀疑/信任谁及理由、自称和验人结果、警徽流、票往谁、明确承诺、提出的问题、承认或未解决的核心矛盾。\n'+
     '4. 数字、座位号、身份名和金水/查杀结果必须准确；没有的内容不要补，不判断身份真假，不写语气模仿和旁白。\n'+
-    '5. 长发言优先保留会影响下一步判断的信息，删掉寒暄、口癖和重复铺陈。');
+    '5. 长发言优先保留会影响下一步判断的信息，删掉寒暄、口癖和重复铺陈。\n'+
+    '6. 摘要只能压缩原话，不能新增原话没有的事实、身份结论或前后矛盾；原话是“如果、若、可能、世界线”，摘要也必须保留条件性。\n'+
+    '7. 摘要只是目录，后续判断发生争议时必须回到对应 ref 的完整原话；不得只用摘要给玩家定罪。');
   L.push('【只输出一个 JSON 对象，不要 markdown、不要解释】\n'+
     '{"claims":[{"seat":1,"role":"gravekeeper","ref":"D2-P1-1","quote":"我是1号，守墓人"}],'+
     '"qa":[{"target":7,"topic":"聊爆/时间线","questionRefs":["D1-P6-1"],"answerRefs":["D1-P7-1"],"status":"unresolved"}],'+
@@ -38185,7 +38227,7 @@ function wwPublicLog(maxN,detail){
         var current=(dayAbs<0||abs>=dayAbs),last=(ri>=rows.length-3),head,tail;
         var scribeSum=String(e.sum||'').trim();
         if(scribeSum&&!last){
-          txt=wwName(p)+'【场记摘要：'+scribeSum+'】';
+          txt=wwName(p)+'【目录摘要·不作独立证据：'+scribeSum+'】';
         }else{
           var summary=scribeSum||wwCleanTitle(e.title||wwAutoTitle(raw),raw);
           if(wwHushOn()){
@@ -38198,14 +38240,16 @@ function wwPublicLog(maxN,detail){
           if(/^【遗言】/.test(raw)){head+=120;tail+=60}
           raw=wwClipSpeech(raw,head,tail);
           txt=(/^【遗言】/.test(raw)
-            ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw.replace(/^【遗言】/,'')
-            :wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw);
+            ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【'+(scribeSum?'目录摘要·不作独立证据':'摘要')+'：'+summary+'】：'+raw.replace(/^【遗言】/,'')
+            :wwName(p)+'【'+(scribeSum?'目录摘要·不作独立证据':'摘要')+'：'+summary+'】：'+raw);
         }
       }
     }
     /* 【注意】只收 sys / say / vote 三类：
        'scene'（夜间 · 你的房间：她和凶手互骂那些话）、'me'、'wolf' 都不进这里 ——
        AI 玩家和裁判都读不到，所以她房间里的对话不会剧透。 */
+    if(txt&&e&&e.k==='say'&&e.resayRev)
+      txt+='（内部时间线提示：这条公开发言重说过；后面的发言可能回应的是重说前版本，不能自动当成对当前原话的确认。）';
     if(txt)body.push(txt);
   });
   var out=body.join('\n');
@@ -38237,7 +38281,7 @@ function wwPublicLog(maxN,detail){
       var current=(dayAbs<0||abs>=dayAbs),last=(ri>=rows.length-3);
       var scribeSum=String(e.sum||'').trim();
       if(scribeSum&&!last){
-        txt=wwName(p)+'【场记摘要：'+scribeSum+'】';
+        txt=wwName(p)+'【目录摘要·不作独立证据：'+scribeSum+'】';
       }else{
         var summary=scribeSum||wwCleanTitle(e.title||wwAutoTitle(raw),raw);
         head=Math.round((last?480:(current?220:86))*scale);
@@ -38245,8 +38289,8 @@ function wwPublicLog(maxN,detail){
         if(/^【遗言】/.test(raw)){head+=100;tail+=50}
         raw=wwClipSpeech(raw,head,tail);
         txt=(/^【遗言】/.test(raw)
-          ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw.replace(/^【遗言】/,'')
-          :wwName(p)+'【'+(scribeSum?'场记摘要':'摘要')+'：'+summary+'】：'+raw);
+          ?'【遗言·死者自述，不是主持人翻牌事实】'+wwName(p)+'【'+(scribeSum?'目录摘要·不作独立证据':'摘要')+'：'+summary+'】：'+raw.replace(/^【遗言】/,'')
+          :wwName(p)+'【'+(scribeSum?'目录摘要·不作独立证据':'摘要')+'：'+summary+'】：'+raw);
       }
       body.push(txt);
     });
@@ -38268,7 +38312,7 @@ function wwReasoningDisciplineText(){
     '判断前先把信息分成三层：①主持人公告和你的私有技能结果；②某条公开世界线能够推出的结果；③动机、概率和“像不像”。后两层都不能写成第一层事实。'+
     '【本板身份白名单】本局实际存在的身份只有：'+boardRoleText+'。不要讨论、假设或安排本板不存在的角色和技能；若有人声称本板不存在的身份，按虚假身份或口误处理，不能把它当成有效世界线。'+
     '一条事实如果能同时解释两条相反世界线，就不是区分证据。例如“某死者出局时开过枪”只证明她持有猎枪，不能单独证明她是真猎人或机械狼。'+
-    '【好人压跳】好人可以在警上暂时假跳预言家/通灵师，给后置位发具体金水或假查杀，观察目标是否接牌、退水、交票或误以为施压者是机械狼在递话，再宣布假验作废并退水。这是正常诈狼路线。压跳后的身份反推不是“天然不可能”；但目标也可能是被假金水发中真实身份的好人，所以只能提高狼面，不能百分百定罪。退水时只说“假验作废”只能解释声明失效，不等于已经完成压跳收益；必须看她实际钓出了什么。'+
+    '【好人压跳】好人可以在警上暂时假跳预言家/通灵师，给后置位发具体金水或假查杀，观察目标是否接牌、退水、交票或误以为施压者是机械狼在递话，再宣布假验作废并退水。这是正常诈狼路线。压跳后的身份反推不是“天然不可能”；但目标也可能是被假金水发中真实身份的好人，所以只能提高狼面，不能百分百定罪。退水时只说“假验作废”只能解释声明失效，不等于已经完成压跳收益；必须看她实际获得了什么。即使没有狼当场跳出，只要压跳迫使关键目标公开表态、排除了某个小狼/机械狼分支、改变了票向或提高了对验人线的判断质量，也算非零信息收益，只是强度低于钓出狼；不能反复写成“没压到狼就等于压跳失败”。'+
     '【欺骗台词不是最终供词】好人为了骗狼可以假报身份、假装站狼、故意说“我是机械狼”或“我站狼队这边”。其他好人不能把这种诱饵台词直接拿去和最终身份做字面矛盾对照。一个操作完成公开结算后，应记录“诱饵内容—想骗谁—目标反应—何时退出—假身份是否作废—后续票向”，按整套战术评价。没有公开结算、继续拿假身份带票，或实际行动反而伤害好人时，仍要计入狼面；狼也可能事后用“我在演”逃跑，所以必须核对她的实际票向和夜间行为。全场好人集体假扮狼/机械狼钓小狼时，也先看是否有人公开结算、行动是否配合，不能只抓“她刚才说过自己是狼”。'+
     '【原始悍跳位】“已起跳位”是谁已经公开跳身份；“原始悍跳位”是高概率由狼队提前安排、专门负责悍跳的小狼。9/12 人 AI 狼局通常都会安排一只悍跳狼，临场改跳、退水可以发生，但“狼队完全没有悍跳安排”不是默认高概率世界线。'+
     '若先跳验人位的 x 可信，y 知道自己是好人且不是验人位，则 x 之后、原本最可能接位的 z 是后置原始悍跳位的高优先候选。'+
@@ -38289,6 +38333,10 @@ function wwReasoningDisciplineText(){
     '原话用了“如果、若、可能、或许、世界线”中的任意一种，就是条件推理，不是事实断言。转述时不能写成“她已经认定X是某身份”或“她把X当前提”；可以质疑那个前提还没坐实，但必须保留条件性。'+
     '“查杀”“狼人”“狼王”“白狼王”“机械狼”等都属于狼人结果，彼此不能被当成“机械狼给队友递好人衣服”。只有把仍存活的小狼队友报成村民、守卫、女巫、猎人、金水等好人身份时，才可能构成接力好身份；目标已经出局后，这条提示必须失效。'+
     '同一条公开信息由别人复述、过一天再说一次，仍然是同一条证据，不会因为说话者换人而增加可信度。例如某人补报的查验结果早已被出局者公开，就只能算重复公开信息，不能当作新增验人成果。'+
+    '【摘要不是证据】场记摘要、标题和旧身份盘只负责指路；原话、轮次和主持人记录才是证据。摘要没有写出的条件、反例或解释不能由 AI 自行补成“她已经承认”；摘要和原话冲突时无条件以原话为准。'+
+    '【身份未知不等于狼面】“没被验过、没有身份背书、没上警、没有神职接徽”只能说明身份未知，不能单独当狼点或投票主证据。必须另外指出她的发言、票型、时间线或承诺哪里和公开事实冲突。'+
+    '【同一结果不是撞车】两名跳验人者对同一目标报出相同表面身份，不是逻辑冲突；它可能都是真实观察，也可能是后手复述公开信息。它没有区分真假的新增价值，但不能写成“两条不能同时成立”。只有报出互相排斥的结果才是硬冲突。'+
+    '【机械狼分支必须完整】机械狼板每条世界线只能有一个机械狼落点，并要交代唯一的真通灵/真预言占位。例如“8机械＋5小狼”若成立，必须说明真通灵是谁、为什么没有公开起跳；交代不了就只能写“分支缺角色占位”，不能当完整结论。也不要把“4号像机械狼”直接升级成“4号学会了村民/猎人”这种没有查验来源的具体身份。'+
     '列矛盾时必须对齐同一时间、同一对象、同一规则前提。几句话能同时成立，只能算疑点；只有找不到共同成立的解释，才是硬冲突。'+
     '夜里只公开“谁出局”，不公开刀死还是毒死；夜死、死者和某人的矛盾、某人有动机，都不能单独证明是谁下的刀。多人重复同一个理由、多人投同一个人，也只是票型结果，不是几份独立证据。'+
     '【夜刀与举证责任】狼刀、空刀、刀谁属于狼队夜间行动。普通好人只能推测，没有义务解释狼队为什么选择某个刀口。“建议改验2号”和“2号当夜被刀”只是两个独立事实，不能自动推出该玩家提前知道刀口、与狼共边，或必须为2号死亡负责。可以问她“为什么判断2号更像好人、为什么更想验3号”，不能问“2号为什么死，你解释”。被问者回答“2号是狼队刀的，我不知道狼队理由；我判断2号偏好的理由如下”属于有效回答，不算回避。只有出现可核验硬冲突，例如她声称掌握本不该知道的刀口、技能或时间线矛盾，或明确承诺与实际行动正面冲突时，才能把夜死和她联系起来；“像提前知道”只能算弱猜测，不能作为定票主证据。'+
@@ -38322,6 +38370,7 @@ function wwReasoningDisciplineText(){
     '单边高可信神职出现小口误、语气差、用词不准时，可以要求她简短澄清；澄清后不得反复拿同一个措辞问题施压，更不能仅因此投她。只有与规则、时间线、查验结果或票型承诺发生正面硬冲突，且没有替代解释时，才能降级身份判断。'+
     '同一核心理由如果前面已经有两名玩家完整说过，后续发言只能补充新的对象、新增事实或指出前一条推导的具体缺口；也可以直接说“我认同这条，不重复”，不能换一批词复读成多个独立证据。'+
     '实际接徽人不在生前报的某一条分支里，不能单独证明被验者必狼：可能存在临时改验、原接徽人当夜死亡、转交最信任好人或狼警长做局。只有公开交接说明与规则、时间线、查验数量或实际落点同时正面冲突且没有替代解释时，才降级判断。'+
+    '【证据先验真再采用】其他人先说了某条观点，不等于观点成立；多人复读也不等于多份证据。采用一条观点前，先核对它引用的原话、发言天数、主语、条件性和角色占位。条件句不能被改写成断言，反驳一个错误分支的人不能被写成提出该分支的人。'+
     '\n'+wwWolfPitScopeText()+'\n'+wwSeerRebuttalQualityText();
 }
 function wwSpecificRoleResult(result){
@@ -40342,6 +40391,7 @@ async function wwVoteAI(p,pool){
   var bindHint=wwWolfBindVoteText(p);
   var own=wwLastOwnSpeech(p);
   var ownAnswerIssues=own?wwAnswerRequestIssues(own,w,p,true):[];
+  var voteExclusions=!wwIsWolf(p)?wwOwnVoteExclusionData(p,w):[];
   var ownHint=own?('\n你刚才公开发言的首尾是：「'+wwClipSpeech(own,260,100)+'」。把它作为投票起点。'+
     '如果你说的是“先投X、暂挂X、X解释我就改、若A成立我投B”这类条件票，先查条件是否成立、X在后续是否已经发言及其原话；不能把普通条件票直接当成锁死的最终票。条件没成立、目标已经解释，或后置位起跳和新查验改变了世界线时，可以改投别人并写明新理由。'+
     (wwIsWolf(p)
@@ -40349,6 +40399,13 @@ async function wwVoteAI(p,pool){
       :'如果你刚才说了“解释不清就投她/说不明白不撤”，或公开指认某人“聊爆/圆不回来”，先查质问与回答记录：对方仍是“已回应但未解决”或“未回答”时，可以按条件投她；若条件没成立、对方已回答并解决，或出现新的硬证据，可以改票并写明原因。只有原话明确到“绝不改票、其他信息也不影响”的程度时才按锁票处理。')+
     (ownAnswerIssues.length?'\n【条件失效】你刚才要求 '+ownAnswerIssues.map(function(x){return wwTag(x.p)}).join('、')+
       ' 本轮再解释后改票，但她已经发言结束，不能再回应。不要继续等待这个条件，直接按现有原话决定最终票。':'')):'';
+  if(voteExclusions.length){
+    ownHint+='\n【你亲口留下的不投条件】'+
+      voteExclusions.map(function(x){
+        return wwTag(wwPlayerByUidTarget(w,x.seq))+'：'+(x.kind==='explicit'?'已经明确表示本轮不投她':'你要求她先解释；她已经获得后续发言机会')+'，原话是「'+wwClipSpeech(x.reason,90,30)+'」';
+      }).join('；')+
+      '。除非她后续出现了与你原条件直接相关的新硬矛盾，否则不能无理由反投；改投别人时要说明是自己原条件已满足。';
+  }
   var goodHint='\n按狼坑位置投，自行判断归票是否可信。按开局狼数、当前人数最多剩几狼，和是否有定狼已出局'+
     '（自爆/被骑士戳/跳预的全死=至少1狼死）粗估剩余狼数。再分析你想票的候选：若她是狼，队友是谁，'+
     '完整总狼坑可以包括已出局且你判断为狼的死者，今天实际票口只从存活玩家中选择；不能仅因她保留死狼在总狼坑，就判她“拿死人凑人头”或扣狼点。'+
@@ -40558,6 +40615,19 @@ async function wwVoteAI(p,pool){
     }catch(e){
       pick=soleKill.target;
       vote.logic='单边验人位已给存活查杀，没有先用硬矛盾推翻验人位，按查杀目标投票。';
+    }
+  }
+  if(pick&&!wwIsWolf(p)&&voteExclusions.length&&!wwVoteHasHardContradiction(w,vote.logic)){
+    var excludedUids={};
+    voteExclusions.forEach(function(x){if(x.fulfilled)excludedUids[x.uid]=1});
+    if(excludedUids[pick]){
+      var exclusionAltPool=pool.filter(function(x){return x&&x.uid!==p.uid&&!excludedUids[x.uid]});
+      var exclusionAlt=exclusionAltPool.length?wwVoteFallbackTarget(p,exclusionAltPool):null;
+      if(exclusionAlt){
+        pick=exclusionAlt.uid;
+        vote.logic='我刚才已经公开表示不投或要求先解释的目标已经获得回应；没有新的硬矛盾，按原承诺改投另一名更可疑的人。';
+        txt='投票：'+wwTag(exclusionAlt)+'\n判断：'+vote.logic;
+      }
     }
   }
   if(vote.logic)p.lastVoteLogic=vote.logic;
@@ -40808,6 +40878,157 @@ async function wwReactGo(){
   render(true);
 }
 /* ---------- 赛后：中立裁判复盘 + MVP ---------- */
+function wwMvpRoleName(p){return p?(WW_ROLE_NAME[p.role]||p.role||'未知'):'？'}
+function wwMvpPublicRows(players,log){
+  var byUid={},day=1,counts={},out=[];
+  (players||[]).forEach(function(p){if(p&&p.uid)byUid[p.uid]=p});
+  (log||[]).forEach(function(e,idx){
+    if(!e)return;
+    if(e.k==='sys'){
+      var dm=String(e.text||'').match(/^第\s*(\d+)\s*天/);
+      if(dm)day=Number(dm[1])||day;
+      return;
+    }
+    if(e.k!=='say')return;
+    var text=String(e.text||'').trim();
+    if(!text)return;
+    var p=byUid[e.who]||null,seq=Number(p&&p.seq)||0;
+    counts[day]=counts[day]||{};
+    counts[day][seq]=(counts[day][seq]||0)+1;
+    out.push({day:day,idx:idx,uid:e.who,p:p,seq:seq,text:text,
+      ref:'D'+day+'-P'+(seq||'?')+'-'+counts[day][seq]});
+  });
+  return out;
+}
+function wwMvpExileRows(rec){
+  var out=[];
+  (rec||[]).forEach(function(x){
+    var t=String(x&&x.t||''),m=t.match(/被放逐[：:]\s*(\d{1,2})\s*号/)||t.match(/投票[：:]\s*(\d{1,2})\s*号出局/);
+    if(m)out.push({day:Number(x&&x.d)||0,seq:Number(m[1])});
+  });
+  return out;
+}
+function wwMvpVoteRows(log){
+  var day=1,out=[],seen={};
+  (log||[]).forEach(function(e){
+    if(!e)return;
+    var t=String(e.text||'');
+    if(e.k==='sys'){
+      var dm=t.match(/^第\s*(\d+)\s*天/);
+      if(dm)day=Number(dm[1])||day;
+      return;
+    }
+    if(e.k!=='vote'||/^警长票/.test(t))return;
+    t.split(/\n+/).forEach(function(line){
+      var m=line.match(/^(.+?)\s*→\s*(\d{1,2})\s*号/);
+      if(!m)return;
+      var target=Number(m[2]),re=/(\d{1,2})\s*号/g,mm;
+      while((mm=re.exec(m[1]))){
+        var voter=Number(mm[1]),key=day+'|'+voter+'|'+target;
+        if(!voter||!target||seen[key])continue;
+        seen[key]=1;out.push({day:day,voter:voter,target:target});
+      }
+    });
+  });
+  return out;
+}
+function wwMvpVoteMention(text,target){
+  var n=Number(target);
+  if(!n)return '';
+  var clauses=String(text||'').split(/[。！？!?；;\n]+/);
+  var firstPerson=new RegExp('(?:我|本人|这边|这轮|本轮|今天)[^。！？!?；;\\n]{0,24}(?:票|投|归票|归|挂|下|出)(?:票)?(?:落|给|到|在|向)?\\s*'+n+'(?:\\s*号)?(?=$|[^0-9])');
+  var targetRef=new RegExp('(?:^|[^0-9])'+n+'(?:\\s*号)?(?=$|[^0-9])');
+  var policeAction=new RegExp('(?:我|本人|这边)?\\s*(?:警长票|竞选票)\\s*(?:投|给|落|到)?\\s*(?:了)?\\s*'+n+'(?:\\s*号)?');
+  for(var i=0;i<clauses.length;i++){
+    var c=String(clauses[i]||'').trim();
+    if(!c||!targetRef.test(c))continue;
+    if(policeAction.test(c)||/支持[^。]{0,10}当选/.test(c))continue;
+    if(/(?:不投|不票|别投|不要投|不会投|不可能投)[^。！？!?；;\n]{0,10}/.test(c)&&!/[？?]/.test(c))continue;
+    if(firstPerson.test(c))return c;
+  }
+  return '';
+}
+function wwMvpMechanicMention(players,rows){
+  var mech=null;
+  (players||[]).some(function(p){if(p&&p.role==='mechanicwolf'){mech=p;return true}return false});
+  if(!mech)return [];
+  var out=[];
+  (rows||[]).forEach(function(r){
+    if(!r||!r.p||r.p.uid===mech.uid)return;
+    var clauses=String(r.text||'').split(/[。！？!?；;\n]+/);
+    clauses.some(function(c){
+      var targetRef=new RegExp('(?:^|[^0-9])'+String(mech.seq)+'(?:\\s*号)?(?=$|[^0-9])');
+      if(!targetRef.test(c)||!/机械狼/.test(c))return false;
+      var wrongGood=new RegExp(String(mech.seq)+'\\s*号?[^。！？!?；;\\n]{0,20}(?:是|为|认作|当作)(?:好人|村民|平民|守卫|女巫|猎人|通灵师|预言家)[^。！？!?；;\\n]{0,30}机械狼');
+      if(wrongGood.test(c))return false;
+      var learnedTarget=new RegExp('机械狼[^。！？!?；;\\n]{0,10}(?:学了|学到|学习|学会)[^。！？!?；;\\n]{0,8}'+String(mech.seq)+'\\s*号?');
+      if(learnedTarget.test(c))return false;
+      var direct=new RegExp(String(mech.seq)+'\\s*号?[^。！？!?；;\\n]{0,18}(?:是|像|更像|疑似|可能|怀疑|盘成|认作|当作)[^。！？!?；;\\n]{0,12}机械狼|'+
+        '机械狼[^。！？!?；;\\n]{0,18}(?:是|像|更像|疑似|可能|怀疑|盘成|认作|当作)[^。！？!?；;\\n]{0,12}'+String(mech.seq)+'\\s*号?');
+      if(!direct.test(c))return false;
+      out.push({row:r,p:r.p,text:c.trim(),good:!wwIsWolf(r.p)});
+      return true;
+    });
+  });
+  return out;
+}
+/* 裁判先看事件流水，再评 MVP。这里只整理公开时间线，不替裁判直接颁奖。 */
+function wwMvpLedgerText(players,rec,log){
+  var rows=wwMvpPublicRows(players,log),votes=wwMvpVoteRows(log),exiles=wwMvpExileRows(rec),L=[];
+  var bySeq={};(players||[]).forEach(function(p){if(p&&p.seq)bySeq[Number(p.seq)]=p});
+  exiles.forEach(function(ex){
+    var target=bySeq[ex.seq];
+    if(!target)return;
+    var dayRows=rows.filter(function(r){return r.day===ex.day&&r.p&&r.p.uid!==target.uid});
+    var any=null,good=null;
+    for(var i=0;i<dayRows.length;i++){
+      var mention=wwMvpVoteMention(dayRows[i].text,ex.seq);
+      if(!mention)continue;
+      if(!any)any={row:dayRows[i],text:mention};
+      if(!good&&!wwIsWolf(dayRows[i].p)){good={row:dayRows[i],text:mention};break}
+    }
+    var voters=votes.filter(function(v){return v.day===ex.day&&v.target===ex.seq}).map(function(v){return v.voter+'号'});
+    function fmt(x){
+      if(!x||!x.row)return '未从公开发言解析到明确点名';
+      return x.row.seq+'号('+wwMvpRoleName(x.row.p)+'，'+x.row.ref+')「'+wwClipSpeech(x.text,110,40)+'」';
+    }
+    L.push('· D'+ex.day+' 实际放逐 '+ex.seq+'号（'+wwMvpRoleName(target)+'）：最早公开点名投/归者='+fmt(any)+
+      '；好人阵营最早明确点名='+fmt(good)+'；实际票='+((voters.length?voters.join('、'):'未解析')));
+  });
+  var mechMentions=wwMvpMechanicMention(players,rows);
+  if(mechMentions.length){
+    var mechP=null;(players||[]).some(function(p){if(p&&p.role==='mechanicwolf'){mechP=p;return true}return false});
+    var firstAll=mechMentions[0],firstGood=mechMentions.filter(function(x){return x.good})[0]||null;
+    L.push('· 真实机械狼是 '+mechP.seq+'号。最早公开把'+mechP.seq+'号与“机械狼”联系起来的发言='+
+      firstAll.p.seq+'号('+wwMvpRoleName(firstAll.p)+'，'+firstAll.row.ref+')「'+wwClipSpeech(firstAll.text,100,40)+'」；'+
+      '其中最早由好人公开提及='+
+      (firstGood?(firstGood.p.seq+'号('+wwMvpRoleName(firstGood.p)+'，'+firstGood.row.ref+')「'+wwClipSpeech(firstGood.text,100,40)+'」'):'未解析')+
+      '。狼人的提前提及、后手的复述和反驳错误分支的人，不能自动拿走同一份判断功劳。');
+  }
+  var truthSeer=null;
+  (players||[]).some(function(p){if(p&&(p.role==='medium'||p.role==='seer')){truthSeer=p;return true}return false});
+  if(truthSeer){
+    var plans=[],checks=[];
+    rows.forEach(function(r){
+      if(!r.p||r.p.uid!==truthSeer.uid)return;
+      var m=r.text.match(/(?:今晚|今夜|明晚|准备|计划|改验)[^。！？!?；;\n]{0,24}?(?:验|查验|摸)\s*(\d{1,2})\s*号/);
+      if(m)plans.push('D'+r.day+'('+r.ref+')计划验'+m[1]+'号');
+    });
+    (rec||[]).forEach(function(x){
+      var t=String(x&&x.t||''),m=t.match(/(?:通灵师|预言家)查验\s*(\d{1,2})\s*号[：:]\s*([^（\n]+)/);
+      if(m)checks.push('D'+(Number(x.d)||0)+'实际验'+m[1]+'号＝'+String(m[2]).trim());
+    });
+    if(plans.length||checks.length){
+      L.push('· 真验人位是 '+truthSeer.seq+'号('+wwMvpRoleName(truthSeer)+')。公开验人计划='+(plans.join('；')||'未解析')+
+        '；实际夜间查验='+(checks.join('；')||'未解析')+'。裁判必须核对改验是否公开说明、警徽落点是否让好人取得可理解的信息。');
+    }
+  }
+  if(!L.length)return '';
+  return '【MVP事件流水（程序按公开时间整理，只负责定位，不直接评奖）】\n'+L.join('\n')+
+    '\n· 使用规则：首提、关键论证、警长票执行、跟随复述分别计贡献；警长身份不自动等于首提者。'+
+    '盲验命中主要算运气，把准确结果转成可信度、站边和票局才算操作。'+
+    '若某人的误票是由前一位玩家更早的可避免错误诱导，且她在当时信息下没有独立硬伤，不能把后面的误票直接写成她一个人的重大失误。';
+}
 /* 把一局的「上帝视角资料」拼成给裁判的提示词（游戏里的那一局、战绩记录里的那一局都用它） */
 function wwJudgePrompt(src,result,appeal,priorJudge){
   var L=[];
@@ -40821,6 +41042,7 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
   if(/守卫/.test(String(src.roles||'')))L.push('【守卫规则】每夜守一人（含自己），不能连续两夜守同一人；只挡狼刀，同守同救会死。评 MVP 时不得把违规连守当作有效操作。');
   /* 【新】提醒裁判：空刀 / 收刀是正常战术，那一晚就是没人死，不是程序出错 */
   L.push('（提醒：记录里出现【空刀】或【收刀】，意思是狼队那一晚决定不杀人 / 到了房门口又放过对方 —— 这是正常战术，不是程序出错；那一晚确实没有人被刀死。）');
+  if(src.mvp)L.push(src.mvp);
   L.push('【白天的发言和投票（所有人都看得到）】\n'+src.pub);
   /* 狼队夜里商量的那些话照旧给裁判（评狼队打法用得上）。
      注意：玩家自己那场「夜间 · 你的房间」（k:'scene'）不会出现在 src.pub 里
@@ -40874,6 +41096,11 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
     '误抗推不扣高光：若平民长期站对边、点齐狼坑、正确指出错误追问或给对神职建议，最后只是被其他好人基于无效因果票出，不能因此把她写成最惨失误，也不能抹掉她已完成的正确盘点和带队贡献。'+
     '战术献祭加权：若狼人牌（如狼王/白狼王/自刀狼）虽然在首日出局，但通过主动制定的战术（如自刀骗药、狼王枪杀队友做高深水狼身份）直接导致好人神职误毒/误判崩盘，该“总导演”狼人应获得最高 MVP 权重。'+
     '选最终 MVP 前，先在内部列出前两名，逐项比较首次准确解狼、实际技能阻止的死亡、关键票局贡献、错误前提与误投；只在综合贡献最高时给出最终一人，不得只看最后一天票是否命中。');
+  L.push('【MVP贡献拆分与身份基线】必须把“归票”拆成首提、关键论证、执行和跟随四种贡献。谁最早公开提出投某狼、谁补出了让别人改变判断的新事实、谁利用警长票或发言顺序把票做成、谁只是复述跟票，要分别计算；同一句观点被多人复述仍只算一份证据。警长归票和1.5票是执行贡献，不自动证明她是首提者或主要带队者。'+
+    '评MVP时使用身份基线：真通灵/预言家知道对跳真假，正确归票不退水的对跳者是本职；普通村民在无夜间视野下先正确点名狼、驳倒错误世界线、纠正神职计划或成功表水，应明显加权。盲验到具体职业主要是运气；“验到后让全场相信、形成正确票向”才是可评价的操作，不能把随机命中重复算成推理能力。'+
+    '首次准确提出、第一次明确票向、实际投票和最终出局时间要按公开顺序核对；后发言者复述先手观点不能抢走首提功劳。若一人提出错误分支、另一人只是反驳该分支，不能把错误分支算到反驳者头上。'+
+    '失误要按因果链判断：如果前一名玩家更早出现可避免的公开失误，后一名玩家在当时的公开信息下据此误判，且没有新的独立硬伤，后面的误票不能单独写成她的重大失误；优先评价前一个真正改变信息环境的行为。若大票型已经足以放逐某目标，个人一票没有改变结果的，也不能把结果整体算到她头上。'+
+    '最终输出前必须认真比较前两名：至少检查独立解狼、首提与执行、身份基线、技能与运气、表水/凝聚力、可避免失误和边际影响。MVP理由必须能解释为什么另一名候选不如她，不能再只用“验了某身份、归了几票”一句话。');
   if(appeal){
     if(priorJudge)L.push('【当前裁判原文（申诉前）】\n'+String(priorJudge).slice(0,2600));
     L.push('【MVP 改判申诉】玩家对当前 MVP 评选提出了申诉，请重新、认真核看整局记录，再判断是否改判。'+
@@ -40897,6 +41124,7 @@ async function wwJudge(result,appeal,priorJudge){
     roles:w.players.map(function(p){return wwNum(p)+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
     night:(w.rec||[]).length?w.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'',
     fear:wwFearLedgerText(w.rec),
+    mvp:wwMvpLedgerText(w.players,w.rec,w.log),
     pub:wwPublicLog(240,true),
     wolf:wwWolfChannelText(60)
   };
@@ -40914,6 +41142,7 @@ function wwPublicLogRec(rec,maxN){
     else if(e.k==='say'){
       var p=wwRecP(rec,e.who),t=String(e.text||'');
       L.push((/^\u3010\u9057\u8a00\u3011/.test(t)?'【遗言·未经证实】':'')+(p?((p.seq?p.seq+'号 · ':'')+p.name):(e.nm||e.who||'？'))+'：'+t.replace(/^【遗言】/,''));
+      if(e.resayRev)L.push('（内部时间线提示：这条公开发言重说过；后面的发言可能回应的是重说前版本，不能自动当成对当前原话的确认。）');
     }
     else if(e.k==='vote')L.push('【投票】'+e.text);
     /* 【注意】同上：'scene'（她房间那场夜戏）在这里也进不来，所以裁判和复盘助手都看不到。 */
@@ -40946,6 +41175,7 @@ async function wwJudgeRec(rec,result,appeal,priorJudge){
     roles:(rec.players||[]).map(function(p){return (p.seq?p.seq+'号 · ':'')+p.name+'：'+WW_ROLE_NAME[p.role]+(p.alive?'（活到最后）':'（出局）')}).join('\n'),
     night:(rec.rec||[]).length?rec.rec.map(function(x){return '第 '+x.d+' 天 '+x.t}).join('\n'):'',
     fear:wwFearLedgerText(rec.rec),
+    mvp:wwMvpLedgerText(rec.players||[],rec.rec||[],rec.log||[]),
     pub:wwPublicLogRec(rec,240),
     wolf:wwWolfChannelRec(rec,60)
   };
@@ -46225,11 +46455,32 @@ async function wwResayGo(){
         (wasCampaign?('【竞选发言】'+await wwPoliceSpeech(p,resay)):await wwSpeech(p,resay));
     }catch(err){t=''}
     var newThink=t?wwThinkOf(p):'';
+    var newTitle=(p&&p._lastSayTitle)||'';
+    var resayOwnState=null;
+    if(t&&p){
+      resayOwnState={
+        scratch:String(p.scratch||''),
+        readBoard:String(p.readBoard||''),
+        readBoardVer:Number(p.readBoardVer)||0,
+        readBoardDay:Number(p.readBoardDay)||0,
+        readBoardLog:(p.readBoardLog||[]).map(function(x){return Object.assign({},x)})
+      };
+    }
     /* 恢复当前真实进度和这条发言之后已经存在的记录。 */
     restoreLiveState();
     if(gen!==(w.gen||0)||w.log!==log){w.resayOn=false;return}   /* 已经开了新的一局：这次结果丢掉，免得出现"上一局的人" */
+    if(resayOwnState){
+      var liveP=wwPlayerByUid(p.uid);
+      if(liveP){
+        liveP.scratch=resayOwnState.scratch;
+        liveP.readBoard=resayOwnState.readBoard;
+        liveP.readBoardVer=resayOwnState.readBoardVer;
+        liveP.readBoardDay=resayOwnState.readBoardDay;
+        liveP.readBoardLog=resayOwnState.readBoardLog;
+      }
+    }
     if(t){
-      w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:newThink,title:(p&&p._lastSayTitle)||'',resayNote:note,ctx:oldSay.ctx||null});
+      w.log.splice(idx,0,{k:'say',who:p.uid,text:t,think:newThink,title:newTitle,resayNote:note,resayRev:true,ctx:oldSay.ctx||null});
     }else{
       w.log.splice(idx,0,oldSay);
       try{toast('这次没有生成新发言，原来的发言已保留')}catch(e){}
