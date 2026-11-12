@@ -39066,7 +39066,7 @@ function wwSysFor(p,task){
      r==='knight'?'每局可决斗一次。自己发言时可以决斗；所有人发言结束、投票前还会再得到一次考虑机会。警长竞选和平票 PK 不能决斗。命中狼人则对方立即出局、白天结束；命中好人则你自己出局、白天继续。别在没证据时乱戳。':
      r==='awakenedknight'?'好人阵营神职。整局只能发动一次连锁决斗，白天放逐发言阶段可随时翻牌。命中狼人后可继续或停手；停手后当前出局者留遗言并入夜。命中好人则连锁停止，你和目标按守卫、替身等实际结算后继续白天。每名玩家整局只能被你决斗一次。':
      r==='idiot'?'被票翻牌免死；之后能发言不能投票；夜里仍会死。平时可藏，稳定成为抗推位时及时翻牌自保。':
-	     r==='guard'?'每晚守一人，不能连守；只挡狼刀，不挡女巫毒，被守的人仍可能被毒死；同守同救会死。首夜通常空守更稳，但不是硬规则，也可以按开局前信息盲守；之后重点守真预/通灵。':
+	     r==='guard'?'每晚守一人，不能连守；只挡狼刀，不挡女巫毒，被守的人仍可能被毒死；同守同救会死。首夜通常空守更稳，但不是硬规则，也可以按开局前信息盲守。之后要比较公开通灵的持续查验价值、公开女巫剩余药的价值、自己是否已经暴露，以及哪一边多活一夜更能阻止屠边；守通灵是常见候选，不是唯一标准。':
 	     r==='awakenedguard'?'好人阵营神职。每天可在夜晚或白天放逐发言阶段使用一次觉醒守护；每天只能守一人，不能连续两天守同一人。保护持续到当天白天结束，可挡狼刀、毒药、放逐和觉醒骑士决斗，也不会与解药同守同救。保护觉醒狼美人本人会让替身不触发；保护替身目标无效。':
 	     r==='gravekeeper'?'每晚得知上一白天被投票放逐者是好人还是狼人，只知阵营、不知具体身份。第一夜、平票或无人被放逐时没有结果；用查验记录判断票型。':
 	     r==='gargoyle'?'狼人阵营，但不与普通狼互认、不参加普通狼的夜间刀人。每晚查验一名存活玩家的具体身份；普通狼全部出局后接刀。隐藏身份，利用具体身份信息判断神职和狼坑。':
@@ -40126,14 +40126,40 @@ async function wwNightmareChoose(p,pool){
 async function wwGuardChoose(guard,pool){
   var last=wwPlayerByUid(V.ww.guardLast);
   var ruleAudit=wwMechanicTimingAuditText(V.ww);
+  var identities=wwPublicIdentityData(V.ww)||{};
+  var activeSeer=wwSoleActiveClaimData(V.ww);
+  var guardExposed=!!(identities.guard&&identities.guard[guard.uid]);
+  var publicWitch=Object.keys(identities.witch||{}).some(function(uid){
+    var p=wwPlayerByUid(uid);
+    return !!(p&&p.alive);
+  });
+  var compare=['【今晚守人比较】'];
+  compare.push('· 你'+(guardExposed?'已经公开或明显暴露了守卫身份，狼人可能直接刀你；自守的收益不能忽略。':'目前没有明确公开守卫身份，自守通常不是第一选择，但仍可按局面比较。'));
+  if(activeSeer&&activeSeer.claim&&activeSeer.claim.p){
+    compare.push('· 公开通灵 '+wwTag(activeSeer.claim.p)+
+      (wwHasBadge()&&wwSheriffP()===activeSeer.claim.p?'仍在拿警徽，多活一夜能继续查验、发言并保留警徽流。':'能继续查验和公开信息。'));
+  }else{
+    compare.push('· 当前没有可确认的单边验人线；不能把“守通灵”当成默认动作。');
+  }
+  compare.push('· '+(publicWitch?'场上有人公开声称女巫，要结合她是否还有药、身份可信度和狼队对她的威胁来比较。':'若有人公开暴露双药女巫，守她可能与守通灵同等甚至更优；如果女巫已经没药，价值要下调。'));
+  compare.push('· 必须分别想象三种结果：你自守后谁最可能死；你守公开通灵后谁最可能死；你守公开女巫或其他关键位后谁最可能死。然后比较哪一边多活一夜最有价值，以及是否可能让狼人下一夜直接完成屠边。');
+  compare.push('· 公开通灵是常见候选，不是唯一标准。不要只因为她跳了通灵就机械守她；也不要因为守卫已经暴露就机械自守。');
   var sys=wwSysFor(guard,'现在轮到你（守卫）守人。从下面这些可以守的人里选一个，TA 今晚不会被狼刀死：'+pool.map(wwName).join('、')+
     (last?('\n（规则：不能连续两晚守同一个人——你昨晚守的是 '+wwTag(last)+'，今晚不能再守 TA。）'):'')+
     (ruleAudit?'\n'+ruleAudit:'')+
-    '\n【守卫选人优先级】先保护已有独立证据证明的好人、已认证的关键神职或能直接救回轮次的位置。若主跳验人位仍有未解决的规则硬伤或时序矛盾，不能只因她自称通灵师就守她，也不能盲目守她公开安排的下一验位；守人目标必须由你自己根据公开事实判断。'+
-    '\n【输出格式】只输出你要守的那个人的编号或名字（例如「3号」），或者只输出「不守」。');
+    '\n'+compare.join('\n')+
+    '\n【输出格式】只写两行：\n守：编号或名字；不守就写「守：不守」。\n判断：一句话说明为什么她比另一个候选更值得守。');
   var txt=await wwCall(sys,'请决定今晚守谁。',40,.85);
-  if(/不守|空守|放弃|不用/.test(txt))return null;
-  return wwMatch(txt,pool)||null;
+  var lines=String(txt||'').split(/\n+/).map(function(x){return x.trim()}).filter(Boolean);
+  var targetLine='',reasonLine='';
+  lines.forEach(function(x){
+    if(/^(?:守|目标)[：:]/.test(x))targetLine=x;
+    else if(/^判断[：:]/.test(x))reasonLine=x.replace(/^判断[：:]\s*/,'');
+  });
+  if(!targetLine)targetLine=lines[0]||txt;
+  var reason=reasonLine||String((WW_LAST&&WW_LAST.reason)||'').slice(0,300);
+  if(/不守|空守|放弃|不用/.test(targetLine))return {target:null,reason:reason};
+  return {target:wwMatch(targetLine,pool)||null,reason:reason};
 }
 async function wwGargoyleChoose(p){
   var pool=wwAlive().filter(function(x){return x&&x!==p});
@@ -40274,10 +40300,16 @@ async function wwWitchChoose(witch,victim){
   }else if(!w.witchSave){
     t='你的解药已经用过了，所以今晚谁被狼刀、死没死人，你都无从得知（别假装知道刀口）。';
   }
+  if(selfKnife&&mayPoison&&w.witchSave){
+    t+='\n【中刀且毒药未用】你今晚必定出局，毒药如果不用就会随你一起作废，不能再机械套用平时“不乱毒、少暴露”的保守习惯。'+
+      '请认真比较盲毒和空毒：先按本板狼数与存活人数估计盲毒命中的机会，再考虑误毒村民、猎人或其他关键好人会不会加速失败。'+
+      '你可以选择盲毒，也可以认为风险大于收益而选择不毒，但必须是有意识的取舍，不能不权衡就直接空毒。';
+  }
   var fmt=[];
   if(maySave)fmt.push('救：救 或 不用');
   if(mayPoison)fmt.push('毒：要毒的人的编号或名字 或 不用');
-  if(fmt.length)t+='\n请按下面 '+fmt.length+' 行输出（不需要用药就写「不用」）：\n'+fmt.join('\n');
+  if(fmt.length)t+='\n请按下面 '+(fmt.length+1)+' 行输出（不需要用药就写「不用」）：\n'+fmt.join('\n')+
+    '\n判断：一句话说明这次救/不救、毒/不毒的主要取舍';
   if(mayPoison){
     var deadWolfWords=wwDeadWolfLastWordsText(w);
     if(deadWolfWords)t+='\n'+deadWolfWords;
@@ -40302,7 +40334,9 @@ async function wwWitchChoose(witch,victim){
         if(t2)out.poison=t2;
       }
     }
+    if(/^判断[：:]/.test(s))out.reason=s.replace(/^判断[：:]/,'').trim();
   });
+  if(!out.reason&&WW_LAST&&WW_LAST.reason)out.reason=String(WW_LAST.reason||'').slice(0,500);
   if(out.save&&out.poison)out.poison=null;   /* 同一晚只能用一瓶 */
   return out;
 }
@@ -42669,7 +42703,7 @@ async function wwNight(){
     }else{
     var gPool=wwAlive().filter(function(p){return p.uid!==w.guardLast});   /* 不能连续两晚守同一个人 */
     if(!gPool.length)gPool=wwAlive();
-    var gTgt=null,guardRows=wwGuardHistoryRows(guard0,w);
+    var gTgt=null,gReason='',guardRows=wwGuardHistoryRows(guard0,w);
     var guardSeen=guardRows.length?guardRows.map(function(x){return '第 '+x.day+' 夜 '+x.text}).join('；'):'还没有守人记录';
     if(me&&me.alive&&guard0===me){
       var rg=await wwAsk(wwTxt('🛡️ 夜里你去谁的门前守着？（TA 今晚不会被狼刀死；不能连续两晚守同一个人）\n\n你的私密守人记录：'+guardSeen,
@@ -42680,11 +42714,14 @@ async function wwNight(){
       await wwStep('🌙 天黑请闭眼');
       if(wwStaleG(gen))return;
       w.msg='🌙 天黑请闭眼…';render(true);
-      gTgt=await wwGuardChoose(guard0,gPool);
+      var gPick=await wwGuardChoose(guard0,gPool);
       if(wwStaleG(gen))return;
+      gTgt=gPick?gPick.target:null;
+      gReason=String(gPick&&gPick.reason||'').slice(0,300);
     }
     w.night.guard=gTgt||null;
-    w.rec.push(gTgt?{d:w.day,t:'守卫守了 '+wwTag(gTgt),tk:(WW_LAST&&WW_LAST.reason)||''}:{d:w.day,t:'守卫今晚没有守人'});
+    w.rec.push(gTgt?{d:w.day,t:'守卫守了 '+wwTag(gTgt)+(gReason?' · 判断：'+gReason:''),tk:gReason||(WW_LAST&&WW_LAST.reason)||''}:
+      {d:w.day,t:'守卫今晚没有守人'+(gReason?' · 判断：'+gReason:''),tk:gReason||(WW_LAST&&WW_LAST.reason)||''});
     if(me&&me.alive&&guard0===me){
       w.log.push({k:'me',text:gTgt?('🛡️ 你今晚守了 '+wwTag(gTgt)+'。'):'🛡️ 你今晚选择不守。'});
     }
@@ -43017,7 +43054,7 @@ async function wwNight(){
       var selfKnife=!!(w.night.wolf&&w.night.wolf===me);
       if(w.night.wolf&&w.witchSave){
         if(selfKnife){
-          w.log.push({k:'me',text:'🧪 今晚被刀的是你，不能自救。'});
+          w.log.push({k:'me',text:'🧪 今晚被刀的是你，不能自救。'+(w.witchPoison?'毒药如果不用会随你一起作废，请认真考虑是否盲毒。':'')});
           render(true);
         }else{
           var r3=await wwAskOpt('🧪 今晚被刀的是'+wwTag(w.night.wolf)+(selfKnife?'（你）':'')+'，要救吗？',[['救',1],['不救',0]]);
@@ -43054,6 +43091,8 @@ async function wwNight(){
                 render(true);
               }
             }
+          }else if(selfKnife){
+            w.rec.push({d:w.day,t:'女巫 '+wwTag(witch)+' 中刀出局，选择不使用毒药'});
           }
         }
       }
@@ -43061,12 +43100,15 @@ async function wwNight(){
       if(!wwQuietNight()){await wwStep('🌙 天黑请闭眼');w.msg='🌙 天黑请闭眼…';render(true)}
       var res=await wwWitchChoose(witch,w.night.wolf);
       if(wwStaleG(gen))return;
-      if(res.save&&w.witchSave&&w.night.wolf){w.night.save=true;w.witchSave=false;w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf),tk:(WW_LAST&&WW_LAST.reason)||''});w.witchLog.push({d:w.day,k:'save',txt:wwTag(w.night.wolf)})}
+      var witchReason=String(res.reason||(WW_LAST&&WW_LAST.reason)||'').slice(0,1200);
+      if(res.save&&w.witchSave&&w.night.wolf){w.night.save=true;w.witchSave=false;w.rec.push({d:w.day,t:'女巫用解药救了 '+wwTag(w.night.wolf),tk:witchReason});w.witchLog.push({d:w.day,k:'save',txt:wwTag(w.night.wolf)})}
       if(res.poison&&w.witchPoison){
-        var poisonReason=String((WW_LAST&&WW_LAST.reason)||'').slice(0,1200);
+        var poisonReason=witchReason;
         w.night.poison=res.poison;w.witchPoison=false;
         w.rec.push({d:w.day,t:'女巫毒了 '+wwTag(res.poison),tk:poisonReason});
         w.witchLog.push({d:w.day,k:'poison',txt:wwTag(res.poison),uid:res.poison.uid,reason:poisonReason});
+      }else if(w.night.wolf===witch&&w.witchPoison){
+        w.rec.push({d:w.day,t:'女巫 '+wwTag(witch)+' 中刀出局，选择不使用毒药',tk:witchReason});
       }
     }
   }
@@ -47556,7 +47598,7 @@ function wwInfoHTML(){
     }
   }
   if(b.witch)rules.push('女巫：解药、毒药各一瓶，同一晚限用一瓶。网杀和面杀都全程不能自救。');
-  if(b.hunter)rules.push('猎人：被毒杀不能开枪。');
+  if(b.hunter)rules.push(w.count===12?'猎人：被毒杀不能开枪；若她是最后一名神职，夜间被狼刀后按狼刀在先直接判狼人胜，不再获得开枪机会。':'猎人：被毒杀不能开枪。');
   if(b.medium)rules.push('通灵师：每晚查验一名存活玩家的具体表面身份。机械狼没学习时显示机械狼，学习后显示它学到的身份。第一次公开或尚无更具体对手查验时，可以选择报确切身份，也可以只报“好人身份/神职金水/民及民以上金水”；第一次模糊不等于假验。对手已报更具体身份后，下一次仍拒绝用确切身份回应会成为强烈狼点；目标死亡后继续藏身份收益更低。但真通灵师验到另一个通灵师时，对方只可能是机械通灵师，必须直接报查杀。');
   if(b.mechanicwolf)rules.push('机械狼：与小狼互不相认，小狼全灭后接刀；整局学习一名存活玩家一次。'+WW_MECHANIC_DISPLAY_RULE+'学猎人当夜获得枪。学守卫得到只能使用一次、可自守、能挡刀和毒的机械盾，不能挡枪。');
   if(b.wolfkingdeath)rules.push('狼王：属于狼人阵营，与普通狼一起行动。除被女巫毒死外，正式出局后可以带走一名存活玩家，也可以选择不发动；带走猎人时，猎人仍按原规则决定是否开枪。');
