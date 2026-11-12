@@ -34610,8 +34610,8 @@ function wwClaimIdentityRoles(txt,speakerSeq){
       if(neg.test(clause))return;
       var plain=role==='villager'?'(?:普通)?':'';
       var p1=new RegExp('^\\s*(?:我)?(\\d{1,2})\\s*号[^，,。！？!?；;\\n]{0,8}[，,：:]\\s*(?:真)?'+plain+name);
-      var p2=new RegExp('^\\s*(?:我)?(\\d{1,2})\\s*号[\\s，,：:]*(?:真)?'+plain+name);
-      var p3=new RegExp('(?:我|本人)(?:是|就是|才是|本来就是|这边是|起跳|跳)?\\s*(?:\\d{1,2}\\s*号)?[，,：:\\s]*(?:真)?'+plain+name);
+      var p2=new RegExp('^\\s*(?:我)?(\\d{1,2})\\s*号?[\\s，,：:]*(?:真)?'+plain+name);
+      var p3=new RegExp('(?:我|本人)(?:是|就是|才是|本来就是|这边是|起跳|跳)?\\s*(?:\\d{1,2}\\s*号?)?[，,：:\\s]*(?:真)?'+plain+name);
       var p4=new RegExp('(?:身份(?:是|为)|我报(?:身份)?(?:是|为)?)\\s*(?:真)?'+plain+name);
       var p5=new RegExp('身份(?:我)?(?:摊开|摆明|说)[^。！？!?；;\\n]{0,16}(?:是|为)?(?:真)?'+plain+name);
       var p6=new RegExp('(?:直接说|直说|先说|报一下|说下|说清楚)[^。！？!?；;\\n]{0,6}身份[^。！？!?；;\\n]{0,10}(?:是|为|就是)?(?:真)?'+plain+name);
@@ -34696,10 +34696,12 @@ function wwStripThirdPartyCheckClaims(txt){
   var re=new RegExp('(?:她|他|你|别人|有人|被|\\d{1,2}\\s*号)[^。！？!?；;\\n]{0,16}?(?:查验|验到|验了|验的|验过|验|查到|查了|通灵(?!师)(?:到|结果)?|报验)[^。！？!?；;\\n]{0,42}?(?:'+roleNames.join('|')+')','g');
   return String(txt||'').replace(re,'');
 }
-function wwOwnMediumChecks(txt){
+function wwOwnMediumChecks(txt,speakerSeq){
   var out=[],seen={},seenSeq={},alias={平民:'villager',普通村民:'villager',普通狼人:'wolf',机械通灵师:'mechanicwolf'};
   Object.keys(WW_ROLE_NAME).forEach(function(k){if(k!=='random')alias[WW_ROLE_NAME[k]]=k});
   var names=Object.keys(alias).sort(function(a,b){return b.length-a.length});
+  var resultNames=names.concat(['查杀','神职金水','神职身份','好人神职身份','强神','关键神职','好人身份','民及民以上的金水','民及民以上','金水']).sort(function(a,b){return b.length-a.length});
+  var introCheckRe=new RegExp('^\\s*(\\d{1,2})\\s*号?\\s*(?:真)?(?:通灵师|预言家)\\s*[，,：:]?\\s*(?:我)?\\s*(?:查验|验到|验了|验的|验过|查|验)?\\s*(\\d{1,2})\\s*号?\\s*(?:是|为|身份是|身份为)?\\s*('+resultNames.join('|')+')');
   var checkVerb='(?:查验|验到|验了|验的|验过|通灵(?!师)(?:到|结果)?|查到|查了|验)';
   var ownCheck=new RegExp('(?:我|本人)[^。！？!?；;\\n]{0,28}'+checkVerb);
   var implicitCheck=new RegExp('^\\s*(?:昨夜|昨晚|第\\s*\\d+\\s*夜|首夜|本夜|今天)\\s*(?:我|本人)?\\s*'+checkVerb);
@@ -34713,6 +34715,21 @@ function wwOwnMediumChecks(txt){
       !/(?:昨晚|昨夜|第\s*\d+\s*夜|验到|验了|验的|查验结果|查到|查了)/.test(s))return;
     var reverseSource=s;
     s=wwStripThirdPartyCheckClaims(wwStripLearnRoleClaims(s));
+    if(speakerSeq){
+      var intro=introCheckRe.exec(s);
+      if(intro&&Number(intro[1])===Number(speakerSeq)&&!/(?:不是|并非|不可能是|不像)/.test(intro[0])){
+        var introSeq=Number(intro[2]),introRaw=intro[3];
+        var introRole=alias[introRaw];
+        var introResult=introRaw==='查杀'?'查杀':
+          (/神职|强神/.test(introRaw)?'神职金水':(/金水|好人/.test(introRaw)?'好人身份':(introRole?WW_ROLE_NAME[introRole]:introRaw)));
+        var introKey=introSeq+'|'+introResult;
+        if(introSeq&&!seen[introKey]){
+          seen[introKey]=1;
+          out.push({seq:introSeq,result:introResult});
+        }
+        return;
+      }
+    }
     /* 只有本人第一人称报验，或明确以“昨夜/第N夜”开头的本人报验，才算当前玩家自己的结果。
        这样“2号跳通灵报3号村民”“她验了4号”都只是转述，不会变成当前玩家的查验。 */
     if(!ownCheck.test(s)&&!implicitCheck.test(s))return;
@@ -35111,7 +35128,9 @@ function wwSpeechSelfRetracts(txt){
 function wwSeerCommitmentLedger(w){
   var rows=wwPublicEventRows(w),claims={},bySeq={};
   var claimRole=(w&&wwBoard(w.count,w).medium)?'medium':'seer';
-  var parseChecks=claimRole==='medium'?wwOwnMediumChecks:wwOwnSeerChecks;
+  function parseChecks(txt,p){
+    return claimRole==='medium'?wwOwnMediumChecks(txt,p&&p.seq):wwOwnSeerChecks(txt);
+  }
   (w&&w.players||[]).forEach(function(p){if(p&&p.seq)bySeq[p.seq]=p});
   function addClaim(p,day,ref){
     if(!p||!p.seq)return;
@@ -35137,7 +35156,7 @@ function wwSeerCommitmentLedger(w){
     var markedRetract=Number((w.seerRetractions&&w.seerRetractions[uid])||0);
     if(markedRetract&&(!retractedDay||markedRetract<retractedDay))retractedDay=markedRetract;
     myRows.filter(function(r){return r.day<=c.day}).forEach(function(r){
-      parseChecks(r.text).forEach(function(x){
+      parseChecks(r.text,r.p).forEach(function(x){
         var key=x.seq+'|'+x.result;
         if(seen[key])return;
         seen[key]=1;checks.push({seq:x.seq,result:x.result,day:r.day,ref:r.ref});
@@ -35154,7 +35173,7 @@ function wwSeerCommitmentLedger(w){
       var before={};checks.forEach(function(x){before[x.seq+'|'+x.result]=1});
       var added=false;
       dayRows.forEach(function(r){
-        parseChecks(r.text).forEach(function(x){
+        parseChecks(r.text,r.p).forEach(function(x){
           var key=x.seq+'|'+x.result;
           if(before[key]||seen[key])return;
           seen[key]=1;added=true;checks.push({seq:x.seq,result:x.result,day:d,ref:r.ref});
@@ -35196,7 +35215,7 @@ function wwPublicCheckFactsText(w){
       if(!target||!x.result)return;
       var exact=wwSpecificRoleResult(x.result),confirmed=wwTargetSelfConfirmsResult(w,target,x.result,rows);
       var source=wwFindCheckRow(rows,c,x);
-      var sourceChecks=source?wwOwnMediumChecks(source.text):[];
+      var sourceChecks=source?wwOwnMediumChecks(source.text,source.p&&source.p.seq):[];
       var sourceMatches=sourceChecks.some(function(y){return Number(y.seq)===Number(x.seq)&&String(y.result)===String(x.result)});
       if(!source||!sourceMatches)return;
       var mediumBoard=!!wwBoard(w.count,w).medium;
@@ -35478,7 +35497,7 @@ function wwPublicIdentityData(w){
       return !((role==='seer'||role==='medium')&&w.seerRetractions&&w.seerRetractions[p.uid]);
     });
     var checks=roles.indexOf('seer')>=0?wwOwnSeerChecks(txt):
-      (roles.indexOf('medium')>=0?wwOwnMediumChecks(txt):(roles.indexOf('gravekeeper')>=0?wwIdentityChecks(txt):[]));
+      (roles.indexOf('medium')>=0?wwOwnMediumChecks(txt,p.seq):(roles.indexOf('gravekeeper')>=0?wwIdentityChecks(txt):[]));
     roles.forEach(function(role){
       data[role]=data[role]||{};
       var row=data[role][p.uid]||{p:p,checks:[],day:Number(e.d)||0};
@@ -37803,7 +37822,7 @@ function wwMediumReportedResultValid(c,result){
   return false;
 }
 function wwMediumSpeechMatches(p,say){
-  var got=wwOwnMediumChecks(say);
+  var got=wwOwnMediumChecks(say,p&&p.seq);
   if(!got.length)return true;
   for(var i=0;i<got.length;i++){
     var c=wwLatestPrivateMediumCheck(p,got[i].seq);
@@ -37813,7 +37832,7 @@ function wwMediumSpeechMatches(p,say){
 }
 async function wwGuardMediumSpeech(p,sys,say){
   if(wwMediumSpeechMatches(p,say))return say;
-  var got=wwOwnMediumChecks(say),bad=null;
+  var got=wwOwnMediumChecks(say,p&&p.seq),bad=null;
   for(var i=0;i<got.length;i++){
     var c=wwLatestPrivateMediumCheck(p,got[i].seq);
     if(!c||!wwMediumReportedResultValid(c,got[i].result)){bad={r:got[i],c:c};break}
@@ -38001,7 +38020,7 @@ function wwOffPoliceSeerInfo(p,say){
   var roleKey=wwBoard(w.count,w).medium?'medium':'seer';
   if(wwClaimIdentityRoles(say,p.seq).indexOf(roleKey)<0)return null;
   var claimName=roleKey==='medium'?'通灵师':'预言家';
-  var got=roleKey==='medium'?wwOwnMediumChecks(say):wwReportedSeerChecks(say);
+  var got=roleKey==='medium'?wwOwnMediumChecks(say,p.seq):wwReportedSeerChecks(say);
   var missing=[];
   if(!got.length)missing.push('首验目标和结果');
   if(!/(?:理由|因为|盲验|盲选|头像|名字|座位|眼缘|随机|随便|随手|印象|直觉|第一感觉)/.test(String(say||'')))missing.push('首验理由');
@@ -38562,7 +38581,7 @@ function wwIdentityDisclosureAuditText(w){
           var laterRows=rows.filter(function(r){return r.uid===c.p.uid&&r.idx>exactRow.idx});
           if(!laterRows.length)return;
           var firstLater=laterRows[0];
-          var firstReply=wwOwnMediumChecks(firstLater.text).some(function(y){
+          var firstReply=wwOwnMediumChecks(firstLater.text,firstLater.p&&firstLater.p.seq).some(function(y){
             return Number(y.seq)===Number(vague.seq)&&wwSpecificRoleResult(y.result);
           });
           if(firstReply)return;
@@ -38570,7 +38589,7 @@ function wwIdentityDisclosureAuditText(w){
           if(seen[key])return;seen[key]=1;
           var target=wwPlayerByUidTarget(w,vague.seq);
           var laterSpecific=laterRows.some(function(r){
-            return wwOwnMediumChecks(r.text).some(function(y){return Number(y.seq)===Number(vague.seq)&&wwSpecificRoleResult(y.result)});
+            return wwOwnMediumChecks(r.text,r.p&&r.p.seq).some(function(y){return Number(y.seq)===Number(vague.seq)&&wwSpecificRoleResult(y.result)});
           });
           out.push('· '+wwTag(other.p)+'已在 D'+exact.day+' 报 '+vague.seq+'号＝'+exact.result+'；'+
             wwTag(c.p)+'在之后第一次公开发言（'+firstLater.ref+'）仍未报 '+vague.seq+'号的确切身份。'+
