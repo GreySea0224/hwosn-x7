@@ -34073,7 +34073,8 @@ function wwSeerClaimContrastText(w,p){
   var ledger=wwSeerCommitmentLedger(w);
   var claims=(ledger.claims||[]).filter(function(c){return c&&c.p&&c.p.alive&&!c.retractedDay});
   if(claims.length<2)return '';
-  var claimName=wwBoard(w.count,w).medium?'通灵师':'预言家';
+  var claimRole=wwBoard(w.count,w).medium?'medium':'seer';
+  var claimName=claimRole==='medium'?'通灵师':'预言家';
   var rows=wwPublicEventRows(w),out=[];
   claims.sort(function(a,b){return (Number(a.day)||1)-(Number(b.day)||1)});
   function riskForCheck(c,x){
@@ -36635,7 +36636,7 @@ function wwSplitDraft(txt){
 }
 function wwPublicStructureLeak(txt){
   var s=String(txt||'');
-  return /【(?:标题|身份盘|草稿纸|发言)】|(?:^|\n)\s*\d{1,2}\s*号\s*[:：][^\n]*｜/.test(s);
+  return /【(?:标题|身份盘|草稿纸|发言)】|(?:^|\n)\s*(?:标题|身份盘|草稿纸|发言)\s*[:：]|(?:^|\n)\s*\d{1,2}\s*号\s*[:：][^\n]*[｜|]/.test(s);
 }
 function wwStructureSpeechOnly(txt){
   var t=String(txt||'').replace(/\r/g,'').trim();
@@ -36997,20 +36998,30 @@ async function wwGuardClaimReasoningSpeech(p,sys,say){
   /* 重写失败时保留角色原稿，绝不把内部检查句贴到公屏。 */
   return say;
 }
-/* 给一段发言自动起一个短标题：去掉「遗言 / 竞选发言」这类前缀，最多保留第一句前 28 个字 */
+function wwTitleStructureBad(t){
+  var s=String(t||'').trim();
+  return !s||wwPublicStructureLeak(s)||
+    /(?:^|\n)\s*(?:阵营判断|表面角色|表面职业|机械狼风险)\s*[:：]/.test(s);
+}
+/* 给一段发言自动起一个短标题：跳过身份盘、草稿纸等内部行，最多保留第一句前 28 个字 */
 function wwAutoTitle(t){
-  var s=wwStripLead(String(t||'').replace(/^【[^】]*】/,'').replace(/\s+/g,' ').trim());
-  if(!s)return '没说什么';
+  var raw=String(t||'').replace(/^【[^】]*】/,'').replace(/\r/g,'').trim();
+  var lines=raw.split(/\n+/).map(function(x){
+    return wwStripLead(x.replace(/\s+/g,' ').trim());
+  }).filter(function(x){return x&&!wwTitleStructureBad(x)});
+  var s=lines.join(' ').trim();
+  if(!s)return '无信息量发言';
   var m=s.split(/[。！？!?；;\n]/)[0].trim()||s;
+  if(wwTitleStructureBad(m))return '无信息量发言';
   return m.length>28?m.slice(0,28)+'…':m;
 }
 /* 标题必须是中立的：只描述公开说了什么，不写「装懵 / 装傻 / 演戏 / 悍跳」这类身份或动机判断 */
 var WW_TITLE_BAD=/(装懵|装傻|装良|装(?:成|作)?(?:普通)?村民|装(?:成|作)?好人|伪装|假装|演戏|假跳|悍跳)/;
 function wwCleanTitle(t,text){
   t=String(t||'').replace(/^[「『"“]+|[」』"”]+$/g,'').replace(/\s+/g,' ').trim();
-  if(!t||!/[\u4e00-\u9fa5A-Za-z0-9]/.test(t)||WW_TITLE_BAD.test(t)){
+  if(!t||!/[\u4e00-\u9fa5A-Za-z0-9]/.test(t)||WW_TITLE_BAD.test(t)||wwTitleStructureBad(t)){
     var a=wwAutoTitle(text);
-    t=WW_TITLE_BAD.test(a)?'无信息量发言':a;
+    t=(WW_TITLE_BAD.test(a)||wwTitleStructureBad(a))?'无信息量发言':a;
   }
   return t.length>28?t.slice(0,28)+'…':t;
 }
@@ -43300,7 +43311,7 @@ function wwPushSay(g,o){
   if(o&&o.k==='say'){
     var w=V.ww;
     var p=wwPlayerByUid(o.who);
-    if(p&&p._lastSayTitle){o.title=String(p._lastSayTitle).slice(0,24);p._lastSayTitle=''}
+    if(p&&p._lastSayTitle){o.title=wwCleanTitle(p._lastSayTitle,o.text).slice(0,24);p._lastSayTitle=''}
     if(w&&p&&!p.isUser&&!o.ctx){
       var start=p._speechStartState||null;
       o.ctx={
@@ -45213,7 +45224,34 @@ async function wwLoop(){
       if(w.day>12){w.over=true;w.winner='';w.endText='这局拖太久了，算平局。';break}
     }
   }catch(e){
-    try{toast('狼人杀出错了：'+String((e&&e.message)||e).slice(0,60))}catch(x){}
+    var errText=String((e&&(e.message||e.name||e.stack))||e||'未知错误').slice(0,220);
+    var errPlace='';
+    if(w.speaking){
+      var errSpeaker=wwPlayerByUid(w.speaking);
+      errPlace=(errSpeaker?wwTag(errSpeaker):'当前玩家')+'发言阶段';
+    }else if(w.voteMode){
+      errPlace='投票阶段';
+    }else if(w.phase==='night'){
+      errPlace='夜间结算';
+    }else if(w.phase==='day'){
+      errPlace='白天发言准备';
+    }
+    w._lastError={text:errText,place:errPlace,day:Number(w.day)||0,stage:String(w.dayStage||''),at:Date.now()};
+    try{console.error('狼人杀出错',e)}catch(x){}
+    if(!w.over){
+      w.running=false;
+      w.errorPaused={
+        text:errText,
+        place:errPlace,
+        day:Number(w.day)||0
+      };
+      w.msg='狼人杀出错了：'+errText;
+      try{wwSave(true)}catch(x){}
+      try{toast('狼人杀出错了：'+errText.slice(0,80))}catch(x){}
+      try{render(true)}catch(x){}
+      return;
+    }
+    try{toast('狼人杀出错了：'+errText.slice(0,60))}catch(x){}
   }
   if(stale())return;                     /* 这一局已经被取代：后面的收尾（复盘/感想）都别做 */
   w.running=false;w.phase='over';
@@ -45460,7 +45498,7 @@ function wwApplySnap(s,recId){
     deaths:(s.night.deaths||[]).map(function(u){return byUid[u]}).filter(Boolean)}
     :{wolf:null,save:false,poison:null,check:null,medium:null,guard:null,gargoyle:null,gravekeeper:null,nightmare:null,feared:null,charm:null,mechStudy:null,mechKills:[],mechPoison:null,mechGuard:null,mechCheck:null,deaths:[]};   /* 一定给个空壳，白天开头不会再崩 */
   w.recId=recId||null;
-  w.busy=false;w.running=false;w.msg='';w.speaking=s.speaking||null;w.auto=false;w.wolfPicks=[];
+  w.busy=false;w.running=false;w.msg='';w.errorPaused=null;w._lastError=null;w.speaking=s.speaking||null;w.auto=false;w.wolfPicks=[];
   w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
   w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
   w.marks={};w.markMode='';w.markUid=null;w.resayIdx=null;w.resayOn=false;
@@ -47856,7 +47894,14 @@ function wwHTML(){
         '</div></div>';
    }
    /* 投票：你先点人（有命中动效），点「确认投票」后才算；然后等其他人投完 */
-   if(w.voteMode==='pick'||w.voteMode==='ready'){
+   if(w.errorPaused){
+     h+='<div class="ww-act">'+wwActHead('狼人杀已暂停')+
+       '<div class="gx-hint" style="margin:0 0 10px">'+
+         esc((w.errorPaused.place?('出错位置：'+w.errorPaused.place+'。'):'')+(w.errorPaused.text||'未知错误'))+
+       '</div>'+
+       '<div class="gx-row"><button class="pri" type="button" onclick="GAME.wwRecover()">从最近进度继续 ›</button>'+
+       '<button class="ghost" type="button" onclick="GAME.hall()">返回大厅</button></div></div>';
+   }else if(w.voteMode==='pick'||w.voteMode==='ready'){
      var vp=w.votePick?wwPlayerByUid(w.votePick):null;
      h+='<div class="ww-act">'+wwActHead(wwTxt('轮到你投票了——你要把谁推上处刑台？','轮到你投票了'),true)+
         (vp?('<div class="ww-vote-sel">你投给：<b>'+esc(wwTag(vp))+'</b>　（想换就点别的头像）</div>'+
@@ -50541,6 +50586,17 @@ window.GAME={
   wwStart:function(){wwStart()},
   wwReady:function(inv){wwReady(inv)},
   wwGo:function(){wwGo()},
+  wwRecover:function(){
+    var w=V.ww;
+    if(!w||!w.errorPaused)return;
+    var rid=w.recId||'';
+    if(!rid){
+      try{var sp=load(LS_WWSAVE,null);if(sp&&sp.id)rid=sp.id}catch(e){}
+    }
+    if(!rid){try{toast('这次没有保存到可继续的进度')}catch(e){}return}
+    w.errorPaused=null;w.msg='';
+    try{wwResume(rid)}catch(e){try{toast('继续失败：'+String((e&&e.message)||e).slice(0,80))}catch(x){}}
+  },
   wwAuto:function(v){wwAutoSet(!!v)},
   wwRewindOpen:function(on){var w=V.ww;if(!w)return;w.rewindOpen=!!on;render(false)},
   wwRewindTo:function(id){wwRewindApply(id)},
