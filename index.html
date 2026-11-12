@@ -29984,6 +29984,44 @@ var LS_GAME='wh_gamerec';
 var LS_WWSAVE='wh_wwsave';      /* 狼人杀：没打完那一局的进度（只留最近一份，换局就覆盖） */
 var LS_WWREWIND='wh_wwrewind';  /* 最近几个夜晚开始前的检查点，只给回溯用 */
 function recStore(){try{var a=load(LS_GAME,[]);return Array.isArray(a)?a:[]}catch(e){return []}}
+function wwWWRecordWolfOutByLog(rec,seq){
+  var re=new RegExp('(?:^|[：:，,、\\s])'+Number(seq)+'\\s*号[^。\\n]{0,24}(?:出局|是狼人|狼人)|(?:目标|确认|翻牌|决斗)[^。\\n]{0,24}'+Number(seq)+'\\s*号[^。\\n]{0,16}(?:出局|是狼人|狼人)');
+  return (rec&&rec.log||[]).some(function(e){
+    if(!e||(e.k!=='sys'&&e.k!=='vote'))return false;
+    return re.test(String(e.text||''));
+  });
+}
+function wwInferWWRecordResult(rec){
+  if(!rec||rec.game!=='ww'||rec.winner||rec.endText)return false;
+  var players=(rec.players||[]).filter(function(p){return p&&p.role});
+  if(!players.length)return false;
+  var wolves=players.filter(wwIsWolf);
+  if(!wolves.length)return false;
+  var alive=players.filter(function(p){return p.alive});
+  var wl=alive.filter(wwIsWolf).length,good=alive.length-wl;
+  var villagers=alive.filter(function(p){return p.role==='villager'}).length;
+  var gods=Math.max(0,good-villagers),count=Number(rec.count)||players.length;
+  var allWolvesAccounted=wolves.every(function(p){return !p.alive||wwWWRecordWolfOutByLog(rec,p.seq)});
+  if(allWolvesAccounted){
+    rec.winner='good';rec.endText='所有狼人都出局了 —— 好人获胜。';rec.finished=true;return true;
+  }
+  if(!alive.length){
+    rec.winner='';rec.endText='场上没有人了。';rec.finished=true;return true;
+  }
+  if(count===12&&(villagers===0||gods===0)){
+    rec.winner='wolf';rec.endText=(villagers===0?'所有村民已出局':'所有神职已出局')+' —— 狼人完成屠边。';rec.finished=true;return true;
+  }
+  if(count!==12&&wl>=good&&wl>0){
+    rec.winner='wolf';rec.endText='狼人的数量已经不少于好人了 —— 狼人获胜。';rec.finished=true;return true;
+  }
+  return false;
+}
+function wwRepairWWFinishedRecords(){
+  var list=recStore(),changed=false;
+  list.forEach(function(rec){if(wwInferWWRecordResult(rec))changed=true});
+  if(changed)recPut(list);
+  return changed;
+}
 var REC_NORMAL_LIMIT=80;
 function recFavorite(r){return !!(r&&r.favorite)}
 function recTrim(list){
@@ -45264,6 +45302,10 @@ async function wwFinish(){
   var w=V.ww;
   if(w.stopped){w.msg='';wwSave(true);return}   /* 中途结束的局：不生成裁判复盘和赛后感想 */
   var gen=w.gen||0;
+  /* 胜负已经确定就先落盘。裁判复盘可能很慢甚至失败，不能让它拖累最终战绩。 */
+  if(w.over&&(w.winner||w.endText)){
+    try{wwSave(true)}catch(e){}
+  }
   try{await wwScribeTick(w,'finish')}catch(e){}
   if(gen!==(w.gen||0))return;
   var who=w.players.filter(wwIsWolf).map(function(p){return wwNum(p)+p.name}).join('、');
@@ -45272,10 +45314,16 @@ async function wwFinish(){
   w.judge='';
   w.judging=true;                       /* 【新】正在等裁判复盘：结算页上显示「裁判正在总结」的小动画 */
   w.msg='🧑‍⚖️ 中立裁判正在复盘这一局…';render(true);
-  try{ w.judge=await wwJudge(result) }catch(e){ w.judge='' }
+  var judgeError='';
+  try{ w.judge=await wwJudge(result) }catch(e){
+    w.judge='';
+    judgeError=String((e&&e.message)||e||'裁判复盘失败');
+  }
   w.judging=false;
   if(gen!==(w.gen||0))return;                   /* 这中间她开了新的一局：这份复盘就丢掉，别污染新局 */
   var jj=wwJudgeParse(w.judge);
+  if(!w.judge||(!jj.sum&&!jj.mvp))w._judgeError=judgeError||'裁判没有返回有效复盘';
+  else w._judgeError='';
   w.title=wwTitleClean(jj.title);     /* 【新】裁判给这局取的名字：存进战绩，当那条记录的标题 */
   var mvp=wwMvpPlayer(jj.mvp);        /* 把裁判评的 MVP 记下来，存进战绩 */
   w.mvpUid=mvp?mvp.uid:'';
@@ -45292,6 +45340,12 @@ async function wwFinish(){
       SHOP.onWerewolfMvp({id:w.recId,game:'ww',mvp:w.mvpUid||'',players:w.players||[]});
     }
   }catch(e){}
+}
+async function wwJudgeRetry(){
+  var w=V.ww;
+  if(!w||!w.over||w.judging)return;
+  w._judgeError='';
+  await wwFinish();
 }
 /* ---------- 狼人杀：存档 / 接着玩 ---------- */
 /* 存档用：把发言里的「思考过程」和夜间行动的「想法」收一收。
@@ -45320,7 +45374,7 @@ function wwHistoryLog(arr,max){
 function wwSnap(){
   var w=V.ww;
   return {
-    day:w.day,phase:w.phase,dayStage:w.dayStage||'',dayOver:Number(w.dayOver)||0,mode:w.mode,count:w.count,winner:w.winner||'',endText:w.endText||'',
+    matchId:w.matchId||'',day:w.day,phase:w.phase,dayStage:w.dayStage||'',dayOver:Number(w.dayOver)||0,mode:w.mode,count:w.count,winner:w.winner||'',endText:w.endText||'',
     nightDone:!!w.nightDone,
     night:w.night?{
       wolf:(w.night.wolf&&w.night.wolf.uid)||null,save:!!w.night.save,
@@ -45416,7 +45470,7 @@ function wwSnapFromRec(rec){
     if(/你用毒药毒了/.test(t))witchPoison=false;
     if((/翻开身份牌：白痴/.test(t)||/🃏\s*\d{1,2}号翻牌免死/.test(t))){var mm=t.match(/(\d{1,2})\s*号/);if(mm&&bySeq[+mm[1]])bySeq[+mm[1]].revealed=true}
   });
-  return {day:rec.day||1,phase:'day',mode:rec.mode||'play',count:rec.count||players.length,winner:'',endText:'',
+  return {matchId:rec.matchId||'',day:rec.day||1,phase:'day',mode:rec.mode||'play',count:rec.count||players.length,winner:'',endText:'',
     nightDone:true,                        /* 老记录一律按"夜里已经结算过"处理：从白天接着玩，不会重复刀人 */
     night:null,players:players,log:(rec.log||[]).slice(),rec:(rec.rec||[]).slice(),votes:{},
     witchSave:witchSave,witchPoison:witchPoison,witchLog:[],mem:{},tips:{},pick:'random',autoWatch:false,sayTok:0,
@@ -45443,6 +45497,7 @@ function wwApplySnap(s,recId){
     if(q.readBoardVer<2){q.readBoard='';q.readBoardLog=[];q.readBoardVer=2}
     byUid[q.uid]=q;return q;
   });
+  w.matchId=s.matchId||'';
   w.day=s.day||1;w.phase=s.phase||'day';w.dayStage=s.dayStage||'';w.mode=s.mode||'play';w.count=s.count||w.players.length;
   w.nightDone=(s.nightDone!==false);                                   /* 那一夜结算过没有 */
   w.phase=(s.phase==='night'&&!w.nightDone)?'night':'day';             /* 别让"结束"这种中间状态漏到界面上 */
@@ -45989,7 +46044,7 @@ window.gameRecGo=function(rid){
 function wwSave(silent){
   var w=V.ww;if(!w||!w.players||!w.players.length)return;
   var unfinished=!!(w.stopped||!w.over);      /* 没打完的局：连进度一起存，之后可以接着玩 */
-  var rec={id:w.recId||('g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),t:Date.now(),game:'ww',finished:!unfinished,
+  var rec={id:w.recId||('g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),matchId:w.matchId||'',t:Date.now(),game:'ww',finished:!unfinished,
     count:w.count,mode:w.mode,table:(w.table==='face')?'face':'online',board:wwBoardSafe(w.board),day:w.day,winner:w.winner||'',endText:w.endText||'',
     players:w.players.map(function(p){
       var c=p.isUser?null:chOf(p.cid);
@@ -46012,9 +46067,12 @@ function wwSave(silent){
   }
   w.recId=rec.id;
   var list=recStore(),i=-1;
+  if(!unfinished&&rec.matchId){
+    list=list.filter(function(x){return !x||x.id===rec.id||x.matchId!==rec.matchId});
+  }
   for(var k=0;k<list.length;k++){if(list[k]&&list[k].id===rec.id){i=k;break}}
   if(i>=0)list[i]=rec;else list.unshift(rec);
-  recPut(list.slice(0,80));
+  recPut(list.slice(0,80),(!unfinished&&rec.matchId)?{dropMissingFavorites:true}:undefined);
   if(!unfinished)wwCareerRecord(rec);
   /* 【新】要是这局是角色拉她进的房间：打完了就往聊天里发一张战绩卡（只发一次） */
   if(!unfinished&&w.inviteFrom&&!w.inviteRecSent){
@@ -46124,6 +46182,7 @@ function wwStart(){
   w.fx=null;
   w.thinkOpen={};
   w.stopped=false;
+  w.matchId='wm'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
   w.auto=(w.mode==='watch'&&w.autoWatch);
   w.phase='night';
@@ -46215,6 +46274,7 @@ function gxIcon(k){
 }
 var GX_COLORS={ocean:['#dceeff','#2768b0'],spy:['#e4ebff','#3f6ad8'],soup:['#e2f5e8','#2f8f5b'],mur:['#efe6ff','#6b4fd0'],dice:['#ffefd8','#c07a1a'],mq:['#ffe6f1','#d1518f'],draw:['#dff2f7','#17879c'],hm:['#e5f4f0','#267d68'],wolf:['#ffe3df','#c0392b'],shop:['#fdf0d4','#a8862a'],soon:['#eceef2','#7d8794']};
 function hallHTML(){
+  try{wwRepairWWFinishedRecords()}catch(e){}
   var h='';
   h+='<div class="gx-cover gx-hero">'+
      backBtn('closeSheet()')+
@@ -47834,6 +47894,11 @@ function wwHTML(){
     }else if(w.judging&&!w.judge){
       h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
          '<div class="gx-busy" style="padding:4px 2px"><i></i><i></i><i></i><span>'+wwUiIcon('judge')+'中立裁判正在总结这一局（复盘 + 评 MVP）…</span></div></div>';
+    }else if(!w.judge){
+      h+='<div class="gx-sec">赛后复盘 · 中立裁判</div><div class="gx-card ww-judgecard">'+
+         '<div class="gx-vs"><b>复盘和 MVP 还没有生成</b>'+
+         (w._judgeError?('<br><span class="dim">'+esc(String(w._judgeError).slice(0,180))+'</span>'):'')+
+         '</div><div class="gx-row"><button class="pri" type="button" onclick="GAME.wwJudgeRetry()">重新生成复盘与 MVP</button></div></div>';
     }else{
       h+=wwJudgeHTML(w.judge);
       if(w.judge)h+='<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwMvpAppealOpen()">'+wwUiIcon('chat')+'向裁判申诉改判 MVP</button></div>';
@@ -48698,6 +48763,7 @@ function histFavBar(rec){
     (on?'★ 已收藏':'☆ 收藏战绩')+'</button></div>';
 }
 function histHTML(){
+  try{wwRepairWWFinishedRecords()}catch(e){}
   var rec=null;
   recStore().forEach(function(x){if(x&&x.id===V.histId)rec=x});
   if(!rec){V.view='hall';return hallHTML()}
@@ -50210,7 +50276,12 @@ window.GAME={
   },
   hall:function(){
     /* 在狼人杀里点「返回」：先把这一局真正结束掉，不然它会挂在后台，下一局「开始」就点不动了 */
-    try{if(V.view==='ww'&&V.ww&&V.ww.running)return wwStop()}catch(e){}
+    try{
+      if(V.view==='ww'&&V.ww){
+        if(V.ww.running)return wwStop();
+        if(V.ww.players&&V.ww.players.length)wwSave(true);
+      }
+    }catch(e){}
     try{if(V.view==='ww')wwBgmStop()}catch(e){}       /* 离开牌桌就把音乐关掉 */
     oceanExit();
     V.view='hall';V.sess=null;try{GTOK.game=''}catch(e){}render(false)
@@ -50628,6 +50699,7 @@ window.GAME={
     if(!wwRefreshLog())render(false);
   },
   wwResume:function(id){wwResume(id)},
+  wwJudgeRetry:function(){wwJudgeRetry()},
   wwRejudge:function(id){wwRejudgeRec(id)},
   wwMvpAppealOpen:function(id){wwMvpAppealOpen(id)},
   wwMvpAppealSubmit:function(){wwMvpAppealSubmit()},
