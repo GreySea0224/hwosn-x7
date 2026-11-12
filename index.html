@@ -37485,14 +37485,40 @@ function wwGoldRecognitionQuestionIssues(say,w){
   });
   return out;
 }
+function wwPublicFactIssueDetails(say,w){
+  var out=[];
+  function add(kind,items){
+    (items||[]).forEach(function(text){
+      text=String(text||'').trim();
+      if(text)out.push({kind:kind,text:text});
+    });
+  }
+  add('voteFact',wwVoteFactIssues(say,w));
+  add('voteDirection',wwVoteDirectionIssues(say));
+  add('identityRecognition',wwIdentityRecognitionIssues(say,w));
+  add('policeVoteProof',wwPoliceVoteProofIssues(say,w));
+  add('goldRecognition',wwGoldRecognitionQuestionIssues(say,w));
+  add('policeExile',wwPoliceExileContradictionIssues(say));
+  add('badgeRecipient',wwBadgeRecipientKnowledgeIssues(say));
+  var seen={};
+  return out.filter(function(x){
+    var k=x.kind+'|'+x.text;
+    if(seen[k])return false;seen[k]=1;return true;
+  });
+}
+function wwPublicFactIssueLabel(kind){
+  return ({
+    voteFact:'引用的实际投票与票型记录不符',
+    voteDirection:'把支持某人和攻击某人写反了',
+    identityRecognition:'要求金水或其他玩家替验人者认证真假',
+    policeVoteProof:'把警长票、警徽或未来查验当成验人真假的证明',
+    goldRecognition:'要求被验金水本人认可这条验人或金水',
+    policeExile:'把警长票和放逐票混成同一件事',
+    badgeRecipient:'要求接徽者说出她无权知道的查验结果'
+  })[kind]||'与公开事实不符';
+}
 function wwPublicFactIssues(say,w){
-  return wwVoteFactIssues(say,w)
-    .concat(wwVoteDirectionIssues(say))
-    .concat(wwIdentityRecognitionIssues(say,w))
-    .concat(wwPoliceVoteProofIssues(say,w))
-    .concat(wwGoldRecognitionQuestionIssues(say,w))
-    .concat(wwPoliceExileContradictionIssues(say))
-    .concat(wwBadgeRecipientKnowledgeIssues(say));
+  return wwPublicFactIssueDetails(say,w).map(function(x){return x.text});
 }
 /* 当前轮次检查：已出局者不能当今天票口；历史退水不能算当前多人对跳；
    假跳守卫也必须遵守第一夜早于上警的时间线；夜里死因没有公开证据不能写成确定事实。 */
@@ -37622,18 +37648,30 @@ async function wwGuardCurrentTurnSpeech(p,sys,say){
   return safe||String(say||'');
 }
 async function wwGuardPublicFactSpeech(p,sys,say){
-  var bad=wwPublicFactIssues(say,V.ww);
-  if(!bad.length)return say;
+  var details=wwPublicFactIssueDetails(say,V.ww);
+  if(!details.length)return say;
+  var simpleOnly=details.every(function(x){return x.kind==='identityRecognition'||x.kind==='goldRecognition'});
+  if(simpleOnly){
+    var direct=say;
+    details.forEach(function(x){direct=wwStripExactReasonClause(direct,x.text)});
+    if(direct&&!wwPublicFactIssues(direct,V.ww).length)return direct;
+  }
   try{
-    var ask='【公开事实核对】这段发言里有票型或警徽信息与公开记录不符。'+
-      '\n'+(wwVoteFactText(V.ww)||'')+
-    '\n· 只能引用票型事实卡中实际存在的“某人→某人”。不能把别人的发言、预测或计划当成已经发生的投票。'+
-    '\n· 警长票是支持谁当选，放逐票是要求谁出局；同一个玩家先被支持当警长，听完发言后又被放逐，不自动构成矛盾。'+
-    '\n· “票X、出X、归X、投X”都是攻击X；“支持X、给X拉票、警长票给X”才是支持X。尤其是已翻狼的行为方向不能写反。'+
-    '\n· 被验者最多只能确认“对方报出的查验结果有没有报错”，不知道对方夜里有没有真的验人，也不能替对方认证真假。不要问“她认不认这条预”“验没验到她”，更不要要求被验者必须报具体身份来替跳预者凑验证。'+
-    '\n· 没拿到警徽、警长票少、失去警徽后停止安排接徽、未来查验尚未落地，都不能单独证明跳预者是假；警长票只决定谁当警长，不是身份认证。'+
-    '\n· 接警徽的人不会自动获得死者最后一夜的私有查验结果，也没有义务解释自己为什么被选中或替死者解释警徽流。接徽本身不是她的狼点，不能要求她说出自己无权知道的结果。'+
-      '\n请保持原人设、身份盘、票向和已有判断，重写完整公开发言；若删掉错误事实后判断改变，可以改票并写清新理由。不要解释这条内部核对。\n原发言：'+String(say||'').slice(0,1000);
+    var issueLines=details.map(function(x){return '· 「'+x.text+'」：'+wwPublicFactIssueLabel(x.kind)}).join('\n');
+    var needVoteCard=details.some(function(x){return x.kind==='voteFact'||x.kind==='voteDirection'||x.kind==='policeExile'});
+    var tipMap={
+      voteFact:'只引用票型事实卡里实际存在的“某人→某人”；没有写出的投票不能自行补。',
+      voteDirection:'“票X、出X、归X”是攻击X；“支持X、给X拉票、警长票给X”才是支持X。',
+      identityRecognition:'金水和其他玩家只能确认查验结果有没有报错，不能替验人者认证真假；删掉这类要求。',
+      policeVoteProof:'警长票只决定谁当选，不能证明谁是真验人；没拿到警徽、票少或未来查验没落地都不是假验硬证据。',
+      goldRecognition:'不要要求被验金水本人“认不认这条金水/这个验人”；她不知道对方夜里有没有真验。',
+      policeExile:'警长票与放逐票是不同阶段，同一人先被支持当选、后又被放逐不构成矛盾。',
+      badgeRecipient:'接徽者不知道死者最后一夜验了谁，不能要求她解释自己无权知道的结果。'
+    },tips=[],seenKind={};
+    details.forEach(function(x){if(!seenKind[x.kind]){seenKind[x.kind]=1;tips.push('· '+tipMap[x.kind])}});
+    var ask='【公开事实核对】只命中下面这些具体问题，不需要重新核对全部票型：\n'+issueLines+
+      (needVoteCard?('\n'+(wwVoteFactText(V.ww)||'')):'')+'\n'+tips.join('\n')+
+      '\n请保持原人设、身份盘、票向和已有判断，只改掉列出的句子；没被列出的票型和警徽信息不要重查。若删错句后判断改变，可以改票并写清新理由。不要解释这条内部核对。\n原发言：'+String(say||'').slice(0,1000);
     var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
     fixed=wwTakeTitle(p,fixed);
     fixed=wwTakeIdentityBoard(p,fixed).text;
