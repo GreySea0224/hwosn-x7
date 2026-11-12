@@ -35757,28 +35757,130 @@ function wwSoleActiveClaimHasHardConflict(w,d,logic){
   var core=wwCoreReasoningIssue(s,w);
   return !!(core&&/(?:查验|验人|规则|时间线|身份|冲突|矛盾|假验)/.test(s));
 }
+function wwProxyReviewClaims(w){
+  if(!w||!w.players)return [];
+  var a=wwSeerCommitmentLedger(w);
+  return (a.claims||[]).filter(function(c){
+    return !!(c&&c.p&&c.retractedDay&&c.checks&&c.checks.length);
+  });
+}
+function wwProxyClaimBySeq(w,seq){
+  var hit=null;
+  wwProxyReviewClaims(w).forEach(function(c){
+    if(Number(c.p.seq)===Number(seq))hit=c;
+  });
+  return hit;
+}
+function wwProxyClaimForText(w,txt){
+  var s=String(txt||''),hit=null;
+  wwProxyReviewClaims(w).forEach(function(c){
+    if(wwMentionsSeq(s,c.p.seq))hit=c;
+  });
+  return hit;
+}
+function wwProxyReactionRows(w,c){
+  if(!w||!c||!c.p)return [];
+  var rows=wwPublicEventRows(w),first=-1;
+  (c.checks||[]).forEach(function(x){
+    var row=wwFindCheckRow(rows,c,x);
+    if(row&&(first<0||row.idx<first))first=row.idx;
+  });
+  return rows.filter(function(r){
+    if(!r||!r.p||r.uid===c.p.uid)return false;
+    if(first>=0&&r.idx<=first)return false;
+    return wwMentionsSeq(String(r.text||''),c.p.seq);
+  }).slice(0,6);
+}
+/* 机械狼通灵板里，小狼和“学过小狼的机械狼”都会显示为狼人。
+   “查杀”本身不要求区分狼种；要求区分反而是规则错误，不能当狼点。 */
+function wwProxyInvalidCheckCritique(txt,w){
+  if(!w||!wwBoard(w.count,w).mechanicwolf)return false;
+  var s=String(txt||'');
+  if(!/(?:查杀|查验|验人|通灵|预言)/.test(s))return false;
+  if(!/(?:小狼|普通狼|大狼|机械狼|机械双刀狼)/.test(s))return false;
+  if(!/(?:说清|说清楚|分清|区分|具体|哪一种|什么狼|狼种|说得出)/.test(s))return false;
+  if(/(?:不能|无法|不可能|不必|不用|无需|不需要)[^。！？!?；;\n]{0,24}(?:区分|说清|分清|说出|判断|报出)/.test(s))return false;
+  if(/(?:小狼|普通狼|机械狼)[^。！？!?；;\n]{0,28}(?:都|同样|一样)[^。！？!?；;\n]{0,20}(?:显示|报成|查杀|狼)/.test(s))return false;
+  return true;
+}
+function wwProxyInvalidCheckCritiqueRows(w,c){
+  return wwProxyReactionRows(w,c).filter(function(r){
+    return wwProxyInvalidCheckCritique(r.text,w);
+  });
+}
+function wwProxyRuleRejectionPresent(txt){
+  var s=String(txt||'');
+  return /(?:通灵|查杀|查验)[^。！？!?；;\n]{0,48}(?:不能|无法|不用|不必|不该)[^。！？!?；;\n]{0,24}(?:区分|说清|判断|报出)[^。！？!?；;\n]{0,20}(?:小狼|机械狼|狼种)/.test(s)||
+    /(?:小狼|普通狼|机械狼)[^。！？!?；;\n]{0,28}(?:都|同样|一样)[^。！？!?；;\n]{0,20}(?:显示|报成|查杀|狼)/.test(s);
+}
+function wwProxyFakeLineHandled(txt){
+  var s=String(txt||'');
+  if(/(?:不是|不像|算不上)[^。！？!?；;\n]{0,20}(?:诈狼|假跳|压跳|演戏)[^。！？!?；;\n]{0,12}(?:口气|台词|说法)/.test(s))return false;
+  if(/(?:知道|脱口)[^。！？!?；;\n]{0,20}(?:不是|不像|算不上)[^。！？!?；;\n]{0,20}(?:诈狼|假跳|压跳|演戏)/.test(s))return false;
+  return /(?:假(?:跳|验|身份|台词)|诈|演|诱饵|压跳|测试)[^。！？!?；;\n]{0,48}(?:知道|前提|说法|查杀|台词|谎|口气)/.test(s)||
+    /(?:知道|前提)[^。！？!?；;\n]{0,48}(?:假(?:跳|验|身份|台词)|诈|演|压跳|测试|作废)/.test(s);
+}
+function wwProxyReviewMissing(txt,w,c){
+  if(!c)return [];
+  var s=String(txt||''),miss=[];
+  if(!wwProxyFakeLineHandled(s))
+    miss.push('把假身份里的“知道6是狼”说明成测试台词，不能把它当最终供词');
+  var benefit=/收益|测试价值|信息价值|逼出|钓出|诈出|改变|反应|让[^。]{0,18}单边|形成[^。]{0,18}单边|退出|让位/.test(s);
+  var dismissBenefit=/(?:不算|没有|不是|谈不上)[^。]{0,8}(?:收益|信息)|(?:收益|信息)[^。]{0,10}(?:不算|没有|不足)/.test(s);
+  if(!benefit||dismissBenefit)
+    miss.push('评价压跳实际得到的公开反应和信息，不能只问“6哪句话露怯”');
+  var compare=/原始起跳位/.test(s)&&/(?:更像|比较|对比|谁|未必|不一定|另一个|另一端)/.test(s);
+  if(!compare)
+    miss.push('比较退水压跳者与假跳后转而踩她的人，谁更像原始起跳位');
+  if(wwProxyInvalidCheckCritiqueRows(w,c).length&&!wwProxyRuleRejectionPresent(s))
+    miss.push('点明“查杀必须区分小狼和机械狼”是规则错误，不能顺着这条伪逻辑踩人');
+  return miss;
+}
+function wwProxyReviewSummary(w,c){
+  if(!w||!c||!c.p)return '';
+  var checks=(c.checks||[]).slice(0,2).map(function(x){
+    var t=wwPlayerByUidTarget(w,Number(x.seq));
+    return (t?wwTag(t):(x.seq+'号'))+'＝'+String(x.result||'未知');
+  }).join('、');
+  var reactions=wwProxyReactionRows(w,c);
+  var invalid=wwProxyInvalidCheckCritiqueRows(w,c);
+  var L=['【退水压跳核对】'];
+  L.push('· '+wwTag(c.p)+'先在 D'+c.day+' 假跳验人位并报 '+checks+'，随后公开退水、声明假验作废。假跳身份里的“我已经知道/验到”是为了诈反应的测试台词；退水后不能把它当最终口供。');
+  L.push('· 不能把她继续算作活跃验人位。“单边通灵”只说明当前只有一条未退水的验人线，不等于这个退水者就是狼。');
+  if(reactions.length){
+    L.push('· 她假跳后的公开反应：'+reactions.map(function(r){
+      return wwTag(r.p)+'「'+wwClipSpeech(r.text,220,100)+'」';
+    }).join('；'));
+  }
+  if(invalid.length){
+    L.push('· 规则核对：'+invalid.map(function(r){return wwTag(r.p)}).join('、')+
+      ' 要求通灵师把“查杀”再说成小狼、普通狼或机械狼，这是本板规则错误。普通小狼和学过普通小狼的机械狼都会显示为狼人；这条质疑不能作为踩压跳者的证据。');
+  }
+  L.push('· 必须按整条操作评价：①假台词是否已经作废；②压跳逼出了谁起跳、谁退水、谁转去踩她，是否形成非零信息；③她与假跳后转而踩她的人相比，谁更像狼队原定原始起跳位。只说“退水不洗白”不能代替这三步。');
+  return L.join('\n');
+}
+function wwProxyVoteReviewText(p,pool){
+  var w=V.ww;
+  if(!w||!p||wwIsWolf(p))return '';
+  var seqs=(pool||[]).map(function(q){return Number(q&&q.seq)});
+  var claims=wwProxyReviewClaims(w).filter(function(c){
+    return seqs.indexOf(Number(c.p.seq))>=0;
+  });
+  return claims.slice(-2).map(function(c){return wwProxyReviewSummary(w,c)}).join('\n\n');
+}
+function wwProxyVoteReasonIssue(uid,w,logic){
+  var p=(uid&&typeof uid==='object')?uid:wwPlayerByUid(uid),c=p?wwProxyClaimBySeq(w,p.seq):null;
+  if(!c)return null;
+  var missing=wwProxyReviewMissing(logic,w,c);
+  return missing.length?{claim:c,missing:missing}:null;
+}
 function wwPublicProxySettlementText(w){
   if(!w||!w.players||!w.players.length)return '';
-  var a=wwSeerCommitmentLedger(w),out=[];
-  (a.claims||[]).forEach(function(c){
-    if(!c||!c.p||!c.retractedDay)return;
-    (c.checks||[]).slice(0,2).forEach(function(x){
-      var target=wwPlayerByUidTarget(w,Number(x.seq));
-      if(!target)return;
-      var rows=(wwPublicEventRows(w)||[]).filter(function(r){return r.uid===target.uid});
-      var reacted=rows.some(function(r){
-        var t=String(r.text||'');
-        return new RegExp('(?:我|本人)[^。！？!?；;\\n]{0,12}(?:认|认下|确认|就是|确实是)[^。！？!?；;\\n]{0,12}'+
-          String(x.result||'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(t);
-      });
-      out.push('· '+wwTag(c.p)+'曾在 D'+c.day+' 自称跳验人位，后来公开退水/代跳，假验作废；她当时报 '+wwTag(target)+
-        '＝'+x.result+'。'+(reacted?wwTag(target)+'随后公开认下了这个身份。':'目前没有看到'+wwTag(target)+'公开认领这条结果。')+
-        '压跳后不能继续把'+wwTag(c.p)+'算作活跃验人位；要单独评价'+wwTag(target)+'接到具体身份后的反应。');
-    });
-  });
-  if(!out.length)return '';
-  return '【压跳结算（程序按公开声明整理）】\n'+out.slice(-3).join('\n')+
-    '\n· 目标接住具体金水、退水或交票，只能说明她可能把假通灵当成机械狼信号来接，也会增加狼面；但好人被假金水报中真实身份时也会自然接受，所以这不是百分百翻牌。不能只凭“先发假金水、后来反推目标”判压跳者为狼。';
+  var claims=wwProxyReviewClaims(w);
+  if(!claims.length)return '';
+  return '【压跳结算（程序按公开声明整理）】\n\n'+
+    claims.slice(-2).map(function(c){return wwProxyReviewSummary(w,c)}).join('\n\n')+
+    '\n\n· 目标接住具体金水、退水或交票，只能说明她可能把假通灵当成机械狼信号来接，也会增加狼面；但好人被假金水报中真实身份时也会自然接受，所以这不是百分百翻牌。不能只凭“先发假金水、后来反推目标”判压跳者为狼。';
 }
 /* 好人骗狼是合法操作。这里只整理“后来公开说明过这是诱饵”的欺骗台词，
    不替任何人洗白；票向、夜间行动和是否继续利用假身份仍要单独核对。 */
@@ -37140,7 +37242,7 @@ function wwVoteDirectionIssues(say){
   }
   return out;
 }
-var WW_STYLE_ACCUSATION_RE=/(?:翻脸太快|翻脸快|翻得太快|转得太快|转的太快|改得太快|改票太快|变化太快|踩得太顺|说得太顺|发言太顺|理得太顺|太顺|太省|太紧|闭环太快|闭环太紧|太干净|太整齐|太巧|太完整|太全面|像写好的|像提前写好|狼捡现成|没(?:有)?给.{0,10}完整狼坑|狼坑一个没给|抢在验之前|带节奏)/;
+var WW_STYLE_ACCUSATION_RE=/(?:翻脸太快|翻脸快|翻得太快|转得太快|转的太快|改得太快|改票太快|变化太快|踩得太顺|说得太顺|发言太顺|理得太顺|太顺|太省|太紧|闭环太快|闭环太紧|太干净|太整齐|太巧|太完整|太全面|像写好的|像提前写好|狼捡现成|没(?:有)?给.{0,10}完整狼坑|狼坑一个没给|抢在验之前|说(?:了)?(?:一)?大堆|说(?:了)?一堆|讲(?:了)?(?:一)?大堆|讲(?:了)?一堆|那一大段|一大堆话|长篇大论|听着顺|带节奏)/;
 function wwStyleAccusationOnly(txt){
   var s=String(txt||'');
   if(!WW_STYLE_ACCUSATION_RE.test(s))return false;
@@ -38019,6 +38121,7 @@ async function wwSpeak(p,sys,resay){
   if(p&&!p.isUser)out=await wwGuardNoResponseAttackSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardClaimReasoningSpeech(p,sys,out);
   if(p&&!p.isUser&&V.ww)out=await wwGuardUserClaimsSpeech(p,sys,out);
+  if(p&&!p.isUser&&V.ww)out=await wwGuardProxyReasoningSpeech(p,sys,out);
   if(p&&!p.isUser&&wwIsWolf(p))out=await wwGuardWolfSeerSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardSeerResultDomainSpeech(p,sys,out);
   if(p&&!p.isUser&&wwIsWolf(p))out=await wwGuardWolfDoomedClaimSpeech(p,sys,out);
@@ -38314,6 +38417,8 @@ function wwReasoningDisciplineText(){
     '一条事实如果能同时解释两条相反世界线，就不是区分证据。例如“某死者出局时开过枪”只证明她持有猎枪，不能单独证明她是真猎人或机械狼。'+
     '【好人压跳】好人可以在警上暂时假跳预言家/通灵师，给后置位发具体金水或假查杀，观察目标是否接牌、退水、交票或误以为施压者是机械狼在递话，再宣布假验作废并退水。这是正常诈狼路线。压跳后的身份反推不是“天然不可能”；但目标也可能是被假金水发中真实身份的好人，所以只能提高狼面，不能百分百定罪。退水时只说“假验作废”只能解释声明失效，不等于已经完成压跳收益；必须看她实际获得了什么。即使没有狼当场跳出，只要压跳迫使关键目标公开表态、排除了某个小狼/机械狼分支、改变了票向或提高了对验人线的判断质量，也算非零信息收益，只是强度低于钓出狼；不能反复写成“没压到狼就等于压跳失败”。'+
     '【欺骗台词不是最终供词】好人为了骗狼可以假报身份、假装站狼、故意说“我是机械狼”或“我站狼队这边”。其他好人不能把这种诱饵台词直接拿去和最终身份做字面矛盾对照。一个操作完成公开结算后，应记录“诱饵内容—想骗谁—目标反应—何时退出—假身份是否作废—后续票向”，按整套战术评价。没有公开结算、继续拿假身份带票，或实际行动反而伤害好人时，仍要计入狼面；狼也可能事后用“我在演”逃跑，所以必须核对她的实际票向和夜间行为。全场好人集体假扮狼/机械狼钓小狼时，也先看是否有人公开结算、行动是否配合，不能只抓“她刚才说过自己是狼”。'+
+    (mechBoard?'【机械狼通灵板 · 查杀显示】通灵师看到的是表面身份。普通小狼显示“狼人”；机械狼如果学到普通小狼，也显示“狼人”，如果学到村民或神职才显示对应身份。因此，一张被查杀的牌是小狼还是学过队友的机械狼，通灵师本来就不能只靠“查杀”区分。有人说“查杀不说清小狼还是机械狼所以是假验”，这是规则错误，不能因为多人复述或听着顺就当成狼点；正确的说法只能是“查杀/狼人”。':'')+
+    '【退水压跳的投票边界】“单边通灵”只证明当前只有一条未退水的验人线，不证明曾经假跳后退水的人一定是狼；“退水不洗白”只表示两条世界线都保留，也不表示要默认怀疑她。要投退水压跳者，至少先回答：①假身份里的“我知道/我验到”是否只是诈狼台词，退水后是否作废；②她逼出了谁起跳、谁没起跳、谁改向，是否取得非零信息；③她与假跳后转而踩她的人相比，谁更像狼队原定的原始起跳位。第三人的质疑必须独立核对规则和原话，不能因为“听着顺”就采用；尤其不能把上述机械狼显示规则错误当成她的狼点。若这些都没有回答，只能说“我仍怀疑”，不能把“退水不洗白”当成完整投票证据。'+
     '【原始悍跳位】“已起跳位”是谁已经公开跳身份；“原始悍跳位”是高概率由狼队提前安排、专门负责悍跳的小狼。9/12 人 AI 狼局通常都会安排一只悍跳狼，临场改跳、退水可以发生，但“狼队完全没有悍跳安排”不是默认高概率世界线。'+
     '若先跳验人位的 x 可信，y 知道自己是好人且不是验人位，则 x 之后、原本最可能接位的 z 是后置原始悍跳位的高优先候选。'+
     '更常见的另一种情况是：某人先起跳、后来退水称自己只是好人压跳、假验作废。此时必须比较两条世界线：①她真是好人压跳；②她本人就是狼队预排的原始悍跳位，首轮没压住真验人位，只能退水止损。退水不能自动选择①。若她的压跳没有钓出狼、没有产生信息，真验人位又当场把她顶回去，而场上也找不到另一条可信悍跳狼线，那么“失败后撤退的原跳狼”权重应明显上升。这个判断仍是概率，不是翻牌铁证。'+
@@ -38649,8 +38754,15 @@ function wwLateCounterclaimAuditText(w,p){
   }
   return '';
 }
+function wwUserReasoningClaim(txt){
+  var s=String(txt||'');
+  if(s.length<18)return false;
+  if(!/(?:逻辑|推理|收益|压跳|诈身份|原始起跳位|伪逻辑|心路历程|前提|结论|反应|误以为|因为|所以|如果|那么|说明)/.test(s))return false;
+  return /(?:\d{1,2}\s*号|通灵师|预言家|机械狼|查杀|查验|验人|身份|狼人|像狼)/.test(s);
+}
 function wwUserClaimCategory(txt){
   var s=String(txt||'');
+  if(/压跳|诈身份|假跳|假验|原始起跳位|伪逻辑|误以为/.test(s))return 'proxy';
   if(/单边|守卫|被查杀|查杀.*(?:身份|技能)/.test(s))return 'single-god';
   if(/退水|后置位|发言顺序|警长.*顺序|只听了?/.test(s))return 'sequence';
   if(/不报|没报|具体身份|查验|验人|平民|村民|金水/.test(s))return 'verify';
@@ -38660,6 +38772,7 @@ function wwUserClaimScore(txt){
   var s=String(txt||''),n=0;
   if(/凭什么|为什么|怎么|不能|不该|不是|没有|不报|没报|不该鼓励|应让/.test(s))n+=6;
   if(/逻辑|篡改|互认|配合|单边|后置位|退水|发言顺序|警长|身份|查验|验人/.test(s))n+=4;
+  if(/压跳|诈身份|收益|原始起跳位|伪逻辑|误以为|心路历程|反应/.test(s))n+=4;
   if(/(?:\d{1,2}\s*号|通灵师|预言家|守卫|女巫|猎人|村民|平民|狼)/.test(s))n+=3;
   if(/(?:我投|本轮投|票给)/.test(s)&&!/凭什么|为什么|不能|逻辑/.test(s))n-=3;
   return n;
@@ -38701,7 +38814,8 @@ function wwUserKeyClaims(w,current,pool,forVote){
       c=String(c||'').replace(/^【竞选发言】/,'').replace(/^【遗言】/,'').replace(/\s+/g,' ').trim();
       if(c.length<10)return;
       var kind=wwUserStatementKind(c),targets=wwSeatRefsInText(c,me.seq);
-      if(kind==='opinion'&&!lastWords)return;
+      var reasoning=wwUserReasoningClaim(c);
+      if(kind==='opinion'&&!lastWords&&!reasoning)return;
       if(kind==='other'&&!lastWords)return;
       if(!targets.length&&!lastWords)return;
       var score=wwUserClaimScore(c);
@@ -38781,6 +38895,28 @@ async function wwGuardUserClaimsSpeech(p,sys,say){
     fixed=wwStripLead(sp.say||fixed);
     if(sp.draft)p.scratch=sp.draft;
     if(fixed&&!wwClaimReasoningIssue(fixed,w))return fixed;
+  }catch(e){}
+  return say;
+}
+async function wwGuardProxyReasoningSpeech(p,sys,say){
+  var w=V.ww;
+  if(!w||!p||p.isUser||wwIsWolf(p))return say;
+  var c=wwProxyClaimForText(w,say);
+  if(!c||!/(?:狼|投|票|出|归|踩|怀疑)/.test(String(say||'')))return say;
+  var missing=wwProxyReviewMissing(say,w,c);
+  if(!missing.length)return say;
+  try{
+    var ask='【退水压跳核对】你刚才的发言提到了已经退水并作废假验的 '+wwTag(c.p)+
+      '，但没有完成对这条操作线的核对。\n'+wwProxyReviewSummary(w,c)+
+      '\n当前还缺少：'+missing.join('；')+'。'+
+      '\n请保持原角色口吻和已经确认的事实，重写完整公开发言。要评价这条压跳是否形成收益，并直接比较她与假跳后转而踩她的人谁更像原始起跳位；如果仍怀疑她，必须写出具体世界线，不能只说“退水不洗白”“她说了一大堆”或“听着顺”。全部核对后仍然可以投她，也可以改票。不要解释这条内部核对。原发言：'+String(say||'').slice(0,1100);
+    var fixed=String(await wwCall(sys,ask,wwSayMax(),.62)||'').trim();
+    fixed=wwTakeTitle(p,fixed);
+    fixed=wwTakeIdentityBoard(p,fixed).text;
+    var sp=wwSplitDraft(fixed);
+    fixed=wwStripLead(sp.say||fixed);
+    if(sp.draft)p.scratch=sp.draft;
+    if(fixed&&wwProxyReviewMissing(fixed,w,c).length<missing.length)return fixed;
   }catch(e){}
   return say;
 }
@@ -40346,7 +40482,7 @@ function wwStyleOnlyVoteReason(txt){
   if(wwPoliceVoteProofIssues(t,V.ww).length)return true;
   var invalidNightBurden=wwNightKillExplanationIssues(t).length>0||
     /(?:没|不|未|回避)[^。！？!?；;\n]{0,12}(?:解释|回答)[^。！？!?；;\n]{0,20}(?:死|倒|刀口)|(?:死|倒|刀口)[^。！？!?；;\n]{0,20}(?:没|不|未|回避)[^。！？!?；;\n]{0,12}(?:解释|回答)/.test(t);
-  var style=/(?:激进|太主动|抢节奏|带节奏|控场|话多|话少|发言太短|太水|划水|语气|态度|不像.{0,8}(?:好人|玩家|AI|常规|正常)|看不懂|听不懂|读不懂|太绝对|太满|太飘|很怪|奇怪|不舒服|听感|直觉|预判|太有主见|不按.{0,8}(?:顺序|模板)|直接点.{0,8}狼坑|爱指挥|指挥.{0,8}(?:神职|预言家|女巫|守卫|猎人|通灵)|拒绝回答|不回答|回避质疑|回避问题|格格不入|票型两头站|反复换靶|暗跳.{0,12}(?:村民|民牌)|软跳.{0,12}(?:村民|民牌)|太快|太准|太完整|太全面|太强势|退路.{0,8}足|留.{0,8}后路|后路.{0,8}(?:铺得|整齐|太足|太多)|(?:说|计划).{0,6}(?:太完整|太全面))/.test(t);
+  var style=/(?:激进|太主动|抢节奏|带节奏|控场|话多|话少|发言太短|太水|划水|语气|态度|不像.{0,8}(?:好人|玩家|AI|常规|正常)|看不懂|听不懂|读不懂|太绝对|太满|太飘|很怪|奇怪|不舒服|听感|直觉|预判|太有主见|不按.{0,8}(?:顺序|模板)|直接点.{0,8}狼坑|爱指挥|指挥.{0,8}(?:神职|预言家|女巫|守卫|猎人|通灵)|拒绝回答|不回答|回避质疑|回避问题|格格不入|票型两头站|反复换靶|暗跳.{0,12}(?:村民|民牌)|软跳.{0,12}(?:村民|民牌)|太快|太准|太完整|太全面|太强势|退路.{0,8}足|留.{0,8}后路|后路.{0,8}(?:铺得|整齐|太足|太多)|说(?:了)?(?:一)?大堆|说(?:了)?一堆|讲(?:了)?(?:一)?大堆|讲(?:了)?一堆|那一大段|一大堆话|长篇大论|听着顺|(?:说|计划).{0,6}(?:太完整|太全面))/.test(t);
   var hard=/(?:时间线|夜数|规则冲突|技能结果|查验结果|报验结果|验人目标|金水|查杀|假验|对跳|具体身份|票型承诺|明确承诺|锁票|夜间记录|共边|不可能|正面矛盾|前后矛盾|硬冲突|承诺.{0,12}(?:冲突|违背|不符)|票型.{0,12}(?:冲突|违背|不符|反水)|身份.{0,12}(?:冲突|矛盾))/.test(t);
   return (invalidNightBurden||style)&&!hard;
 }
@@ -40463,6 +40599,8 @@ async function wwVoteAI(p,pool){
   var endRisk=wwEndgameRiskText(w);
   if(endRisk)goodHint+='\n'+endRisk;
   var userClaimHint=wwUserClaimText(w,true,p,pool);
+  var proxyReviewHint=wwProxyVoteReviewText(p,pool);
+  if(proxyReviewHint)goodHint+='\n'+proxyReviewHint;
   var wolfSingleHint=soleKill
     ?('\n【狼队票权纪律】场上存在单边验人线和查杀目标 '+wwTag(soleKill.target)+
       '。如果你还没算清狼队和公开票向足以把单边验人位推出，不要把票浪费在 '+wwTag(soleKill.claim)+
@@ -40500,6 +40638,19 @@ async function wwVoteAI(p,pool){
         '\n请保持原票向，或根据修正后的事实改票；严格只写两行：投票、判断。',120,.62);
       var factVote=wwReadVoteReply(factReply,pool);
       if(factVote.pick){txt=factReply;vote=factVote}
+    }catch(e){}
+  }
+  var proxyIssue=!wwIsWolf(p)&&vote.pick?wwProxyVoteReasonIssue(vote.pick,w,vote.logic):null;
+  if(proxyIssue){
+    try{
+      var proxyReply=String(await wwCall(sys,'【退水压跳投票核对】你准备投 '+wwTag(proxyIssue.claim.p)+
+        '，但当前判断还没有完整处理她压跳后退水的整条操作线。\n'+
+        wwProxyReviewSummary(w,proxyIssue.claim)+
+        '\n还缺少：'+proxyIssue.missing.join('；')+'。'+
+        '\n请重新核对。若仍然投她，必须用具体世界线说明：假台词为何不能直接作数、这次压跳是否取得了公开反应、她与假跳后转而踩她的人谁更像原始起跳位，以及第三人的规则错误为何不能采用。'+
+        '不能只写“退水不洗白”“她说了一大堆”或“听着顺”。若核对后改票，也写清改票依据。严格只写两行：投票：编号；判断：具体结论。',160,.62)||'');
+      var proxyVote=wwReadVoteReply(proxyReply,pool);
+      if(proxyVote.pick){txt=proxyReply;vote=proxyVote}
     }catch(e){}
   }
   if(!wwIsWolf(p)&&vote.pick&&vote.logic){
