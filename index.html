@@ -16314,7 +16314,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-13】
-狼人杀 AI 的发言改为“开口前提供规则和事实提醒，开口后不再因程序主观判断强制整段重写”。悍跳狼每日报验、警徽资格、对跳和外置位下一验等必要提醒仍会在合适时机进入内部提示；自动投票复核、自动改票和旧话题强制重写已移除。“太顺、太快、太完整”检查保留，但只删除这类主观定罪句，不再整段改稿；发言被接口截断时仍会补成完整句子。
+狼人杀 AI 的发言改为“开口前提供规则和事实提醒，开口后不再因程序主观判断强制整段重写”。悍跳狼每日报验、警徽资格、对跳和外置位下一验等必要提醒仍会在合适时机进入内部提示；自动投票复核、自动改票和旧话题强制重写已移除。“太顺、太快、太完整”检查保留，但只删除这类主观定罪句，不再整段改稿；发言被接口截断时仍会补成完整句子。验人身份识别也已收紧：只有本人明确自称预言家/通灵师，或本人直接报验，才算一条验人线；单纯复述“首夜验X、X金水”不会再自动把发言者算成跳预。场记生成的旧身份声明会回到该玩家原话重新核对，程序身份卡、摘要和旧身份盘都只是索引，和原话冲突时以原话为准。
 狼人杀「机械狼通灵师」板新增精确身份行动表态规则：通灵师给警上玩家报精确身份后，目标退水＝行动上默认认下，不退水继续竞选＝行动上默认不认；给警下玩家报精确身份后，目标把警长票投给报验者＝行动上默认认下，投给其他候选人＝行动上默认不认，弃权不算表态。AI 会把退水和警长票当成目标本人已经作出的表态，即使目标还没轮到口头发言，也不能再说“她没承认/没确认”而无视行动。行动表态不等于身份验证，不能仅凭退水或警长票把目标写成铁好、已坐实或洗白，仍要保留双狼演戏、机械狼配合和狼接假金的可能。程序自动提取的行动卡只作索引，和公开原话冲突时以原话为准。好人 AI 如果自己就是被精确报身份的目标，会由模型先回公开原话并对照自己的私密底牌自行核对；确认报错才不退水，无法确认或只是程序误识别时按普通竞选策略决定。狼人仍然按自己的竞选策略决定。
 真人狼人「拍刀」页面不再显示总刀数，固定列出全部座位，出局者灰显，只标出玩家自己和已经认识的普通狼队友；隐藏的机械狼不会从名单缺失或特殊标签中被提前暴露。拍刀中自动选择自爆者时，普通小狼优先，机械狼排最后，避免机械双刀狼被无谓消耗轮次。
 觉醒骑士板里的 AI 觉醒守卫首夜固定空守，把当天的觉醒守护优先留到白天配合觉醒骑士。公开报查杀者不能让被查杀目标靠“跳守卫/女巫/猎人”获得先听再定的暂缓待遇；目标可以讲技能时间线，但票口仍优先留在被查杀者。判断某条报验是假，也不自动说明被查杀目标就是好人，狼可以查杀狼。
@@ -34756,15 +34756,6 @@ function wwClaimIdentityRoles(txt,speakerSeq){
       }
     });
   });
-  var functionalRole=(V.ww&&wwBoard(V.ww.count,V.ww).medium)?'medium':'seer';
-  if(!seen[functionalRole]&&!/(?:我|本人)[^。！？!?；;\n]{0,10}(?:不是|不跳|不认|不穿)[^。！？!?；;\n]{0,8}(?:预言家|通灵师)/.test(s)){
-    var ownChecks=functionalRole==='medium'?wwOwnMediumChecks(s,speakerSeq):wwOwnSeerChecks(s,speakerSeq);
-    var directOwnCheck=/(?:^|[。！？!?；;\n])\s*(?:(?:我|本人)\s*)?(?:首夜|昨夜|昨晚|第\s*\d+\s*夜)?\s*(?:(?:我|本人)\s*)?(?:验了|验到|查验|验到过|摸到|验)\s*\d{1,2}\s*号/.test(s);
-    if(ownChecks.length&&directOwnCheck){
-      seen[functionalRole]=1;
-      out.push(functionalRole);
-    }
-  }
   return out;
 }
 function wwHasExplicitSeerLabel(txt,roleKey){
@@ -35301,9 +35292,14 @@ function wwSeerCommitmentLedger(w){
     var old=claims[p.uid];
     if(!old||day<old.day)claims[p.uid]={p:p,day:day||1,ref:ref||''};
   }
+  var scribeRefs=wwScribeRefMap(w);
   ((w&&w.scribe&&w.scribe.claims)||[]).forEach(function(x){
     if(!x||x.role!==claimRole)return;
-    addClaim(bySeq[Number(x.seat)],wwSeerRefDay(x.ref)||1,x.ref);
+    var seat=Number(x.seat),ref=String(x.ref||''),quote=String(x.quote||'').trim();
+    var row=ref?scribeRefs[ref]:null;
+    if(!row||!quote||!wwScribeSourceOk(row,seat,quote))return;
+    if(wwClaimIdentityRoles(quote,seat).indexOf(claimRole)<0)return;
+    addClaim(bySeq[seat],wwSeerRefDay(ref)||1,ref);
   });
   rows.forEach(function(r){
     if(wwClaimIdentityRoles(r.text,r.p.seq).indexOf(claimRole)>=0)addClaim(r.p,r.day,r.ref);
@@ -35812,15 +35808,29 @@ function wwClaimAttributionData(w){
   return {roleKey:roleKey,roleName:roleName,players:players,claimantByUid:claimantByUid,
     checksBySeat:ledger.checksBySeat||{},byUid:byUid};
 }
+function wwSourcePriorityText(){
+  return '【发言的事实来源优先级】判断谁跳了什么、谁验了谁时，按以下顺序采用信息：'+
+    '①主持人公告和正式技能结算；②玩家本人原始公开发言；③程序整理的身份卡、验人账和票型卡；④场记摘要、标题、旧身份盘和 AI 自己的推断。'+
+    '程序整理的卡片只负责帮你定位原话，不是新增证据。卡片和原话冲突时，卡片中的对应内容作废，明确按原话修正，不能为了迁就卡片把不存在的话安到别人头上。'+
+    '判断“几号自称预言家/通灵师”“几号报验了谁”必须有该玩家本人明确自称或本人第一人称报验的原话和发言编号；'+
+    '只有“首夜验X”“4号金水”这类没有主语、承接前文的复述时，不能自动算成当前发言者自己的查验。找不到本人直接原话时，只能写“未确认”，不能根据卡片、摘要或别人对她的评价补出身份线。'+
+    '别人复述同一条验人只能算同一份信息，不能变成第二条独立验人线。';
+}
 function wwClaimAttributionAuditText(w){
   var d=wwClaimAttributionData(w);
   if(!d.players.length)return '';
+  var refRows={};
+  wwPublicEventRows(w).forEach(function(r){if(r&&r.ref)refRows[r.ref]=r});
   var claimants=d.players.filter(function(x){return x.claimed&&!x.retracted});
   var retired=d.players.filter(function(x){return x.retracted});
   var none=d.players.filter(function(x){return !x.claimed&&!x.retracted});
   var L=['【公开验人归属账（只按本人直接原话）】'];
   L.push('· 自称'+d.roleName+'：'+(claimants.length?claimants.map(function(x){
-    return wwTag(x.p)+(x.claimRefs.length?'（'+x.claimRefs.join('、')+'）':'');
+    var quotes=(x.claimRefs||[]).map(function(ref){
+      var r=refRows[ref];
+      return r?('「'+wwClipSpeech(String(r.text||'').replace(/^【竞选发言】/,''),110,55)+'」'):'';
+    }).filter(Boolean);
+    return wwTag(x.p)+(quotes.length?'（'+quotes.join('；')+'）':(x.claimRefs.length?'（'+x.claimRefs.join('、')+'）':''));
   }).join('、'):'暂无人。'));
   claimants.forEach(function(x){
     if(!(x.checks||[]).length)return;
@@ -35830,7 +35840,8 @@ function wwClaimAttributionAuditText(w){
     }).join('；'));
   });
   if(retired.length)L.push('· 已退水或作废：'+retired.map(function(x){return wwTag(x.p)}).join('、')+'。');
-  if(none.length)L.push('· 没有公开自称'+d.roleName+'：'+none.map(function(x){return wwTag(x.p)}).join('、')+'。');
+  if(none.length)L.push('· 没有公开自称'+d.roleName+'：'+none.map(function(x){return wwTag(x.p)}).join('、')+
+    '。她们提到验人、复述验人或评价某条验人线，只算转述或看法，不算本人报验。');
   L.push('· “X号说/分析/转述别人验了谁”不等于X号本人跳了验人身份，也不等于X号本人报验。'+
     '任何“X号跳'+d.roleName+'/X号报验Y”都必须有X号本人的直接原话和发言编号；找不到来源时不得这样写。');
   return L.join('\n');
@@ -38996,6 +39007,7 @@ function wwSysFor(p,task){
      '狼队成员。白天装好人，可悍跳、假金水、假查杀。悍跳前先过时间线：首夜验人发生在任何上警、发言和警徽表现之前，首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能引用“上警积极、发言、警徽表现”等白天信息；每天只新增一夜查验，死讯后仍是同一天。'+
      '如果你仍在公开穿预且没有退水，从第二个白天开始每天必须报新一夜的金水/查杀或明确改验；'+(wwBoard(w.count,w).nightmare?'想用“被恐没验”就明确说出来并保持前后一致，':'本板没有梦魇，绝对不能声称被梦魇恐惧，必须编出一个可继续圆世界线的验人结果，')+'绝不能整轮只聊票型漏掉查验。'+
      '不要为了伪造查杀而反射性给对跳者编一个查验结果；但在公开站边和归票上仍要直接把不退水的对跳者打成悍跳狼/狼方，不能把“别乱编查杀”误解成“对跳者先宽容”。下一验优先外置位金水拉票或反踩真预，不要浪费在已经起跳且不退水的对跳者身上。'));
+  L.push(wwSourcePriorityText());
   if(wwBoard(w.count,w).mechanicwolf)L.push('【机械狼伪装时序】'+WW_MECHANIC_DISPLAY_RULE);
   if(wwIsPackWolf(p))L.push('【神职衣服默认接法】若有人公开点名你是某个具体神职（如守卫、女巫）而你不是，默认先接住，不要当场说“我不是这张牌”“我没跳过”。真通灵验小狼只会报狼，不会给狼发好人神职；因此发牌者更可能是在做局，未必是敌人。即使无法判断对方是好人代跳还是机械狼，也先把衣服穿上，把旧身份解释成藏牌、试探或挡刀。不能假定未翻牌的死者不是真女巫/真守卫，也不能把“真神可能还活着”当成拒绝接牌的理由；真神若对跳，正好借机把她逼出来，坚持自己的身份线，把对方打成抢衣服或假神，争取抗推，至少也为狼队锁定神职位置。狼队要敢跳身份和真神对抗，不要为了讨好真神主动否认。只有接牌会造成无法解释且狼队完全没有对跳、反打或夜间处理方案时，才改用模糊回应；仍然不要直接说“我不是X”。');
   if(wwIsPackWolf(p)&&wwWolfJobOf(p)==='jump'&&!(w.seerRetractions&&w.seerRetractions[p.uid]))
