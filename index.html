@@ -16308,10 +16308,13 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-11-12 */
+   最后更新：2026-11-13 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-11-13】
+狼人杀「机械狼通灵师」板新增精确身份行动表态规则：通灵师给警上玩家报精确身份后，目标退水＝默认发对，不退水继续竞选＝默认发错；给警下玩家报精确身份后，目标把警长票投给报验者＝默认发对，投给其他候选人＝默认发错，弃权不算表态。AI 会把退水和警长票当成目标本人已经作出的表态，即使目标还没轮到口头发言，也不能再说“她没承认/没确认”而无视行动。该规则只用于机械狼通灵师板。好人 AI 如果自己就是被精确报身份的目标，会由模型先回公开原话并对照自己的私密底牌自行核对；确认报错才不退水，无法确认或只是程序误识别时按普通竞选策略决定。狼人仍然按自己的竞选策略决定。
 
 【最近更新 · 2026-11-12】
 狼人杀双跳力度改成按当时具体结构判断，不再简单套“金水低、查杀高”或固定低/中/高。前置位已经硬跳预言家/通灵师的人若被后置位发金水，是特别高的撞车风险；被后置位发查杀则是正面双跳，不再额外算“她以后可能反跳强神”。后置未发言目标的金水和查杀都可能反水，也都有双狼配合可能，高风险不等于真。真验人位若手里正好验到前置对跳者查杀，发言直接报查杀和归票，不再绕到好人代跳或退水；AI 也不会再固定复读“我不认代跳”，代跳是否成立按假验作废、真验人是否接受和实际收益判断。
@@ -35336,9 +35339,96 @@ function wwPublicCheckIsGoodResult(result){
   if(/狼/.test(r))return false;
   return ['村民','预言家','通灵师','女巫','猎人','守卫','白痴','骑士','守墓人'].indexOf(r)>=0;
 }
+function wwMechanicMediumBoard(w){
+  if(!w||!w.players||!w.players.length)return false;
+  var b=wwBoard(w.count,w);
+  return !!(w.board==='mechanicmedium'||(b&&b.medium&&b.mechanicwolf));
+}
+/* 机械狼通灵师专属：精确身份发出去后，目标不必先轮到自己开口。
+   警上看退水，警下看警长票；这两种行动就是目标本人已经作出的表态。 */
+function wwMechanicMediumActionSignals(w){
+  if(!wwMechanicMediumBoard(w))return [];
+  var a=wwSeerCommitmentLedger(w),votes=wwVoteFactRows(w),out=[],seen={};
+  (a.claims||[]).forEach(function(c){
+    if(!c||!c.p||c.retractedDay)return;
+    (c.checks||[]).forEach(function(x){
+      if(!wwSpecificRoleResult(x.result))return;
+      var target=wwPlayerByUidTarget(w,Number(x.seq));
+      if(!target||target.uid===c.p.uid)return;
+      var key=c.p.uid+'|'+target.uid+'|'+Number(x.day||0)+'|'+String(x.result||'');
+      if(seen[key])return;seen[key]=1;
+      var wasPolice=(w.policeAll||[]).indexOf(target.uid)>=0;
+      var row={claim:c.p,target:target,check:x,result:String(x.result||''),place:wasPolice?'police':'off',status:'pending',action:''};
+      if(wasPolice){
+        var decided=!!(w.policeWaterDone&&w.policeWaterDone[target.uid]);
+        if(decided){
+          var retired=(w.policeRetired||[]).indexOf(target.uid)>=0||(w.policeUp||[]).indexOf(target.uid)<0;
+          row.status=retired?'correct':'wrong';
+          row.action=retired?'警上退水':'警上未退水、继续竞选';
+        }
+      }else if(w.policeAll&&w.policeAll.length){
+        var pv=votes.filter(function(v){return v&&v.kind==='police'&&Number(v.voter)===Number(target.seq)});
+        if(pv.length){
+          var v=pv[pv.length-1],votedClaimer=Number(v.target)===Number(c.p.seq);
+          row.status=votedClaimer?'correct':'wrong';
+          row.action='警长票投给 '+v.target+'号';
+        }
+      }
+      out.push(row);
+    });
+  });
+  return out;
+}
+function wwMechanicMediumActionCard(w){
+  var signals=wwMechanicMediumActionSignals(w);
+  if(!signals.length)return '';
+  var facts=signals.map(function(x){
+    var verdict=x.status==='correct'
+      ?'按本板默认规则视为这条精确身份发对（目标已经用行动认下）'
+      :(x.status==='wrong'?'按本板默认规则视为这条精确身份发错':'行动表态还没有产生，不能提前替目标认定承认或不承认');
+    var action=x.action||(x.place==='police'?'退水决定尚未完成':'警长票尚未产生');
+    return '· '+wwTag(x.claim)+' 公开报 '+wwTag(x.target)+'＝【'+x.result+'】；'+
+      (x.place==='police'?'目标是警上玩家':'目标是警下玩家')+'；'+action+' → '+verdict;
+  });
+  return '【机械狼通灵师 · 精确查验行动表态卡】\n'+
+    '· 被报的警上目标退水＝默认表示这条精确身份发对了；不退水、继续竞选＝默认表示发错了。\n'+
+    '· 被报的警下目标把警长票投给报验者＝默认表示发对了；投给其他候选人＝默认表示发错了；弃权不算表态。\n'+
+    '· 退水和警长票都是目标本人已经作出的表态，不需要等她轮到自己口头发言。即使她还没开口，也不能说“她没承认/没确认”来无视这个行动。\n'+
+    '· 目标参与警长竞选时适用退水规则；目标在警下时适用警长票规则。\n'+
+    '· 如果目标是你本人且你属于好人阵营：先回公开原话自己核对，再拿自己的真实底牌比较。确认对方报错了，就不退水，用行动否认错误身份；程序这张卡只是索引，识别错了时以公开原话和你自己的底牌为准。狼人目标仍按自己的竞选策略决定。\n'+
+    facts.join('\n');
+}
+function wwMechanicMediumRoleMatches(p,result){
+  if(!p||!result)return false;
+  if(p.role==='villager')return result==='村民'||result==='平民';
+  return result===(WW_ROLE_NAME[p.role]||'');
+}
+function wwMechanicMediumSelfWaterChecks(p,w){
+  var out={right:[],wrong:[]};
+  if(!p||wwIsWolf(p)||!wwMechanicMediumBoard(w))return out;
+  wwMechanicMediumActionSignals(w).forEach(function(x){
+    if(!x||!x.target||x.target.uid!==p.uid)return;
+    (wwMechanicMediumRoleMatches(p,x.result)?out.right:out.wrong).push(x);
+  });
+  return out;
+}
+function wwMechanicMediumSelfWaterHint(p,w){
+  var checks=wwMechanicMediumSelfWaterChecks(p,w);
+  if(checks.wrong.length){
+    return '\n【机械狼通灵师 · 程序索引，仅供核对，不是最终事实】程序可能把转述、条件句或别人的话识别错，先回公开原话确认下面这条确实是在报你。'+
+      checks.wrong.map(function(x){return wwTag(x.claim)+'公开报你是【'+x.result+'】'}).join('、')+
+      '，而你的真实身份是【'+(WW_ROLE_NAME[p.role]||p.role)+'】。如果公开原话确认无误，竞选发言结束后你退水会被默认理解成承认这些精确身份发对；你是好人，这时必须选择“不退水”，用留下竞选这个行动明确否认错误身份。如果公开原话不是明确报你，就不要套用这条。'
+  }
+  if(checks.right.length){
+    return '\n【机械狼通灵师 · 程序索引，仅供核对，不是最终事实】先回公开原话确认下面这条确实是在报你。'+
+      checks.right.map(function(x){return wwTag(x.claim)+'公开报你是【'+x.result+'】'}).join('、')+
+      '，和你的真实身份一致；如果你退水，其他 AI 会默认这条精确身份发对。这里没有强制你留或退，按竞选收益自行决定。'
+  }
+  return '';
+}
 function wwPublicCheckFactsText(w){
   if(!w||!w.players||!w.players.length)return '';
-  var a=wwSeerCommitmentLedger(w),rows=wwPublicEventRows(w),out=[];
+  var a=wwSeerCommitmentLedger(w),rows=wwPublicEventRows(w),out=[],mechSignals=wwMechanicMediumActionSignals(w);
   (a.claims||[]).forEach(function(c){
     if(!c||!c.p||c.retractedDay)return;
     (c.checks||[]).forEach(function(x){
@@ -35350,7 +35440,16 @@ function wwPublicCheckFactsText(w){
       var sourceMatches=sourceChecks.some(function(y){return Number(y.seq)===Number(x.seq)&&String(y.result)===String(x.result)});
       if(!source||!sourceMatches)return;
       var mediumBoard=!!wwBoard(w.count,w).medium;
-      var confirmText=confirmed?'；目标本人已公开确认':(mediumBoard?'；目标本人尚未确认':'；普通预言家板没有可独立核对的具体职业，目标口头认好不算验证');
+      var signal=null;
+      if(exact)mechSignals.some(function(v){
+        if(v.claim.uid===c.p.uid&&v.target.uid===target.uid&&v.result===String(x.result)){signal=v;return true}
+        return false;
+      });
+      var confirmText=confirmed
+        ?'；目标本人已公开确认'
+        :(signal&&signal.status!=='pending'
+          ?('；目标已用「'+signal.action+'」作出行动表态，按本板默认规则视为'+(signal.status==='correct'?'发对':'发错'))
+          :(signal?'；目标的口头发言和退水/警长票行动都尚未形成确认':(mediumBoard?'；目标本人尚未口头确认':'；普通预言家板没有可独立核对的具体职业，目标口头认好不算验证')));
       out.push('· '+wwTag(c.p)+' 在 '+(x.ref||('D'+(x.day||'?')))+' 公开声称验 '+wwTag(target)+'＝【'+x.result+'】'+
         (exact?'（精确职业）':'（宽泛身份结果）')+confirmText+
         '\n  原话：'+wwClipSpeech(source.text,110,45));
@@ -37556,6 +37655,23 @@ function wwGoldRecognitionQuestionIssues(say,w){
   });
   return out;
 }
+function wwMechanicMediumActionIssues(say,w){
+  if(!wwMechanicMediumBoard(w))return [];
+  var signals=wwMechanicMediumActionSignals(w).filter(function(x){return x&&x.status!=='pending'});
+  if(!signals.length)return [];
+  var out=[];
+  String(say||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    var s=String(c||'').trim();
+    if(!s)return;
+    var denied=/(?:没|没有|未|从未|还未|还没|始终没|一直没)[^。！？!?；;\n]{0,12}(?:承认|认下|认过|确认|认领|表态|正面回应)|(?:不能|无法|不算|不等于|不代表|没有证据)[^。！？!?；;\n]{0,12}(?:承认|确认|认下|表态)/.test(s);
+    if(!denied)return;
+    var hit=signals.some(function(x){
+      return wwMentionsSeq(s,x.target.seq)||(x.result&&s.indexOf(x.result)>=0);
+    });
+    if(hit)out.push(s);
+  });
+  return out.filter(function(x,i,a){return a.indexOf(x)===i});
+}
 function wwPublicFactIssueDetails(say,w){
   var out=[];
   function add(kind,items){
@@ -37569,6 +37685,7 @@ function wwPublicFactIssueDetails(say,w){
   add('identityRecognition',wwIdentityRecognitionIssues(say,w));
   add('policeVoteProof',wwPoliceVoteProofIssues(say,w));
   add('goldRecognition',wwGoldRecognitionQuestionIssues(say,w));
+  add('mechanicMediumAction',wwMechanicMediumActionIssues(say,w));
   add('policeExile',wwPoliceExileContradictionIssues(say));
   add('badgeRecipient',wwBadgeRecipientKnowledgeIssues(say));
   var seen={};
@@ -37584,6 +37701,7 @@ function wwPublicFactIssueLabel(kind){
     identityRecognition:'要求金水或其他玩家替验人者认证真假',
     policeVoteProof:'把警长票、警徽或未来查验当成验人真假的证明',
     goldRecognition:'要求被验金水本人认可这条验人或金水',
+    mechanicMediumAction:'忽略了机械狼通灵师板里目标已经用退水或警长票作出的表态',
     policeExile:'把警长票和放逐票混成同一件事',
     badgeRecipient:'要求接徽者说出她无权知道的查验结果'
   })[kind]||'与公开事实不符';
@@ -37736,6 +37854,7 @@ async function wwGuardPublicFactSpeech(p,sys,say){
       identityRecognition:'金水和其他玩家只能确认查验结果有没有报错，不能替验人者认证真假；删掉这类要求。',
       policeVoteProof:'警长票只决定谁当选，不能证明谁是真验人；没拿到警徽、票少或未来查验没落地都不是假验硬证据。',
       goldRecognition:'不要要求被验金水本人“认不认这条金水/这个验人”；她不知道对方夜里有没有真验。',
+      mechanicMediumAction:'机械狼通灵师板里，警上目标退水或警下目标的警长票就是她本人已经作出的表态，不能再说她没亲口承认而无视行动。',
       policeExile:'警长票与放逐票是不同阶段，同一人先被支持当选、后又被放逐不构成矛盾。',
       badgeRecipient:'接徽者不知道死者最后一夜验了谁，不能要求她解释自己无权知道的结果。'
     },tips=[],seenKind={};
@@ -39440,6 +39559,8 @@ function wwSysFor(p,task){
   if(turnState)dyn.push(turnState);
   var checkFacts=wwPublicCheckFactsText(w);
   if(checkFacts)dyn.push(checkFacts);
+  var mechMediumActions=wwMechanicMediumActionCard(w);
+  if(mechMediumActions)dyn.push(mechMediumActions);
   dyn.push(wwBoardLine());
   dyn.push('【到现在为止发生的事（所有人都知道）】\n'+wwPublicLog());
   dyn.push(wwFactsFor(p));   /* 谁活着、谁出局了、你是几号、狼队有谁 —— 都在这一块里 */
@@ -44402,6 +44523,10 @@ async function wwPoliceSpeech(p,resay){
 async function wwPoliceWater(p){
   var jumpRole=wwWolfJobOf(p)==='jump',adaptJump=wwJumpCanAdapt(p);
   if(jumpRole&&!adaptJump)return false;
+  var selfWaterHint=wwMechanicMediumSelfWaterHint(p,V.ww);
+  var selfWaterRule=(!wwIsWolf(p)&&wwMechanicMediumBoard(V.ww))
+    ?'\n【退水前必须自己核对】先回公开原话确认有没有人明确报过你的精确身份。程序整理的身份名称、目标和发言归属都可能识别错；原话和你的私密真实底牌才是准的。如果确认有人报错你的精确身份，你是好人，必须不退水，用留下竞选否认错误身份。如果没有明确报你、只是转述、条件句或程序误识别，就按普通竞选策略决定。狼人不适用这条好人规则。'
+    :'';
   var mechEarly=wwMechanicEarlyInferenceInfo(p);
   var others=wwPoliceUpP().filter(function(x){return x!==p}).map(function(x){return wwNum(x)+x.name}).join('、')||'（没有别人）';
   var proxyClaimName=wwBoard(V.ww.count,V.ww).medium?'通灵师':'预言家';
@@ -44416,6 +44541,8 @@ async function wwPoliceWater(p){
       +(wwClassicProxyBoard()?'\n本板的警上压跳/代跳是常规操作；按退出计划正常退水并说明假验作废，本身不能当成狼点。':'')
     :'';
   var sys=wwSysFor(p,'现在决定继续竞选还是退水。没跳预言家且上警目的已完成，通常应退水；有明确收益才留下。其他上警者：'+others+'。'+
+    selfWaterRule+
+    selfWaterHint+
     proxyHint+jumpHint+'\n【输出格式】只输出：退水 或 不退水。');
   var s=String(await wwCall(sys,'请决定。',20,.85)||'').replace(/\s/g,'');
   if(/不退水|不退|继续|留下/.test(s))return false;
