@@ -16314,7 +16314,8 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-13】
-狼人杀「机械狼通灵师」板新增精确身份行动表态规则：通灵师给警上玩家报精确身份后，目标退水＝默认发对，不退水继续竞选＝默认发错；给警下玩家报精确身份后，目标把警长票投给报验者＝默认发对，投给其他候选人＝默认发错，弃权不算表态。AI 会把退水和警长票当成目标本人已经作出的表态，即使目标还没轮到口头发言，也不能再说“她没承认/没确认”而无视行动。该规则只用于机械狼通灵师板。好人 AI 如果自己就是被精确报身份的目标，会由模型先回公开原话并对照自己的私密底牌自行核对；确认报错才不退水，无法确认或只是程序误识别时按普通竞选策略决定。狼人仍然按自己的竞选策略决定。
+狼人杀「机械狼通灵师」板新增精确身份行动表态规则：通灵师给警上玩家报精确身份后，目标退水＝行动上默认认下，不退水继续竞选＝行动上默认不认；给警下玩家报精确身份后，目标把警长票投给报验者＝行动上默认认下，投给其他候选人＝行动上默认不认，弃权不算表态。AI 会把退水和警长票当成目标本人已经作出的表态，即使目标还没轮到口头发言，也不能再说“她没承认/没确认”而无视行动。行动表态不等于身份验证，不能仅凭退水或警长票把目标写成铁好、已坐实或洗白，仍要保留双狼演戏、机械狼配合和狼接假金的可能。程序自动提取的行动卡只作索引，和公开原话冲突时以原话为准。好人 AI 如果自己就是被精确报身份的目标，会由模型先回公开原话并对照自己的私密底牌自行核对；确认报错才不退水，无法确认或只是程序误识别时按普通竞选策略决定。狼人仍然按自己的竞选策略决定。
+真人狼人「拍刀」页面不再显示总刀数，固定列出全部座位，出局者灰显，只标出玩家自己和已经认识的普通狼队友；隐藏的机械狼不会从名单缺失或特殊标签中被提前暴露。拍刀中自动选择自爆者时，普通小狼优先，机械狼排最后，避免机械双刀狼被无谓消耗轮次。
 
 【最近更新 · 2026-11-12】
 狼人杀双跳力度改成按当时具体结构判断，不再简单套“金水低、查杀高”或固定低/中/高。前置位已经硬跳预言家/通灵师的人若被后置位发金水，是特别高的撞车风险；被后置位发查杀则是正面双跳，不再额外算“她以后可能反跳强神”。后置未发言目标的金水和查杀都可能反水，也都有双狼配合可能，高风险不等于真。真验人位若手里正好验到前置对跳者查杀，发言直接报查杀和归票，不再绕到好人代跳或退水；AI 也不会再固定复读“我不认代跳”，代跳是否成立按假验作废、真验人是否接受和实际收益判断。
@@ -35384,16 +35385,18 @@ function wwMechanicMediumActionCard(w){
   if(!signals.length)return '';
   var facts=signals.map(function(x){
     var verdict=x.status==='correct'
-      ?'按本板默认规则视为这条精确身份发对（目标已经用行动认下）'
-      :(x.status==='wrong'?'按本板默认规则视为这条精确身份发错':'行动表态还没有产生，不能提前替目标认定承认或不承认');
+      ?'行动上默认认下（不等于真实身份已验证，也不证明报验者是真正的好人验人位）'
+      :(x.status==='wrong'?'行动上默认不认（不等于因此就能直接确认任何一方的真实阵营）':'行动表态还没有产生，不能提前替目标认定承认或不承认');
     var action=x.action||(x.place==='police'?'退水决定尚未完成':'警长票尚未产生');
     return '· '+wwTag(x.claim)+' 公开报 '+wwTag(x.target)+'＝【'+x.result+'】；'+
       (x.place==='police'?'目标是警上玩家':'目标是警下玩家')+'；'+action+' → '+verdict;
   });
   return '【机械狼通灵师 · 精确查验行动表态卡】\n'+
-    '· 被报的警上目标退水＝默认表示这条精确身份发对了；不退水、继续竞选＝默认表示发错了。\n'+
-    '· 被报的警下目标把警长票投给报验者＝默认表示发对了；投给其他候选人＝默认表示发错了；弃权不算表态。\n'+
+    '· 这张卡是按公开发言和票型自动提取的索引；如果和公开原话冲突，以原话为准，不要盲从程序识别出的目标、身份或发言归属。\n'+
+    '· 被报的警上目标退水＝行动上默认认下这条精确查验；不退水、继续竞选＝行动上默认不认。\n'+
+    '· 被报的警下目标把警长票投给报验者＝行动上默认认下；投给其他候选人＝行动上默认不认；弃权不算表态。\n'+
     '· 退水和警长票都是目标本人已经作出的表态，不需要等她轮到自己口头发言。即使她还没开口，也不能说“她没承认/没确认”来无视这个行动。\n'+
+    '· 但这只是行动表态，不是身份验证。狼人完全可能在假验后主动退水配合；报验者和目标可能是双狼演戏，机械狼也可能先学到目标身份再“报准”。不能因为目标退水、投对警长票或口头自称某身份，就直接把她洗成高概率好人，也不能单独确认报验者是真通灵。\n'+
     '· 目标参与警长竞选时适用退水规则；目标在警下时适用警长票规则。\n'+
     '· 如果目标是你本人且你属于好人阵营：先回公开原话自己核对，再拿自己的真实底牌比较。确认对方报错了，就不退水，用行动否认错误身份；程序这张卡只是索引，识别错了时以公开原话和你自己的底牌为准。狼人目标仍按自己的竞选策略决定。\n'+
     facts.join('\n');
@@ -35417,12 +35420,12 @@ function wwMechanicMediumSelfWaterHint(p,w){
   if(checks.wrong.length){
     return '\n【机械狼通灵师 · 程序索引，仅供核对，不是最终事实】程序可能把转述、条件句或别人的话识别错，先回公开原话确认下面这条确实是在报你。'+
       checks.wrong.map(function(x){return wwTag(x.claim)+'公开报你是【'+x.result+'】'}).join('、')+
-      '，而你的真实身份是【'+(WW_ROLE_NAME[p.role]||p.role)+'】。如果公开原话确认无误，竞选发言结束后你退水会被默认理解成承认这些精确身份发对；你是好人，这时必须选择“不退水”，用留下竞选这个行动明确否认错误身份。如果公开原话不是明确报你，就不要套用这条。'
+      '，而你的真实身份是【'+(WW_ROLE_NAME[p.role]||p.role)+'】。如果公开原话确认无误，竞选发言结束后你退水会被理解为行动上认下这些精确查验；你是好人，这时必须选择“不退水”，用留下竞选这个行动明确否认错误身份。如果公开原话不是明确报你，就不要套用这条。'
   }
   if(checks.right.length){
     return '\n【机械狼通灵师 · 程序索引，仅供核对，不是最终事实】先回公开原话确认下面这条确实是在报你。'+
       checks.right.map(function(x){return wwTag(x.claim)+'公开报你是【'+x.result+'】'}).join('、')+
-      '，和你的真实身份一致；如果你退水，其他 AI 会默认这条精确身份发对。这里没有强制你留或退，按竞选收益自行决定。'
+      '，和你的真实身份一致；如果你退水，其他 AI 会理解成你行动上认下这条精确查验，但仍不会因此直接确认任何一方阵营。这里没有强制你留或退，按竞选收益自行决定。'
   }
   return '';
 }
@@ -35448,7 +35451,7 @@ function wwPublicCheckFactsText(w){
       var confirmText=confirmed
         ?'；目标本人已公开确认'
         :(signal&&signal.status!=='pending'
-          ?('；目标已用「'+signal.action+'」作出行动表态，按本板默认规则视为'+(signal.status==='correct'?'发对':'发错'))
+          ?('；目标已用「'+signal.action+'」作出行动表态，行动上默认'+(signal.status==='correct'?'认下':'不认')+'这条查验；这不等于真实身份已验证，也不能单独确认任何一方阵营')
           :(signal?'；目标的口头发言和退水/警长票行动都尚未形成确认':(mediumBoard?'；目标本人尚未口头确认':'；普通预言家板没有可独立核对的具体职业，目标口头认好不算验证')));
       out.push('· '+wwTag(c.p)+' 在 '+(x.ref||('D'+(x.day||'?')))+' 公开声称验 '+wwTag(target)+'＝【'+x.result+'】'+
         (exact?'（精确职业）':'（宽泛身份结果）')+confirmText+
@@ -37672,6 +37675,23 @@ function wwMechanicMediumActionIssues(say,w){
   });
   return out.filter(function(x,i,a){return a.indexOf(x)===i});
 }
+function wwMechanicMediumActionOverreadIssues(say,w){
+  if(!wwMechanicMediumBoard(w))return [];
+  var signals=wwMechanicMediumActionSignals(w).filter(function(x){return x&&x.status==='correct'});
+  if(!signals.length)return [];
+  var out=[];
+  String(say||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+    var s=String(c||'').trim();
+    if(!s)return;
+    var over=/(?:已经|已)?(?:确认|坐实|洗白|验人成立|金水坐实)|铁好|铁好人|锁好|身份验证成功|按高概率好人|基本是好人/.test(s);
+    if(!over||/(?:行动上|默认|不等于|不代表|不能说明|不能确认|仍可能|可能配合|狼也可能|只是表态)/.test(s))return;
+    var hit=signals.some(function(x){
+      return wwMentionsSeq(s,x.target.seq)||(x.result&&s.indexOf(x.result)>=0);
+    });
+    if(hit)out.push(s);
+  });
+  return out.filter(function(x,i,a){return a.indexOf(x)===i});
+}
 function wwPublicFactIssueDetails(say,w){
   var out=[];
   function add(kind,items){
@@ -37686,6 +37706,7 @@ function wwPublicFactIssueDetails(say,w){
   add('policeVoteProof',wwPoliceVoteProofIssues(say,w));
   add('goldRecognition',wwGoldRecognitionQuestionIssues(say,w));
   add('mechanicMediumAction',wwMechanicMediumActionIssues(say,w));
+  add('mechanicMediumOverread',wwMechanicMediumActionOverreadIssues(say,w));
   add('policeExile',wwPoliceExileContradictionIssues(say));
   add('badgeRecipient',wwBadgeRecipientKnowledgeIssues(say));
   var seen={};
@@ -37702,6 +37723,7 @@ function wwPublicFactIssueLabel(kind){
     policeVoteProof:'把警长票、警徽或未来查验当成验人真假的证明',
     goldRecognition:'要求被验金水本人认可这条验人或金水',
     mechanicMediumAction:'忽略了机械狼通灵师板里目标已经用退水或警长票作出的表态',
+    mechanicMediumOverread:'把目标的退水或警长票行动当成了身份铁证',
     policeExile:'把警长票和放逐票混成同一件事',
     badgeRecipient:'要求接徽者说出她无权知道的查验结果'
   })[kind]||'与公开事实不符';
@@ -37855,6 +37877,7 @@ async function wwGuardPublicFactSpeech(p,sys,say){
       policeVoteProof:'警长票只决定谁当选，不能证明谁是真验人；没拿到警徽、票少或未来查验没落地都不是假验硬证据。',
       goldRecognition:'不要要求被验金水本人“认不认这条金水/这个验人”；她不知道对方夜里有没有真验。',
       mechanicMediumAction:'机械狼通灵师板里，警上目标退水或警下目标的警长票就是她本人已经作出的表态，不能再说她没亲口承认而无视行动。',
+      mechanicMediumOverread:'退水或警长票只表示目标行动上默认认下，不能直接写成身份已确认、铁好或洗白；必须保留双狼演戏、机械狼配合和狼接假金的可能。',
       policeExile:'警长票与放逐票是不同阶段，同一人先被支持当选、后又被放逐不构成矛盾。',
       badgeRecipient:'接徽者不知道死者最后一夜验了谁，不能要求她解释自己无权知道的结果。'
     },tips=[],seenKind={};
@@ -40297,7 +40320,28 @@ function wwSnapKillReady(p){
 }
 function wwSnapKnifeWolves(){return wwAlive().filter(function(p){return wwIsPackWolf(p)||(p.role==='nightmare'&&V.ww.nightmareMetWolves)})}
 function wwSnapKillCount(){return Math.max(0,wwSnapKnifeWolves().length-1)}
-function wwSnapTargets(){return wwAlive().filter(function(p){return !wwIsWolf(p)})}
+function wwSnapSeatChoices(){
+  return ((V.ww&&V.ww.players)||[]).slice().sort(function(a,b){return (Number(a.seq)||99)-(Number(b.seq)||99)});
+}
+function wwSnapSeatState(p){
+  var me=wwMe();
+  var self=!!(me&&p&&p.uid===me.uid);
+  var dead=!!(p&&!p.alive);
+  var mate=!!(me&&p&&!self&&wwIsPackWolf(me)&&wwIsPackWolf(p));
+  return {self:self,dead:dead,mate:mate,selectable:!!p&&!self&&!dead&&!mate};
+}
+function wwSnapBomberPick(list,meUid,white){
+  var ws=(list||[]).slice();
+  if(white)return white;
+  var pool=ws.filter(function(p){return p&&p.uid!==meUid});
+  if(!pool.length)pool=ws;
+  var small=pool.filter(function(p){return wwIsPackWolf(p)});
+  var support=pool.filter(function(p){return p.role==='nightmare'||p.role==='gargoyle'});
+  var mechanic=pool.filter(function(p){return p.role==='mechanicwolf'});
+  var selfPack=ws.filter(function(p){return p&&p.uid===meUid&&wwIsPackWolf(p)})[0];
+  if(!small.length&&selfPack&&(support.length||mechanic.length))small=[selfPack];
+  return small[0]||support[0]||mechanic[0]||pool[0]||null;
+}
 function wwSnapFearTargets(){
   var w=V.ww,nm=wwAlive().filter(function(p){return p.role==='nightmare'})[0];
   if(!nm)return [];
@@ -40352,10 +40396,8 @@ function wwSnapSimulate(w,plan,dayStart){
   }
   function selfExplode(){
     var white=whiteTarget?liveWolves().filter(function(p){return p.role==='wolfking'})[0]:null;
-    var ws=white?[white]:liveWolves().filter(function(p){return p.uid!==uid});
-    if(!ws.length)ws=liveWolves();
-    if(!ws.length){fail='没有可自爆的狼人';return false}
-    var p=ws[0];
+    var p=wwSnapBomberPick(liveWolves(),uid,white);
+    if(!p){fail='没有可自爆的狼人';return false}
     if(white&&p===white&&whiteTarget){
       var take=byUid(whiteTarget);
       if(take&&take.alive&&good(take))kill(take,'shot','白狼王 '+tag(p)+' 自爆，带走 '+tag(take));
@@ -40369,7 +40411,7 @@ function wwSnapSimulate(w,plan,dayStart){
   }
   function knife(step,no){
     var t=byUid(step&&step.t);
-    if(!t||!t.alive||!good(t)){fail='第 '+no+' 刀的刀口已经出局或不是好人';return false}
+    if(!t||!t.alive||!good(t)){fail='这个刀口不成立';return false}
     var fear=step&&step.fear?byUid(step.fear):null;
     if(fear&&!fear.alive){fail='第 '+no+' 刀选择的恐惧目标已经出局';return false}
     if(fear&&fear.uid===lastFear){fail='梦魇不能连续两晚恐惧同一人';return false}
@@ -48230,20 +48272,27 @@ function wwInfoHTML(){
     actions+='<button class="ghost" type="button" style="color:var(--acc)" onclick="GAME.wwSnapKillOpen()">🔪 拍刀</button>';
   if(w.snapPlanOpen){
     var plan=w.snapPlan||[],need=w.snapPlanCount||wwSnapKillCount(),seq=plan.map(function(x){var p=wwPlayerByUid(x.t);return (p?wwName(p):'？')+(x.fear&&wwPlayerByUid(x.fear)?('（恐'+wwName(wwPlayerByUid(x.fear))+'）'):'')}).join(' → ');
-    snapList='<div class="ww-help-label">拍刀顺序 · '+plan.length+'/'+need+' 刀</div><div class="ww-help-list">'+
+    var seatChoices=wwSnapSeatChoices();
+    var snapSeatBtn=function(p,onclick,prefix){
+      var st=wwSnapSeatState(p);
+      var note=st.dead?' · 出局':(st.self?' · 你':(st.mate?' · 狼队友':''));
+      return '<button class="ghost" type="button" style="display:block;width:100%;text-align:left;margin:4px 0'+(st.selectable?'':';opacity:.45')+'"'+
+        (st.selectable?'':' disabled')+' onclick="'+onclick+'">'+esc((prefix||'')+wwTag(p)+note)+'</button>';
+    };
+    snapList='<div class="ww-help-label">拍刀顺序</div><div class="ww-help-list">'+
       (seq?('<div>'+esc(seq)+'</div>'):'<div class="dim">请选择第一刀。目标是按你自己的抿身份判断，系统不会揭示真实神职。</div>')+
       (w.snapChoosingFear?('<div class="dim" style="margin:4px 0">第 '+(plan.length+1)+' 刀目标是 '+esc(w.snapPendingTarget?wwName(wwPlayerByUid(w.snapPendingTarget)):'？')+'。梦魇本夜恐惧谁？</div>'+
         '<div class="gx-row" style="flex-wrap:wrap;gap:8px"><button class="ghost" type="button" onclick="GAME.wwSnapFearPick(\'\')">不恐惧</button>'+
         wwSnapFearTargets().map(function(p){return '<button class="ghost" type="button" onclick="GAME.wwSnapFearPick(\''+esc(p.uid)+'\')">恐惧 '+wwTag(p)+'</button>'}).join('')+'</div>'):
-        plan.length<need?wwSnapTargets().map(function(p){
-        return '<button class="ghost" type="button" style="display:block;width:100%;text-align:left;margin:4px 0" onclick="GAME.wwSnapKillPick(\''+esc(p.uid)+'\')">'+wwTag(p)+'</button>';
+        plan.length<need?seatChoices.map(function(p){
+        return snapSeatBtn(p,'GAME.wwSnapKillPick(\''+esc(p.uid)+'\')');
       }).join(''):'')+
-      (plan.length<need?'<p class="dim" style="font-size:11.5px;margin:5px 0 0">继续选择第 '+(plan.length+1)+' 刀。</p>':
+      (plan.length<need?'<p class="dim" style="font-size:11.5px;margin:5px 0 0">继续选择下一刀。</p>':
         '<div class="gx-row" style="flex-wrap:wrap;gap:8px;margin-top:6px"><button class="pri" type="button" onclick="GAME.wwSnapKillRun()">开始拍刀结算</button><button class="ghost" type="button" onclick="GAME.wwSnapKillReset()">重新选择</button></div>')+
-      '<p class="dim" style="font-size:11.5px;margin:5px 0 0">'+(w.snapPlanDayStart?'白天起拍会先默认自爆一狼。':'夜间起拍从第一刀开始。')+'按好人最优技能结算，不保证成功。</p></div>';
+      '<p class="dim" style="font-size:11.5px;margin:5px 0 0">默认自爆时普通小狼优先，机械狼排最后。按好人最优技能结算，不保证成功。</p></div>';
     var wk=wwAlive().filter(function(p){return p.role==='wolfking'})[0];
     if(wk&&!w.snapChoosingFear&&plan.length<need){
-      snapList+='<div class="ww-help-label">白狼王自爆技能（可选）</div><div class="ww-help-list"><div class="dim">若白狼王参与自爆，带走：'+(w.snapWhiteTarget?esc(wwName(wwPlayerByUid(w.snapWhiteTarget))):'不发动')+'</div><div class="gx-row" style="flex-wrap:wrap;gap:8px">'+wwSnapTargets().map(function(p){return '<button class="ghost" type="button" onclick="GAME.wwSnapWhitePick(\''+esc(p.uid)+'\')">带走 '+wwTag(p)+'</button>'}).join('')+'<button class="ghost" type="button" onclick="GAME.wwSnapWhitePick(\'\')">不发动</button></div></div>';
+      snapList+='<div class="ww-help-label">白狼王自爆技能（可选）</div><div class="ww-help-list"><div class="dim">若白狼王参与自爆，带走：'+(w.snapWhiteTarget?esc(wwName(wwPlayerByUid(w.snapWhiteTarget))):'不发动')+'</div><div style="margin-top:4px">'+seatChoices.map(function(p){return snapSeatBtn(p,'GAME.wwSnapWhitePick(\''+esc(p.uid)+'\')','带走 ')}).join('')+'<button class="ghost" type="button" style="display:block;width:100%;text-align:left;margin:4px 0" onclick="GAME.wwSnapWhitePick(\'\')">不发动</button></div></div>';
     }
   }
   return '<div class="ww-mkmodal ww-helpmask" onclick="GAME.wwInfo(0)">'+
@@ -51278,7 +51327,8 @@ window.GAME={
   },
   wwSnapKillPick:function(uid){
     var w=V.ww,me=wwMe(),p=uid?wwPlayerByUid(uid):null;
-    if(!w||!w.snapPlanOpen||!wwSnapKillReady(me)||!p||!p.alive||wwIsWolf(p))return;
+    var st=wwSnapSeatState(p);
+    if(!w||!w.snapPlanOpen||!wwSnapKillReady(me)||!st.selectable)return;
     if((w.snapPlan||[]).length>=Number(w.snapPlanCount||0))return;
     w.snapPlan=w.snapPlan||[];w.snapPendingTarget=p.uid;
     if(wwSnapFearTargets().length){w.snapChoosingFear=true;render(false);return}
@@ -51292,7 +51342,8 @@ window.GAME={
   },
   wwSnapWhitePick:function(uid){
     var w=V.ww,p=uid?wwPlayerByUid(uid):null;
-    if(!w||!w.snapPlanOpen||(uid&&(!p||!p.alive||wwIsWolf(p))))return;
+    var st=wwSnapSeatState(p);
+    if(!w||!w.snapPlanOpen||(uid&&!st.selectable))return;
     w.snapWhiteTarget=uid||'';render(false);
   },
   wwSnapKillReset:function(){
@@ -51303,6 +51354,12 @@ window.GAME={
     if(!w||!wwSnapKillReady(me)||!w.snapPlanOpen)return;
     var need=Number(w.snapPlanCount||0);
     if((w.snapPlan||[]).length!==need){toast('先把拍刀顺序选完');return}
+    var bad=(w.snapPlan||[]).some(function(x){
+      var p=wwPlayerByUid(x&&x.t);
+      return !p||!p.alive||wwIsWolf(p);
+    });
+    var white=w.snapWhiteTarget?wwPlayerByUid(w.snapWhiteTarget):null;
+    if(bad||(white&&wwIsWolf(white))){toast('这个拍刀方案不成立，请重新选择刀口');return}
     var res=wwSnapSimulate(w,w.snapPlan,w.snapPlanDayStart);
     wwSnapApply(w,res,!!res.ok);
   },
