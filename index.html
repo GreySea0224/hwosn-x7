@@ -16319,6 +16319,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 觉醒骑士板里的 AI 觉醒守卫首夜固定空守，把当天的觉醒守护优先留到白天配合觉醒骑士。公开报查杀者不能让被查杀目标靠“跳守卫/女巫/猎人”获得先听再定的暂缓待遇；目标可以讲技能时间线，但票口仍优先留在被查杀者。判断某条报验是假，也不自动说明被查杀目标就是好人，狼可以查杀狼。
 真验人位盘假验时可以使用验人目的、可能的狼队格式和队友、哪句话像保狼或提前知道好人等公开可讨论理由，不再限制成固定清单；但“没金水、只有查杀、只能撕徽”仍是无效伪逻辑，“我有金水、警徽交得出去”也不能单独证明真预。
 警徽流公开改用真人局简写：“警徽流开 A、B、C，先验 A 因为……”，必须带半句理由；首置位没信息可说按位置或随手顺验，不需要展开好坏分支，程序内部会自动生成接徽和撕徽分支。数字表达必须区分座位、人数和狼数：写“5号”“5人上警、7人警下”“总共4个狼”，不再使用“5上警7警下”“4狼”这类歧义省略。
+公开维持预言家/通灵师身份 AI 的视角已收紧：不能把自己和同职业起跳者并列成两个都可能真的候选，也不能说“再看谁更像真的、更信哪个”。从自己的身份线看，对方不是真验人位，但不一定是狼，好人也可以假跳或操作；不能预判“后面谁起跳谁就是悍跳狼”。公开发言直接报验人、时间线、警徽流和票向，只有本人已经公开报出的查杀目标才按狼处理。
 
 【最近更新 · 2026-11-12】
 狼人杀双跳力度改成按当时具体结构判断，不再简单套“金水低、查杀高”或固定低/中/高。前置位已经硬跳预言家/通灵师的人若被后置位发金水，是特别高的撞车风险；被后置位发查杀则是正面双跳，不再额外算“她以后可能反跳强神”。后置未发言目标的金水和查杀都可能反水，也都有双狼配合可能，高风险不等于真。真验人位若手里正好验到前置对跳者查杀，发言直接报查杀和归票，不再绕到好人代跳或退水；AI 也不会再固定复读“我不认代跳”，代跳是否成立按假验作废、真验人是否接受和实际收益判断。
@@ -37057,6 +37058,24 @@ function wwCheckedGodToleranceIssue(p,say,w){
   }
   return null;
 }
+function wwSeerSelfComparisonIssue(p,say,w){
+  if(!p||!w)return null;
+  var active=wwActivePublicSeerClaim(p,w);
+  var claimant=!!((p.role==='seer'||p.role==='medium'||wwWolfJobOf(p)==='jump')||(active&&!active.retractedDay));
+  if(!claimant)return null;
+  var clauses=String(say||'').split(/[。！？!?；;\n]+/);
+  for(var i=0;i<clauses.length;i++){
+    var c=String(clauses[i]||'').trim();
+    if(!c)continue;
+    var future=/(?:后面|之后|后置位|如果有人|有人)[^。！？!?；;\n]{0,42}(?:起跳|跳)[^。！？!?；;\n]{0,18}(?:预言家|通灵师)/.test(c);
+    var futureWolf=future&&/(?:就是|一定是|必然是|肯定是|只能是|都是)[^。！？!?；;\n]{0,8}(?:悍跳狼|狼)/.test(c);
+    if(futureWolf)return {kind:'seerFutureClaimOverclaim',text:c};
+    if(/(?:悍跳|假预|假验|不认|不会比较|不能并列|不能当成真验|仍然投她)/.test(c))continue;
+    var compare=/(?:再判|再看|再比较|比较|选|看)[^。！？!?；;\n]{0,32}(?:谁更像真|哪个更像真|谁更真|哪个更真|谁更可信|哪个更可信|哪边更像真|更信谁|信哪个)/.test(c);
+    if(future&&compare)return {kind:'seerSelfComparison',text:c};
+  }
+  return null;
+}
 function wwFakeReportTargetWashIssue(say,w){
   if(!w)return null;
   var all=String(say||'');
@@ -37236,10 +37255,14 @@ function wwClaimReasoningIssue(say,w){
   return out[0]||null;
 }
 async function wwGuardClaimReasoningSpeech(p,sys,say){
-  var bad=wwCheckedGodToleranceIssue(p,say,V.ww)||wwJumpConcessionIssue(p,say,V.ww)||wwClaimReasoningIssue(say,V.ww);
+  var bad=wwSeerSelfComparisonIssue(p,say,V.ww)||wwCheckedGodToleranceIssue(p,say,V.ww)||wwJumpConcessionIssue(p,say,V.ww)||wwClaimReasoningIssue(say,V.ww);
   if(!bad)return say;
   var correction='';
-  if(bad.kind==='checkedGodTolerance'){
+  if(bad.kind==='seerFutureClaimOverclaim'){
+    correction='不要预判还没发生的事。后面可能有人跳预言家/通灵师，但对方不一定是狼，也可能是好人假跳或操作。你只能说从自己的身份线看，对方不是真验人位；不能提前断言“谁跳谁就是悍跳狼”。删掉这类未来执法，直接报你已有的验人、时间线、警徽流和票向。';
+  }else if(bad.kind==='seerSelfComparison'){
+    correction='你现在是公开自称预言家/通灵师的验人位，不能把自己和后续起跳者并列成两个“都可能真”的候选，也不能说“再看谁更像真的”“更信哪个”。从自己的身份线看，其他同职业起跳者不是真验人位，但不一定是狼，可能是好人假跳。你不需要在公开发言里解释这套视角，直接报自己的验人、时间线、警徽流和票向；若已经报了查杀，查杀目标才按狼处理。';
+  }else if(bad.kind==='checkedGodTolerance'){
     correction='你仍在公开维持对被查杀者的查杀，对方跳守卫、女巫、猎人等身份只能按狼穿神职衣服处理。你可以听她讲技能时间线、要求她说明行动、寻找更多狼队友，但不能写成“她跳神就先听完再定”“先放一放”或降低查杀权重。若没有验人位自身的夜数、规则、假验或对跳硬冲突，票口仍优先留在被查杀者。重写时删掉无条件放过或暂缓的表达。';
   }else if(bad.kind==='jumpConcession'){
     correction='你现在仍在公开自称'+bad.roleName+'，'+wwTag(bad.rival)+'是另一条活跃的'+bad.roleName+'验人线。你是悍跳狼，不能公开承认对方对村民、平民或具体身份的查验“说得通、成立、可信”，也不能因为目标本人认下身份就反过来支持她。你要么继续维持自己的假验，把对方结果解释成编验、猜中、机械狼递话或做局并给出自己的票向；要么现在就明确退水、作废旧假验后再站边。不能同时承认自己是真验人位、又承认对方那条真验人线成立。';
@@ -38138,6 +38161,9 @@ function wwSpeakTask(p,base){
   plain+='\n'+wwClaimResultGrammarRuleText();
   if(p&&(p.role==='seer'||p.role==='medium')){
     plain+='\n【真验人位踩假验】你从自己的私有底牌知道对跳者是假，但给场上听的理由要用当前公开信息能讨论的内容。可以盘对方报这个验人的目的、可能的狼队格式和队友位置、哪句话像在保狼/避开队友/提前知道某人是好人，也可以盘时间线、查验结构、目标和后续回应。这些只是分析方向，不是固定清单，不必硬套。禁止用“她没金水、只有查杀、只能撕徽、警徽交不出去”当假验证据；也不要因为判断某条报验是假，就自动把她的被查杀目标洗成好人——狼可以查杀狼。';
+  }
+  if(p&&(p.role==='seer'||p.role==='medium'||wwWolfJobOf(p)==='jump')){
+    plain+='\n【公开验人位视角】你正在公开维持自己的预言家/通灵师身份。其他同职业起跳者在你的视角里不是真验人位，但不一定是狼，也可能是好人假跳或操作。不要把自己和对方并列成两个“都可能真”的候选，也不要说“再看谁更像真的”；同时不要预判“后面谁起跳谁就是悍跳狼”。公开发言不用解释这套视角，直接报自己的验人、时间线、警徽流和票向；只有你已经公开报出的查杀目标，才按狼处理。';
   }
   var seerCounter=wwTrueSeerCounterclaimText(p,V.ww);
   if(seerCounter)plain+=seerCounter;
