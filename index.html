@@ -42288,6 +42288,13 @@ function wwPickOpt(v){
 }
 function wwSay(skip){
   var w=V.ww;if(!w.userAsk||w.userAsk.kind!=='say')return;
+  if(skip&&Date.now()-Number(w._noteClosedAt||0)<500){
+    toast('笔记已收起，发言还保留着；再点一次才能跳过');
+    return;
+  }
+  if(skip&&!confirm('确定跳过这次发言吗？\n\n确认后会直接轮到下一位，这一轮记为未发言。')){
+    return;
+  }
   var el=gel('wwSay');
   var t=el?String(el.value||'').trim():'';
   if(!skip&&!t)return toast('说点什么，或者点「过」');
@@ -42308,6 +42315,13 @@ function wwAskWolf(max,said){
 }
 function wwWolfSay(skip){
   var w=V.ww;if(!w.userAsk||w.userAsk.kind!=='wolf')return;
+  if(skip&&Date.now()-Number(w._noteClosedAt||0)<500){
+    toast('笔记已收起，留言入口还保留着；再点一次才能跳过');
+    return;
+  }
+  if(skip&&!confirm('确定这次不给狼队留言吗？')){
+    return;
+  }
   var el=gel('wwWolf');
   var t=el?String(el.value||'').trim():'';
   var max=Number(w.userAsk.max||wwWolfMax());
@@ -50941,6 +50955,7 @@ window.GAME={
     var w=V.ww;if(!w)return;
     try{clearTimeout(w._noteSaveTimer)}catch(e){}
     w.noteOpen=false;
+    w._noteClosedAt=Date.now();
     try{var m=gel('wwNoteModal');if(m)m.remove()}catch(e){}
     try{wwSave(true)}catch(e){}
   },
