@@ -16603,6 +16603,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 · 怎么改头像：点角色卡片右上角 ✎ → 上传图片头像，或者填一个 emoji。
 · 怎么看角色刚才用了哪些工具：在角色消息上方点「💡 思考过程」展开。里面会按顺序显示思考、工具名称、参数、成功或失败以及返回结果；不需要工具记录时，可以到设置 → 外观与交互关掉「显示思考过程」。
 · 狼人杀战绩分享给角色后会看到什么：聊天里默认只给她缩略战报，不会每轮重复完整过程。如果最近聊天里确实分享过或参加过某局游戏，她才会获得查看战绩详情的工具；刚打完且感兴趣，或你追问具体发言、投票和夜间行动时，她会自己查看。没有相关战绩时不会出现这个工具。
+· 狼人杀局内笔记本怎么用：点牌桌左下角的笔记本图标打开。12 人笔记是单列紧凑列表，一屏能看全；编号圆圈会同步标记颜色，上过警的白底举手标记贴在编号右上角，猜到的身份贴在编号右下角。身份选项里有单独的“平民”，会在编号上显示“民”。点整个编号区域就能直接选身份和颜色，右边备注框占满剩余宽度。下面还有“其他备注”，合上后会跟着本局自动保存，关闭时不再重画整局。
 · 角色主动发消息时能用工具吗：可以。主动消息会和普通聊天一样使用角色已经授权的工具；如果这一轮已经执行过工具，系统不会因为文字重复再自动重试一次，避免真的重复下单或重复发消息。
 · 角色看过战绩后会记得吗：会。角色成功调用游戏战绩详情工具后，会记住这局的标题、编号和查看时间；以后聊到时会知道自己确实看过。只保留最近 30 天内最多 12 局，重新查看同一局只会更新查看时间。
 · 怎么备份：设置 → 数据与备份 → 导出备份。
@@ -16622,7 +16623,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=154;  /* 154：狼人杀证据、条件票、重说记忆和MVP首提贡献 */
+const GUIDE_VER=157;  /* 157：狼人杀笔记本恢复局内举手样式，新增平民标记 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -29949,7 +29950,7 @@ var V={view:'hall',ocean:{busy:false},cids:[],mem:{},wordMode:'rand',w1:'',w2:''
     players:[],day:1,phase:'setup',dayStage:'',over:false,winner:'',endText:'',
     night:null,votes:{},log:[],rec:[],witchSave:true,witchPoison:true,
     userAsk:null,resolve:null,gate:{},gateResolve:null,
-    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',title:'',tips:{},marks:{},notes:{},noteOpen:false,markMode:'',markUid:null,sayTok:0,stopped:false,judgeAppealing:false,judgeAppealMsg:'',
+    running:false,auto:false,busy:false,msg:'',reacts:[],recId:null,speaking:null,judge:'',mvpUid:'',title:'',tips:{},marks:{},notes:{},noteExtra:'',noteOpen:false,markMode:'',markUid:null,sayTok:0,stopped:false,judgeAppealing:false,judgeAppealMsg:'',
     resayIdx:null,
     resayOn:false,
     fx:null,
@@ -30805,6 +30806,7 @@ var CSS=[
 '.ww-mk-nightmare{background:rgba(115,78,165,.22);color:#5e3a91;border:1px solid rgba(115,78,165,.55)}',
 '.ww-mk-wolfking,.ww-mk-wolfkingdeath,.ww-mk-mechanicwolf,.ww-mk-wolfbeauty,.ww-mk-awakenedwolfbeauty{background:rgba(196,120,40,.22);color:#a9661b;border:1px solid rgba(196,120,40,.55)}',
 '.ww-mk-idiot{background:rgba(210,90,160,.20);color:#bf4f8c;border:1px solid rgba(210,90,160,.5)}',
+'.ww-mk-villager{background:rgba(58,160,116,.20);color:#2f8b68;border:1px solid rgba(58,160,116,.52)}',
 '.ww-mk-good{background:var(--accdim);color:var(--acc);border:1px solid var(--acc)}',
 /* 座位窄，标记做成头像右下角的小徽章 */
 '.ww-mkbadge{position:absolute;right:-5px;bottom:-5px;z-index:1;min-width:16px;height:16px;padding:0 3px;border-radius:8px;font-size:9.5px;font-weight:700;line-height:16px;text-align:center;box-shadow:0 0 0 2px var(--bg)}',
@@ -30820,6 +30822,7 @@ var CSS=[
 '.ww-mkbadge.nightmare{background:#d9cbef;color:#563784;border:1px solid #b59bda}',
 '.ww-mkbadge.wolfking,.ww-mkbadge.wolfkingdeath,.ww-mkbadge.mechanicwolf,.ww-mkbadge.wolfbeauty,.ww-mkbadge.awakenedwolfbeauty{background:#e8cfa6;color:#6b4a12;border:1px solid #c9a45f}',
 '.ww-mkbadge.idiot{background:#f0c2de;color:#8a2d63;border:1px solid #d78fba}',
+'.ww-mkbadge.villager{background:#c9ead8;color:#236b4b;border:1px solid #8bc8a7}',
 '.ww-mkbadge.good{background:var(--accdim);color:var(--acc);border:1px solid var(--acc)}',
 '.ww-seat.mk-wolf1 .ww-seat-nm{color:#c0392b}',
 '.ww-seat.mk-wolf2 .ww-seat-nm{color:#b23c33;font-weight:700}',
@@ -30842,6 +30845,39 @@ var CSS=[
 '.ww-colors{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0 2px}',
 '.ww-cbtn{width:26px;height:26px;padding:0;border-radius:50%;border:1px solid rgba(0,0,0,.2);box-shadow:none;color:#fff;font-size:10px}',
 '.ww-cnone{width:auto;padding:0 11px;border-radius:999px;background:var(--bg2);color:var(--dim);font-size:11px}',
+/* 本局笔记：12 人单列紧凑排布，编号区合并举手和身份，把宽度尽量留给备注 */
+'.ww-note-modal{position:fixed;inset:0;bottom:var(--kb,0px);z-index:75;display:flex;align-items:center;justify-content:center;padding:8px;background:rgba(3,5,8,.58);pointer-events:auto}',
+'.ww-note-sheet{position:relative;width:100%;max-width:430px;height:calc(100vh - 16px - var(--kb,0px));height:calc(100dvh - 16px - var(--kb,0px));max-height:680px;display:flex;flex-direction:column;gap:5px;padding:10px;overflow:hidden;color:#edf2f7;background:linear-gradient(180deg,#151920,#0a0d11);border:1px solid rgba(218,235,248,.2);border-radius:18px;box-shadow:0 18px 44px rgba(0,0,0,.58)}',
+'.ww-note-head{flex:0 0 auto;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 2px}',
+'.ww-note-head b{font-size:15px;letter-spacing:.03em}',
+'.ww-note-x{width:28px;height:28px;padding:0;border-radius:50%;border:1px solid rgba(218,235,248,.18);background:rgba(255,255,255,.06);color:#dfe8ef;font-size:20px;line-height:26px;box-shadow:none}',
+'.ww-note-grid{flex:1;min-height:0;display:flex;flex-direction:column;gap:2px}',
+'.ww-note-row{flex:1 1 0;min-width:0;min-height:32px;max-height:42px;display:flex;align-items:center;gap:6px;padding:2px 6px;border:.5px solid rgba(218,235,248,.12);border-radius:9px;background:rgba(255,255,255,.03)}',
+'.ww-note-ident{position:relative;flex:0 0 38px;width:38px;height:34px;padding:0;border:0;background:transparent;box-shadow:none;cursor:pointer}',
+'.ww-note-seat{position:absolute;left:0;top:50%;transform:translateY(-50%);width:27px;height:27px;padding:0;border-radius:50%;border:2px solid var(--nc,var(--line));background:#11161d;color:var(--nc,#edf2f7);font-size:11px;font-weight:700;line-height:23px;text-align:center;box-shadow:none}',
+'.ww-note-hand{position:absolute;right:0;top:0;z-index:2;width:14.5px;height:14.5px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff;color:var(--acc);box-shadow:0 0 0 1.2px var(--acc),0 1px 3px rgba(0,0,0,.26)}',
+'.ww-note-hand svg{width:6.5px;height:6.5px;display:block}',
+'.ww-note-mark{position:absolute!important;right:0;bottom:0;z-index:3;min-width:16px!important;height:16px!important;margin:0!important;padding:0 2px!important;border-radius:999px!important;font-size:8.5px!important;line-height:14px!important;box-shadow:0 0 0 1.5px #11161d!important}',
+'.ww-note-text{flex:1;width:auto;min-width:0;min-height:28px;height:100%;padding:3px 8px;resize:none;border:0;border-radius:7px;background:rgba(0,0,0,.16);color:#edf2f7;font-size:11.5px;line-height:1.25;box-sizing:border-box}',
+'.ww-note-text::placeholder{color:rgba(218,235,248,.32)}',
+'.ww-note-extra{flex:0 0 auto;width:100%;height:58px;min-height:58px;padding:7px 9px;resize:none;border:.5px solid rgba(218,235,248,.15);border-radius:10px;background:rgba(0,0,0,.2);color:#edf2f7;font-size:11.5px;line-height:1.45;box-sizing:border-box}',
+'.ww-note-extra::placeholder{color:rgba(218,235,248,.38)}',
+'.ww-note-foot{flex:0 0 auto;min-height:22px;display:flex;align-items:center;gap:8px}',
+'.ww-note-votes{position:relative;flex:1;min-width:0;font-size:11px;color:#aebac4}',
+'.ww-note-votes>summary{width:max-content;padding:3px 9px;border:.5px solid rgba(218,235,248,.15);border-radius:999px;background:rgba(255,255,255,.045);list-style:none;cursor:pointer}',
+'.ww-note-votes>summary::-webkit-details-marker{display:none}',
+'.ww-note-votes>summary:before{content:"▸";display:inline-block;margin-right:5px;transition:transform .12s}',
+'.ww-note-votes[open]>summary:before{transform:rotate(90deg)}',
+'.ww-note-vote-pop{position:absolute;left:0;right:0;bottom:24px;max-height:42vh;overflow:auto;padding:9px 10px;border:.5px solid rgba(218,235,248,.18);border-radius:12px;background:#11161d;box-shadow:0 12px 30px rgba(0,0,0,.52);color:#dfe7ed}',
+'.ww-note-markpop{position:absolute;left:8px;right:8px;bottom:8px;z-index:4;max-height:calc(100% - 48px);overflow:auto;padding:10px;border:1px solid rgba(218,235,248,.22);border-radius:14px;background:#11161d;box-shadow:0 16px 38px rgba(0,0,0,.62)}',
+'.ww-note-markpop-t{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;font-weight:700}',
+'.ww-note-markpop .ww-mkbtns{margin-top:7px}',
+'.ww-note-markpop .ww-mkbtns button{flex:1 1 30%;font-size:11px;padding:7px 5px;border-radius:9px}',
+'.ww-note-markpop .ww-colors{gap:7px;margin:7px 0 0}',
+'.ww-note-markpop .ww-cbtn{width:24px;height:24px}',
+'.ww-note-markpop .ww-cnone{width:auto}',
+'.ww-note-markpop .gx-row{margin-top:8px}',
+'@media(max-height:620px){.ww-note-sheet{gap:4px;padding:7px}.ww-note-grid{gap:1px}.ww-note-row{max-height:37px;padding:1px 5px}.ww-note-ident{flex-basis:35px;width:35px;height:31px}.ww-note-seat{width:25px;height:25px;line-height:21px;font-size:10px}.ww-note-text{padding:2px 7px;font-size:11px}.ww-note-extra{height:48px;min-height:48px}.ww-note-head{height:26px}}',
 /* 设置页：发言上限的几个按钮 */
 '.ww-toks{display:flex;flex-wrap:wrap;gap:8px}',
 '.ww-toks button{flex:1 1 44%;font-size:13px;padding:10px 6px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);box-shadow:none;white-space:nowrap}',
@@ -33631,8 +33667,8 @@ function wwTipsBlock(){
   return '【狼人杀小抄】术语能对上就用，别硬堆词：\n'+WW_TIPS+extra;
 }
 /* 自己可以给角色打的标记（纯给自己看，不会发给 AI） */
-var WW_MARKS=[['wolf1','怀疑狼','wolf'],['wolf2','确定狼','wolf'],['seer','像预言家','seer'],['medium','像通灵师','seer'],['witch','像女巫','witch'],['guard','像守卫','guard'],['awakenedguard','像觉醒守卫','guard'],['hunter','像猎人','hunter'],['knight','像骑士','knight'],['awakenedknight','像觉醒骑士','knight'],['gravekeeper','像守墓人','book'],['wolfbeauty','像狼美人','wolfking'],['awakenedwolfbeauty','像觉醒狼美人','wolfking'],['wolfking','像白狼王','wolfking'],['wolfkingdeath','像狼王','wolfking'],['mechanicwolf','像机械狼','wolfking'],['gargoyle','像石像鬼','wolf'],['nightmare','像梦魇','wolf'],['idiot','像白痴','idiot'],['good','像好人','villager']];
-var WW_MARK_TXT={wolf1:'狼',wolf2:'狼',seer:'预',medium:'灵',witch:'女',guard:'守',awakenedguard:'觉守',hunter:'猎',knight:'骑',awakenedknight:'觉骑',gravekeeper:'墓',wolfbeauty:'美',awakenedwolfbeauty:'觉美',wolfking:'白王',wolfkingdeath:'王',mechanicwolf:'机',gargoyle:'石',nightmare:'魇',idiot:'白',good:'好'};
+var WW_MARKS=[['wolf1','怀疑狼','wolf'],['wolf2','确定狼','wolf'],['seer','像预言家','seer'],['medium','像通灵师','seer'],['witch','像女巫','witch'],['guard','像守卫','guard'],['awakenedguard','像觉醒守卫','guard'],['hunter','像猎人','hunter'],['knight','像骑士','knight'],['awakenedknight','像觉醒骑士','knight'],['gravekeeper','像守墓人','book'],['wolfbeauty','像狼美人','wolfking'],['awakenedwolfbeauty','像觉醒狼美人','wolfking'],['wolfking','像白狼王','wolfking'],['wolfkingdeath','像狼王','wolfking'],['mechanicwolf','像机械狼','wolfking'],['gargoyle','像石像鬼','wolf'],['nightmare','像梦魇','wolf'],['idiot','像白痴','idiot'],['villager','平民','villager'],['good','像好人','villager']];
+var WW_MARK_TXT={wolf1:'狼',wolf2:'狼',seer:'预',medium:'灵',witch:'女',guard:'守',awakenedguard:'觉守',hunter:'猎',knight:'骑',awakenedknight:'觉骑',gravekeeper:'墓',wolfbeauty:'美',awakenedwolfbeauty:'觉美',wolfking:'白王',wolfkingdeath:'王',mechanicwolf:'机',gargoyle:'石',nightmare:'魇',idiot:'白',villager:'民',good:'好'};
 /* 给编号圆圈上色的备选色（自己盘「谁和谁一边」时很有用） */
 var WW_COLORS=['#b23c33','#e0a23c','#4fae6b','#3f9ad8','#8a6fe0','#d86ba8','#2fb3a8','#7d8794'];
 /* 通灵师看到的“表面身份”：机械狼学习后会伪装成学到的角色；其余人显示真实身份。 */
@@ -43870,32 +43906,123 @@ function wwNotesVoteHTML(w){
   });
   return out.join('');
 }
+function wwNoteQueueSave(w){
+  if(!w)return;
+  try{clearTimeout(w._noteSaveTimer)}catch(e){}
+  w._noteSaveTimer=setTimeout(function(){try{if(V.ww===w)wwSave(true)}catch(e){}},700);
+}
+function wwNotePlayerHTML(w,p){
+  var k=(w.marks&&w.marks[p.uid])||'';
+  if(!WW_MARK_TXT[k])k='';
+  var cc=(w.colors&&w.colors[p.uid])||'';
+  var up=(w.policeAll||[]).indexOf(p.uid)>=0;
+  var sheriff=w.sheriffUid===p.uid;
+  var ident=(p.seq||'?')+'号'+(up?' · 上过警':'')+(k?' · '+WW_MARK_TXT[k]:'');
+  var mark=k?('<span class="ww-mk ww-mk-'+k+' ww-note-mark" aria-hidden="true">'+esc(WW_MARK_TXT[k])+'</span>'):'';
+  return '<div class="ww-note-row" data-wwuid="'+esc(p.uid)+'">'+
+    '<button type="button" class="ww-note-ident"'+(cc?(' style="--nc:'+esc(cc)+'"'):'')+' title="'+esc(ident)+'" aria-label="'+esc(ident)+'，设置身份和颜色" onclick="GAME.wwNoteMarkOpen('+(Number(p.seq)||0)+')">'+
+      '<span class="ww-note-seat">'+(p.seq||'?')+'</span>'+
+      (up?('<span class="ww-note-hand'+(sheriff?' sheriff':'')+'" aria-hidden="true">'+WW_IC_HAND+'</span>'):'')+
+      mark+
+    '</button>'+
+    '<textarea class="ww-note-text" maxlength="800" rows="2" placeholder="备注" aria-label="'+(p.seq||'?')+'号备注" '+
+      'oninput="GAME.wwNoteSet('+(Number(p.seq)||0)+',this.value)">'+esc((w.notes&&w.notes[p.uid])||'')+'</textarea></div>';
+}
+function wwNoteMarkPanelHTML(p){
+  var w=V.ww,bd=wwBoard(w.count),uid=String(p.uid||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  var current=(w.marks&&w.marks[p.uid])||'';
+  var marks=WW_MARKS.filter(function(m){
+    var k=m[0];
+    if(k==='idiot')return !!bd.idiot;
+    if(k==='guard')return !!bd.guard;
+    if(k==='awakenedguard')return !!bd.awakenedguard;
+    if(k==='knight')return !!bd.knight;
+    if(k==='awakenedknight')return !!bd.awakenedknight;
+    if(k==='gravekeeper')return !!bd.gravekeeper;
+    if(k==='gargoyle')return !!bd.gargoyle;
+    if(k==='nightmare')return !!bd.nightmare;
+    if(k==='wolfbeauty')return !!bd.wolfbeauty;
+    if(k==='awakenedwolfbeauty')return !!bd.awakenedwolfbeauty;
+    if(k==='wolfking')return !!bd.wolfking;
+    if(k==='wolfkingdeath')return !!bd.wolfkingdeath;
+    if(k==='medium')return !!bd.medium;
+    if(k==='mechanicwolf')return !!bd.mechanicwolf;
+    return true;
+  }).map(function(m){
+    return '<button type="button" onclick="GAME.wwNotePickMark(\''+uid+'\',\''+m[0]+'\')">'+(current===m[0]?'✓ ':'')+wwUiIcon(m[2])+esc(m[1])+'</button>';
+  }).join('');
+  return '<div class="ww-note-markpop-t"><span>'+esc(wwTag(p))+' · 身份与颜色</span><button class="ww-note-x" type="button" aria-label="关闭" onclick="GAME.wwNoteMarkClose()">×</button></div>'+
+    '<div class="ww-mkbtns">'+marks+'</div>'+
+    '<div class="ww-mkbox-t" style="margin-top:10px;font-size:12px">给编号上色</div>'+
+    '<div class="ww-colors">'+WW_COLORS.map(function(c){return '<button class="ww-cbtn" type="button" style="background:'+c+'" aria-label="上色" onclick="GAME.wwNoteColorPick(\''+uid+'\',\''+c+'\')"></button>'}).join('')+
+      '<button class="ww-cbtn ww-cnone" type="button" onclick="GAME.wwNoteColorPick(\''+uid+'\',\'\')">默认</button></div>'+
+    '<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwNotePickMark(\''+uid+'\',\'\')">清除标记</button></div>';
+}
 function wwNotesHTML(){
   var w=V.ww;if(!w||!w.noteOpen)return '';
-  var notes=w.notes||{},players=(w.players||[]).slice().sort(function(a,b){return (Number(a.seq)||99)-(Number(b.seq)||99)});
-  var up=(w.policeAll||[]).map(function(uid){return wwPlayerByUid(uid)}).filter(Boolean).sort(function(a,b){return (Number(a.seq)||99)-(Number(b.seq)||99)});
-  var upInfo=up.length?up.map(function(p){
-    var st=(w.policeRetired||[]).indexOf(p.uid)>=0?'已退水':((w.policeUp||[]).indexOf(p.uid)>=0?'上警':'上过警');
-    if(w.upSpoke&&w.upSpoke[p.uid])st+=' · 已发言';
-    if(w.sheriffUid===p.uid)st+=' · 警长';
-    return '<span class="gx-tag" style="display:inline-block;margin:2px 4px 2px 0">'+wwTag(p)+' · '+st+'</span>';
-  }).join(''):'<span class="dim" style="font-size:12px">还没有上警信息。</span>';
-  var list=players.map(function(p){
-    return '<div style="display:flex;align-items:flex-start;gap:8px;margin:7px 0">'+
-      '<b style="flex:0 0 38px;line-height:38px;font-size:13px;color:var(--txt);text-shadow:none">'+(p.seq||'?')+'号</b>'+
-      '<textarea maxlength="800" rows="2" placeholder="" '+
-      'style="flex:1;width:auto;min-width:0;min-height:38px;height:38px;resize:vertical;font-size:12.5px;line-height:1.45;padding:7px 9px" '+
-      'oninput="GAME.wwNoteSet('+(Number(p.seq)||0)+',this.value)">'+esc(notes[p.uid]||'')+'</textarea></div>';
-  }).join('');
-  return '<div class="ww-mkmodal" style="position:fixed;inset:0;bottom:var(--kb,0px);z-index:75;display:flex;align-items:center;justify-content:center;padding:16px 18px;background:rgba(0,0,0,.38);pointer-events:auto">'+
-    '<div class="ww-mkbox" style="max-width:390px;max-height:calc(100vh - 48px - var(--kb,0px))">'+
-      '<div class="ww-mkbox-t" style="font-weight:700">本局笔记</div>'+
-      '<div style="font-size:11.5px;opacity:.66;text-align:center;margin:3px 0 10px">只有你能看；会自动跟着本局存档。</div>'+
-      '<div style="max-height:46vh;overflow:auto;padding-right:2px">'+list+'</div>'+
-      '<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)"><b style="font-size:13px">上警玩家</b><div style="margin-top:5px">'+upInfo+'</div></div>'+
-      '<div style="margin-top:13px;padding-top:11px;border-top:1px solid var(--line)"><b style="font-size:13px">票形记录</b><div style="margin-top:5px">'+wwNotesVoteHTML(w)+'</div></div>'+
-      '<div class="gx-row" style="margin-top:14px"><button class="pri" onclick="GAME.wwNotesClose()">完成</button></div>'+
+  var players=(w.players||[]).slice().sort(function(a,b){return (Number(a.seq)||99)-(Number(b.seq)||99)});
+  var rows=players.map(function(p){return wwNotePlayerHTML(w,p)}).join('');
+  var hasVotes=wwVoteFactRows(w).length>0;
+  var votes=hasVotes?('<details class="ww-note-votes"><summary>票形</summary><div class="ww-note-vote-pop">'+wwNotesVoteHTML(w)+'</div></details>'):'';
+  return '<div id="wwNoteModal" class="ww-note-modal">'+
+    '<div class="ww-note-sheet" role="dialog" aria-modal="true" aria-label="本局笔记">'+
+      '<div class="ww-note-head"><b>本局笔记</b><button class="ww-note-x" type="button" aria-label="关闭" onclick="GAME.wwNotesClose()">×</button></div>'+
+      '<div class="ww-note-grid">'+rows+'</div>'+
+      '<textarea id="wwNoteExtra" class="ww-note-extra" maxlength="2000" rows="2" placeholder="其他备注" oninput="GAME.wwNoteExtraSet(this.value)">'+esc(w.noteExtra||'')+'</textarea>'+
+      (votes?('<div class="ww-note-foot">'+votes+'</div>'):'')+
+      '<div id="wwNoteMarkPanel" class="ww-note-markpop" hidden></div>'+
     '</div></div>';
+}
+function wwNoteMarkClose(){
+  var p=gel('wwNoteMarkPanel');if(!p)return;
+  p.hidden=true;p.innerHTML='';
+}
+function wwNoteRefreshPlayer(uid){
+  var w=V.ww,p=wwPlayerByUid(uid);if(!w||!p)return;
+  var rows=D.querySelectorAll('.ww-note-row'),i;
+  for(i=0;i<rows.length;i++){
+    if(rows[i].getAttribute('data-wwuid')===String(uid)){
+      rows[i].outerHTML=wwNotePlayerHTML(w,p);
+      break;
+    }
+  }
+  var seats=D.querySelectorAll('.ww-seat'),j;
+  for(j=0;j<seats.length;j++){
+    if(seats[j].getAttribute('data-wwuid')===String(uid)){
+      seats[j].outerHTML=wwSeatHTML(p);
+      break;
+    }
+  }
+}
+function wwNoteMarkOpen(seq){
+  var w=V.ww,p=w&&wwPlayerByUidTarget(w,Number(seq));
+  var panel=gel('wwNoteMarkPanel');
+  if(!p||!panel)return;
+  panel.innerHTML=wwNoteMarkPanelHTML(p);
+  panel.hidden=false;
+}
+function wwNotePickMark(uid,k){
+  var w=V.ww;if(!w||!wwPlayerByUid(uid))return;
+  if(!w.marks||typeof w.marks!=='object')w.marks={};
+  if(k&&WW_MARK_TXT[k])w.marks[uid]=k;else delete w.marks[uid];
+  wwNoteQueueSave(w);
+  wwNoteMarkClose();
+  wwNoteRefreshPlayer(uid);
+}
+function wwNoteColorPick(uid,c){
+  var w=V.ww;if(!w||!wwPlayerByUid(uid))return;
+  if(!w.colors||typeof w.colors!=='object')w.colors={};
+  if(c)w.colors[uid]=c;else delete w.colors[uid];
+  wwNoteQueueSave(w);
+  wwNoteMarkClose();
+  wwNoteRefreshPlayer(uid);
+}
+function wwNotesMount(){
+  if(gel('wwNoteModal'))return true;
+  var wrap=D.querySelector('.ww-wrap');
+  if(!wrap)return false;
+  wrap.insertAdjacentHTML('beforeend',wwNotesHTML());
+  return !!gel('wwNoteModal');
 }
 /* ---------- 【新】白狼王自爆 ---------- */
 /* 今天是不是已经被「自爆」提前结束了 */
@@ -45540,8 +45667,10 @@ function wwSnap(){
     witchSave:!!w.witchSave,witchPoison:!!w.witchPoison,witchLog:(w.witchLog||[]).slice(),
     mem:Object.assign({},w.mem||{}),tips:Object.assign({},w.tips||{}),
     colors:Object.assign({},w.colors||{}),
+    marks:Object.assign({},w.marks||{}),
     looks:Object.assign({},w.looks||{}),
     notes:Object.assign({},w.notes||{}),
+    noteExtra:String(w.noteExtra||''),
     pick:w.pick,autoWatch:!!w.autoWatch,sayTok:w.sayTok||0,
     sheriff:(w.sheriff!==false),sheriffUid:w.sheriffUid||null,badgeGone:!!w.badgeGone,sheriffDone:!!w.sheriffDone,
     policeUp:(w.policeUp||[]).slice(),policeOrder:(w.policeOrder||[]).slice(),speechStart:w.speechStart||'',speechDir:(w.speechDir===-1?-1:1),speechMode:w.speechMode||'',
@@ -45639,6 +45768,7 @@ function wwApplySnap(s,recId){
   w.colors=Object.assign({},s.colors||{});
   w.looks=Object.assign({},s.looks||{});   /* 【新·面杀】接着玩也保留「大家的样子」 */
   w.notes=Object.assign({},s.notes||{});w.noteOpen=false;
+  w.noteExtra=String(s.noteExtra||'');
   w.pick=s.pick||'random';w.autoWatch=!!s.autoWatch;w.sayTok=s.sayTok||0;
   /* 【新】警长（上警）的状态也要接回来 */
   w.sheriff=(s.sheriff===true);w.sheriffUid=s.sheriffUid||null;w.badgeGone=!!s.badgeGone;w.sheriffDone=!!s.sheriffDone;
@@ -45685,7 +45815,7 @@ function wwApplySnap(s,recId){
   w.busy=false;w.running=false;w.msg='';w.errorPaused=null;w._lastError=null;w.speaking=s.speaking||null;w.auto=false;w.wolfPicks=[];
   w.userAsk=null;w.resolve=null;w.gate={};w.gateResolve=null;
   w.voteMode='';w.votePick=null;w.voteHit='';w.votePool=[];w.voteLeft=0;w.voteResolve=null;
-  w.marks={};w.markMode='';w.markUid=null;w.resayIdx=null;w.resayOn=false;
+  w.marks=Object.assign({},s.marks||{});w.markMode='';w.markUid=null;w.resayIdx=null;w.resayOn=false;
   w.room=null;w.roomResolve=null;      /* 【新·面杀】读档时把「你的房间」那段戏清干净 */
   w.profileOpen=false;w.profileTab='overview';
   w.fx=null;
@@ -46187,6 +46317,7 @@ function wwSave(silent){
     sheriffUid:w.sheriffUid||null,sheriff:(w.sheriff!==false),
     wolfRoles:Object.assign({},w.wolfRoles||{}),wolfRolesDone:!!w.wolfRolesDone,
     log:wwHistoryLog(w.log,200),rec:wwTrimThink(w.rec,90),reacts:(w.reacts||[]).slice(),judge:w.judge||'',mvp:w.mvpUid||'',title:w.title||'',notes:Object.assign({},w.notes||{}),
+    marks:Object.assign({},w.marks||{}),noteExtra:String(w.noteExtra||''),
     achievements:(w.achUnlocks||[]).slice(),
     scribe:wwCloneScribe(w.scribe||wwEmptyScribe())};
   if(unfinished){
@@ -46295,7 +46426,7 @@ function wwStart(){
   w.awakenedKnightUsed=false;w.awakenedKnightDueled={};w.awakenedKnightPending=false;w.awakenedKnightInterrupt=false;w.awakenedKnightBatch=[];
   w.awakenedGuardTarget='';w.awakenedGuardDay=0;w.awakenedGuardLast='';w.awakenedGuardLastDay=0;w.awakenedGuardActionDay=0;w.awakenedGuardSuccessDay=0;w.awakenedWolfBeautyCharm=null;w.awakenedWolfBeautyCharmUsed=false;
   w.marks={};w.markMode='';w.markUid=null;
-  w.notes={};w.noteOpen=false;
+  w.notes={};w.noteExtra='';w.noteOpen=false;
   w.colors={};
   w.peekDone=false;                   /* 【新·面杀】新的一局：抿身份那段要重新来一次 */
   w.wordsDone=false;                  /* 【新·面杀】新的一局：遗言按老规矩来 */
@@ -46789,7 +46920,7 @@ function wwSeatHTML(p){
   var st=p.alive?(w.electing?(upOut?'已退水':(upNow?(upSpoke?'已发言':'未发言'):'未上警')):((p.revealed&&WW_ROLE_NAME[p.role])?((WW_ROLE_NAME[p.role]||'身份')+'·已翻牌'):(voted?'已投票':(dayOn?(spoke?'已发言':'未发言'):'在场')))):((w.over||p.revealed)?(WW_ROLE_NAME[p.role]||'出局'):'出局');
   var fx=(w.fx&&w.fx.uid===p.uid)?('<span class="ww-fx '+(w.fx.kind||'claw')+'">'+(w.fx.kind==='hit'?WW_IC_HIT:WW_IC_CLAW)+'</span>'):'';
   var god=wwGodOn();
-  return '<div class="ww-seat'+(p.alive?'':' out')+(p.isUser?' me':'')+((w.speaking&&w.speaking===p.uid)?' spk':'')+(pickable?' pick':'')+(votable?' pick':'')+(mypick?' mypick':'')+(hit?' hit':'')+(markable?' mkpick':'')+(knw?' knw':'')+(mk?(' mk-'+mk):'')+'"'+
+  return '<div class="ww-seat'+(p.alive?'':' out')+(p.isUser?' me':'')+((w.speaking&&w.speaking===p.uid)?' spk':'')+(pickable?' pick':'')+(votable?' pick':'')+(mypick?' mypick':'')+(hit?' hit':'')+(markable?' mkpick':'')+(knw?' knw':'')+(mk?(' mk-'+mk):'')+'" data-wwuid="'+esc(p.uid)+'"'+
      (pickable?(' onclick="GAME.wwPickUid(\''+p.uid+'\')"'):(votable?(' onclick="GAME.wwVotePick(\''+p.uid+'\')"'):(markable?(' onclick="GAME.wwMarkPick(\''+p.uid+'\')"'):'')))+'>'+
      '<span class="ww-seat-av">'+(p.seq?('<span class="ww-seat-no"'+(cc?(' style="background:'+esc(cc)+'"'):'')+'>'+p.seq+'</span>'):'')+
      (p.isUser?'<span class="gx-av me">'+avaInner(meAvObj())+'</span>':(p.anon?'':(p.npc?('<span class="gx-av npc">'+esc(p.emoji||'🙂')+'</span>'):avOfC(chOf(p.cid)))))+wwMarkBadge(p.uid)+(upNow?('<span class="ww-uphand'+(mk?' lft':'')+'" title="上警">'+WW_IC_HAND+'</span>'):'')+((w.sheriffUid&&p.uid===w.sheriffUid)?('<span class="ww-sheriff" title="警长">'+WW_IC_SHERIFF+'</span>'):'')+fx+'</span>'+
@@ -50743,7 +50874,8 @@ window.GAME={
   wwMarkCancel:function(){var w=V.ww;w.markMode='';w.markUid=null;render(true)},
   wwNotesOpen:function(){
     var w=V.ww;if(!w||!w.players||!w.players.length)return;
-    w.noteOpen=true;render(true);
+    w.noteOpen=true;
+    if(!wwNotesMount())render(true);
   },
   wwNoteSet:function(seq,val){
     var w=V.ww;if(!w)return;
@@ -50751,13 +50883,22 @@ window.GAME={
     if(!w.notes||typeof w.notes!=='object')w.notes={};
     var t=String(val==null?'':val).slice(0,800);
     if(t.trim())w.notes[p.uid]=t;else delete w.notes[p.uid];
-    try{clearTimeout(w._noteSaveTimer)}catch(e){}
-    w._noteSaveTimer=setTimeout(function(){try{if(V.ww===w)wwSave(true)}catch(e){}},700);
+    wwNoteQueueSave(w);
   },
+  wwNoteExtraSet:function(val){
+    var w=V.ww;if(!w)return;
+    w.noteExtra=String(val==null?'':val).slice(0,2000);
+    wwNoteQueueSave(w);
+  },
+  wwNoteMarkOpen:function(seq){wwNoteMarkOpen(seq)},
+  wwNoteMarkClose:function(){wwNoteMarkClose()},
+  wwNotePickMark:function(uid,k){wwNotePickMark(uid,String(k||''))},
+  wwNoteColorPick:function(uid,c){wwNoteColorPick(uid,String(c||''))},
   wwNotesClose:function(){
     var w=V.ww;if(!w)return;
     try{clearTimeout(w._noteSaveTimer)}catch(e){}
-    w.noteOpen=false;render(true);
+    w.noteOpen=false;
+    try{var m=gel('wwNoteModal');if(m)m.remove()}catch(e){}
     try{wwSave(true)}catch(e){}
   },
   wwColorSet:function(c){
