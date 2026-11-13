@@ -34755,7 +34755,7 @@ function wwClaimIdentityRoles(txt,speakerSeq){
   });
   var functionalRole=(V.ww&&wwBoard(V.ww.count,V.ww).medium)?'medium':'seer';
   if(!seen[functionalRole]&&!/(?:我|本人)[^。！？!?；;\n]{0,10}(?:不是|不跳|不认|不穿)[^。！？!?；;\n]{0,8}(?:预言家|通灵师)/.test(s)){
-    var ownChecks=functionalRole==='medium'?wwOwnMediumChecks(s,speakerSeq):wwOwnSeerChecks(s);
+    var ownChecks=functionalRole==='medium'?wwOwnMediumChecks(s,speakerSeq):wwOwnSeerChecks(s,speakerSeq);
     var directOwnCheck=/(?:^|[。！？!?；;\n])\s*(?:(?:我|本人)\s*)?(?:首夜|昨夜|昨晚|第\s*\d+\s*夜)?\s*(?:(?:我|本人)\s*)?(?:验了|验到|查验|验到过|摸到|验)\s*\d{1,2}\s*号/.test(s);
     if(ownChecks.length&&directOwnCheck){
       seen[functionalRole]=1;
@@ -34812,10 +34812,12 @@ function wwStripBadgeFlowClaims(txt){
   }).join('。');
 }
 /* 只取“说话人自己在报验人”，避免把“她验了X、你验了Y”误记成当前玩家的查验。 */
-function wwOwnSeerChecks(txt){
+function wwOwnSeerChecks(txt,speakerSeq){
   var keep=wwStripBadgeFlowClaims(txt).split(/[。！？!?；;\n]+/).filter(function(c){
     if(/(?:今晚|今夜|明晚|准备|打算|计划|警徽流|如果|要是|若|将验)/.test(c))return false;
     if(/(?:她|他|你|别人|有人|被)[^。！？!?；;\n]{0,16}(?:报|验|摸|发)[^。！？!?；;\n]{0,24}(?:金水|查杀|好人|狼人)/.test(c))return false;
+    var seatReport=c.match(/(?:^|[，,；;：:])\s*(\d{1,2})\s*号[^。！？!?；;\n]{0,24}(?:报|称|跳|认|发|验|摸)[^。！？!?；;\n]{0,24}(?:预言家|通灵师|金水|查杀|好人|狼人)/);
+    if(seatReport&&(!speakerSeq||Number(seatReport[1])!==Number(speakerSeq)))return false;
     return true;
   });
   return wwIdentityChecks(keep.join('。'));
@@ -35288,7 +35290,7 @@ function wwSeerCommitmentLedger(w){
   var rows=wwPublicEventRows(w),claims={},bySeq={};
   var claimRole=(w&&wwBoard(w.count,w).medium)?'medium':'seer';
   function parseChecks(txt,p){
-    return claimRole==='medium'?wwOwnMediumChecks(txt,p&&p.seq):wwOwnSeerChecks(txt);
+    return claimRole==='medium'?wwOwnMediumChecks(txt,p&&p.seq):wwOwnSeerChecks(txt,p&&p.seq);
   }
   (w&&w.players||[]).forEach(function(p){if(p&&p.seq)bySeq[p.seq]=p});
   function addClaim(p,day,ref){
@@ -35753,7 +35755,7 @@ function wwPublicIdentityData(w){
     var roles=wwClaimIdentityRoles(txt,p.seq).filter(function(role){
       return !((role==='seer'||role==='medium')&&w.seerRetractions&&w.seerRetractions[p.uid]);
     });
-    var checks=roles.indexOf('seer')>=0?wwOwnSeerChecks(txt):
+    var checks=roles.indexOf('seer')>=0?wwOwnSeerChecks(txt,p.seq):
       (roles.indexOf('medium')>=0?wwOwnMediumChecks(txt,p.seq):(roles.indexOf('gravekeeper')>=0?wwIdentityChecks(txt):[]));
     roles.forEach(function(role){
       data[role]=data[role]||{};
@@ -38655,8 +38657,6 @@ async function wwSpeak(p,sys,resay){
   }
   if(sp.draft)p.scratch=sp.draft;
   var out=wwStripInternalSpeechLeak(wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）')));
-  var speakClaimRole=wwBoard(V.ww.count,V.ww).medium?'medium':'seer';
-  var speakHadExplicitSeerLabel=!(p&&p.isUser)&&wwHasExplicitSeerLabel(out,speakClaimRole);
   if(p&&!p.isUser)out=await wwGuardSpeechOrder(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardObsoletePostmortemSpeech(p,sys,out);
   if(p&&!p.isUser)out=await wwGuardAnswerOpportunity(p,sys,out);
@@ -38685,12 +38685,6 @@ async function wwSpeak(p,sys,resay){
     out=structureOnly||'这轮我先过。';
   }
   if(p&&!p.isUser)out=wwCleanInternalClaimLabels(out,V.ww);
-  if(p&&!p.isUser&&V.ww){
-    var finalChecks=speakClaimRole==='medium'?wwOwnMediumChecks(out,p.seq):wwOwnSeerChecks(out);
-    if((speakHadExplicitSeerLabel||finalChecks.length)&&!wwHasExplicitSeerLabel(out,speakClaimRole)){
-      out=(speakClaimRole==='medium'?'我是通灵师。':'我是预言家。')+out;
-    }
-  }
   return out;
 }
 function wwShuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
