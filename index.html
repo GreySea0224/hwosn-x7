@@ -16308,10 +16308,13 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-11-13 */
+   最后更新：2026-11-14 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-11-14】
+狼人杀裁判的 MVP 评分改为重点比较因果贡献，而不是默认给主刀、主票或活到最后的人。裁判会额外看到：谁把濒死队友重新救回身份线、谁最早制造会改变票局的错误身份框架、谁用机械盾/女巫药/守卫/狼刀等技能联动实际造成关键死亡、谁压制了女巫或守卫亮身份，以及“最早提出怀疑、第一次给出结果、实际归票执行”分别是谁。锁票后的最后查杀和跟票只算执行贡献；如果一名候选的赢线依赖另一名候选的救援或技能翻盘，裁判必须逐项解释为什么仍选前者，否则不能默认主刀主票者拿 MVP。
 
 【最近更新 · 2026-11-13】
 狼人杀 AI 的发言改为“开口前提供规则和事实提醒，开口后不再因程序主观判断强制整段重写”。悍跳狼每日报验、警徽资格、对跳和外置位下一验等必要提醒仍会在合适时机进入内部提示；自动投票复核、自动改票和旧话题强制重写已移除。“太顺、太快、太完整”检查保留，但只删除这类主观定罪句，不再整段改稿；发言被接口截断时仍会补成完整句子。验人身份识别也已收紧：只有本人明确自称预言家/通灵师，或本人直接报验，才算一条验人线；单纯复述“首夜验X、X金水”不会再自动把发言者算成跳预。场记生成的旧身份声明会回到该玩家原话重新核对，程序身份卡、摘要和旧身份盘都只是索引，和原话冲突时以原话为准。警徽流现在会结合起跳顺位、前面已听发言和警上/警下目标构成评估预言家面：首置位大量押警上后置位会降低信息效率，多补警下未知位更符合常规真验人思路；这属于弱到中等预面证据，可作为站边依据，但不能单独翻牌。后手重复同一金水不会被当作狼点，多人复读同一踩人理由也不会被算成多份独立证据，第一天狼坑较散仍属正常打法。
@@ -40908,7 +40911,7 @@ function wwMvpVoteMention(text,target){
   var n=Number(target);
   if(!n)return '';
   var clauses=String(text||'').split(/[。！？!?；;\n]+/);
-  var firstPerson=new RegExp('(?:我|本人|这边|这轮|本轮|今天)[^。！？!?；;\\n]{0,24}(?:票|投|归票|归|挂|下|出)(?:票)?(?:落|给|到|在|向)?\\s*'+n+'(?:\\s*号)?(?=$|[^0-9])');
+  var firstPerson=new RegExp('(?:我|本人|这边|这轮|本轮|今天)[^。！？!?；;\\n]{0,32}(?:票|投|归票|归|挂|下|出|放|摆|锁|怀疑|主口|票口|先压|想压)[^0-9]{0,10}'+n+'(?:\\s*号)?(?=$|[^0-9])');
   var targetRef=new RegExp('(?:^|[^0-9])'+n+'(?:\\s*号)?(?=$|[^0-9])');
   var policeAction=new RegExp('(?:我|本人|这边)?\\s*(?:警长票|竞选票)\\s*(?:投|给|落|到)?\\s*(?:了)?\\s*'+n+'(?:\\s*号)?');
   for(var i=0;i<clauses.length;i++){
@@ -40944,6 +40947,100 @@ function wwMvpMechanicMention(players,rows){
   });
   return out;
 }
+function wwMvpNightDeathSeats(log){
+  var day=1,out={};
+  (log||[]).forEach(function(e){
+    if(!e||e.k!=='sys')return;
+    var t=String(e.text||'');
+    var dm=t.match(/^第\s*(\d+)\s*天/);
+    if(dm)day=Number(dm[1])||day;
+    if(!dm||/被放逐|警长.*出局/.test(t))return;
+    var sm=t.match(/^第\s*\d+\s*天[：:]\s*([^\n。]*出局)/);
+    if(!sm)return;
+    var re=/(\d{1,2})\s*号/g,m;
+    while((m=re.exec(sm[1]))){
+      var seq=Number(m[1]);
+      if(seq){out[day]=out[day]||[];if(out[day].indexOf(seq)<0)out[day].push(seq)}
+    }
+  });
+  return out;
+}
+function wwMvpSkillInteractionRows(players,rec,log){
+  var byDay={},mech=null,witch=null;
+  (players||[]).forEach(function(p){
+    if(p&&p.role==='mechanicwolf')mech=p;
+    if(p&&p.role==='witch')witch=p;
+  });
+  (rec||[]).forEach(function(x){
+    var day=Number(x&&x.d)||0,t=String(x&&x.t||'');
+    if(!day||!t)return;
+    var row=byDay[day]=byDay[day]||{};
+    var m;
+    if((m=t.match(/机械狼使用机械盾守护了\s*(\d{1,2})\s*号/)))row.mechShield=Number(m[1]);
+    if((m=t.match(/女巫用解药救了\s*(\d{1,2})\s*号/)))row.save=Number(m[1]);
+    if((m=t.match(/(?:觉醒)?守卫守了\s*(\d{1,2})\s*号/)))row.guard=Number(m[1]);
+    if((m=t.match(/狼人刀了\s*(\d{1,2})\s*号/)))row.kill=Number(m[1]);
+  });
+  var deaths=wwMvpNightDeathSeats(log),out=[];
+  Object.keys(byDay).map(Number).sort(function(a,b){return a-b}).forEach(function(day){
+    var r=byDay[day],d=deaths[day]||[];
+    if(r.save&&r.mechShield&&r.save===r.mechShield){
+      out.push({kind:'mechSave',day:day,target:r.save,dead:d.indexOf(r.save)>=0,
+        mech:mech,witch:witch,text:'第 '+day+' 夜机械狼'+(mech?'('+wwTag(mech)+')':'')+
+          '用机械盾守护 '+r.save+'号，女巫'+(witch?'('+wwTag(witch)+')':'')+
+          '也用解药救 '+r.save+'号；两者落在同一目标。'+
+          (d.indexOf(r.save)>=0?'该目标当夜死亡，属于机械盾与解药同目标的技能联动致死。':'须核对该目标是否因同守同救或本局机械盾规则死亡。')});
+    }
+    if(r.save&&r.guard&&r.save===r.guard){
+      out.push({kind:'guardSave',day:day,target:r.save,dead:d.indexOf(r.save)>=0,
+        text:'第 '+day+' 夜普通守卫与女巫解药同时作用于 '+r.save+'号；'+
+          (d.indexOf(r.save)>=0?'目标当夜死亡，属于同守同救。':'须核对目标当夜是否死亡。')});
+    }
+  });
+  return out;
+}
+function wwMvpMechFramingRows(rows){
+  var hits=[],byTarget={};
+  (rows||[]).forEach(function(r){
+    var clauses=String(r.text||'').split(/[。！？!?；;\n]+/);
+    clauses.forEach(function(c){
+      c=String(c||'').trim();
+      if(!c||c.indexOf('机械狼')<0)return;
+      if(/(?:学了|学到|学习|学会|被机械狼学|机械狼.*(?:学|学习))/.test(c))return;
+      var refs=[],m;
+      var a=/(\d{1,2})\s*号[^。！？!?；;\n]{0,32}(?:是|像|更像|疑似|可能|怀疑|盘成|认作|当作|打成|推成)[^。！？!?；;\n]{0,12}机械狼/g;
+      var b=/机械狼[^。！？!?；;\n]{0,32}(?:是|像|更像|疑似|可能|怀疑|盘成|认作|当作|打成|推成)[^。！？!?；;\n]{0,12}(\d{1,2})\s*号/g;
+      while((m=a.exec(c)))if(refs.indexOf(Number(m[1]))<0)refs.push(Number(m[1]));
+      while((m=b.exec(c)))if(refs.indexOf(Number(m[1]))<0)refs.push(Number(m[1]));
+      refs.forEach(function(seq){
+        if(!seq)return;
+        var item={seq:seq,row:r,p:r.p,text:c};
+        hits.push(item);
+        if(!byTarget[seq])byTarget[seq]={seq:seq,first:item,all:[item]};
+        else byTarget[seq].all.push(item);
+      });
+    });
+  });
+  return Object.keys(byTarget).map(function(k){return byTarget[k]});
+}
+function wwMvpRolePressureRows(rows){
+  var out=[],seen={};
+  (rows||[]).forEach(function(r){
+    var clauses=String(r.text||'').split(/[。！？!?；;\n]+/);
+    clauses.some(function(c){
+      c=String(c||'').trim();
+      if(!/(?:女巫|守卫|猎人)/.test(c)||!/(?:别跳|不要跳|别出来|不要出来|别露|不要露|别报|不要报)/.test(c))return false;
+      var role=/女巫/.test(c)?'女巫':(/守卫/.test(c)?'守卫':'猎人');
+      var key=role+'|'+r.uid;
+      if(!seen[key]){
+        seen[key]=1;
+        out.push({row:r,p:r.p,role:role,text:c});
+      }
+      return true;
+    });
+  });
+  return out.slice(0,8);
+}
 /* 裁判先看事件流水，再评 MVP。这里只整理公开时间线，不替裁判直接颁奖。 */
 function wwMvpLedgerText(players,rec,log){
   var rows=wwMvpPublicRows(players,log),votes=wwMvpVoteRows(log),exiles=wwMvpExileRows(rec),L=[];
@@ -40964,7 +41061,7 @@ function wwMvpLedgerText(players,rec,log){
       if(!x||!x.row)return '未从公开发言解析到明确点名';
       return x.row.seq+'号('+wwMvpRoleName(x.row.p)+'，'+x.row.ref+')「'+wwClipSpeech(x.text,110,40)+'」';
     }
-    L.push('· D'+ex.day+' 实际放逐 '+ex.seq+'号（'+wwMvpRoleName(target)+'）：最早公开点名投/归者='+fmt(any)+
+    L.push('· D'+ex.day+' 实际放逐 '+ex.seq+'号（'+wwMvpRoleName(target)+'）：最早公开点名投/归/主压者='+fmt(any)+
       '；好人阵营最早明确点名='+fmt(good)+'；实际票='+((voters.length?voters.join('、'):'未解析')));
   });
   var mechMentions=wwMvpMechanicMention(players,rows);
@@ -40994,6 +41091,28 @@ function wwMvpLedgerText(players,rec,log){
       L.push('· 真验人位是 '+truthSeer.seq+'号('+wwMvpRoleName(truthSeer)+')。公开验人计划='+(plans.join('；')||'未解析')+
         '；实际夜间查验='+(checks.join('；')||'未解析')+'。裁判必须核对改验是否公开说明、警徽落点是否让好人取得可理解的信息。');
     }
+  }
+  var skillRows=wwMvpSkillInteractionRows(players,rec,log);
+  if(skillRows.length){
+    L.push('【技能联动与致死贡献】\n'+skillRows.map(function(x){
+      return '· '+x.text+(x.dead?'裁判应把这次死亡的实际轮次影响与操作者的技能选择单独计入贡献；不能只写成“碰巧死人”或“只是配合”。':'');
+    }).join('\n'));
+  }
+  var frames=wwMvpMechFramingRows(rows);
+  if(frames.length){
+    L.push('【谁最早制造或推动“机械狼”身份框架】\n'+frames.slice(0,6).map(function(x){
+      var first=x.first;
+      var speakers=[];(x.all||[]).forEach(function(y){if(y&&y.p&&speakers.indexOf(y.p.seq)<0)speakers.push(y.p.seq)});
+      return '· '+x.seq+'号被指向“机械狼”：最早='+first.p.seq+'号('+wwMvpRoleName(first.p)+'，'+first.row.ref+
+        ')「'+wwClipSpeech(first.text,100,40)+'」；后续公开重复='+(speakers.filter(function(s){return s!==first.p.seq}).map(function(s){return s+'号'}).join('、')||'未解析')+
+        '。裁判要区分最早提出错误身份框架、提供能改变票局的新理由、以及后来跟票复述。';
+    }).join('\n'));
+  }
+  var pressure=wwMvpRolePressureRows(rows);
+  if(pressure.length){
+    L.push('【公开身份压制/保护话术索引】\n'+pressure.map(function(x){
+      return '· '+x.p.seq+'号('+wwMvpRoleName(x.p)+'，'+x.row.ref+')：'+x.role+'“'+wwClipSpeech(x.text,100,40)+'”';
+    }).join('\n')+'\n· 这类话术只有在确实改变了目标是否亮身份、后续票型或夜间行动时才算贡献；不能仅凭一句“别跳”自动加分，也不能反推目标当时一定听懂了。');
   }
   if(!L.length)return '';
   return '【MVP事件流水（程序按公开时间整理，只负责定位，不直接评奖）】\n'+L.join('\n')+
@@ -41058,6 +41177,7 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
     '第一天明确标注“纯位置学、信息不足、只是暂猜”的范围判断是正常真人打法；被验位建议真验人位改验外置位也是策略建议，不能当成心虚或推验。猎人是否公开按轮次判断：若公开只会让狼确认最后一个神职并夜间下刀，暗跳或隐藏是合理选择，不能要求神职替全场送刀自证。'+
     '好人压跳、退水并宣布假验作废可以是正常策略，但不自动洗白。要检查她是否真的钓出狼的反应、挡住悍跳或产生可用信息；如果只是把假金水递给后手真验人位、没有任何狼方反应，且全局找不到另一条可信悍跳线，就要保留“她本人就是原始悍跳位，起跳失败后撤退”的高疑点，但仍不是翻牌证据。');
   L.push('【赛后评选】只选获胜阵营一名 MVP，不看存活时长。好人胜时，看谁对暴露狼队贡献最大：点明狼坑、正确带队票出狼、关键警徽交接、技能直接带走狼；狼人胜时，看谁对好人破坏最大：战术布局、指刀屠边、带节奏、制造迷惑。'+
+    '狼人胜时还必须比较：谁把濒死队友重新救回身份线、谁最早制造能改变票局的错误身份框架、谁用技能组合直接造成关键死亡、谁压制了关键神职亮身份或反制。主刀和主票是重要贡献，但不是自动最高。'+
     '最佳操作必须是 MVP 的操作；最惨失误必须写清具体一名玩家确实发生的失误，已解释过的问题不得写成“未处理”。');
   L.push('【判断质量与结果分开】必须把“结论碰对”和“推理成立”分开。某人若基于错误事实卡、错误查验归属或错误身份账，碰巧投中了狼，只能算“误中”，不能当作完整解狼或最佳操作；相反，基于正确公开信息的正确票算完整贡献。'+
     '是否上警本身不加分也不扣分：警下第一天拆掉悍跳狼伪逻辑，与警上做同样的事贡献相同。'+
@@ -41067,12 +41187,16 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
     '高光平民加权：若某张平民牌在早期（D1/D2）通过纯逻辑发言率先点齐狼坑、精准驳斥狼人伪逻辑、或在关键轮次通过正确移交警徽/归票力挽狂澜，其 MVP 优先级应高于仅按部就班报查验的神职牌；即使没有上警，也应获得同等权重。'+
     '误抗推不扣高光：若平民长期站对边、点齐狼坑、正确指出错误追问或给对神职建议，最后只是被其他好人基于无效因果票出，不能因此把她写成最惨失误，也不能抹掉她已完成的正确盘点和带队贡献。'+
     '战术献祭加权：若狼人牌（如狼王/白狼王/自刀狼）虽然在首日出局，但通过主动制定的战术（如自刀骗药、狼王枪杀队友做高深水狼身份）直接导致好人神职误毒/误判崩盘，该“总导演”狼人应获得最高 MVP 权重。'+
+    '救援与兜底加权：若一条狼人身份线本会因报错身份、对跳失败或被查杀而崩盘，另一名狼人通过公开改框架、制造替代世界线、压住神职回应或实际技能把队友救回，救回者获得高于原主线发起者的“危机救援”权重；被救者只保留其布局、主刀和主票贡献，不能因最后活到最后自动拿回全部功劳。'+
+    '技能联动加权：机械盾、女巫药、守卫、狼刀等在同一夜同目标叠加并实际造成死亡，或直接改变屠边/神职轮次时，要把真实操作者和操作选择列为高价值贡献，不能只写“配合”。没有造成结果或无法证明因果的公开盾口、暗示和话术只能作弱贡献。'+
+    '锁票执行降权：当狼队票数已经足够、目标已经被公开架住，最后报查杀、最后归票和跟随投票属于执行贡献，不能自动压过前面制造抗推、救回队友或打出技能致死的人。'+
     '选最终 MVP 前，先在内部列出前两名，逐项比较首次准确解狼、实际技能阻止的死亡、关键票局贡献、错误前提与误投；只在综合贡献最高时给出最终一人，不得只看最后一天票是否命中。');
   L.push('【MVP贡献拆分与身份基线】必须把“归票”拆成首提、关键论证、执行和跟随四种贡献。谁最早公开提出投某狼、谁补出了让别人改变判断的新事实、谁利用警长票或发言顺序把票做成、谁只是复述跟票，要分别计算；同一句观点被多人复述仍只算一份证据。警长归票和1.5票是执行贡献，不自动证明她是首提者或主要带队者。'+
     '评MVP时使用身份基线：真通灵/预言家知道对跳真假，正确归票不退水的对跳者是本职；普通村民在无夜间视野下先正确点名狼、驳倒错误世界线、纠正神职计划或成功表水，应明显加权。盲验到具体职业主要是运气；“验到后让全场相信、形成正确票向”才是可评价的操作，不能把随机命中重复算成推理能力。'+
     '首次准确提出、第一次明确票向、实际投票和最终出局时间要按公开顺序核对；后发言者复述先手观点不能抢走首提功劳。若一人提出错误分支、另一人只是反驳该分支，不能把错误分支算到反驳者头上。'+
+    '“最早提出怀疑/主压”“第一次给出可核验结果”“实际归票执行”必须拆开算。D3才由另一个人补报查杀并收票，不能覆盖前一白天已经制造的抗推方向和投票环境。'+
     '失误要按因果链判断：如果前一名玩家更早出现可避免的公开失误，后一名玩家在当时的公开信息下据此误判，且没有新的独立硬伤，后面的误票不能单独写成她的重大失误；优先评价前一个真正改变信息环境的行为。若大票型已经足以放逐某目标，个人一票没有改变结果的，也不能把结果整体算到她头上。'+
-    '最终输出前必须认真比较前两名：至少检查独立解狼、首提与执行、身份基线、技能与运气、表水/凝聚力、可避免失误和边际影响。MVP理由必须能解释为什么另一名候选不如她，不能再只用“验了某身份、归了几票”一句话。');
+    '最终输出前必须认真比较前两名：至少检查独立解狼、首提与执行、身份基线、技能与运气、表水/凝聚力、可避免失误和边际影响。特别检查“被救者 vs 救援者”：如果候选A的赢线依赖候选B的公开纠偏、技能致死或身份框架，裁判必须逐项说明为什么A仍高于B；写不出来就不能默认A是MVP。MVP理由不能只用“主刀主票线更核心、活到最后、验了某身份、归了几票”一句话。');
   if(appeal){
     if(priorJudge)L.push('【当前裁判原文（申诉前）】\n'+String(priorJudge).slice(0,2600));
     L.push('【MVP 改判申诉】玩家对当前 MVP 评选提出了申诉，请重新、认真核看整局记录，再判断是否改判。'+
