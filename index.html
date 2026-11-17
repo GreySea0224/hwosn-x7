@@ -16364,6 +16364,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 狼人杀新增觉醒守卫夜间保护矩阵：公开守人记录若指向X，会提示下一夜不能连守X；若刀X可直接屠民或屠神，优先比较这条必死终局刀，不能再盲目撞可能自守的守卫。
 狼人杀金水话题改为最高优先级提示：被发金水者不需要自报好人或对金水作回应；自称好人与发金水真假无关。不能因她尚未发言、在警下或没有发言机会判断金水力度减弱；她照常盘逻辑、交站边和票向。通灵师板只核对身份发对或发错。
 狼人杀发言和复盘新增当时视角：不能拿事后翻牌的身份替玩家补视野，不能把翻狼前已经说完、之后没有发言机会的话当成新反应；已有正确归票方向和命中过狼的操作要与误伤分开计算，群体跟错逻辑时写成好人共同误判。
+狼人杀当前轮新增醒目的死讯与遗言分析卡：会先列出当天主持人公告和死者遗言原话，要求 AI 先核对死者自称身份、声称使用的技能与实际死亡名单，再回到验人、警徽和旧票型；觉醒狼美人板会主动检查“毒了X却由Y替死”等分支。
 狼人杀神职起跳新增死亡双线：有人单边跳女巫、守卫、猎人等神职且无人对跳时，只要场上有未翻牌死者，就必须保留“死者才是真神，活人是狼刀神后穿衣服”的世界线；必须有守人命中、药线、枪、决斗结果等硬证据才能提高可信度。
 狼人杀普通听发言的上警兜底改为自然短句，不再用“重点看完整查验、警徽优先给真预”整段替换成固定系统口吻。
 
@@ -16641,7 +16642,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=159;  /* 159：金水话题最高优先级、旧发言时点、原话与裁判因果 */
+const GUIDE_VER=160;  /* 160：当前轮死讯与遗言优先分析、技能结果交叉核对 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34283,6 +34284,39 @@ function wwSeerSurvivalPressureText(w,p){
 }
 /* 每次发言前最该先看到的一张小卡：当前轮次、可投名单、有效身份线。
    长历史记录随后再给，避免模型把上一轮的票口和已经退水的身份带进今天。 */
+/* 当前天已经公开的死讯和遗言，放在动态信息最前面。
+   这里只搬运主持公告与死者原话，不判断谁是真神、谁一定是狼。 */
+function wwLatestDeathSpeechText(w){
+  if(!w||!w.log||!w.log.length)return '';
+  var current=Number(w.day)||1,scanDay=1,deaths=[],words=[],me=null;
+  (w.players||[]).forEach(function(q){if(q&&q.isUser)me=q});
+  (w.log||[]).forEach(function(e){
+    if(!e)return;
+    var raw=String(e.text||''),dm=null;
+    if(e.k==='sys'){
+      dm=raw.match(/^第\s*(\d+)\s*天/);
+      if(dm)scanDay=Number(dm[1])||scanDay;
+      if(scanDay!==current)return;
+      var t=wwPublicSysText(raw,me);
+      if(/出局|死亡|双死|平安夜|平安日|被放逐|处刑/.test(t)&&!/遗言结束/.test(t)&&deaths.indexOf(t)<0)deaths.push(t);
+      return;
+    }
+    if(e.k!=='say'||scanDay!==current||!/^【遗言】/.test(raw))return;
+    var q=wwPlayerByUid(e.who),t2=raw.replace(/^【遗言】/,'').trim();
+    if(t2.length>460)t2=t2.slice(0,330)+' … '+t2.slice(-120);
+    if(q)words.push('· '+wwTag(q)+'遗言：'+t2);
+  });
+  if(!deaths.length&&!words.length)return '';
+  var b=wwBoard(w.count,w),out=['【本轮最新死讯与死者遗言 · 发言先分析】'];
+  if(deaths.length)out.push('主持人公开死讯：\n'+deaths.slice(-8).map(function(x){return '· '+x}).join('\n'));
+  if(words.length)out.push('死者遗言（未经翻牌的自述，不能说成主持人事实）：\n'+words.slice(-6).join('\n'));
+  out.push('· 这是当前轮最新公开证据。本轮发言不能只接着聊之前的验人、警徽或双跳；只要前面还没有人分析这些死讯和遗言，你必须先给出至少一条具体推断。若前面已经有人分析，不要换词重复，要补充新事实、比较另一条世界线，或说明为什么暂不采纳。');
+  out.push('· 先核对“死者自称什么身份、声称对谁用了什么技能、公开死亡名单是否吻合”，再列世界线。死讯与遗言冲突时，不能无视，也不能把遗言直接当成翻牌事实。');
+  if(b.awakenedwolfbeauty){
+    out.push('· 本板有觉醒狼美人。若死者自称女巫并说毒了X号，但X号仍在场、反而Y号死亡，必须立即检查“X号可能是觉醒狼美人，Y号作为替身顶掉毒药”的世界线；同时保留“守卫保住了X号”“女巫遗言不实或不完整”等竞争世界线，不能直接写成翻牌结论。');
+  }
+  return out.join('\n');
+}
 function wwCurrentTurnText(w,p){
   if(!w||!w.players||!w.players.length)return '';
   var alive=w.players.filter(function(x){return x&&x.alive});
@@ -39281,6 +39315,10 @@ function wwSysFor(p,task){
   if(w&&w._resumeRecovery){
     var recoveredRound=wwRoundRecoveryText(w,false);
     if(recoveredRound)dyn.push(recoveredRound);
+  }
+  if(w){
+    var latestDeathSpeech=wwLatestDeathSpeechText(w);
+    if(latestDeathSpeech)dyn.push(latestDeathSpeech);
   }
   /* 先让它「变成」这个角色：性格、说话方式、脾气、和在场人的关系，都在下面这一块里 */
   L.push('【你就是这个人本人】直接以 TA 的身份玩狼人杀。完全照下面的人设说话，不用通用 AI 口吻。\n\n'+
