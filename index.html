@@ -37710,7 +37710,7 @@ function wwCheckedPlayerResponseHint(p,w){
     '· 人设可以决定语气长短，不能成为不回答核心问题的理由。若你正在伪装，也要维持一条能解释自己行为的世界线，不要用空话代替表水。';
 }
 function wwWolfDayPlanText(p,w){
-  if(!p||!w||!wwIsWolf(p))return '';
+  if(!p||!w||!(wwIsPackWolf(p)||p.role==='nightmare'))return '';
   var all=(w.log||[]).filter(function(e){return e&&e.k==='wolf'&&String(e.text||'').trim()});
   var current=all.filter(function(e){return Number(e.d)===Number(w.day)});
   var rows=(current.length?current:all).slice(-8);
