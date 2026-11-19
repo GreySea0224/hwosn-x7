@@ -16319,6 +16319,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【警徽流接徽分支 · 2026-11-18】
 “警徽流开9、7、11，先验9”这类简写会自动补全为两条可执行分支：9号是好人则9号接徽；9号是狼时，如果这名跳验人位此前已经公开报过存活金水，就优先由该金水接徽，没有可用金水才撕徽。例如本局2号已公开报8号为神职金水，那么正确分支是“9好→9接徽；9狼→8接徽”，不能说成9狼就撕徽。金水不在后续9、7、11顺验名单里，也不等于失去接徽资格。
 
+【果敢推理与时间线修正 · 2026-11-19】
+狼人杀 AI 从第一个白天普通发言开始必须直接给站边、当前主票向和至少一个具体怀疑目标，狼坑点一两个就够，不要求凑齐四狼；条件票不能代替当前结论。下结论快、敢直接点狼、狼坑给得早、表达自信都是正常好人行为，不能再被说成“太快、太果断、逻辑差”。一句可核验硬矛盾可以立即支持站边和归票；“过度推理”不是狼点，只有混淆时间线、引用错原话、把可能性说成事实或无视已回应内容才是具体错误。后来的措辞补充或作废不能倒灌到更早的回应，不能把玩家更早作出的判断说成“明知已作废还使用”；只作废措辞不等于作废整段结论和身份线。保留“狼查杀好人”等替代世界线不叫保人，只有明确说某人是好人、要求放过她、给她拉票或实际投票保护才算。觉醒骑士决斗前会先看自己最后公开的票向和狼坑，没有新硬事实时优先自己的主狼坑，不能因为别人反驳自己、说自己逻辑差就改戳对方。
+
 【女巫与警徽分支修正 · 2026-11-19】
 警徽条件现在能识别“2号好她接徽”这类简写，并拆成“2号好→2号接徽；2号狼→4号接徽”。真实通灵师出局时如果最新查验目标和公开警徽分支匹配，会优先按对应分支推荐接徽人，不会因为另一名旧金水还活着就退回旧金水。真女巫在机械狼板首夜被刀时，如果场上有人被公开查验成“女巫”，遗言必须保留“机械狼学了我、所以显示女巫”的世界线；这条世界线成立时，报验者的结果可以是真的，另一位仍是狼，机械女巫只有毒药、没有解药。守卫首夜空守也会正确记在夜晚阶段。
 
@@ -16652,7 +16655,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=165;  /* 165：“X好她接徽”分支与女巫撞机械女巫世界线 */
+const GUIDE_VER=166;  /* 166：果敢推理、作废时间线、世界线与保人区分、骑士主狼坑 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34292,6 +34295,55 @@ function wwLatestDeathSpeechText(w){
   }
   return out.join('\n');
 }
+function wwRetractionTimelineText(w){
+  if(!w||!w.players)return '';
+  var rows=wwPublicEventRows(w),out=[];
+  rows.forEach(function(r){
+    var t=String(r.text||'');
+    if(!/(?:我|本人)/.test(t)||!/(?:作废|说错|说糙|说混|认错|改口)/.test(t))return;
+    if(!/(?:措辞|说法|主语|那句话|前面那句)/.test(t))return;
+    var earlierResponses=rows.filter(function(x){
+      return x&&x.uid!==r.uid&&x.idx<r.idx&&wwMentionsSeq(x.text,r.p.seq)&&
+        /(?:聊爆|矛盾|说不通|对不上|假验|作废|狼查杀狼|逻辑)/.test(String(x.text||''));
+    });
+    if(!earlierResponses.length)return;
+    var source=null;
+    rows.forEach(function(x){
+      if(!x||x.uid!==r.uid||x.idx>=r.idx)return;
+      if(/(?:预言家|通灵师|我是|查杀|金水|狼查杀狼|验)/.test(String(x.text||'')))source=x;
+    });
+    var first=earlierResponses[0];
+    var wordingOnly=/(?:只|仅).{0,6}(?:认|作废).{0,8}措辞|不认结论|结论不变|身份不退/.test(t);
+    out.push('【解释/作废时间线（程序核对）】\n· '+wwTag(r.p)+'在 '+r.ref+' 才补充说明“'+wwClipSpeech(t,180,80)+'”。'+
+      (source?('\n· 更早的原话来源是 '+source.ref+'：“'+wwClipSpeech(source.text,140,60)+'”。'):'')+
+      '\n· 在它之前，'+wwTag(first.p)+'已在 '+first.ref+' 作出回应：“'+wwClipSpeech(first.text,160,70)+'”。'+
+      '\n· 因此不能把更早回应说成“明知已经作废还拿来使用”。'+
+      (wordingOnly?'这次说明明确只处理措辞，未撤销原结论或身份线；可以降低该措辞后续权重，但不能把整段身份判断追溯抹掉。':'' )+
+      '\n· 后来解释可以改变之后的判断权重，但不能倒灌到解释之前，改写当时玩家已经掌握的公开信息。');
+  });
+  return out.slice(-2).join('\n');
+}
+function wwWorldlineStanceAuditText(w){
+  if(!w||!w.players)return '';
+  var rows=wwPublicEventRows(w),found=null;
+  rows.some(function(r){
+    var t=String(r.text||'');
+    if(!/(?:三条路|三分支|几种可能|多条世界线|世界线)/.test(t))return false;
+    if(!/(?:查杀|好人被推|可能是好人|可能是狼|狼查杀|狼|好人)/.test(t))return false;
+    var attacks=rows.filter(function(x){
+      return x&&x.uid!==r.uid&&x.idx>r.idx&&wwMentionsSeq(x.text,r.p.seq)&&
+        /(?:保|往好里带|往村民方向带|护着|替.{0,6}圆)/.test(String(x.text||''));
+    });
+    if(!attacks.length)return false;
+    found={source:r,attacks:attacks};return true;
+  });
+  if(!found)return '';
+  var src=found.source,acc=found.attacks[0];
+  return '【“保留世界线”与“保人”核对】\n· '+wwTag(src.p)+'在 '+src.ref+' 的原话是：“'+wwClipSpeech(src.text,240,100)+'”。'+
+    '\n· 这是同时保留多种可能性，不是已经认定某人是好人，也不是公开要求放过某人。'+
+    '\n· 之后 '+wwTag(acc.p)+'在 '+acc.ref+' 用“'+wwClipSpeech(acc.text,150,65)+'”指控她保人；除非能找到该玩家明确说“某人是好人、别投她、给她拉票”，或实际投票保护她，否则不能把“保留世界线”写成“保人”。'+
+    '\n· 被点名者已经按原话解释后，后续发言不能继续把同一条说法当成未回答的事实；需要给出新的具体原话、票型或行动。';
+}
 function wwCurrentTurnText(w,p){
   if(!w||!w.players||!w.players.length)return '';
   var alive=w.players.filter(function(x){return x&&x.alive});
@@ -34343,6 +34395,10 @@ function wwCurrentTurnText(w,p){
       '；'+deadActive.map(wwTag).join('、')+'虽已出局，但没有正式退水或作废身份，不能把'+wwTag(aliveActive[0])+
       '说成“唯一未退水验人线”。这类局面要比较双方公开原话，不能只按对方已经死亡就直接清除旧声明。');
   }
+  var retractionTimeline=wwRetractionTimelineText(w);
+  if(retractionTimeline)L.push(retractionTimeline);
+  var worldlineAudit=wwWorldlineStanceAuditText(w);
+  if(worldlineAudit)L.push(worldlineAudit);
   var knightClue=wwConfirmedKnightClueText(w);
   if(knightClue)L.push(knightClue);
   var knightMisplay=wwConfirmedKnightMisplayText(w);
@@ -35207,7 +35263,7 @@ function wwOwnVoteIntentTargets(txt){
   var out=[],seen={};
   String(txt||'').split(/[。！？!?；;\n]+/).forEach(function(c){
     if(/(?:别|不要|不|不会)[^，,]{0,5}(?:票|投)/.test(c))return;
-    var re=/(?:我|这轮|本轮|这边)[^。！？!?；;\n]{0,24}?(?:票|投)[^。！？!?；;\n]{0,14}?(\d{1,2})\s*号/g,m;
+    var re=/(?:我|这轮|本轮|这边|今天|今日)[^。！？!?；;\n]{0,24}?(?:票|投)[^。！？!?；;\n]{0,14}?(\d{1,2})\s*号/g,m;
     while((m=re.exec(c))){var n=Number(m[1]);if(n&&!seen[n]){seen[n]=1;out.push(n)}}
   });
   return out;
@@ -35336,7 +35392,8 @@ function wwVoteFactText(w){
   });
   return '【票型事实卡（程序核对）】\n'+lines.join('\n')+
     '\n· 只有这里明确列出的“谁→谁”才是已核实票型。发言里说想投谁、准备投谁，不等于真实票型。'+
-    '\n· 警长票是支持谁当选，放逐票是要求谁出局。“警长票支持X当选、放逐票投X出局”不自动构成矛盾；玩家听完当天发言后改变放逐意向是正常变化。';
+    '\n· 警长票是支持谁当选，放逐票是要求谁出局。“警长票支持X当选、放逐票投X出局”不自动构成矛盾；玩家听完当天发言后改变放逐意向是正常变化。'+
+    '如果本人有公开发言机会却没有解释为什么从支持其当选变为票其出局，可以保留为一条具体的待回应可疑点，也可以据此提出怀疑；但不能把它写成已经核实的方向相反或铁狼证据。';
 }
 function wwExileRows(w){
   return ((w&&w.rec)||[]).map(function(x){
@@ -38168,7 +38225,13 @@ function wwDayPlayStyleNeutralityText(p,w,forVote){
   var human=null;
   (w.players||[]).forEach(function(x){if(!human&&x&&x.isUser&&x.alive)human=x});
   var when=forVote?'投票前':'公开发言前';
-  return '\n【玩家打法中性·'+when+'核对】评价任何玩家时，先把可核验事实和表达风格分开。激进、直接点多个狼坑、主动指挥验人/毒人/归票、使用听感或预判、说话短或跳跃、提出少数世界线、拒绝回答明显不合理的追问，这些都只是打法风格，不能单独当成狼点。'+
+  return '\n【决策果断·最高优先级】从现在起，每个 AI 都要像真人局一样主动给结论，不要用“再听、再等等、都可以、先看看”拖到无法投票。'+
+    '从第一个白天普通发言开始，必须给出：①你现在站哪条验人线或主要站边；②至少一个点名怀疑目标，狼坑点一个或两个就够，不要求凑齐四狼；③当前主票向和一条实质理由。'+
+    '可以附加条件票，但不能让条件票代替当前结论。后续听到新事实可改票，改票要有具体新依据。'+
+    '推理果断、结论快、敢直接点狼、表达自信、很早就给出狼坑，都是正常好人行为，不能单独当狼点。'+
+    '不能使用“太快、太果断、一句就站边、结论给得快、狼坑给得早、太有主见”来否定一个人；必须指出具体哪句事实、时间线、票型或因果推错。'+
+    '一句可核验的硬矛盾可以立即支持站边和归票，不必等到所有人都同意。所谓“过度推理”不是狼点；只有把可能性说成事实、引用错原话、混淆时间点、无视已回应内容，才是具体错误。'+
+    '\n【玩家打法中性·'+when+'核对】评价任何玩家时，先把可核验事实和表达风格分开。激进、直接点多个狼坑、主动指挥验人/毒人/归票、使用听感或预判、说话短或跳跃、提出少数世界线、拒绝回答明显不合理的追问，这些都只是打法风格，不能单独当成狼点。'+
     '第一天或信息不足时使用位置学、相邻座位范围、警上警下分布做初步猜测，是真人局常见打法；若本人明确说“纯位置学、信息不足、只是暂猜”，只能当待更新假设，不能要求她像已经掌握硬证据一样解释，也不能事后用“当时没讲圆”直接定狼。'+
     '被查杀者明确自称村民时，按普通村民规则判断：她没有夜间行动和主动技能，不要求交代夜间时间线或技能；第一天还没有历史票，没有过往票向也正常。本人已经说出的当前票向、身份声明、对查验和对手发言的回应仍要核对。村民声索本身不能证明好人，也不能单独证明狼，必须指出具体发言冲突。'+
     '有多名跳预者时，先比较双方公开发言本身：谁正面解释查验和当前票向、谁回答了具体质疑、谁的原话与公开事实冲突。验人力度也可以盘，但盘的是每名跳预者给目标和目标当时的相对位置与结果风险，不是拿两名跳预者谁先起跳来判真假。首夜验人理由、上线时点和两名跳预者谁先说谁后说都不作为真假预的比较项，也不拿来扣被查杀者。'+
@@ -40713,11 +40776,11 @@ async function wwSpeech(p,resay){
   var pos=wwSpeechPositionInfo(p);
   var base=pos.first
     ?('现在轮到你首置位发言。发言不等于最终投票，不要为了完成格式硬造一个票口。'+
-      '如果还没有足以直接归票的新硬证据，就先把已知事实、自己的身份立场、对前面公开信息的判断和需要后面玩家回答的问题说清；可以给出暂时的怀疑顺序，但要明确说“先听后面再定”，不要宣布这轮必须投谁。'+
+      '如果还没有足以直接归票的新硬证据，就先把已知事实、自己的身份立场、对前面公开信息的判断和需要后面玩家回答的问题说清；必须至少点一个当前最怀疑的具体座位并给出暂定票向，也可以明确说后置位发言后会更新，不能整段没有一个怀疑对象。'+
       (wwIsWolf(p)?'如果你是被怀疑的狼，且面前的目标可信度明显更高、推不动，更不要强行另开抗推；先处理自己的票型和矛盾，再决定最终票。':'')+
       '若确实已有硬证据，可以直接归票并写清证据。提到别人时带编号。')
-    :('现在轮到你发言。说清你现在怀疑谁（带编号）、为什么、最终投票会怎样判断；'+
-      '如果还没有锁票，可以说出条件票和还缺哪一项信息，不必假装已经确定。'+
+    :('现在轮到你发言。必须直接说出你现在最怀疑谁（带编号）、一条实质理由和当前主票向。'+
+      '狼坑不必凑满，但不能只给“再听、都可以、先看看”。可以补充条件票和还缺哪一项信息，但条件票不能代替当前结论；'+
       '也可以报自己的身份、替人辩护、或者反驳别人对你的怀疑。别写成长篇点评，几句真心话就够。'+
       '同一核心理由前面已经有人完整说过时，只补充新证据或明确表示认同，不要换一批词重复一遍。提到别人时带上编号。');
   return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)),resay);
@@ -44751,6 +44814,28 @@ function wwKnightClaims(){
   });
   return list;
 }
+function wwKnightOwnReadText(p,w){
+  if(!p||!w)return '';
+  var own=wwLastOwnSpeech(p);
+  if(!own)return '';
+  var seqs=wwOwnVoteIntentTargets(own),alive=[];
+  seqs.forEach(function(seq){
+    var q=wwPlayerByUidTarget(w,Number(seq));
+    if(q&&q.alive&&q.uid!==p.uid&&!alive.some(function(x){return x.uid===q.uid}))alive.push(q);
+  });
+  if(!alive.length){
+    var m=String(own).match(/(?:今天|本轮|这轮)?[^。！？!?；;\n]{0,16}(?:票|投|归票|归)\s*(\d{1,2})\s*号/);
+    if(m){
+      var q2=wwPlayerByUidTarget(w,Number(m[1]));
+      if(q2&&q2.alive&&q2.uid!==p.uid)alive.push(q2);
+    }
+  }
+  if(!alive.length)return '';
+  return '【你自己的公开狼坑（决斗前必看）】你上一条公开发言里的当前票向是：'+alive.map(wwTag).join('、')+
+    '。如果这个目标仍存活，且你上次发言后没有出现新的硬事实或公开改口，默认优先决斗这个目标。'+
+    '不能因为别人反驳你、说你逻辑差、复读别人的观点，就跳过你自己的主狼坑去决斗她。'+
+    '要改目标，必须能指出自己上次发言之后新增的具体原话、票型、查验、技能结果或时间线冲突。';
+}
 async function wwKnightChoose(p,reason){
   var pool=wwKnightTargets(p);
   if(!pool.length)return null;
@@ -44759,11 +44844,13 @@ async function wwKnightChoose(p,reason){
     return (V.ww.policeAll||[]).indexOf(uid)>=0&&(V.ww.policeUp||[]).indexOf(uid)<0;
   }).map(wwPlayerByUid).filter(function(x){return !!x});
   var dual=claims.length>=2||!!(V.ww&&V.ww.dualSeerClaims);
+  var ownRead=wwKnightOwnReadText(p,V.ww);
   var sys=wwSysFor(p,'现在可以发动【骑士决斗】，每局只有一次。可选的人：'+pool.map(wwName).join('、')+
     '\n命中狼人：对方立即出局，白天立刻结束；命中好人：你自己出局，白天继续。警长竞选和平票 PK 不能决斗。'+
     (V.ww&&V.ww.board==='wolfbeautyknight'?'\n本板有狼美人：若你决斗命中狼美人，她当场出局且狼美人技能不会发动，不翻牌，她的魅惑目标继续存活。不要按普通狼美人殉情规则以为还会带走一人。':'')+
     (dual?'\n警上出现了至少两个跳预的玩家。先比较两边验人和警徽流，再判断要不要现在决斗；这只是机会，不强制。':'')+
     (retiredSeer.length?('\n已退水的跳预者：'+retiredSeer.map(wwName).join('、')+'。她可能是在打好人代跳，不要只凭曾跳预或这次退水就决斗她；先看她是否说明假验作废、是否给真预让位，以及留下的跳预者是否更矛盾。'):'')+
+    (ownRead?'\n'+ownRead:'')+
     (reason==='beforeVote'?'\n所有人已经发言完，马上投票。你可以用这一次机会，也可以保留到以后。':'')+
     '\n【输出格式】只输出“决斗：X号”，或只输出“不决斗”。');
   var txt=String(await wwCall(sys,'请决定是否发动骑士决斗。',40,.75)||'');
@@ -45035,9 +45122,11 @@ function wwRepairAwakenedKnightDuelState(w){
 async function wwAwakenedKnightChoose(p,pool){
   if(!p||!pool||!pool.length)return null;
   var used=Object.keys(V.ww.awakenedKnightDueled||{}).map(wwPlayerByUid).filter(Boolean).map(wwName);
+  var ownRead=wwKnightOwnReadText(p,V.ww);
   var sys=wwSysFor(p,'现在轮到你发动【觉醒骑士】连锁决斗。可选的人：'+pool.map(wwName).join('、')+
     '\n规则：命中狼人后你可以继续或停手；停手后当前出局者留遗言并直接入夜。命中好人则你与目标按守卫情况结算，随后连锁结束并继续白天流程。'+
     '每名玩家整局只能被你决斗一次。'+(used.length?('\n已经决斗过、不能再选：'+used.join('、')+'。'):'')+
+    (ownRead?'\n'+ownRead:'')+
     '\n如果觉醒守卫保护了目标，目标可能不出局；如果目标是觉醒狼美人且挽歌幻象生效，可能由替身出局。你要根据公开信息独立判断。'+
     '\n【输出格式】只输出“决斗：X号”，或只输出“停手”。');
   var txt=String(await wwCall(sys,'请决定是否继续决斗、以及目标是谁。',40,.76)||'');
