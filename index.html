@@ -16313,6 +16313,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-11-21 · 狼人杀夜间结果与警徽时间线】
+舞者假面板的狼刀目标没有死亡时，AI会同时比较女巫解药、舞者本人入池造成的狼刀免疫和本板其他真实保护，不再写成“唯一是女巫”。狼人白天会收到只给自己看的天亮结果卡：自己刀了谁、目标是否存活、同一夜其他人的死亡可能是舞池结算或毒药；不会向狼泄露真实舞池或女巫私密状态。原“接徽默认高概率金水”的口径已被覆盖：必须先看传徽者出局时间；白天先出局时，她说“今晚验X”尚未发生，X仍是未验对象，交徽不能当验人结果。狼人假预言家交徽时会看到自己的已完成假验、公开假警徽流和尚未发生的验人计划；若故意把徽交给未验对象做局，会记为主动诈术，不再误以为自己已经验过。验人目标死亡只降低信息可核验性，不提高或降低验人者真假；上一次计划之后出现警徽交接、新死讯等新事件时，据此改验属于正常侦查。
+
 【最近更新 · 2026-11-20 · 狼人杀判断】
 狼人杀投票前会先比较两条世界线：准备投的人若是狼，发言和票向怎样成立；若她是好人，另一条线为什么更合理。信息不足时允许承认排不出具体队友，不再强迫 AI 编造“另一个候选人做不到的差异”。发言顺序明确只用于流程：首置位不等于动机干净，后手起跳也不等于更像狼。警徽流采用标准简写时，程序会自动生成接徽分支，不能因为没逐条口述而扣分，也不能把“目标尚未发言”说成“分支为空”。投票理由会私下保存供赛前核对和赛后复盘，但不显示给用户，也不提供给其他 AI。狼人杀赛后裁判现在会把舞者、假面在舞池中的实际影响列入 MVP 比较：逐夜核对“不戴面具原本会出局谁”和“戴面具后实际出局谁”；面具若把狼方原本的出局改成好人出局，会按假面的真实贡献计分，若舞死狼队友则记为负贡献。
 跳预者出局但没有正式退水或作废身份时，仍然是有效对跳线；不能说另一个活着的人“没人对跳”或“唯一验人线”，只能说“唯一活着的跳预者”。从第二天起，程序会检查公开自称预言家/通灵师的人为什么在无守卫、解药可能已经用掉、对跳者已经出局的情况下仍未被狼队处理。金水和查杀要分两层看：两者本身都不能单独证明发验者真假；但查杀通常会形成更大的即时回应和身份压力，金水压力较低。不能因为被查杀者是普通村民、拿不出夜间反证就直接判狼，仍要比较两名跳预者自己的发言、规则和计划，以及双方公开支持者更像哪一边。AI 每次评价要使用同一把尺子：不能把支持方的异常解释成口误、做局，却把反对方相同程度的改票或异常直接判狼；改票本身不是狼点，要看原话、实际票、解释和最终帮到哪一边。技能结果未翻牌时不能只说“全是自述”，要对照连续公开行动与死亡结果是否一致、有没有对跳。
@@ -33884,13 +33887,14 @@ function wwFactsFor(p){
     if(!p.isUser)L.push(wwWolfCommandRule());
     /* 【新】昨晚你们刀的是谁 —— 这是你们自己做的事（去掉死因以后必须补上，不然狼队会变瞎） */
     if(w.night&&w.night.wolf&&!w.night.spared)
-      L.push('· 你们狼队昨晚刀的是 '+wwName(w.night.wolf)+(w.pendingDeaths?'（死讯还没公布，先别声张）':(w.night.wolf.alive?'，TA 现在还活着（多半是女巫的解药救回来了）':''))+
+      L.push('· 你们狼队昨晚刀的是 '+wwName(w.night.wolf)+(w.pendingDeaths?'（死讯还没公布，先别声张）':(w.night.wolf.alive?
+        (wwBoard(w.count,w).dancer?'，TA 现在还活着。可能解释包括女巫解药、舞者入池免疫或其他夜间保护；不能只写成女巫解药。':'，TA 现在还活着（优先考虑女巫解药等实际存在的保护，不要假定没有保护）'):''))+
         '。（仅狼队知道，白天别说。'+(
           wwBoardHasGuard(w)
             ?(wwBoardHasAwakenedGuard(w)
               ?'本板有觉醒守卫：她可以自守，保护能挡狼刀、毒药、放逐和觉醒骑士决斗，且不能连续两天守同一人。首夜先考虑解药；解药已用且有对应盾口时，守中是主线，空刀/收刀是需要具体战术收益支撑的低概率反线。'
               :'平安夜不等于守卫守住：首夜守卫通常空守，优先考虑女巫解药；空刀、收刀或盲守都要按实际收益降权。不能据此认定解药已经用掉，也不能认定目标今夜一定没人能守。')
-            :'本板没有守卫；平安夜只能优先考虑女巫解药，或狼队空刀、收刀等实际发生的情况，不能盘守卫挡刀或守卫改守。'
+            :'本板没有守卫；但若本板有舞者，舞者自己进入舞池时，舞池三人都免疫狼刀。判断目标没死或出现替死时，必须同时比较女巫解药、舞池免疫、空刀/收刀和舞池结算，不能只写女巫解药。'
         )+
         (w.electing&&Number(w.day)===1?' 现在还在警上、死讯尚未公布：刀口不等于已经死亡，除非确定刀中不能自救的真女巫且无人保护，否则默认对方更可能被女巫首夜救起，不能按“她今天一定出局”安排战术。':'')+'）');
     if(w.night&&w.night.spared)
@@ -33921,8 +33925,8 @@ function wwFactsFor(p){
       var q=wwPlayerByUid(e.who);
       return wwTag(q)+'：'+wwClipSpeech(String(e.text||'').replace(/^【竞选发言】/,''),280,110);
     }).join('\n')+'\n盘法：用实际接徽人与她事前报的分支对照；验到好人通常让被验者接徽，验到狼时有已知金水才交金水，否则默认撕徽。不能把未验的Y当成“可信接徽人”；若她采用次验位代接，必须明确说明Y仍未验、只是下一验位。'+
-      ' 若传徽者当前是高可信的单边验人位，她把徽交给Y就是强烈认可，应把Y按“高概率金水”处理。'+
-      (wwBoard(w.count,w).mechanicwolf?' 机械狼板只额外保留“Y可能是学过好身份的机械狼”这一例外。':' 这仍不是主持人翻牌，但可以作为很强的好人线索。')+
+      ' 接徽强度必须看时间：白天先出局时，她说的“今晚验Y”没有发生，Y仍是未验对象；只有她夜里完成当夜查验后交徽，或此前已经公开报过Y为金水，才可作为较强线索。'+
+      ' 即使条件满足，也不是主持人翻牌。'+
       ' 接徽者没有义务解释自己为什么被选中，也不需要替传徽者解释警徽流；接徽本身不是她的狼点。');
     var badgeSemantics=wwBadgeFlowSemanticsText(w);
     if(badgeSemantics)L.push(badgeSemantics);
@@ -35420,6 +35424,115 @@ function wwBadgePlanTargetFromText(txt){
   }
   return 0;
 }
+/* 警徽交接必须先分清“什么时候出局”。白天先出局时，当夜准备的验人根本没发生；
+   夜里已经结算后出局，才可能带着当夜结果交徽。 */
+function wwBadgeExitInfo(sh,w){
+  var day=Number(w&&w.day)||1,reason=String(sh&&sh.killedBy||'');
+  var dayLabels={
+    vote:'被投票放逐',shot:'在白天被带走',boom:'在白天自爆后出局',
+    wolfking:'在白天被狼王带走',charmday:'在白天跟随狼美人出局',
+    awbsubday:'在白天作为觉醒狼美人替身出局',awduel:'在白天被觉醒骑士决斗出局',
+    flip:'在白天掀桌后出局',knight:'在白天被骑士决斗出局'
+  };
+  var nightLabels={
+    wolf:'狼刀结算',poison:'毒药结算',dance:'舞池结算',
+    mechpoison:'机械毒药结算',guardSave:'同守同救结算',
+    charm:'狼美人夜间跟随结算',awbsub:'觉醒狼美人夜间替身结算'
+  };
+  if(dayLabels[reason])return {
+    day:day,phase:'day',reason:reason,
+    text:'第 '+day+' 天白天，你在'+dayLabels[reason]+'后处理警徽；这个白天之后的那一夜还没有发生，准备在今夜查验的目标仍没有被验。'
+  };
+  if(nightLabels[reason])return {
+    day:day,phase:'night',reason:reason,
+    text:'第 '+day+' 天夜晚已经结算，你是在'+nightLabels[reason]+'后出局；当夜查验窗口已经过去。'
+  };
+  if(w&&w.phase==='day')return {
+    day:day,phase:'day',reason:reason,
+    text:'现在按第 '+day+' 天白天处理警徽；除非本局明确说明当夜已经结算，否则不能说“今晚准备验的人已经验过”。'
+  };
+  return {
+    day:day,phase:'unknown',reason:reason,
+    text:'当前是第 '+day+' 天，但出局阶段无法可靠确认；不得把任何未明确写出结果的“今晚验X”当成已完成查验。'
+  };
+}
+/* 只取明确的未来验人计划，不拿警徽流首位冒充已经发生的查验。 */
+function wwBadgePlannedVerifyFromText(txt){
+  var clauses=String(txt||'').split(/[。！？!?；;\n]+/);
+  for(var i=clauses.length-1;i>=0;i--){
+    var c=clauses[i];
+    if(/(?:昨晚|昨夜|已经验|验到|验了|查验结果)/.test(c)&&!/(?:今晚|今夜|明晚|准备|计划|改验)/.test(c))continue;
+    var m=c.match(/(?:今晚|今夜|明晚|准备|计划|改验)[^。！？!?；;\n]{0,32}?(?:验|查验|摸)\s*(\d{1,2})\s*号/);
+    if(m)return Number(m[1])||0;
+  }
+  return 0;
+}
+function wwBadgeLatestPlan(sh,w){
+  if(!sh||!w)return null;
+  var rows=wwPublicEventRows(w).filter(function(r){return r&&r.uid===sh.uid});
+  for(var i=rows.length-1;i>=0;i--){
+    var seq=wwBadgePlannedVerifyFromText(rows[i].text);
+    if(seq)return {seq:seq,day:Number(rows[i].day)||0,ref:rows[i].ref||'',text:String(rows[i].text||'')};
+  }
+  return null;
+}
+function wwBadgeClaimGood(result){
+  return !!wwPublicCheckIsGoodResult(result);
+}
+function wwBadgeLivingClaimGoods(sh,claim,w){
+  var seen={},out=[];
+  ((claim&&claim.checks)||[]).forEach(function(x){
+    if(!x||!wwBadgeClaimGood(x.result))return;
+    var target=wwPlayerByUidTarget(w,Number(x.seq));
+    if(!target||!target.alive||seen[target.uid])return;
+    seen[target.uid]=1;
+    out.push({p:target,check:x,day:Number(x.day)||0});
+  });
+  out.sort(function(a,b){return (Number(b.day)||0)-(Number(a.day)||0)});
+  return out;
+}
+/* 狼预没有真实私有查验；它只能使用自己已经公开说过的假结果。
+   这张卡专门防止狼预把“今晚准备验X”误记成“已经验过X”。 */
+function wwBadgeWolfClaimCardText(sh,w){
+  if(!sh||!w||!wwIsWolf(sh))return '';
+  var claim=null;
+  (wwSeerCommitmentLedger(w).claims||[]).some(function(c){
+    if(c&&c.p&&c.p.uid===sh.uid&&!c.retractedDay){claim=c;return true}
+    return false;
+  });
+  if(!claim)return '';
+  var exit=wwBadgeExitInfo(sh,w),checks=(claim.checks||[]).slice().sort(function(a,b){return (Number(a.day)||0)-(Number(b.day)||0)});
+  var pending=wwBadgeLatestPlan(sh,w),goods=wwBadgeLivingClaimGoods(sh,claim,w);
+  var flowRows=wwBadgeFlowPlanRows(w).filter(function(x){return x.p&&x.p.uid===sh.uid});
+  var flow=flowRows.length?flowRows[flowRows.length-1]:null;
+  var L=['【出局狼预·警徽时间卡（只有你知道；你不是真预言家）】',
+    '· '+exit.text,
+    '· 你是狼人，没有任何真实验人结果。下面列出的“查验”都只是你此前公开发言里已经编出的假结果。',
+    '· 已经公开说过的假查验：'+(checks.length?checks.slice(-6).map(function(x){
+      return '第 '+(Number(x.day)||'?')+' 天报 '+x.seq+'号='+x.result;
+    }).join('；'):'还没有')+'。'];
+  if(pending){
+    var pendingTarget=wwPlayerByUidTarget(w,pending.seq);
+    var missed=exit.phase==='day'&&Number(pending.day)===Number(exit.day);
+    L.push('· 最近公开的验人计划：第 '+pending.day+' 天说“'+
+      (pendingTarget?wwTag(pendingTarget):pending.seq+'号')+'”（'+pending.ref+'）。'+
+      (missed?'你在同一个白天已经先出局，这一夜没有发生，所以该目标绝对没有被验。'
+        :(exit.phase==='night'?'你是在夜间结算后出局，该计划窗口可能已经过去；但你是狼预，仍然没有真实验人结果，把徽交给该目标只能是在传递一个假结果或做局。'
+          :'无法确认该计划是否发生；不得把它当成已验结果。')));
+  }else{
+    L.push('· 没有找到当前轮明确尚未完成的“今晚验X”计划；仍只能使用上面已经公开说过的假结果。');
+  }
+  if(flow&&flow.branches&&flow.branches.length){
+    L.push('· 最近公开警徽流：'+wwClipSpeech(flow.row&&flow.row.text||'',220,90));
+  }
+  L.push('【伪装交徽建议】'+(goods.length
+    ?('若你仍想维持真预伪装，优先交给你已经公开报过、且仍存活的假金水 '+wwTag(goods[0].p)+'。')
+    :'你没有已经公开报过且仍存活的假金水；若仍想维持真预伪装，优先撕徽，或交给此前明确表示信任的人。')+
+    '不能把“今晚准备验X”中的X当成已验对象。'+
+    '如果你明知X没验，仍故意把徽交给X做局，就把它当成主动诈术：这会制造X与你的关系，也可能诱导真验人验X；不要在内部写成“我验过X”。'+
+    '这张卡只用于你自己的判断，不能公开发言或向其他玩家提及。');
+  return L.join('\n');
+}
 function wwBadgeLatestPrivateCheck(sh){
   if(!sh)return null;
   if(sh.role==='medium'){
@@ -35490,10 +35603,15 @@ function wwBadgeDecisionData(sh,w){
     hasAnyPlan:wwBadgeFlowPlanRows(w).some(function(x){return x.p&&x.p.uid===sh.uid})};
 }
 function wwBadgeDecisionCardText(sh,w){
+  if(sh&&wwIsWolf(sh)){
+    var wolfClaimCard=wwBadgeWolfClaimCardText(sh,w);
+    if(wolfClaimCard)return wolfClaimCard;
+  }
   var d=wwBadgeDecisionData(sh,w);
   if(!d)return '';
   var role=sh.role==='seer'?(d.latest.isWolf?'狼人':'好人'):(WW_ROLE_NAME[d.latest.role]||d.latest.role||'未知');
   var L=['【出局警长·警徽决策卡（程序按你的私有记录整理）】',
+    '· '+wwBadgeExitInfo(sh,w).text,
     '· 最新私有查验：第 '+(Number(d.latest.day)||Number(w.day)||1)+' 夜，'+
       (d.target?wwTag(d.target):'已出局玩家')+' = '+role+(d.target&&d.target.alive?'（仍存活）':'（已出局）')+'。'];
   if(d.plan){
@@ -36693,7 +36811,7 @@ function wwPublicMechanicRiskText(w){
         :('只报了【'+x.result+'】这样的模糊好身份');
       out.push('· '+wwTag(c.p)+'公开声称验 '+wwTag(target)+'，'+roleNote+
         '。这只能说明目标“看起来像”该职业；学过同一职业的机械狼也会显示成它，不能据此写成 '+wwTag(target)+'的阵营已经验证。'+
-        (target.alive?'单边高可信验人位把警徽交给'+wwTag(target)+'时，仍按强认可和“高概率金水”处理；机械狼例外可以保留，但不能把接徽本身当成提高狼面的理由。只有她拿这条金水自称绝对身份、行为又与公开事实冲突时，才继续核对机械狼风险。':'该目标已出局，仍需保留她可能是机械狼的世界线。'));
+        (target.alive?'接徽是否支持“金水”必须看时间：只有传徽者已经公开报过 '+wwTag(target)+' 为好人，或夜里完成当夜查验后才交徽，才可作为较强线索；白天先出局、'+wwTag(target)+' 仍只是计划验位时，不能按金水处理。机械狼例外可以保留，也不能把接徽本身当成提高狼面的理由。':'该目标已出局，仍需保留她可能是机械狼的世界线。'));
     });
   });
   if(!out.length)return '';
@@ -37939,6 +38057,35 @@ function wwBadgeEndorsementInfo(w){
   });
   return hit;
 }
+function wwBadgeHandoffStrength(giver,recipient,w){
+  if(!giver||!recipient||!w)return {level:'unknown',text:'无法确认这次交徽的时间关系。'};
+  var exit=wwBadgeExitInfo(giver,w),seq=Number(recipient.seq)||0;
+  var claim=null;
+  (wwSeerCommitmentLedger(w).claims||[]).some(function(c){
+    if(c&&c.p&&c.p.uid===giver.uid&&!c.retractedDay){claim=c;return true}
+    return false;
+  });
+  var claimedGood=!!(claim&&(claim.checks||[]).some(function(x){
+    return Number(x.seq)===seq&&wwBadgeClaimGood(x.result);
+  }));
+  var planned=wwBadgeLatestPlan(giver,w),plannedMatch=!!(planned&&Number(planned.seq)===seq);
+  if(claimedGood)return {
+    level:'strong',
+    text:wwTag(giver)+'此前已经公开报过 '+wwTag(recipient)+' 为好人；本次交徽与已完成查验一致，可以作为较强的信任线索，但仍不是主持人翻牌。'
+  };
+  if(exit.phase==='night'&&plannedMatch)return {
+    level:'medium',
+    text:wwTag(giver)+'是在夜间结算后出局，且 '+wwTag(recipient)+' 是此前公开计划的当夜查验目标；交徽可提高“她可能在传递当夜结果”的可能，但仍不能写成已经翻牌。'
+  };
+  if(exit.phase==='day'&&plannedMatch)return {
+    level:'weak',
+    text:wwTag(giver)+'在同一个白天先出局，计划当夜验 '+wwTag(recipient)+' 的事没有发生；'+wwTag(recipient)+'仍是未验对象，不能按金水处理。这会首先降低 '+wwTag(giver)+' 的真验人面。'
+  };
+  return {
+    level:'weak',
+    text:wwTag(giver)+'没有已经完成、且指向 '+wwTag(recipient)+' 的公开好人结果；这次交徽只能按战术信任或做局理解，不能直接当作验人结果。'
+  };
+}
 function wwPublicReasoningBaselineText(w){
   if(!w)return '';
   var L=['【证据等级与推理红线（程序核对）】',
@@ -37974,9 +38121,11 @@ function wwPublicReasoningBaselineText(w){
   if(be){
     var giver=wwPlayerByUidTarget(w,be.giver),recipient=wwPlayerByUidTarget(w,be.recipient);
     if(giver&&recipient){
-      var strong=active.length===1&&Number(active[0].p.seq)===Number(giver.seq);
+      var handStrength=wwBadgeHandoffStrength(giver,recipient,w);
+      var strong=active.length===1&&Number(active[0].p.seq)===Number(giver.seq)&&handStrength.level==='strong';
       L.push('· 警徽由 '+wwTag(giver)+' 交给 '+wwTag(recipient)+'（第 '+be.day+' 天）。'+
-        (strong?'这是单边未退水验人位对 '+wwTag(recipient)+' 的强烈认可，应把 '+wwTag(recipient)+' 按“高概率金水”处理；':'这只是死者对 '+wwTag(recipient)+' 的认可，强度取决于死者本身有多可信；')+
+        handStrength.text+' '+
+        (strong?'这可以作为较强好人线索；':'不能把接徽本身当成验人结果；')+
         (wwBoard(w.count,w).mechanicwolf?'唯一例外仍是：她可能是学过好人身份的机械狼。':'身份声明未翻牌，仍不能写成百分之百验证。')+
         '接徽者没有义务解释自己为什么被选中，也不需要替死者说明警徽流；接徽本身不是 '+wwTag(recipient)+' 的狼点。');
     }
@@ -39222,7 +39371,7 @@ function wwReasoningDisciplineText(){
     '【夜刀与举证责任】狼刀、空刀、刀谁属于狼队夜间行动。普通好人只能推测，没有义务解释狼队为什么选择某个刀口。“建议改验2号”和“2号当夜被刀”只是两个独立事实，不能自动推出该玩家提前知道刀口、与狼共边，或必须为2号死亡负责。可以问她“为什么判断2号更像好人、为什么更想验3号”，不能问“2号为什么死，你解释”。被问者回答“2号是狼队刀的，我不知道狼队理由；我判断2号偏好的理由如下”属于有效回答，不算回避。只有出现可核验硬冲突，例如她声称掌握本不该知道的刀口、技能或时间线矛盾，或明确承诺与实际行动正面冲突时，才能把夜死和她联系起来；“像提前知道”只能算弱猜测，不能作为定票主证据。'+
     '【验人与夜死不冲突不是验证】公开报验结果与夜死不冲突，只说明这条世界线暂时不能被排除，不是支持验人者真实的新证据。例如“1号报2号是村民，2号当夜被刀”，不能写成“验人跟夜死对得上，所以1号更像真的”。死者不能替验人结果自证，仍要独立核对验人者的夜数、时间线、后续查验和票型。'+
     '【追问先查因果与举证义务】AI 不能因为有人提问就默认问题有效。若问题要求普通好人解释狼队夜间动机，却没有任何可核验冲突，应把该追问标为无效，不能记成“未回答”或狼点。被问者明确说明“这不是我的举证范围”并解释自己的原判断后，应按已回答处理；追问者若继续复读无效前提，应降为逻辑质量或带节奏线索，不能靠多人复读把它变成多份独立证据。'+
-    '【警徽接收者的身份含义】接单边、高可信验人位交来的警徽，首先应理解为传徽者在强烈支持接徽者，接徽者按高概率金水处理；机械狼板只额外保留“她可能是机械狼”的例外。接徽者不等于继承了最后一夜私有查验：她不知道死者验了谁、结果是什么是正常的。接徽者没有义务解释自己为什么被选中，也不需要替传徽者解释警徽流；只能评价传徽者为什么这样交，不能把接徽或没有解释本身当狼点。'+
+    '【警徽接收者的身份含义】接徽不是默认金水。先核对时间：传徽者白天先出局时，当夜准备验的人还没有结果；只有传徽者在夜里完成当夜查验后交徽，或此前已经公开报过接徽者为好人，接徽才可提高为较强线索。白天先出局却把徽交给未验目标，主要降低传徽者的真验人面，不能反过来直接把接徽者判成狼。接徽者不等于继承了最后一夜私有查验：她不知道死者验了谁、结果是什么是正常的。接徽者没有义务解释自己为什么被选中，也不需要替传徽者解释警徽流；只能评价传徽者为什么这样交，不能把接徽或没有解释本身当狼点。'+
     '【未翻牌出局不是已知身份】死亡或放逐通常只公布“谁出局”，除非主持人、技能结果或明确翻牌给出了身份，否则 6号是狼、7号是狼、11号是狼都只能写“判断为狼/狼面高”，不能写成已知事实。用“已出局三狼”去计算剩余狼坑时，必须标明这是当前判断，不能把推测直接当人头账。'+
     '单个报验结果仍可能是编的，验人线完整、警徽流工整不能证明每一次查验都为真；但“单边验人位是否成立”和“这一条验人结果是否可核”要分开。若本轮发言完整结束后仍只有一名活跃验人位、无人对跳，默认按真验人位处理，不因“她也可能是机械通灵”这种纯理论可能就推翻；只有正面硬矛盾才降级。'+
     '通灵师第一次警上不报确切身份可以理解，但对手已经报了更具体的身份后，第二次仍拒绝用确切身份回应，就是强烈不做好的行为。若目标是平民，直接报平民没有暴露活神的风险；若目标是神，真通灵报出确切身份还能当场揭穿对方。目标已经死亡后，继续以“保护神职”为由拒绝公开，收益更低，狼面更高。'+
@@ -39869,6 +40018,8 @@ function wwSysFor(p,task){
     var nml=(p.check||[]).filter(function(c){return c.kind==='nightmare'});
     if(nml.length)dyn.push('你释放过的梦魇（按夜晚）：\n'+nml.map(function(c){var t=wwPlayerByUid(c.uid);return '第 '+(c.day||'?')+' 夜：'+(t?wwName(t):'?')}).join('\n'));
   }
+  var wolfDawnDyn=wwWolfNightResultText(p,w);
+  if(wolfDawnDyn)dyn.push(wolfDawnDyn);
   var fearHistory=wwFearHistoryText(p,w);
   if(fearHistory)dyn.push(fearHistory);
   if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))dyn.push('【本夜恐惧状态】第 '+w.day+' 夜你被梦魇恐惧，这一夜技能不能发动；如果紧接这个白天出局，猎人枪也不能开。它只影响第 '+w.day+' 夜，不是持续状态。');
@@ -39916,7 +40067,7 @@ function wwSysFor(p,task){
     '有警长的局里，真预言家/真通灵师必须上警；“躲刀、先观察、不抢徽”都不是警下起跳的合理理由。其他人看到验人位没上警、警下才跳，可以正常把它列为高优先狼点。'+
     '可以对尚未轮到发言的人施压或试探，但要用假设句；不能把对方尚未作出的身份声明和验人结果当成事实。'+
     '警徽流可以传递验人信息。公开时标准简写是“警徽流开A、B、C，先验A因为……”，所有人默认知道好坏分支规则，不需要逐条念；首置位没信息时可以明确说按位置或随手顺验。内部执行默认是A好让A接徽，A狼时交给已知金水或撕徽。不能把还没验的Y当作“可信接徽人”；若采用次验位代接，必须明确说明Y尚未验证、只是下一验位，不能暗示Y是金水。她死后实际接徽人要和生前报的顺验及分支对照；如果接徽人对得上“A好”，说明她在传A为好；如果接徽人对应“A狼”分支，说明她在传A为狼。再结合她是否真预、遗言和票型判断。疑似狼的警长X号给Y号警徽，不代表Y一定是狼。'+
-    '若X当前是高可信的单边验人位，把徽给Y应视为X对Y的强烈认可，Y按高概率金水处理；机械狼板只保留Y可能是机械狼的例外。接徽者不需要解释为什么拿到徽，也不需要替X解释警徽流，接徽本身不是Y的狼点。');
+    '若X把徽给Y，先看X的出局时间：X在白天先出局时，当夜准备验Y的计划没有发生，Y仍是未验对象；只有X夜里完成当夜查验后交徽，或此前已公开报过Y是好人，交徽才可提高为较强线索，但仍不是翻牌。接徽者不需要解释为什么拿到徽，也不需要替X解释警徽流，接徽本身不是Y的狼点。');
   if(wwSheriffOn())L.push('【警徽移交线索（不是翻牌证明）】被多数暂认真预的警长倒牌并把警徽交给Y时，默认优先按“她最后一夜验出的好人或最信任好人”复核，这是较强线索，不是已经验证。'+
     '不能只因Y曾质疑过她或没等到公开报验就投Y；但如果Y的查验数量、夜数、公开交接分支或后续技能结果出现正面硬矛盾，就必须降级复核。'+
     (wwBoard(w.count,w).mechanicwolf?' 机械狼板里，即使你认定x号是真通灵师，x号出局后警徽流传达“y号是金水”，也要继续思考y号是机械狼的可能性，不能写成已经验证；这只是警徽流信息。':''));
@@ -39943,7 +40094,8 @@ function wwSysFor(p,task){
     ?(wwBoardHasAwakenedGuard(w)
       ?'【夜死 · 觉醒守护 · 遗言】觉醒守卫的保护能挡狼刀、毒药、放逐和觉醒骑士决斗，且不能连续两天守同一人。若已确认上一夜守了X，本夜X不能再被连守；但平安夜本身不能单独证明守了谁。'
       :'【夜死 · 盾毒 · 遗言】守卫只挡狼刀，不挡女巫毒；被守住的人仍可能被毒死。夜里只死一人时，要同时保留“女巫毒死A且狼刀被守卫挡下”和“狼刀杀死A且女巫没开毒”两种世界线。禁止用“守卫不挡毒”反驳第一种：这句话只能反驳“守卫替中毒者挡下了毒”，不能反驳“毒杀对象与狼刀对象是两个人”。')
-    :'【夜死 · 毒药 · 遗言】本板没有守卫，不存在守卫挡刀、连守、双盾或同守同救。讨论夜死时只能按本板实际存在的狼刀、女巫毒药和遗言信息判断，不要套用守卫公式。')+
+    :('【夜死 · 毒药 · 遗言】本板没有守卫，不存在守卫挡刀、连守、双盾或同守同救。讨论夜死时只能按本板实际存在的狼刀、女巫毒药和遗言信息判断，不要套用守卫公式。'+
+      (wwBoard(w.count,w).dancer?'本板有舞者：舞池本身会按阵营结算出局，舞者本人在池时还会让三人免疫狼刀；两者是不同效果。一个验人目标死亡只说明这次查验暂时缺少活人作证，不能单独证明报验者真假。':'')))+
     '夜死和遗言都是未经翻牌的自述，不是主持人事实；自称女巫、死在夜里、两药未用都不能单独证明真女巫。机械狼学过女巫也会被验成女巫，通灵结果“女巫”不能排除机械狼。'+
     '普通狼与机械狼互不相认：不得把某个公开配合者当已知队友，也不得因机械狼被普通狼抗推就判程序泄露；只能按公开发言、票型和行为推断。');
   L.push('【发言比较】比较两人相似措辞时必须同时看怀疑对象、实际票向、是否反水狼金水及前后行为，不能只凭文字接近就认定立场相同。'+
@@ -39958,8 +40110,8 @@ function wwSysFor(p,task){
     '金水只证明预言家声称的验人结果，不要求金水与预言家同票；金水在没有明确承诺跟票时独立投别人，不能证明预言家是假预，也不能证明金水是狼。'+
     (wwBoardHasGuard(w)?(wwBoardHasAwakenedGuard(w)?'觉醒守卫早期可能为躲刀而投疑似狼预、空守或自守，这本身不是硬矛盾；后来单边跳出具体神职、无对跳且守人结果没有正面冲突时，早先的泛投票可用“当时藏身份”解释。':'守卫等神职早期可能为躲刀而投疑似狼预或刻意示弱，这本身不是硬矛盾；后来单边跳出具体神职、无对跳且技能结果没有正面冲突时，早先的泛投票可用“当时藏身份”解释，不能反复拿旧票型要求重开。'):'本板没有守卫；不要把“早期藏守卫身份”或“守卫守人路线”当成任何人的辩护或狼点。'));
   L.push('【跳预判断】多名跳预者时保留 1～2 条世界线。报出查验、按原计划报验或警徽流完整只说明发言自洽，不能证明真预；真预可临时改验，狼也能背完整假验。'+
-    '但临时改验必须公开说明原计划、新目标和原因。没有解释的改验会削弱信息连贯性，不自动判狼，也不能反过来当成新的验人依据。'+
-    '死亡不证明假预，存活或“唯一还活着的跳预者”也不证明真预。首夜已发生的查验不能被后来的“今晚验X”倒推成故意撞车；对跳时首夜验人理由、上线时点和两名跳预者谁先谁后都不参与比较。可以盘每条查验自身的目标相对位置和结果风险，但必须同时核对双方公开发言是否正面解释、回应问题和与公开事实一致。'+
+    '但临时改验最好公开说明原计划、新目标和原因。判断改验前，先看她上次计划之后有没有出现新的公开事件，例如警徽交接、新死讯、身份结果或票型变化；由这些新事实触发的改验属于正常侦查。确实没有新增事实又没有解释的改验，才只降低信息连贯性，不自动判狼，也不能反过来当成新的验人依据。'+
+    '死亡不证明假预，存活或“唯一还活着的跳预者”也不证明真预。查验目标死亡只说明该次结果暂时缺少活人作证，既不能提高也不能降低验人者身份面。首夜已发生的查验不能被后来的“今晚验X”倒推成故意撞车；对跳时首夜验人理由、上线时点和两名跳预者谁先谁后都不参与比较。可以盘每条查验自身的目标相对位置和结果风险，但必须同时核对双方公开发言是否正面解释、回应问题和与公开事实一致。'+
     '真预把多名对跳者都当狼、狼考虑好人代跳，都是正常视野，不能只凭“太满”判身份。可信守墓人证明其为好时落到真预；'+
     '程序列的漏报、双线金水、自踩金水只作核对线索，不是身份结论。'+(wwSheriffOn()?'警徽处理也只核对是否交接，不证明真预。':''));
   if(!wwIsWolf(p))L.push('【反深水狼】多人重复同一理由不是独立证据。投已经必出的狼队友只算低价值好人面；早先帮狼拿警徽、送真预等污点，不会因后来投几个已必出的狼自动洗白。'+
@@ -40477,14 +40629,18 @@ function wwUserWolfDirectiveText(w){
 }
 function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length;
-  var board=wwBoard(w.count,w),claimName=board.medium?'通灵师':'预言家',hasGuard=wwBoardHasGuard(w),awakenedGuard=!!board.awakenedguard;
+  var board=wwBoard(w.count,w),claimName=board.medium?'通灵师':'预言家',hasGuard=wwBoardHasGuard(w),awakenedGuard=!!board.awakenedguard,hasDancer=!!board.dancer;
   if(board.medium)seers=seers.concat(wwLivingPublicMediumClaims(w));
   var boardGods=wwBoardRoleNames(w).filter(function(x){return ['预言家','通灵师','女巫','守卫','觉醒守卫','猎人','骑士','觉醒骑士','守墓人','白痴'].indexOf(x)>=0});
+  if(hasDancer&&boardGods.indexOf('舞者')<0)boardGods.push('舞者');
   var guardPlan=hasGuard
     ?(awakenedGuard
       ?'本板有觉醒守卫，可自守；保护能挡狼刀、毒、放逐和觉醒骑士决斗，且不能连续两天守同一人。公开守人记录若可信：上一夜被守的X今夜不能再守X，若刀X就能直接屠民/屠神，应优先执行终局刀；攻击公开守卫前必须考虑她是否能自守。'
       :'本板有守卫，但开局不等于知道守卫是谁。只有一名公开通灵/预言且守卫未死、守口不明时，她通常是最可能被守的位置；若刀她只能验证守卫、不能封住关键查验，默认优先考虑外置刀口或做假刀，不能只因“她是最大威胁”就硬撞盾。只有下一验可能直接锁定核心狼、追回轮次，且守卫不易守住她时，才提高刀口优先级。')
-    :'本板没有守卫，不能盘守卫守人、连守、撞盾或双盾。判断平安夜和刀口时，只使用本板实际存在的机制：女巫解药、狼队空刀/收刀，以及本局实际存在的其他技能。';
+    :'本板没有守卫，不能盘守卫守人、连守、撞盾或双盾。判断平安夜和刀口时，只使用本板实际存在的机制：女巫解药、舞者舞池免疫、狼队空刀/收刀，以及本局实际存在的其他技能。';
+  var dancerPlan=hasDancer
+    ?'【舞者保护风险】本板有舞者。舞者只有在本人也进入舞池时，舞池三人才当夜免疫狼刀；她没进池时舞池不提供狼刀免疫。刀疑似预言家或其他关键好人前，必须比较：她是否可能被舞者放进舞池、舞者是否可能把本人也放进池、舞者是否还存活且未用过本局入池资格。目标没死不等于女巫解药，也可能撞上舞池免疫。不要默认“刀预言家必中”。'
+    :'';
   var publicGuardTarget=awakenedGuard?wwPublicAwakenedGuardTargetHint(w):0;
   var guardMatrix=publicGuardTarget
     ?('\n【公开守卫线】有人公开声称最近守过 '+publicGuardTarget+'号。若这条守人线可信，觉醒守卫不能连续两晚守同一人，本夜刀 '+publicGuardTarget+'号是必须优先比较的终局刀；先核对她是否已出局、是否有女巫解药或其他保护，再决定。')
@@ -40493,18 +40649,52 @@ function wwWolfNightPlanHint(p){
     ?(awakenedGuard
       ?'【觉醒守卫与回刀】觉醒守卫可以自守，不能连续两天守同一人。若公开记录或可靠信息确认上一夜守了X，则X今夜不能继续被守卫保护；只要没有女巫药，刀X就是确定的死亡路线。若X出局会直接屠民或屠神，必须优先选择X，而不是攻击可能自守的守卫。平安夜本身不能单独证明守了谁。'
       :'【平安夜与回刀】平安夜不等于守卫守住。首夜守卫通常空守；狼刀X却平安时，主线通常先考虑女巫解药救X，也可能是狼队空刀或收刀，少数才是守卫盲守X。若X是女巫，她不能自救、首夜守卫又通常空守，所以她恰好是女巫属于小概率，不应写成正常主世界线。若X首夜是被女巫解药救下，第二夜女巫不能再救，但守卫仍可能改守X；若X首夜是被守卫守住，第二夜才不能连守。狼队无法仅凭平安夜判断到底是哪一种，所以不能写成“X今夜一定没人能守”或“回刀几乎必中”。只有当独立事实已经确认上一夜确实是守卫守住了X，才可以用“守卫不能连守”决定下一夜优先回刀；仅凭平安夜不能推出守卫已经用掉对X的保护。即使回刀，也要把守卫改守风险写进判断。')
-    :'【平安夜判断】本板没有守卫。狼刀X后出现平安夜，只能优先考虑女巫首夜解药，或狼队空刀、收刀等实际发生的情况；不要再提守卫挡刀、守卫连守或守卫改守。若女巫解药已经确认使用，第二夜狼刀通常能直接命中，但仍要按存活神职和轮次计算。';
+    :(hasDancer
+      ?'【平安夜与舞池免疫】本板没有守卫。狼刀X后X仍存活时，至少同时比较女巫解药、舞者本人进入舞池带来的狼刀免疫、狼队空刀/收刀，以及本局其他真实存在的保护。若同一夜另有Y出局，Y也可能死于舞池结算或毒药，不能把Y的死因和X的验人真假强行绑定。目标没死不等于“唯一是女巫”，也不能因为刀了疑似预言家就认定一定命中。'
+      :'【平安夜判断】本板没有守卫。狼刀X后X仍存活时，比较女巫解药、狼队空刀/收刀和本局其他真实存在的保护；不要提守卫挡刀、守卫连守或守卫改守。不能写成“唯一只能是女巫”。');
   var base='【自刀/刀队友检查】'+
     (seers.length?('场上仍有 '+seers.map(wwTag).join('、')+' 以'+claimName+'身份活动。'):('当前没有明确的活跃'+claimName+'。'))+
     '自刀不能只为了“证明悍跳位是真的”，还要保留能继续吃票、继续对抗真预的抗推位。选择自己或队友前，判断里必须明确写出：为什么她已没有抗位价值、自刀能换来什么具体票型、狼队还能承受少一人。'+
     '前几天若其他狼还能打、且仍有人可以抗推真预，优先保留跳预狼；否则改刀好人，把恐惧和刀人用在不同的有效目标上。当前存活普通小狼：'+packAlive+'只（只统计普通小狼，不含机械狼）。'+
-    guardPlan+
+    guardPlan+dancerPlan+
     '刀前先判断她明天的新信息有没有真威胁：若她公开要验的是一个已自称神职、又高度可能由机械狼伪装的表面身份，验了未必能锁到小狼；若她当前的公开结论正在替狼队带错票，威胁更低，不能只按“通灵师/预言家”身份就急着刀。'+
     '每夜先做一次“胜负短路”：本板神职只有 '+boardGods.join('、')+'。若公开死亡信息和高可信身份线已经足以判断除一个神职外其余神职全部出局，直接刀最后这个神职就可能完成屠神，要按本板实际胜负规则计算，不要套用本板不存在的猎人、骑士或守卫反制。只有不能直接完成屠边时，才继续比较技能反制、做局和普通刀口收益。'+
     nightPeacePlan+
     '若刀口收益只是杀一个没验到核心狼的通灵，先比较其他刀路。';
   var god=wwPublicGodGapText(w,p),sig=wwWolfLastVoteKnifeHint(p,w),cmd=wwUserWolfDirectiveText(w);
   return base+guardMatrix+(cmd?'\n'+cmd:'')+(god?'\n'+god:'')+(sig?'\n'+sig:'');
+}
+function wwWolfKnowsNightKnife(p,w){
+  if(!p||!w)return false;
+  if(wwIsPackWolf(p)||p&&p.role==='nightmare')return true;
+  return !!((w.wolfPicks||[]).some(function(x){return x&&x.uid===p.uid}));
+}
+/* 天亮后只告诉真正参与本夜刀口的狼：它们本来就知道的事和可解释结果的机制，
+   不把真舞者池、女巫药况等隐藏信息直接泄露给狼 AI。 */
+function wwWolfNightResultText(p,w){
+  if(!p||!w||!wwWolfKnowsNightKnife(p,w)||!w.nightDone||w.pendingDeaths)return '';
+  var n=w.night||{},target=n.wolf;
+  if(!target||n.spared||n.nokill)return '';
+  var board=wwBoard(w.count,w),lines=[
+    '【狼队天亮结果卡（仅狼队知道）】',
+    '· 你们昨夜刀的是 '+wwName(target)+'。'+(target.alive?'她天亮后仍存活。':'她天亮后已经出局。')
+  ];
+  if(target.alive){
+    var aliveCauses=['女巫解药'];
+    if(board.dancer)aliveCauses.push('舞者本人进入舞池后，舞池三人免疫狼刀');
+    if(board.guard)aliveCauses.push('守卫保护');
+    if(board.awakenedguard)aliveCauses.push('觉醒守护');
+    lines.push('· 刀口没死时，候选机制包括：'+aliveCauses.join('、')+'。不能只写女巫解药，也不能写成狼队空刀。');
+  }else{
+    lines.push('· 公开只报“谁出局”，不会告诉你们这个死刑到底来自狼刀、舞池结算、毒药还是其他机制；不要把自己的刀口当成唯一死因。');
+  }
+  var otherDeaths=((n.deaths||[]).filter(function(x){return x&&x!==target})||[]).map(wwName);
+  if(otherDeaths.length){
+    lines.push('· 同一夜另有 '+otherDeaths.join('、')+' 出局；这些死亡可能来自舞池结算、毒药或其他夜间机制，不能直接拿来判断某条预言家线的真假。');
+  }
+  if(board.dancer)
+    lines.push('· 舞池本身会按面具后的阵营结算；只有舞者本人也在池时，场内三人才额外免疫狼刀。两件事必须分开理解。');
+  return lines.join('\n');
 }
 /* 【改·省调用】一只狼夜里一次搞定三件事：想刀谁、为什么这样刀、给队友留一句悄悄话。
    以前分多次请求，现在合成一次，狼多的时候能省请求。
@@ -41449,8 +41639,9 @@ async function wwVoteAI(p,pool){
   if(badgeAudit)goodHint+='\n'+badgeAudit;
   var badgeEndorsement=wwBadgeEndorsementInfo(w);
   if(badgeEndorsement)goodHint+='\n【警徽支持规则】'+wwTag(wwPlayerByUidTarget(w,badgeEndorsement.giver))+' 把徽交给 '+
-    wwTag(wwPlayerByUidTarget(w,badgeEndorsement.recipient))+'。如果传徽者是高可信的单边验人位，接徽者应按高概率金水处理；'+
-    (wwBoard(w.count,w).mechanicwolf?'只额外保留“接徽者是机械狼”的例外。':'这是很强的好人线索，但仍非主持人翻牌。')+
+    wwTag(wwPlayerByUidTarget(w,badgeEndorsement.recipient))+'。'+
+    wwBadgeHandoffStrength(wwPlayerByUidTarget(w,badgeEndorsement.giver),wwPlayerByUidTarget(w,badgeEndorsement.recipient),w).text+' '+
+    (wwBoard(w.count,w).mechanicwolf?'仍需额外保留“接徽者是机械狼”的例外。':'即使与已完成查验一致，也只是强线索，仍非主持人翻牌。')+
     ' 接徽者没有义务解释为什么是她，也不需要替传徽者解释警徽流；不能把接徽或接徽后不解释本身当成狼点。';
   var endRisk=wwEndgameRiskText(w);
   if(endRisk)goodHint+='\n'+endRisk;
@@ -42047,7 +42238,7 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
     '被通灵师发查验的玩家是否亮身份，要看亮明身份能否帮助好人分辨真通灵、是否会额外暴露仍有夜间价值的关键神职；不能把“没有亮身份”机械判狼。'+
     '同一目标同时有人报精确职业、有人只报模糊金水时，目标认下精确职业只会直接增强精确查验线；模糊金水最多得到“不冲突”的弱支持。不得把“认村民”写成给只报金水的假通灵兜底、抬轿或增加可信度。'+
     '机械狼首夜可以学习并立即知道目标身份。但若原来的竞争跳验人位已经正式退水，当前只剩一名继续报验者，且其精确查验又被目标本人认证，机械狼学人只能作为极低概率的极限世界线，不能写成与正常真通灵五五开。'+
-    '机械狼板里必须区分“真通灵师”和“金水阵营”：通灵师验到的是表面职业，因此“某人是真通灵师”和“她的金水是机械狼”可以同时成立。若单边、高可信验人位把警徽交给Y，应主要理解为她在强烈认可Y，Y按高概率金水评价；机械狼板只额外保留Y可能是机械狼的例外。警徽不把最后一夜查验结果自动传给Y，也不能把Y没有解释为什么接徽写成狼点或失误。'+
+    '机械狼板里必须区分“真通灵师”和“金水阵营”：通灵师验到的是表面职业，因此“某人是真通灵师”和“她的金水是机械狼”可以同时成立。评价警徽时必须先看时间和公开查验：传徽者白天先出局时，当夜准备验Y的计划没有发生，Y仍是未验对象；只有传徽者夜里完成当夜查验后交徽，或此前已经公开报过Y为好人，才可把接徽视为较强支持。接徽者仍可能是机械狼。警徽不把最后一夜查验结果自动传给Y，也不能把Y没有解释为什么接徽写成狼点或失误。'+
     '全板只有一只机械狼。机械守卫、机械女巫、机械通灵师是同一条机械狼学习不同身份后的不同表面职业，不是多只狼；一条主世界线或反世界线只能指定一个机械狼落点。'+
     '不得把“警徽实际交给不在分支里的人”直接写成被验者必狼；先核对原接徽人是否死亡、是否有临时改验、转交可信好人或做局。'+
     '评价好人骗狼时，不得把已经公开结算的诱饵台词当成最终身份声明或前后矛盾硬证据。必须记录诱饵想骗谁、目标如何反应、何时退出、假身份是否作废、后续票向和夜间行动；也要保留狼事后用“我在演”脱身的可能。'+
@@ -42063,7 +42254,7 @@ function wwJudgePrompt(src,result,appeal,priorJudge){
     '【无效追问不是证据】若某次抗推建立在“某一普通好人必须解释别人为什么被狼刀”这类无效问题上，重复追问的人再多也不会变成多份证据。裁判应评价是谁提出了错误因果、谁拒绝修正、谁利用它转移焦点；被追问者说明这不是自己的举证范围并解释原判断，不能写成“拒绝回答”或“最惨失误”。'+
     '【真人误抗推归因】如果真人已经站对边、点对狼坑、给出合理投票或技能建议，并解释过自己的票向和判断，最终仍因其他玩家断章取义、重复无效追问或集体误判被票出，裁判不能把出局本身写成真人的失误。最惨失误必须落在她本人可核验的错误行为上；别人没听、曲解原话或把关联当因果，应写成好人阵营的共同误判，不能反过来责怪真人。'+
     '【票型事实核对】复盘时必须分别核对警长票和放逐票。把某人的发言计划、怀疑对象当成实际投票，或把“支持X当警长、当天又投X出局”直接写成硬矛盾，都是裁判错误。指出别人误述票型时，要区分“她说错了某票”和“她本人实际投了某票”。'+
-    '【警徽与未翻牌身份】单边、高可信验人位把警徽交给Y，是传徽者对Y的强烈认可，Y按高概率金水评价；机械狼板只保留Y可能是机械狼的例外。接警徽的人不会自动获得死者最后一夜的私有查验结果，也没有义务解释自己为什么被选中或替传徽者解释警徽流；除非本局规则或主持人明确传递，不能因为接徽者报不出最后一验或拒绝解释接徽原因就判她狼。未翻牌出局者也只按“判断为狼/狼面高”评价，不能写成已知身份去计算剩余狼数。'+
+    '【警徽与未翻牌身份】接警徽不等于验人结果。若传徽者白天先出局，当夜说“准备验Y”并没有发生，把徽交给Y会先损害传徽者自己的真验人面，不能把Y按高概率金水评价；若传徽者夜里完成当夜查验后交徽，或此前已公开报过Y为好人，才可把交徽视为较强支持，但仍不等于主持人翻牌。接警徽的人不会自动获得死者最后一夜的私有查验结果，也没有义务解释自己为什么被选中或替传徽者解释警徽流；除非本局规则或主持人明确传递，不能因为接徽者报不出最后一验或拒绝解释接徽原因就判她狼。未翻牌出局者也只按“判断为狼/狼面高”评价，不能写成已知身份去计算剩余狼数。'+
     '最佳操作、MVP 和赌局转折要落在可核对的原话、票型、技能结果上；最惨失误必须说明它怎样实际改变票局或胜负。合理的可能性、普通口语转述、警上只说“后置位”而未指定身份、没有翻牌的自称，都不能单独列为失误。');
   L.push('【对跳查验判断】两名验人位硬对跳后，双方声称“我验了对手，所以对手是狼/机械通灵”并不能区分真假：真验人位和悍跳狼都能给出这套说法，结果本身没有公开验证力。评价验人线应看她们对非对跳者的查验是否准确、目标是否确认、结果是否精确、时间线是否成立，以及是否把宝贵查验机会放在能产生新信息的外置位。'+
     '在退水环节结束后，仍存在的对跳者中，一个对跳者一般不会去验另一个不退水的对跳者；他们应该都将对方视为悍跳狼，而不是声称自己会去验对方。起跳者死亡后不等于退水，也不等于放弃身份。如果查验发生在对方起跳前、尚未获得改计划机会，则不能反过来当事后狼点。对方正式退水并作废身份后，也不再是活跃对跳目标。'+
@@ -45200,11 +45391,14 @@ async function wwOrderAI(sh,alive){
 /* 一个 AI 警长决定警徽交给谁 / 撕毁 */
 async function wwBadgeAI(sh,pool,strictUid){
   var task='你（警长）出局了，要处理警徽：可以把警徽交给场上一个还活着的人（交给谁，等于把你手上的信息托付给她），也可以直接把警徽撕掉（谁都不给）。\n'+
+    '先看下方时间卡：白天已经出局时，当天说的“今晚准备验X”还没有发生；计划验位不是已验对象。夜里已经结算后出局，才可能带着当夜结果交徽。\n'+
     '如果你竞选或发言时报过警徽流，优先按自己报的分支交徽。常见做法是：验到好人，让被验者接徽；验到狼，交给已知金水或可信好人，没有就撕徽。别人会按“实际接徽人对应哪一支”来理解你最后的验人信息，不能随口交给相反的人。\n'+
     '可选的人：'+pool.map(wwName).join('、')+
     '\n【输出格式】第一行写「移交」或「撕毁」；如果写移交，第二行再写那个人的编号或名字（例如「3号」）。';
   var card=wwBadgeDecisionCardText(sh,V.ww);
   if(card)task+='\n'+card;
+  if(wwIsWolf(sh))
+    task+='\n【狼预交徽判断】在目标行之后补一行“判断：……”，明确你是在沿用已公开的假金水、按公开分支伪装，还是明知目标未验仍主动做局。不能把计划验位写成已经验过。';
   if(strictUid){
     var preferred=wwPlayerByUid(strictUid);
     if(preferred&&pool.some(function(x){return x.uid===strictUid})){
