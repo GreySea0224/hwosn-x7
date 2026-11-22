@@ -16313,6 +16313,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-11-22 · 机械狼协作与指刀】
+机械狼通灵师板里，普通狼现在会收到机械狼完整协作规则：机械狼学习后立即知道目标号码和真实身份；学守卫会知道真正守卫是谁，并获得一次性机械盾，学女巫会知道真正女巫是谁并获得一次性毒药，学通灵师会知道真正通灵师是谁，学普通狼会知道该小狼并可在首次接刀夜双刀。普通狼仍不能直接知道机械狼是谁，但会结合公开精确身份、本人身份声明、已知狼队友的假验线整理高优先机械狼候选；首夜无信息误刀可以保留，形成高可信候选后夜间提示会明确避免继续刀她。仍存活的高可信机械狼最近一天偏离主票的投票会作为条件式指刀线索，若她是机械守卫且公开神职盘只剩守卫未明，会把“击杀该票目标后直接屠神获胜”列为最高优先级。狼人白天开口前还会收到私密刀口边界卡，不能把只有狼队知道的真实刀口无意识地说成公开事实。
+
 【最近更新 · 2026-11-21 · 狼人杀夜间结果与警徽时间线】
 舞者假面板的狼刀目标没有死亡时，AI会同时比较女巫解药、舞者本人入池造成的狼刀免疫和本板其他真实保护，不再写成“唯一是女巫”。狼人白天会收到只给自己看的天亮结果卡：自己刀了谁、目标是否存活、同一夜其他人的死亡可能是舞池结算或毒药；不会向狼泄露真实舞池或女巫私密状态。原“接徽默认高概率金水”的口径已被覆盖：必须先看传徽者出局时间；白天先出局时，她说“今晚验X”尚未发生，X仍是未验对象，交徽不能当验人结果。狼人假预言家交徽时会看到自己的已完成假验、公开假警徽流和尚未发生的验人计划；若故意把徽交给未验对象做局，会记为主动诈术，不再误以为自己已经验过。验人目标死亡只降低信息可核验性，不提高或降低验人者真假；上一次计划之后出现警徽交接、新死讯等新事件时，据此改验属于正常侦查。
 
@@ -33860,7 +33863,9 @@ function wwFactsFor(p){
       '\n· 你是 '+wwNum(p)+p.name+'。'+
       (w.players.some(function(x){return x.role==='gargoyle'})?'本局另有一只石像鬼，但普通狼不知道她是谁。':'')+
       (w.players.some(function(x){return x.role==='maskwolf'})?'本局另有一个假面，但普通狼不知道她是谁，也可能在夜里误刀她；三只普通狼全部出局后，假面会接刀。':'')+
-      (w.players.some(function(x){return x.role==='mechanicwolf'})?'本局另有一只机械狼，但普通狼不知道她是谁，也可能在夜里误刀她。不知道身份不等于不能推断：先排除已知小狼队友，再看谁的行为最符合机械狼。若某名非小狼队友拿走另一个非小狼死者的神职身份，随后又与可信通灵的查验身份发生碰撞，应把她列为机械狼高优先候选，不能只当好人乱跳。也不能把某个公开配合者当已知队友，或把机械狼被普通狼抗推当成视角泄露；若有人公开钓守卫，可以独立判断是否接力假跳守卫，但不能假定对方一定与你同盟。':''));
+      (w.players.some(function(x){return x.role==='mechanicwolf'})?wwMechanicWolfRulesText():''));
+    var mechMateCard=wwMechanicMateInferenceText(p,w);
+    if(mechMateCard)L.push(mechMateCard);
     if(p.role==='wolfbeauty'){
       var beautyTarget=wwWolfBeautyCurrentTarget(w);
       L.push('【狼美人魅惑（只有你知道，勿公开）】当前魅惑目标：'+(beautyTarget?wwName(beautyTarget):'尚未选择')+'。'+
@@ -40020,6 +40025,8 @@ function wwSysFor(p,task){
   }
   var wolfDawnDyn=wwWolfNightResultText(p,w);
   if(wolfDawnDyn)dyn.push(wolfDawnDyn);
+  var wolfPublicKnifeDyn=wwWolfPublicKnifeBoundaryText(p,w);
+  if(wolfPublicKnifeDyn)dyn.push(wolfPublicKnifeDyn);
   var fearHistory=wwFearHistoryText(p,w);
   if(fearHistory)dyn.push(fearHistory);
   if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))dyn.push('【本夜恐惧状态】第 '+w.day+' 夜你被梦魇恐惧，这一夜技能不能发动；如果紧接这个白天出局，猎人枪也不能开。它只影响第 '+w.day+' 夜，不是持续状态。');
@@ -40530,11 +40537,13 @@ function wwWolfDoomedClaimHint(p,w){
     '也不要说“我是好人代跳”后就结束，身份必须具体。机械狼首夜学会女巫只是极低概率的极限世界线；当前另一名竞争者已经退水、验人又被目标核对为发对时，不要把它当成正常主世界线。';
 }
 function wwWolfLastVoteKnifeHint(p,w){
-  if(!w||!p||!wwIsWolf(p)||w.board!=='gravegargoyle')return '';
-  var rows=wwVoteHistoryRows(w),last={},cand=[];
+  if(!w||!p||!wwIsWolf(p))return '';
+  var rows=wwVoteHistoryRows(w),last={},cand=[],known={};
+  known[p.uid]=1;
+  wwWolfMates(p).forEach(function(q){if(q)known[q.uid]=1});
   rows.forEach(function(r){last[r.voter]=r});
   (w.players||[]).forEach(function(q){
-    if(!q||q.alive||q.killedBy!=='vote')return;
+    if(!q||q.alive||q.killedBy!=='vote'||!known[q.uid])return;
     var r=last[q.seq];if(!r)return;
     var tp=null;(w.players||[]).forEach(function(x){if(x&&Number(x.seq)===Number(r.target))tp=x});
     if(!tp||!tp.alive)return;
@@ -40545,10 +40554,10 @@ function wwWolfLastVoteKnifeHint(p,w){
   });
   if(!cand.length)return '';
   cand.sort(function(a,b){return b.day-a.day});
-  return '【出局玩家最后一票 · 疑似指刀】\n'+cand.slice(0,3).map(function(x){
+  return '【出局狼队友最后一票 · 疑似指刀】\n'+cand.slice(0,3).map(function(x){
     return '· 第 '+x.day+' 天：'+wwTag(x.from)+'最后一票投 '+wwTag(x.to)+'，与当天票数最多的 '+x.top+'号不同，且'+wwTag(x.to)+'仍活着。';
   }).join('\n')+
-  '\n被票出的队友或疑似大狼如果救不了自己，最后一票突然点向非主目标，可能是在用票指刀。它不是硬命令，可能只是抗议或乱票；但今夜必须把该目标列入刀人比较，尤其她像尚未找出的神、杀掉后能完成屠边时。';
+  '\n被票出的狼队友如果救不了自己，最后一票突然点向非主目标，可能是在用票指刀。它不是硬命令，可能只是抗议或乱票；但今夜必须把该目标列入刀人比较，尤其她像尚未找出的神、杀掉后能完成屠边时。';
 }
 function wwUserWolfDirectiveRows(w){
   var me=(w&&w.players||[]).filter(function(p){return p&&p.isUser})[0]||null;
@@ -40627,6 +40636,120 @@ function wwUserWolfDirectiveText(w){
     (wwWolfUserPreferenceText(w)?('\n'+wwWolfUserPreferenceText(w)):''));
   return L.join('\n');
 }
+function wwMechanicWolfRulesText(){
+  return '本局另有一只机械狼。普通狼开局不知道她是谁，机械狼也不认识普通狼，所以首夜误刀不算开天眼。'+
+    '机械狼整局只能学习一名存活玩家一次；学习后立即知道目标的座位号和真实身份，并会以该身份出现在通灵师查验里。'+
+    '学守卫：知道真正守卫是谁，并获得一次性机械盾，可守自己或别人，能挡狼刀和毒药，不能挡枪；用过后不再有盾。'+
+    '学女巫：知道真正女巫是谁，并获得一次性毒药，没有解药。'+
+    '学通灵师：知道真正通灵师是谁，之后可以查验表面身份。'+
+    '学普通狼：知道那名普通狼是谁，首次接刀夜可以双刀。三只普通狼全灭后，机械狼接刀。';
+}
+function wwPublicRoleResultKey(result){
+  var s=String(result||'').trim();
+  if(!s||/查杀|狼人|机械狼/.test(s))return '';
+  var keys=Object.keys(WW_ROLE_NAME||{});
+  for(var i=0;i<keys.length;i++)if(WW_ROLE_NAME[keys[i]]===s)return keys[i];
+  return '';
+}
+/* 只把公开发言和票型拼成候选，不读取 mechanicalwolf 的真实身份。 */
+function wwMechanicMateInferenceData(p,w){
+  w=w||V.ww;
+  var board=w&&wwBoard(w.count,w);
+  if(!p||!w||!wwIsWolf(p)||!board||!board.mechanicwolf)
+    return {candidates:[],knownMedium:[]};
+  var known={};known[p.uid]=1;
+  wwWolfMates(p).forEach(function(q){if(q)known[q.uid]=1});
+  var rows=wwPublicEventRows(w),selfRoles={};
+  rows.forEach(function(r){
+    if(!r||!r.p)return;
+    var rr=wwClaimIdentityRoles(r.text,r.p.seq);
+    if(!rr.length)return;
+    selfRoles[r.p.uid]=selfRoles[r.p.uid]||[];
+    rr.forEach(function(role){if(selfRoles[r.p.uid].indexOf(role)<0)selfRoles[r.p.uid].push(role)});
+  });
+  var claims=(wwSeerCommitmentLedger(w).claims||[]),knownMedium=[],byUid={};
+  claims.forEach(function(c){
+    if(!c||!c.p)return;
+    if(known[c.p.uid]&&!knownMedium.some(function(q){return q.uid===c.p.uid}))knownMedium.push(c.p);
+  });
+  claims.forEach(function(c){
+    if(!c||!c.p||known[c.p.uid])return;
+    (c.checks||[]).forEach(function(x){
+      var roleKey=wwPublicRoleResultKey(x.result),target=wwPlayerByUidTarget(w,Number(x.seq));
+      if(!roleKey||!target||!target.alive||target.uid===p.uid||known[target.uid])return;
+      var targetRoles=selfRoles[target.uid]||[],conflicts=targetRoles.filter(function(role){return role!==roleKey});
+      if(!conflicts.length)return;
+      var score=3+Math.min(2,conflicts.length);
+      if(roleKey==='guard'&&targetRoles.indexOf('witch')>=0)score+=3;
+      if(roleKey==='witch'&&targetRoles.indexOf('guard')>=0)score+=3;
+      if(knownMedium.length)score+=1;
+      var reason=wwTag(c.p)+'公开精确报 '+wwTag(target)+'＝'+(WW_ROLE_NAME[roleKey]||roleKey)+
+        '；'+wwTag(target)+'本人却公开自称'+targetRoles.map(function(role){return WW_ROLE_NAME[role]||role}).join('、')+'。';
+      var hit=byUid[target.uid];
+      if(!hit)byUid[target.uid]={p:target,score:score,evidenceRole:roleKey,evidenceDay:Number(x.day)||0,reasons:[reason]};
+      else{
+        hit.score=Math.max(hit.score,score);
+        if(reason&&hit.reasons.indexOf(reason)<0)hit.reasons.push(reason);
+        if(score>=hit.score){hit.evidenceRole=roleKey;hit.evidenceDay=Number(x.day)||0}
+      }
+    });
+  });
+  var candidates=Object.keys(byUid).map(function(k){return byUid[k]});
+  candidates.sort(function(a,b){return b.score-a.score});
+  candidates.forEach(function(x){x.level=x.score>=6?'high':'medium'});
+  return {candidates:candidates,knownMedium:knownMedium};
+}
+function wwMechanicMateInferenceText(p,w){
+  var board=w&&wwBoard(w.count,w);
+  if(!p||!w||!wwIsWolf(p)||!board||!board.mechanicwolf)return '';
+  var d=wwMechanicMateInferenceData(p,w),L=['【机械狼协作卡（只给你看，不读取真实身份）】',wwMechanicWolfRulesText()];
+  if(d.knownMedium.length)
+    L.push('· 你的已知狼队友 '+d.knownMedium.map(wwTag).join('、')+' 公开自称过通灵师；这条身份线必然是假的。不要因为它也是“通灵师”就忽略另一条更完整的公开验人结果。');
+  if(d.candidates.length){
+    d.candidates.slice(0,3).forEach(function(x){
+      L.push('· '+(x.level==='high'?'高优先':'可能')+'机械狼候选 '+wwTag(x.p)+'：'+x.reasons.join(' ')+
+        '如果她学过'+ (WW_ROLE_NAME[x.evidenceRole]||x.evidenceRole)+'，就会立即知道真正该身份玩家的号码。'+
+        (x.level==='high'?'她已经不能再按普通好人或普通刀口处理；后续夜间不要优先刀她。':'这只是候选，仍要比较其他身份线。'));
+    });
+  }else{
+    L.push('· 当前没有足够公开证据锁定机械狼。首夜误刀机械狼是允许的，但出现精确身份碰撞后必须重新判断，不能一直把她当外置好人。');
+  }
+  return L.join('\n');
+}
+function wwMechanicMatePointerText(p,w){
+  var data=wwMechanicMateInferenceData(p,w),votes=wwVoteHistoryRows(w),known={};
+  if(!data||!data.candidates.length)return '';
+  known[p.uid]=1;wwWolfMates(p).forEach(function(q){if(q)known[q.uid]=1});
+  var L=[];
+  data.candidates.forEach(function(c){
+    var last=null;
+    votes.forEach(function(v){if(v.voter===Number(c.p.seq)&&(!last||v.day>last.day))last=v});
+    if(!last)return;
+    var target=wwPlayerByUidTarget(w,Number(last.target));
+    if(!target||!target.alive||known[target.uid]||target.uid===c.p.uid)return;
+    var counts={},top=0,topSeq=0;
+    votes.filter(function(v){return v.day===last.day}).forEach(function(v){counts[v.target]=(counts[v.target]||0)+1});
+    Object.keys(counts).forEach(function(k){if(counts[k]>top){top=counts[k];topSeq=Number(k)}});
+    if(Number(last.target)===topSeq)return;
+    var line='· '+wwTag(c.p)+' 第 '+last.day+' 天实际投 '+wwTag(target)+'，偏离当天主票 '+topSeq+
+      '号。若 '+wwTag(c.p)+' 是机械狼候选，这一票应作为只给狼队的指刀线索，而不是普通乱票。';
+    if(c.evidenceRole==='guard')
+      line+='她若学的是守卫，则明确知道真正守卫是 '+wwTag(target)+'；这比“机械狼只能猜好人”强得多。';
+    var d=wwPublicGodGapData(w),open=(d&&d.never)||[],otherAlive=[];
+    Object.keys((d&&d.claimed)||{}).forEach(function(role){
+      if(!role||role===open[0])return;
+      if(((d.claimed[role]&&d.claimed[role].players)||[]).some(function(q){
+        return q&&q.alive&&q.uid!==c.p.uid&&!known[q.uid];
+      }))otherAlive.push(role);
+    });
+    if(c.evidenceRole==='guard'&&open.length===1&&open[0]==='guard'&&!otherAlive.length)
+      line+=' 公开神职盘里只剩守卫未明；若杀 '+wwTag(target)+' 后神职清零，这一刀就是直接屠神获胜，应列为最高优先级。';
+    L.push(line);
+  });
+  if(!L.length)return '';
+  return '【存活机械狼·票型指刀（条件链）】\n'+L.join('\n')+
+    '\n· 这不是主持人翻牌，但在“该候选确为机械狼”的世界线成立后，机械狼知道对应身份号码，偏票具有明确信息价值。';
+}
 function wwWolfNightPlanHint(p){
   var w=V.ww,seers=wwLivingPublicSeerClaims(w),packAlive=wwAlive().filter(wwIsPackWolf).length;
   var board=wwBoard(w.count,w),claimName=board.medium?'通灵师':'预言家',hasGuard=wwBoardHasGuard(w),awakenedGuard=!!board.awakenedguard,hasDancer=!!board.dancer;
@@ -40662,7 +40785,14 @@ function wwWolfNightPlanHint(p){
     nightPeacePlan+
     '若刀口收益只是杀一个没验到核心狼的通灵，先比较其他刀路。';
   var god=wwPublicGodGapText(w,p),sig=wwWolfLastVoteKnifeHint(p,w),cmd=wwUserWolfDirectiveText(w);
-  return base+guardMatrix+(cmd?'\n'+cmd:'')+(god?'\n'+god:'')+(sig?'\n'+sig:'');
+  var mechData=wwMechanicMateInferenceData(p,w);
+  var mechHigh=(mechData.candidates||[]).filter(function(x){return x.level==='high'});
+  var mechLead=mechHigh.length
+    ?('\n【机械狼队友保护】'+mechHigh.map(function(x){return wwTag(x.p)}).join('、')+
+      ' 已形成高优先机械狼候选。后续夜间不要再优先刀她们；先沿公开神职和她们的票型找外部刀口。首夜无信息误刀可以保留，但已经出现身份碰撞后继续刀，是狼队自损。')
+    :'';
+  var mechPointer=wwMechanicMatePointerText(p,w);
+  return base+guardMatrix+mechLead+(mechPointer?'\n'+mechPointer:'')+(cmd?'\n'+cmd:'')+(god?'\n'+god:'')+(sig?'\n'+sig:'');
 }
 function wwWolfKnowsNightKnife(p,w){
   if(!p||!w)return false;
@@ -40695,6 +40825,16 @@ function wwWolfNightResultText(p,w){
   if(board.dancer)
     lines.push('· 舞池本身会按面具后的阵营结算；只有舞者本人也在池时，场内三人才额外免疫狼刀。两件事必须分开理解。');
   return lines.join('\n');
+}
+function wwWolfPublicKnifeBoundaryText(p,w){
+  if(!p||!w||w.phase!=='day'||!wwWolfKnowsNightKnife(p,w))return '';
+  var n=w.night||{},target=n.wolf;
+  if(!target)return '';
+  var publicResult=target.alive?'场上只看到平安夜，不知道这刀落在谁身上。':'场上只看到 '+wwTag(target)+' 出局，不知道死因是狼刀、毒药还是其他机制。';
+  return '【狼人公开信息防火墙（只给你看）】你私下知道昨夜狼队刀的是 '+wwTag(target)+'。'+publicResult+
+    '除非有可靠公开来源，否则不能在发言里直接断言“'+wwTag(target)+'是被刀的”；这会把狼队夜间知识说漏。'+
+    '如果机械狼队友声称“我毒了'+wwTag(target)+'”或其他人声称用药，可以评价“死亡结果与毒口是否对得上”，但不能无意中用真实刀口替她作证。'+
+    '只有你明确决定主动暴露狼队信息、做自爆式发言时，才可以直接说出真实刀口。';
 }
 /* 【改·省调用】一只狼夜里一次搞定三件事：想刀谁、为什么这样刀、给队友留一句悄悄话。
    以前分多次请求，现在合成一次，狼多的时候能省请求。
