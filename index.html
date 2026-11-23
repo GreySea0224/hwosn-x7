@@ -16314,7 +16314,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
 【最近更新 · 2026-11-23 · AI 小狼自爆】
-普通小狼 AI 在自己进行警上竞选发言或白天普通发言前，会先看一眼只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定要不要使用自爆工具。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
+普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 
 【最近更新 · 2026-11-23 · 警长票刷新与赛后投票思路】
 狼人杀警长票前会显示最终刷新卡：核对所有候选的发言顺序、验人、警徽流和最后一个候选人的新增强神声明，明确“首个跳预位”不等于“首置位”，不能因先报查杀或警徽流完整就沿用早先倾向。被查杀者在第一次回应时直接报具体强神属于正常表水，不要求先逐句挑刺或硬编对方漏洞；舞者公开假舞池、防止假面预判属于正常博弈，公开技能计划和真实夜间行动不同本身不是承诺违约。预言家选验人前会看到女巫公开毒口和其他人的验人建议，毒口与验人目标重合时会提示公开传递价值低。AI引用别人时必须保留“可能、如果、也许、世界线”等条件，不能把可能说成认定。游戏结束后，结算页和已完成历史战绩新增「查看投票思路」，按警长票和每天放逐票列出每名 AI 的目标、世界线、判断和可选详细思考；局内不显示，其他 AI 也读不到。
@@ -16681,7 +16681,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=175;  /* 175：普通小狼 AI 可在白天发言前决定自爆 */
+const GUIDE_VER=176;  /* 176：普通小狼 AI 的发言与自爆判断合并为一次请求 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -38981,7 +38981,7 @@ function wwWolfDailySeerReminder(p,w){
     (planned?('你上一轮公开说要验 '+wwTag(planned)+'；优先按这个计划写，确有改验、被恐或其他规则内情况时再如实说明。'):'上一轮没有可沿用的明确验人计划，就自己选择本轮目标。')+
     '这只是发言前提醒，不需要复述规则。';
 }
-async function wwGuardSpeechCompleteness(p,sys,out){
+async function wwGuardSpeechCompleteness(p,sys,out,allowSelfBoom){
   out=wwStripInternalSpeechLeak(out);
   if(!wwSpeechLooksCut(out))return out;
   var last=out;
@@ -38993,6 +38993,9 @@ async function wwGuardSpeechCompleteness(p,sys,out){
         (pass?'如果内容太多，就缩短为三到六句，只保留身份、核心判断和票向。':'')+
         '上一版：'+String(last||'').slice(0,900);
       var fixed=String(await wwCall(sys,ask,wwSayMax(),pass?.55:.62)||'').trim();
+      var sb=wwAiSelfBoomTakeMarker(p,fixed,!!allowSelfBoom);
+      if(sb.boom)return '';
+      fixed=sb.text;
       fixed=wwTakeTitle(p,fixed);
       fixed=wwTakeIdentityBoard(p,fixed).text;
       var sp=wwSplitDraft(fixed);fixed=wwStripLead(sp.say||fixed);
@@ -39006,18 +39009,26 @@ async function wwGuardSpeechCompleteness(p,sys,out){
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
-async function wwSpeak(p,sys,resay){
+async function wwSpeak(p,sys,resay,allowSelfBoom){
   wwMarkSpeechStart(p);
   if(p)p._lastSayTitle='';
   var resayPrompt=wwResayCorrectionText(resay,'发言');
   if(resayPrompt)sys=String(sys||'')+'\n\n'+resayPrompt;
+  allowSelfBoom=!!(allowSelfBoom&&wwAiSelfBoomEligible(p,V.ww));
+  if(allowSelfBoom)sys=String(sys||'')+wwAiSelfBoomSpeechRule(p);
   var raw=String(await wwCall(sys,(resayPrompt?'请按重说要求重新发言。':'请发言。'),wwSayMax(),.9)||'').trim();
   if(V.ww&&V.ww.awakenedKnightInterrupt)return '';
+  var sb=wwAiSelfBoomTakeMarker(p,raw,allowSelfBoom);
+  if(sb.boom)return '';
+  raw=sb.text;
   var searchQ=wwParseSourceQuery(raw);
   if(searchQ){
     var hits=wwSearchPublicRaw(V.ww,searchQ);
     raw=String(await wwCall(sys,'你请求核对旧原文：'+searchQ+'\n\n'+hits+
       '\n\n请根据上面的完整原文重新完成原任务。必须结合原文判断，不要再输出【查原文】，也不要再凭记忆说对方没解释。',wwSayMax(),.9)||'').trim();
+    sb=wwAiSelfBoomTakeMarker(p,raw,allowSelfBoom);
+    if(sb.boom)return '';
+    raw=sb.text;
   }
   raw=wwTakeTitle(p,raw);
   var ib=wwTakeIdentityBoard(p,raw);
@@ -39025,7 +39036,10 @@ async function wwSpeak(p,sys,resay){
   var sp=wwSplitDraft(raw);
   if(!sp.say&&!sp.draft){
     /* 接口回了空：再要一次，别让角色当场哑掉 */
-    raw=wwTakeTitle(p,String(await wwCall(sys,'请直接说你要说的话。',wwSayMax(),.9)||'').trim());
+    raw=String(await wwCall(sys,'请直接说你要说的话。',wwSayMax(),.9)||'').trim();
+    sb=wwAiSelfBoomTakeMarker(p,raw,allowSelfBoom);
+    if(sb.boom)return '';
+    raw=wwTakeTitle(p,sb.text);
     ib=wwTakeIdentityBoard(p,raw);
     raw=ib.text;
     sp=wwSplitDraft(raw);
@@ -39045,7 +39059,7 @@ async function wwSpeak(p,sys,resay){
   if(sp.draft)p.scratch=sp.draft;
   var out=wwStripInternalSpeechLeak(wwStripLead(sp.say||('（'+wwTag(p)+' 这轮没发言）')));
   if(p&&!p.isUser)out=await wwGuardStyleOnlyAccusationSpeech(p,sys,out);
-  if(p&&!p.isUser)out=await wwGuardSpeechCompleteness(p,sys,out);
+  if(p&&!p.isUser)out=await wwGuardSpeechCompleteness(p,sys,out,allowSelfBoom);
   if(p&&!p.isUser)out=wwStripInternalSpeechLeak(out);
   if(p&&!p.isUser&&wwPublicStructureLeak(out)){
     var structureOnly=wwStructureSpeechOnly(out);
@@ -41580,7 +41594,7 @@ async function wwSpeech(p,resay){
       '狼坑不必凑满，但不能只给“再听、都可以、先看看”。可以补充条件票和还缺哪一项信息，但条件票不能代替当前结论；'+
       '也可以报自己的身份、替人辩护、或者反驳别人对你的怀疑。别写成长篇点评，几句真心话就够。'+
       '同一核心理由前面已经有人完整说过时，只补充新证据或明确表示认同，不要换一批词重复一遍。提到别人时带上编号。');
-  return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)),resay);
+  return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)),resay,true);
 }
 /* 平票 PK：再发一次言，替自己辩解 / 指出别人是狼 */
 async function wwSpeechPK(p,pk){
@@ -45398,38 +45412,36 @@ function wwAiSelfBoomEligible(p,w){
   if(w.over||w.phase!=='day'||wwDayCut()||w.inPK||w.voteMode)return false;
   return true;
 }
-async function wwAiSelfBoomDecide(p){
-  var task='【只给自己看的工具：普通小狼自爆决定】现在轮到你白天开口。你可以调用一次“自爆工具”：由你当场翻牌出局，立即结束今天剩余发言与投票，直接进入黑夜；自爆不会额外带人。'+
-    '\n先看下面由你私有视角提供的狼队夜间频道、当前公开发言、票向压力和队友处境，再决定是否使用。'+
-    '\n判断标准：'+
-    '\n1. 如果夜间频道里有真人队长或狼队多数明确要求你现在自爆，优先执行；已经约定时机且条件满足，也不要因为想再演一轮就拒绝。'+
-    '\n2. 只有存在具体即时收益才自爆：你已经是主要抗推目标、继续发言也很难救回，自爆能截断好人整理票型；或者白狼王、狼美人、悍跳位等关键队友马上被顺出，你自爆能打断这一轮、保住更大的狼队价值。'+
-    '\n3. 如果当前风向仍站在你或狼队这边、你指的人更可能被票出、你的悍跳线还能维持，或者自爆只是让狼队少一人而没有实际止损，就选择不自爆。'+
-    '\n4. “想换节奏、想帮抽象的队友、觉得早晚要死”都不是充分理由；不要因为情绪或随便试工具而自爆。'+
-    '\n5. 自爆是你自己的公开行动，不需要写公开发言，也不要假装已经替别人做了决定。'+
-    '\n【输出格式】第一行只写：【自爆工具】不自爆 或 【自爆工具】自爆。第二行写“【理由】”加一句只有你自己看的短理由。';
-  var txt=String(await wwCall(wwSysFor(p,task),'请调用或放弃自爆工具，只按规定格式回答。',100,.75)||'');
-  var lines=String(txt||'').split(/\n+/).map(function(x){return String(x||'').trim()}).filter(Boolean);
-  var first=lines[0]||'';
-  var m=first.match(/^【?\s*自爆工具\s*】?\s*[：:]?\s*(不自爆|自爆)/);
-  var boom=!!(m&&m[1]==='自爆');
-  var reason='';
-  lines.some(function(x){
-    var r=x.match(/^【?\s*理由\s*】?\s*[：:]?\s*(.+)$/);
-    if(r&&r[1]){reason=String(r[1]).trim();return true}
-    return false;
-  });
-  return {boom:boom,reason:reason.slice(0,600)||String((WW_LAST&&WW_LAST.reason)||'').slice(0,600)};
+function wwAiSelfBoomSpeechRule(p){
+  if(!wwAiSelfBoomEligible(p,V.ww))return '';
+  return '\n\n【本次发言同时完成小狼自爆判断】你不是在额外做一次选择，而是在心里决定“这次开口要不要直接自爆”，然后一次性输出结果。'+
+    '\n· 如果夜间频道里有真人队长或狼队多数明确要求你现在自爆，优先执行；已经约定时机且条件满足，也不要因为想再演一轮就拒绝。'+
+    '\n· 只有存在具体即时收益才自爆：你已经是主要抗推目标、继续发言也很难救回，自爆能截断好人整理票型；或者白狼王、狼美人、狼王、悍跳位等关键队友马上被顺出，你自爆能打断这一轮、保住更大的狼队价值。'+
+    '\n· 如果当前风向仍站在你或狼队这边、你指的人更可能被票出、你的悍跳线还能维持，或者自爆只是让狼队少一人而没有实际止损，就继续正常发言。'+
+    '\n· “想换节奏、想帮抽象的队友、觉得早晚要死”都不是充分理由；不要为了试动作而自爆。'+
+    '\n· 这行判断只给自己看，绝不能写进公开发言。'+
+    '\n【输出格式】第一行只写【小狼行动】不自爆，然后立刻按原本要求写标题、身份盘、草稿纸和公开发言。'+
+    '如果决定自爆，整次输出只写第一行【小狼行动】自爆，不要写任何公开话；程序会立即让你翻牌出局、结束白天并进入黑夜。自爆不会额外带人。';
 }
-async function wwAiSelfBoomTry(gen,p){
-  var w=V.ww;
-  if(!wwAiSelfBoomEligible(p,w))return false;
-  w.msg='「'+wwTag(p)+'」正在思考发言…';render(true);
-  var d=await wwAiSelfBoomDecide(p);
-  if(wwStaleG(gen))return false;
-  if(!d||!d.boom||!wwAiSelfBoomEligible(p,w))return false;
-  w.teamSelfBoomPending={uid:p.uid,carryUid:'',reason:d.reason||''};
-  return await wwTeamSelfBoomExecute();
+function wwAiSelfBoomTakeMarker(p,raw,allow){
+  var text=String(raw||'');
+  if(!allow||!wwAiSelfBoomEligible(p,V.ww))return {text:text,boom:false,reason:''};
+  var lines=text.split(/\n/),kept=[],found=false;
+  for(var i=0;i<lines.length;i++){
+    var line=String(lines[i]||'');
+    var m=line.match(/^\s*【?\s*(?:小狼行动|自爆工具)\s*】?\s*[：:]?\s*(不自爆|自爆)/);
+    if(!found&&m){
+      found=true;
+      if(m[1]==='自爆'){
+        var reason=String((WW_LAST&&WW_LAST.reason)||'').slice(0,600);
+        V.ww.teamSelfBoomPending={uid:p.uid,carryUid:'',reason:reason};
+        return {text:'',boom:true,reason:reason};
+      }
+      continue;
+    }
+    kept.push(line);
+  }
+  return {text:kept.join('\n').trim(),boom:false,reason:''};
 }
 /* ---------- 【新】警长（上警）：竞选 / 发言顺序 / 警徽 ---------- */
 function wwPoliceUpP(){var w=V.ww;return (w.policeUp||[]).map(function(u){return wwPlayerByUid(u)}).filter(function(p){return !!p})}
@@ -45603,7 +45615,7 @@ async function wwPoliceSpeech(p,resay){
     badgeHint+jumpTimelineHint+jumpCounterHint+seerHint+orderHint+policeShapeHint+
     '如果按本局顺序确实还有人排在你后面，可以施压，但只能假设、不能把顺序当成身份证据，也不能当成已经发生：可说“若后面有人起跳'+claimName+'，我看她的验人和警徽流”。不要预先固定宣称“我不接受未结算代跳”；本板允许代跳时，代跳是否成立看她是否明确作废假验、真验人是否接受，以及有没有实际信息收益。'+
     (others?('其他上警者：'+others+'。'):'')+'提到别人时带编号。';
-  return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)),resay);
+  return await wwSpeak(p,wwSysFor(p,wwSpeakTask(p,base)),resay,true);
 }
 /* 一个 AI 决定要不要退水 */
 async function wwPoliceWater(p){
@@ -45896,11 +45908,10 @@ async function wwElection(resume){
       }else{
         await wwStep('轮到「'+wwTag(q)+'」竞选发言');
         if(wwStaleG(gen))return;
-        if(await wwAiSelfBoomTry(gen,q))return;
-        if(wwStaleG(gen)||wwDayCut())return;
         w.msg='「'+wwTag(q)+'」正在竞选发言…';render(true);
         var ss=await wwPoliceSpeech(q);
         if(wwStaleG(gen)||wwDayCut())return;
+        if(w.teamSelfBoomPending){await wwTeamSelfBoomExecute();return}
         if(!wwPushSay(gen,{k:'say',who:q.uid,text:'【竞选发言】'+ss,think:wwThinkOf(q)}))return;
       }
       if(wwDayCut())return;
@@ -46741,8 +46752,6 @@ async function wwDay(){
     }else{
       await wwStep('轮到「'+wwTag(q)+'」发言');
       if(wwStaleG(gen))return;
-      if(await wwAiSelfBoomTry(gen,q))return;
-      if(wwStaleG(gen)||wwDayCut())return;
       if(wwDayCut()){wwDayCutUI();return;}
       w.msg='「'+wwTag(q)+'」正在发言…';render(true);
       var s=await wwSpeech(q);
