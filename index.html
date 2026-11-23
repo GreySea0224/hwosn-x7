@@ -16308,10 +16308,13 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-11-20 */
+   最后更新：2026-11-23 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
+
+【最近更新 · 2026-11-23 · AI 小狼自爆】
+普通小狼 AI 在自己进行警上竞选发言或白天普通发言前，会先看一眼只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定要不要使用自爆工具。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 
 【最近更新 · 2026-11-23 · 警长票刷新与赛后投票思路】
 狼人杀警长票前会显示最终刷新卡：核对所有候选的发言顺序、验人、警徽流和最后一个候选人的新增强神声明，明确“首个跳预位”不等于“首置位”，不能因先报查杀或警徽流完整就沿用早先倾向。被查杀者在第一次回应时直接报具体强神属于正常表水，不要求先逐句挑刺或硬编对方漏洞；舞者公开假舞池、防止假面预判属于正常博弈，公开技能计划和真实夜间行动不同本身不是承诺违约。预言家选验人前会看到女巫公开毒口和其他人的验人建议，毒口与验人目标重合时会提示公开传递价值低。AI引用别人时必须保留“可能、如果、也许、世界线”等条件，不能把可能说成认定。游戏结束后，结算页和已完成历史战绩新增「查看投票思路」，按警长票和每天放逐票列出每名 AI 的目标、世界线、判断和可选详细思考；局内不显示，其他 AI 也读不到。
@@ -16678,7 +16681,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=174;  /* 174：假面可自查、舞者必须在池才提供狼刀免疫 */
+const GUIDE_VER=175;  /* 175：普通小狼 AI 可在白天发言前决定自爆 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -45372,7 +45375,7 @@ async function wwTeamSelfBoomExecute(){
   w.dayStage='resolved';
   w.speaking=null;
   w.log.push({k:'sys',text:'💥 '+wwTag(p)+'自爆'+(carry?('，带走'+wwTag(carry)):'')+'。白天结束。'});
-  w.rec.push({d:w.day,t:'狼人 '+wwTag(p)+' 自爆'+(carry?('，带走 '+wwTag(carry)):'')});
+  w.rec.push({d:w.day,t:'狼人 '+wwTag(p)+' 自爆'+(carry?('，带走 '+wwTag(carry)):''),tk:String(pending.reason||'').slice(0,1200)});
   w.msg='狼人自爆，白天结束，准备进入黑夜。';
   render(true);
   if(carry){
@@ -45386,6 +45389,47 @@ async function wwTeamSelfBoomExecute(){
   if(gr)try{gr()}catch(e){}
   render(true);
   return true;
+}
+/* 普通小狼 AI 的自爆工具。只在轮到她自己白天发言时询问；
+   机械狼、假面、石像鬼、觉醒狼美人和不能套用普通小狼规则的角色不进入这里。 */
+function wwAiSelfBoomEligible(p,w){
+  w=w||V.ww;
+  if(!w||!p||p.isUser||!p.alive||p.role!=='wolf')return false;
+  if(w.over||w.phase!=='day'||wwDayCut()||w.inPK||w.voteMode)return false;
+  return true;
+}
+async function wwAiSelfBoomDecide(p){
+  var task='【只给自己看的工具：普通小狼自爆决定】现在轮到你白天开口。你可以调用一次“自爆工具”：由你当场翻牌出局，立即结束今天剩余发言与投票，直接进入黑夜；自爆不会额外带人。'+
+    '\n先看下面由你私有视角提供的狼队夜间频道、当前公开发言、票向压力和队友处境，再决定是否使用。'+
+    '\n判断标准：'+
+    '\n1. 如果夜间频道里有真人队长或狼队多数明确要求你现在自爆，优先执行；已经约定时机且条件满足，也不要因为想再演一轮就拒绝。'+
+    '\n2. 只有存在具体即时收益才自爆：你已经是主要抗推目标、继续发言也很难救回，自爆能截断好人整理票型；或者白狼王、狼美人、悍跳位等关键队友马上被顺出，你自爆能打断这一轮、保住更大的狼队价值。'+
+    '\n3. 如果当前风向仍站在你或狼队这边、你指的人更可能被票出、你的悍跳线还能维持，或者自爆只是让狼队少一人而没有实际止损，就选择不自爆。'+
+    '\n4. “想换节奏、想帮抽象的队友、觉得早晚要死”都不是充分理由；不要因为情绪或随便试工具而自爆。'+
+    '\n5. 自爆是你自己的公开行动，不需要写公开发言，也不要假装已经替别人做了决定。'+
+    '\n【输出格式】第一行只写：【自爆工具】不自爆 或 【自爆工具】自爆。第二行写“【理由】”加一句只有你自己看的短理由。';
+  var txt=String(await wwCall(wwSysFor(p,task),'请调用或放弃自爆工具，只按规定格式回答。',100,.75)||'');
+  var lines=String(txt||'').split(/\n+/).map(function(x){return String(x||'').trim()}).filter(Boolean);
+  var first=lines[0]||'';
+  var m=first.match(/^【?\s*自爆工具\s*】?\s*[：:]?\s*(不自爆|自爆)/);
+  var boom=!!(m&&m[1]==='自爆');
+  var reason='';
+  lines.some(function(x){
+    var r=x.match(/^【?\s*理由\s*】?\s*[：:]?\s*(.+)$/);
+    if(r&&r[1]){reason=String(r[1]).trim();return true}
+    return false;
+  });
+  return {boom:boom,reason:reason.slice(0,600)||String((WW_LAST&&WW_LAST.reason)||'').slice(0,600)};
+}
+async function wwAiSelfBoomTry(gen,p){
+  var w=V.ww;
+  if(!wwAiSelfBoomEligible(p,w))return false;
+  w.msg='「'+wwTag(p)+'」正在思考发言…';render(true);
+  var d=await wwAiSelfBoomDecide(p);
+  if(wwStaleG(gen))return false;
+  if(!d||!d.boom||!wwAiSelfBoomEligible(p,w))return false;
+  w.teamSelfBoomPending={uid:p.uid,carryUid:'',reason:d.reason||''};
+  return await wwTeamSelfBoomExecute();
 }
 /* ---------- 【新】警长（上警）：竞选 / 发言顺序 / 警徽 ---------- */
 function wwPoliceUpP(){var w=V.ww;return (w.policeUp||[]).map(function(u){return wwPlayerByUid(u)}).filter(function(p){return !!p})}
@@ -45852,6 +45896,8 @@ async function wwElection(resume){
       }else{
         await wwStep('轮到「'+wwTag(q)+'」竞选发言');
         if(wwStaleG(gen))return;
+        if(await wwAiSelfBoomTry(gen,q))return;
+        if(wwStaleG(gen)||wwDayCut())return;
         w.msg='「'+wwTag(q)+'」正在竞选发言…';render(true);
         var ss=await wwPoliceSpeech(q);
         if(wwStaleG(gen)||wwDayCut())return;
@@ -46695,6 +46741,8 @@ async function wwDay(){
     }else{
       await wwStep('轮到「'+wwTag(q)+'」发言');
       if(wwStaleG(gen))return;
+      if(await wwAiSelfBoomTry(gen,q))return;
+      if(wwStaleG(gen)||wwDayCut())return;
       if(wwDayCut()){wwDayCutUI();return;}
       w.msg='「'+wwTag(q)+'」正在发言…';render(true);
       var s=await wwSpeech(q);
