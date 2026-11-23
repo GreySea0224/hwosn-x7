@@ -16313,6 +16313,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-11-23 · 警长票刷新与赛后投票思路】
+狼人杀警长票前会显示最终刷新卡：核对所有候选的发言顺序、验人、警徽流和最后一个候选人的新增强神声明，明确“首个跳预位”不等于“首置位”，不能因先报查杀或警徽流完整就沿用早先倾向。被查杀者在第一次回应时直接报具体强神属于正常表水，不要求先逐句挑刺或硬编对方漏洞；舞者公开假舞池、防止假面预判属于正常博弈，公开技能计划和真实夜间行动不同本身不是承诺违约。预言家选验人前会看到女巫公开毒口和其他人的验人建议，毒口与验人目标重合时会提示公开传递价值低。AI引用别人时必须保留“可能、如果、也许、世界线”等条件，不能把可能说成认定。游戏结束后，结算页和已完成历史战绩新增「查看投票思路」，按警长票和每天放逐票列出每名 AI 的目标、世界线、判断和可选详细思考；局内不显示，其他 AI 也读不到。
+
 【最近更新 · 2026-11-22 · 机械狼协作与指刀】
 机械狼通灵师板里，普通狼现在会收到机械狼完整协作规则：机械狼学习后立即知道目标号码和真实身份；学守卫会知道真正守卫是谁，并获得一次性机械盾，学女巫会知道真正女巫是谁并获得一次性毒药，学通灵师会知道真正通灵师是谁，学普通狼会知道该小狼并可在首次接刀夜双刀。普通狼仍不能直接知道机械狼是谁，但会结合公开精确身份、本人身份声明、已知狼队友的假验线整理高优先机械狼候选；首夜无信息误刀可以保留，形成高可信候选后夜间提示会明确避免继续刀她。仍存活的高可信机械狼最近一天偏离主票的投票会作为条件式指刀线索，若她是机械守卫且公开神职盘只剩守卫未明，会把“击杀该票目标后直接屠神获胜”列为最高优先级。狼人白天开口前还会收到私密刀口边界卡，不能把只有狼队知道的真实刀口无意识地说成公开事实。
 
@@ -34391,6 +34394,28 @@ function wwStanceFairnessText(w,p){
     '如果两边目前都解释得不完整，允许降低信心并保留两条线，不能为了维持原站边硬找一条只利于自己的解释。'+
     '某个具体质疑已经由本人回答或解释过一次，且没有出现新的相反事实时，就不要再把同一句话换种说法当主票理由；多人复述也仍算同一份。';
 }
+function wwClaimFidelityText(w){
+  if(!w)return '';
+  return '【引用原话与条件保持】反驳别人前，先在完整原话里确认她到底说了什么。'+
+    '原句里的“可能、也许、如果、其中一种、世界线、不排除”必须保留；不能把“可能三人都是好人”改写成“她认定三人全好”，也不能把条件猜测写成肯定结论。'+
+    '如果你只能看到摘要，不能凭摘要里的省略给真人定罪；摘要和完整原话冲突时以完整原话为准。'+
+    '没有具体原句、对象和推理缺口时，只能问清，不能写成“你已经推出”“你认定”“你洗白”。';
+}
+function wwCheckedRoleResponseText(w){
+  if(!w)return '';
+  return '【被查杀后亮神职的回应规则】查杀先发出、目标此前没有当天发言机会时，目标第一次轮到自己就报具体强神，是正常直接表水。'+
+    '不必先逐句挑出报验者的毛病，也不能要求被查杀者为了“拆查杀”硬编一个不存在的逻辑爆点。'+
+    '“没有拆查杀/直接穿神职”只有在你还说得出具体哪条可核验问题未回应时才算疑点。'+
+    '报强神仍只是声明，不能自动铁好；要同时比较是否有人对跳、技能能否被验证、身份声明与夜间结果是否冲突，以及两名跳预者的整条线。'+
+    '尤其舞者被查杀后报舞者、说明毒药免疫和舞池风险，是通常的应对；不要只因为她先报身份就把她按狼。';
+}
+function wwSkillPlanDeceptionText(w){
+  if(!w)return '';
+  var dancer=!!wwBoard(w.count,w).dancer;
+  return '【公开技能计划不等于实际夜间行动】舞者、守卫、女巫等角色可以故意公开假计划骗狼；公开池子、守人口风、毒药计划和真实夜间行动不一致，不能自动当承诺违约。'+
+    (dancer?'舞者故意报假舞池，防止假面按真实池子改阵营，是正常博弈；只有主持人公开了真实池子，或死讯与她的说法在规则上不可能同时成立，才形成具体问题。公开pool变化只能评价“这次是否有防假面的收益”，不能说“对不上就算狼”。':'')+
+    '判断技能声明时，既保留“她在骗狼”的好人线，也保留“她在编身份”的狼线，不能倒过来把公开假计划直接当自证失败。';
+}
 function wwOwnVoteContextText(p,w){
   if(!p||!w)return '';
   var parts=[];
@@ -40107,6 +40132,9 @@ function wwSysFor(p,task){
     '普通狼与机械狼互不相认：不得把某个公开配合者当已知队友，也不得因机械狼被普通狼抗推就判程序泄露；只能按公开发言、票型和行为推断。');
   L.push('【发言比较】比较两人相似措辞时必须同时看怀疑对象、实际票向、是否反水狼金水及前后行为，不能只凭文字接近就认定立场相同。'+
     '被问者尚未获得下一次发言机会时，提问只标“待下次回应”，不能当成本轮未回答或狼点。');
+  L.push(wwClaimFidelityText(w));
+  L.push(wwCheckedRoleResponseText(w));
+  L.push(wwSkillPlanDeceptionText(w));
   L.push('【行为大于言辞】评估立场时，实际投票结果和归票方向的权重高于口头质疑。口头施压预言家但实际投给悍跳狼，不能等同于把票挂在真预、实质站错边；'+
     '但正确票也可能卖队友，仍要结合硬矛盾判断，不能仅凭投过狼就直接洗白。');
   L.push('【聊爆与措辞】两句话能同时成立就是措辞或表达差，不能持续定狼。'+
@@ -41226,10 +41254,41 @@ async function wwMaskWolfKillChoose(maskwolf){
   if(/空刀|不刀|不杀/.test(txt))return null;
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
 }
+function wwSeerNightIntentConflictText(w,pool){
+  if(!w)return '';
+  var rows=wwPublicEventRows(w).filter(function(r){return r&&Number(r.day)===Number(w.day)});
+  var poison=[],verify=[],seenP={},seenV={};
+  function add(list,seen,q,who,text){
+    if(!q||!q.alive||seen[q.uid])return;
+    seen[q.uid]=1;list.push({p:q,who:who,text:text});
+  }
+  rows.forEach(function(r){
+    String(r.text||'').split(/[。！？!?；;\n]+/).forEach(function(c){
+      if(/(?:今晚|今夜|明晚|准备|计划|建议|可以|打算)/.test(c)){
+        var pm=c.match(/(?:毒|开毒|用毒)[^。！？!?；;\n]{0,18}?(\d{1,2})\s*号/);
+        var pv=c.match(/(?:建议|可以|最好|优先|记得)[^。！？!?；;\n]{0,14}?(?:验|查验|摸)\s*(\d{1,2})\s*号/);
+        if(pm)add(poison,seenP,wwPlayerByUidTarget(w,Number(pm[1])),r.p,c.trim());
+        if(pv)add(verify,seenV,wwPlayerByUidTarget(w,Number(pv[1])),r.p,c.trim());
+      }
+    });
+  });
+  if(!poison.length&&!verify.length)return '';
+  var L=['【今晚行动冲突核对（只给你看）】'];
+  if(poison.length)L.push('· 公开毒药计划：'+poison.map(function(x){return wwTag(x.p)+'（'+wwTag(x.who)+'提出）'}).join('、')+'。');
+  if(verify.length)L.push('· 公开验人建议：'+verify.map(function(x){return wwTag(x.p)+'（'+wwTag(x.who)+'建议）'}).join('、')+'。');
+  poison.forEach(function(x){
+    if((pool||[]).some(function(q){return q&&q.uid===x.p.uid}))
+      L.push('· '+wwTag(x.p)+'可能当夜死于毒药。验她即使得到真实结果，也大概率缺少活人作公开证明；除非有特殊理由，优先比较不会当夜死亡、身份仍不明的存活玩家。');
+  });
+  L.push('· 不要求你一定听从公开建议；若你坚持验毒口或否决别人的验人建议，必须比较“私有确认价值”和“第二天可公开传递的信息量”。');
+  return L.join('\n');
+}
 async function wwSeerChoose(seer){
   var w=V.ww,pool=wwAlive().filter(function(p){return p!==seer});
   if(!pool.length)return null;
+  var actionConflict=wwSeerNightIntentConflictText(w,pool);
   var sys=wwSysFor(seer,'今晚你要验一个人，从这些玩家里面选（不能验自己）：'+pool.map(wwName).join('、')+
+    (actionConflict?('\n'+actionConflict):'')+
     '\n【输出格式】只输出你要验的那个人的编号或名字（例如「3号」）。');
   var txt=await wwCall(sys,'请决定今晚验谁。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
@@ -41681,7 +41740,7 @@ function wwVoteHasHardContradiction(w,logic){
 }
 async function wwVoteAI(p,pool){
   var w=V.ww;
-  p.lastVoteLogic='';p.lastVoteWorldline='';
+  p.lastVoteLogic='';p.lastVoteWorldline='';p.lastVoteThink='';
   var job=wwWolfJobOf(p);
   var gread=wwGargoyleRead(p);
   var roleCollision=wwPublicRoleCollisionText(w);
@@ -41805,6 +41864,7 @@ async function wwVoteAI(p,pool){
       ? ('必须说明你是否采信上面的石像鬼推理链；如果投'+wwTag(gread.candidate)+'，要给出足以推翻“给已知狼金水”的硬反证。')
       : '用一句话说明主要证据，不要只写“感觉”。'));
   var txt=await wwCall(sys,'请投票。',100,.8);
+  p.lastVoteThink=String((WW_LAST&&WW_LAST.reason)||'').slice(0,3000);
   var vote=wwReadVoteReply(txt,pool);
   if(vote.logic)p.lastVoteLogic=vote.logic;
   if(vote.worldline)p.lastVoteWorldline=vote.worldline;
@@ -44838,7 +44898,7 @@ async function wwDoVote(voters,targets){
           if(!w.voteMeta||typeof w.voteMeta!=='object')w.voteMeta={};
           var vm=w.voteMeta[String(Number(w.day)||1)]||(w.voteMeta[String(Number(w.day)||1)]={});
           vm[v.uid]={target:t.uid,reason:String(v.lastVoteLogic||'').slice(0,800),
-            worldline:String(v.lastVoteWorldline||'').slice(0,800)};
+            worldline:String(v.lastVoteWorldline||'').slice(0,800),think:String(v.lastVoteThink||'').slice(0,3000)};
         }
         aiLeft--;w.voteLeft=aiLeft;render(true);
       },function(){aiLeft--;w.voteLeft=aiLeft;render(true)});
@@ -44872,7 +44932,7 @@ async function wwDoVote(voters,targets){
       w.votes[uid]=fallback.uid;
       if(!w.voteMeta||typeof w.voteMeta!=='object')w.voteMeta={};
       var vm2=w.voteMeta[String(Number(w.day)||1)]||(w.voteMeta[String(Number(w.day)||1)]={});
-      vm2[uid]={target:fallback.uid,reason:'模型投票回复不可用，程序按公开票向或保底目标补票',worldline:''};
+      vm2[uid]={target:fallback.uid,reason:'模型投票回复不可用，程序按公开票向或保底目标补票',worldline:'',think:''};
       w.log.push({k:'sys',text:'「'+wwTag(p)+'」的票没有写入，已按公开票向或保底目标补齐。'});
     }
   });
@@ -44908,6 +44968,66 @@ function wwAnnounceVotes(){
   if(w.sheriffUid&&w.votes&&w.votes[w.sheriffUid]){var shp=wwPlayerByUid(w.sheriffUid);if(shp)note='\n👮 '+wwTag(shp)+' 票权 1.5'}
   w.log.push({k:'vote',text:'投票：\n'+parts.join('\n')+note});   /* 每条占一行，前面有投票箱图标 */
   render(true);
+}
+function wwVoteThoughtPlayer(src,uid){
+  var players=(src&&src.players)||[];
+  for(var i=0;i<players.length;i++)if(players[i]&&players[i].uid===uid)return players[i];
+  return null;
+}
+function wwVoteThoughtEntryHTML(who,target,reason,worldline,think){
+  var s='<div class="gx-card" style="margin:8px 0;padding:10px 12px">'+
+    '<div><b>'+esc(who?wwTag(who):'？')+'</b> → <b>'+esc(target?wwTag(target):'？')+'</b></div>';
+  if(worldline)s+='<div style="font-size:12px;line-height:1.65;margin-top:5px"><b>世界线：</b>'+esc(worldline)+'</div>';
+  if(reason)s+='<div style="font-size:12px;line-height:1.65;margin-top:3px"><b>判断：</b>'+esc(reason)+'</div>';
+  if(!worldline&&!reason)s+='<div class="dim" style="font-size:12px;margin-top:4px">这一票没有保存文字理由。</div>';
+  if(think)s+='<details class="gx-log" style="margin-top:6px"><summary>详细思考</summary><div style="font-size:12px;line-height:1.65;white-space:pre-wrap">'+esc(think)+'</div></details>';
+  s+='</div>';
+  return s;
+}
+function wwVoteThoughtPanelHTML(src){
+  if(!src||!(src.over||src.winner||src.endText))return '';
+  var h='<div class="ttl">🗳️ 投票思路</div>'+
+    '<p class="dim" style="font-size:12px;margin:8px 2px 10px;line-height:1.65">只在本局结束后显示。这里的内容仅在本地查看，其他 AI 不会读取，也不会影响本局票向。</p>';
+  var police=src.policeVoteMeta||{},pkeys=Object.keys(police);
+  if(pkeys.length){
+    pkeys.sort(function(a,b){
+      var x=wwVoteThoughtPlayer(src,a),y=wwVoteThoughtPlayer(src,b);
+      return ((x&&x.seq)||99)-((y&&y.seq)||99);
+    });
+    h+='<div class="gx-sec">警长票</div>';
+    pkeys.forEach(function(uid){
+      var m=police[uid]||{},who=wwVoteThoughtPlayer(src,uid),target=wwVoteThoughtPlayer(src,m.target);
+      h+='<div class="dim" style="font-size:12px;margin:9px 2px 0">第 '+(Number(m.day)||1)+' 天 · 警长票第 '+(Number(m.round)||1)+' 轮</div>'+
+        wwVoteThoughtEntryHTML(who,target,String(m.reason||''),'',String(m.think||''));
+    });
+  }
+  var meta=src.voteMeta||{},days=Object.keys(meta).sort(function(a,b){return Number(a)-Number(b)}),any=false;
+  if(days.length){
+    h+='<div class="gx-sec">放逐票</div>';
+    days.forEach(function(day){
+      var dayMeta=meta[day]||{},uids=Object.keys(dayMeta);
+      if(!uids.length)return;
+      any=true;
+      uids.sort(function(a,b){
+        var x=wwVoteThoughtPlayer(src,a),y=wwVoteThoughtPlayer(src,b);
+        return ((x&&x.seq)||99)-((y&&y.seq)||99);
+      });
+      h+='<details class="gx-log" open><summary>第 '+Number(day)+' 天</summary><div class="gx-vs">';
+      uids.forEach(function(uid){
+        var m=dayMeta[uid]||{},who=wwVoteThoughtPlayer(src,uid),target=wwVoteThoughtPlayer(src,m.target);
+        h+=wwVoteThoughtEntryHTML(who,target,String(m.reason||''),String(m.worldline||''),String(m.think||''));
+      });
+      h+='</div></details>';
+    });
+  }
+  if(!pkeys.length&&!any)h+='<div class="gx-card dim">这一局没有保存到 AI 投票思路。旧对局可能没有这项记录。</div>';
+  h+='<div class="gx-row" style="margin-top:12px"><button class="ghost" onclick="closeSheet()">关闭</button></div>';
+  return h;
+}
+function wwOpenVoteThoughts(src){
+  if(!src)return;
+  if(!(src.over||src.winner||src.endText))return toast('对局结束后才能查看投票思路');
+  showSheet(wwVoteThoughtPanelHTML(src),true);
 }
 /* 投票公布那种「一条一行、行首带图标」的排版（图标是 SVG，不能塞进被转义的文字里） */
 function wwVoteLines(txt){
@@ -45486,11 +45606,39 @@ function wwMechanicMediumSelfVoteRule(p,pool,w){
   return '\n【警长票 · 你自己的精确身份表态】程序索引只帮你定位原话，可能有识别错误，最终由你自己核对。\n'+lines.join('\n')+
     '\n最终投给谁仍由你结合全部候选人、原话、时间线和票局自行判断，程序不会替你选票。狼人不适用这条好人规则。';
 }
+function wwPoliceFinalRefreshText(w,pool){
+  if(!w)return '';
+  var rows=wwPublicEventRows(w).filter(function(r){return r&&Number(r.day)===Number(w.day)});
+  if(!rows.length)return '';
+  var order=wwPoliceOrderP(),orderText=order.map(function(q){return wwTag(q)}).join(' → ');
+  var last=rows[rows.length-1],lastRoles=last?wwClaimIdentityRoles(last.text,last.p.seq):[];
+  var ledger=wwSeerCommitmentLedger(w).claims||[],claimByUid={};
+  ledger.forEach(function(c){if(c&&c.p)claimByUid[c.p.uid]=c});
+  var candidateLines=(pool||[]).map(function(q){
+    var c=claimByUid[q.uid];
+    if(!c)return '';
+    var checks=(c.checks||[]).map(function(x){return x.seq+'号＝'+x.result}).join('、')||'暂无可核验查验';
+    var row=rows.filter(function(r){return r.uid===q.uid&&/警徽流|徽流/.test(String(r.text||''))}).slice(-1)[0];
+    var flow=row?wwBadgeFlowSequenceFromText(row.text):[];
+    return '· '+wwTag(q)+'：公开查验证 '+checks+(flow.length?('；警徽流 '+flow.join('、')+'号'):'');
+  }).filter(Boolean);
+  var dancerClaimers=[];
+  rows.forEach(function(r){
+    if(wwClaimIdentityRoles(r.text,r.p.seq).indexOf('dancer')>=0)dancerClaimers.push(r.p);
+  });
+  return '【警长票最终刷新（所有人发言结束后才投）】\n'+
+    '· 上警发言顺序：'+(orderText||'暂无')+'。顺序只说明谁先说，不是身份证据。\n'+
+    '· 最后完成发言的是 '+(last?wwTag(last.p):'？')+(lastRoles.length?('，她公开声明为 '+lastRoles.map(function(role){return WW_ROLE_NAME[role]||role}).join('、')):'')+'。最后一个候选人的新增声明必须进入本次最终比较，不能只延续此前的倾向。\n'+
+    (dancerClaimers.length===1?'· 目前舞者公开声明只有 '+wwTag(dancerClaimers[0])+'，没有第二人对跳；这不自动证明她真，但必须和压在她身上的查杀一起比较两条预验人线。':'')+
+    (candidateLines.length?('\n'+candidateLines.join('\n')):'')+
+    '\n· 1号若是第3个发言者，只能叫“首个跳预位/第3位发言”，不能叫“首置位”。首个起跳和警徽流完整都不是真预证明；被查杀者随后亮出可验证强神时，应重新比较，不要机械支持先报查杀的一方。';
+}
 /* 一个 AI（警下）投警长票 */
 async function wwPoliceVote(p,pool){
   /* 展示顺序也打乱：否则模型会把列表第一位（往往是最先发言者）当成天然重点。 */
   var votingPool=pool.slice();wwShuffle(votingPool);
-  var task='现在是警长票。投给谁＝支持谁当选警长，不是放逐、不是反对谁。请从仍在竞选的人里，选一个你比较信得过、愿意让她拿警徽的人：'+votingPool.map(wwName).join('、')+
+  var task=wwPoliceFinalRefreshText(V.ww,pool)+
+    '\n现在是警长票。投给谁＝支持谁当选警长，不是放逐、不是反对谁。请从仍在竞选的人里，选一个你比较信得过、愿意让她拿警徽的人：'+votingPool.map(wwName).join('、')+
     '\n别因为讨厌某个人就把票投给她；投出去的票表示你支持她当警长。'+
     '\n【普通上警表态中性】非预言家好人上警说“我是好人、没信息、先听、之后退水”是正常竞选方式；“过早说退水”本身不是狼点。不能只因为话说得顺、提前讲了退水就压票。'+
     '\n【发言先后不算证据】警上顺序是随机起点后按座位正序或逆序，谁先开口、谁后开口完全不代表真假。不能因为“她先说所以更有力、更可信、更像真的”就倾向她；尤其“首置位前面没信息，所以动机干净”“后手起跳所以更像狼”都不成立。狼同样可以在首置位完整报假验，真预也可能在后手才接上。'+
@@ -45514,6 +45662,7 @@ async function wwPoliceVote(p,pool){
     return {who:who,reason:lines.slice(1).join(' ')};
   }
   var txt=await wwCall(sys,'请投票。',100,.8);
+  p._lastPoliceVoteThink=String((WW_LAST&&WW_LAST.reason)||'').slice(0,3000);
   var got=parse(txt);
   var chosen=got.who||pool[Math.floor(Math.random()*pool.length)];
   p._lastPoliceVoteReason=String(got.reason||(got.who?'':'模型没有给出有效比较，按保底选择')).slice(0,600);
@@ -45573,7 +45722,8 @@ async function wwPolicePoll(gen,cand){
           if(t&&!wwStaleG(gen)){
             votes[v.uid]=t.uid;
             if(!w.policeVoteMeta||typeof w.policeVoteMeta!=='object')w.policeVoteMeta={};
-            w.policeVoteMeta[v.uid]={target:t.uid,day:Number(w.day)||1,round:round===0?1:2,reason:String(v._lastPoliceVoteReason||'').slice(0,600)};
+            w.policeVoteMeta[v.uid]={target:t.uid,day:Number(w.day)||1,round:round===0?1:2,
+              reason:String(v._lastPoliceVoteReason||'').slice(0,600),think:String(v._lastPoliceVoteThink||'').slice(0,3000)};
           }
         },function(){});
       });
@@ -49449,6 +49599,7 @@ function wwHTML(){
       h+=wwJudgeHTML(w.judge);
       if(w.judge)h+='<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwMvpAppealOpen()">'+wwUiIcon('chat')+'向裁判申诉改判 MVP</button></div>';
     }
+    h+='<div class="gx-row"><button class="ghost" type="button" onclick="GAME.wwVoteThoughts()">🗳️ 查看投票思路</button></div>';
     h+=wwTransRow();
     h+='<div class="gx-sec">身份公开</div><div class="gx-card">'+
        w.players.map(function(p){return '<div class="mq-pick"><b'+(wwIsWolf(p)?' style="color:#e05a52"':'')+'>'+esc(wwName(p))+'</b>'+wwBadgeMark(p)+(p.uid===w.mvpUid?'<span class="mvp-chip">'+wwUiIcon('trophy')+'MVP</span>':'')+'：'+wwRoleIcon(p.role)+' '+WW_ROLE_NAME[p.role]+' · '+(p.alive?'活到最后':'出局')+'</div>'}).join('')+'</div>';
@@ -49738,6 +49889,8 @@ function wwHistHTML(rec){
   }
   h+='<div class="gx-sec">记录</div>'+_logHTML;
   if((rec.reacts||[]).length)h+='<div class="gx-sec">她们想说</div><div class="gx-card"><div class="gx-vs">'+wwReactHTML(rec.reacts,rec.players)+'</div></div>';
+  if(rec.game==='ww'&&(rec.winner||rec.endText))
+    h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwVoteThoughtsRec(\''+esc(rec.id)+'\')">🗳️ 查看投票思路</button></div>';
   if(rec.game==='ww'&&!rec.winner&&!rec.endText&&!rec.spoiled)
     h+='<div class="gx-row"><button class="pri" onclick="GAME.wwResume(\''+esc(rec.id)+'\')">继续这一局</button></div>';
   h+=wwShareWolfToggleHTML()+
@@ -52259,6 +52412,12 @@ window.GAME={
   },
   wwResume:function(id){wwResume(id)},
   wwJudgeRetry:function(){wwJudgeRetry()},
+  wwVoteThoughts:function(){wwOpenVoteThoughts(V.ww)},
+  wwVoteThoughtsRec:function(id){
+    var rec=null;recStore().forEach(function(x){if(x&&x.id===id)rec=x});
+    if(!rec)return toast('这一局的记录找不到了');
+    wwOpenVoteThoughts(rec);
+  },
   wwRejudge:function(id){wwRejudgeRec(id)},
   wwMvpAppealOpen:function(id){wwMvpAppealOpen(id)},
   wwMvpAppealSubmit:function(){wwMvpAppealSubmit()},
