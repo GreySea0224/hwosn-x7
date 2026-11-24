@@ -16319,6 +16319,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-11-24 · 旧狼人杀战绩精简】
 设置 → 数据与备份新增“清理旧狼人杀战绩思考”。点击后会先提示保留最近多少局完整战绩，并显示预计清理局数、清理前后大小和预计节省空间。默认保留最近 5 局，未结束对局始终不清理；可以勾选是否连收藏局也一起精简。旧局会删除 AI 发言思考、夜间行动思考、投票详细思考、身份盘、内部场记和提示词体检结果，但保留公开发言、票型、行动、狼队交流、身份、胜负、MVP、裁判复盘、备注和标记。
 
+【最近更新 · 2026-11-24 · 验人改验生存审计】
+预言家和通灵师夜间选验前，会先核对自己上次公开承诺的验人计划、警徽流和今夜死亡风险。已经公开暴露、带警徽、进入第三天、是唯一可执行验人线时，死亡风险会提高；高风险下原计划目标仍存活且没有新硬事实，默认继续验原目标，不能临时改验后把旧计划留给全场误读。警徽交接也新增安全保护：最新私有查验与公开计划不匹配时，只有仍存活的最新金水可以直接接徽；狼人、死者或无法公开传递的结果默认撕徽，不再机械退回旧计划保底金水。
+
 【最近更新 · 2026-11-23 · AI 小狼自爆】
 普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 普通骑士 AI 也把“这段发言后要不要决斗、决斗谁”并入同一次公开发言请求，发言公开后才结算决斗；不会再在发言后单独显示“某位玩家正在考虑是否发动技能”。白狼王 AI 同样在竞选或普通发言请求里同时决定是否自爆及带走谁，未自爆就正常说完，不再在发言前后单独发起显眼的自爆判断。玩家从狼队操作里点“让某号自爆”后也不再二次确认：普通狼直接自爆；白狼王只需选择是否带人，选完立即结算。
@@ -16688,7 +16691,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=178;  /* 178：可精简旧狼人杀战绩的隐藏思考 */
+const GUIDE_VER=179;  /* 179：验人改验前做生存审计，未公开改验不再误用旧警徽分支 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -35754,7 +35757,9 @@ function wwBadgeDecisionData(sh,w){
   var latest=wwBadgeLatestPrivateCheck(sh);
   if(!latest)return null;
   var target=wwPlayerByUid(latest.uid),latestGood=wwBadgeCheckIsGood(sh,latest);
+  var hasAnyPlan=wwBadgeFlowPlanRows(w).some(function(x){return x.p&&x.p.uid===sh.uid});
   var plan=wwBadgePlanForCheck(sh,latest);
+  var stalePlanMismatch=!!(hasAnyPlan&&!plan);
   var planRecipient=null,planTear=false;
   if(plan&&plan.complete){
     var branch=latestGood?plan.good:plan.wolf;
@@ -35764,12 +35769,17 @@ function wwBadgeDecisionData(sh,w){
     }else if(!latestGood&&plan.tear){
       planTear=true;
     }
+  }else if(stalePlanMismatch){
+    /* 最新私验偏离了生前公开计划：金水仍存活时可以直接交给她；
+       狼人、死者或无法公开传递的结果不能再沿用旧计划分支，否则旧分支会被误当成新验。 */
+    if(latestGood&&target&&target.alive&&target!==sh)planRecipient=target;
+    else planTear=true;
   }
   var goods=wwBadgeLivingGoods(sh);
   var recommended=planTear?null:(planRecipient||(target&&target.alive&&latestGood?target:null)||(goods[0]&&goods[0].p)||null);
   return {latest:latest,target:target,latestGood:latestGood,plan:plan,planRecipient:planRecipient,
-    planTear:planTear,goods:goods,recommendedUid:recommended?recommended.uid:'',recommendedTear:planTear||!recommended,
-    hasAnyPlan:wwBadgeFlowPlanRows(w).some(function(x){return x.p&&x.p.uid===sh.uid})};
+    planTear:planTear,stalePlanMismatch:stalePlanMismatch,goods:goods,recommendedUid:recommended?recommended.uid:'',recommendedTear:planTear||!recommended,
+    hasAnyPlan:hasAnyPlan};
 }
 function wwBadgeDecisionCardText(sh,w){
   if(sh&&wwIsWolf(sh)){
@@ -35788,6 +35798,11 @@ function wwBadgeDecisionCardText(sh,w){
       (d.plan.complete?'分支完整':'分支不完整')+'。原话：'+wwClipSpeech(d.plan.text,220,90));
   }else{
     L.push('· 最近公开警徽流：'+(d.hasAnyPlan?'存在旧计划，但没有一条是针对最新查验目标、可供直接执行的完整分支；旧计划已过期。':'没有可执行记录。'));
+  }
+  if(d.stalePlanMismatch){
+    L.push('【未公开改验 · 警徽安全】最新私有查验目标不在你最近公开的完整计划里。今夜死亡后，其他玩家只会按旧计划理解警徽。'+
+      '如果最新结果是仍存活的好人，可以直接把徽交给她；如果最新结果是狼人、死人，或你没有新的完整公开分支，默认撕徽，'+
+      '不能把徽交给旧计划里的保底金水，否则会被全场误读成“旧计划目标已经验成狼”。');
   }
   var rec=d.recommendedUid?wwPlayerByUid(d.recommendedUid):null;
   L.push('· 默认推荐：'+(rec?wwTag(rec):'撕毁警徽')+'。');
@@ -41438,12 +41453,45 @@ function wwSeerNightIntentConflictText(w,pool){
   L.push('· 不要求你一定听从公开建议；若你坚持验毒口或否决别人的验人建议，必须比较“私有确认价值”和“第二天可公开传递的信息量”。');
   return L.join('\n');
 }
+function wwSeerNightSurvivalAuditText(p,w,pool){
+  if(!p||!w)return '';
+  var planned=wwLastPlannedSeerTarget(p,w);
+  var planRows=wwBadgeFlowPlanRows(w).filter(function(x){return x&&x.p&&x.p.uid===p.uid});
+  var planRow=planRows.length?planRows[planRows.length-1]:null;
+  var claim=wwActivePublicSeerClaim(p,w);
+  var same=[];
+  if(p.role==='seer')same=wwLivingPublicSeerClaims(w);
+  else if(p.role==='medium')same=wwLivingPublicMediumClaims(w);
+  var badge=!!(wwHasBadge()&&wwSheriffP()&&wwSheriffP().uid===p.uid);
+  var risk=0,reasons=[];
+  if(claim&&!claim.retractedDay){risk+=2;reasons.push('你已经公开维持验人身份')}
+  if(claim&&Number(claim.day)>0&&Number(claim.day)<Number(w.day)&&p.alive){risk+=2;reasons.push('你带着公开身份又活过了一夜')}
+  if(badge){risk+=2;reasons.push('你身上有警徽')}
+  if(Number(w.day)>=3){risk+=1;reasons.push('已经进入第三天，狼队有足够时间处理明验人位')}
+  if(same.length<=1){risk+=1;reasons.push('你目前是唯一可执行的公开验人线')}
+  var level=risk>=6?'高':(risk>=3?'中':'低');
+  var L=['【今夜改验前·生存审计（只给你看）】',
+    '· 当前死亡风险：'+level+'。'+(reasons.length?('依据：'+reasons.join('；')+'。'):'目前没有明显的公开暴露信号。')];
+  if(planned)L.push('· 上一轮公开计划验：'+wwTag(planned)+(planned.alive?'（仍存活）':'（已出局）')+'。');
+  if(planRow&&planRow.row)L.push('· 最近公开警徽流原话：'+wwClipSpeech(String(planRow.row.text||''),220,90));
+  var protection=wwBoard(w.count,w).guard||wwBoard(w.count,w).witch;
+  if(protection)L.push('· 本板存在保护类神职，但你现在不能把“昨夜没死”当成今夜一定有人继续保护；连续保护条件和女巫药量都可能改变。');
+  if(planned&&planned.alive&&planned!==p){
+    if(level==='高')L.push('· 高风险硬规则：如果原计划目标仍存活、没有出现让原计划失效的新硬事实，默认继续验 '+wwTag(planned)+
+      '。不要因为临时觉得另一个人更像就改验；你今夜若死，公开玩家只能按旧计划理解你的警徽。');
+    else L.push('· 原计划目标仍存活时，改验必须有明确新事实；优先比较“新验的收益”和“死后旧计划被误读”的代价。');
+  }
+  if(level==='高')L.push('· 若仍决定改验，必须是原计划已无法执行，或新查验能直接决定胜负；否则保留公开承诺是更稳的选择。你无法保证自己一定活到明天，不能在死后靠第一人称补说改验。');
+  return L.join('\n');
+}
 async function wwSeerChoose(seer){
   var w=V.ww,pool=wwAlive().filter(function(p){return p!==seer});
   if(!pool.length)return null;
   var actionConflict=wwSeerNightIntentConflictText(w,pool);
+  var survivalAudit=wwSeerNightSurvivalAuditText(seer,w,pool);
   var sys=wwSysFor(seer,'今晚你要验一个人，从这些玩家里面选（不能验自己）：'+pool.map(wwName).join('、')+
     (actionConflict?('\n'+actionConflict):'')+
+    (survivalAudit?('\n'+survivalAudit):'')+
     '\n【输出格式】只输出你要验的那个人的编号或名字（例如「3号」）。');
   var txt=await wwCall(sys,'请决定今晚验谁。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
@@ -41516,8 +41564,10 @@ async function wwGargoyleChoose(p){
 async function wwMediumChoose(p){
   var pool=wwAlive().filter(function(x){return x&&x!==p});
   if(!pool.length)return null;
+  var survivalAudit=wwSeerNightSurvivalAuditText(p,V.ww,pool);
   var sys=wwSysFor(p,'今晚你要查验一名存活玩家的具体身份，不能查自己：'+pool.map(wwName).join('、')+
     '\n你看到的是表面身份：没学习过的机械狼显示机械狼，学习过的机械狼显示它学到的身份。'+
+    (survivalAudit?('\n'+survivalAudit):'')+
     '\n【输出格式】只输出你要查验的那个人的编号或名字（例如「3号」）。');
   var txt=await wwCall(sys,'请决定今晚查验谁。',40,.8);
   return wwMatch(txt,pool)||pool[Math.floor(Math.random()*pool.length)];
