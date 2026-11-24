@@ -30233,6 +30233,10 @@ function wwCleanOldRecordThoughts(){
     alert('清理失败：'+((e&&e.message)||e));
   }
 }
+/* 设置页在主程序里，清理函数在这个狼人杀独立模块里；必须显式挂到全局，
+   否则按钮的 onclick 会找不到它，表现为“点了完全没反应”。 */
+W.wwCleanOldRecordThoughts=wwCleanOldRecordThoughts;
+W.setWWCleanFavorites=setWWCleanFavorites;
 function recPut(list,opts){
   try{
     var previous=load(LS_GAME,[]);
