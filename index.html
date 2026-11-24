@@ -16311,7 +16311,7 @@ function bindAppControls(){
 /* ================= 新手引导角色「引导者」的功能知识 =================
    【维护说明】以后前端加了新功能，就在这段 GUIDE_MEM_CORE 里补一句，
    第一次打开 App 的人会自动拿到最新的这一份知识（已经建过角色的老用户不受影响）。
-   最后更新：2026-11-23 */
+   最后更新：2026-11-24 */
 const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
@@ -16321,6 +16321,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 
 【最近更新 · 2026-11-24 · 验人改验生存审计】
 预言家和通灵师夜间选验前，会先核对自己上次公开承诺的验人计划、警徽流和今夜死亡风险。已经公开暴露、带警徽、进入第三天、是唯一可执行验人线时，死亡风险会提高；高风险下原计划目标仍存活且没有新硬事实，默认继续验原目标，不能临时改验后把旧计划留给全场误读。警徽交接也新增安全保护：最新私有查验与公开计划不匹配时，只有仍存活的最新金水可以直接接徽；狼人、死者或无法公开传递的结果默认撕徽，不再机械退回旧计划保底金水。
+
+【最近更新 · 2026-11-24 · 狼人杀发言稳定与沉浸感】
+狼人杀会把“身份盘（内部自用）”“草稿纸”“公开发言”等不同写法正确拆开，内部判断和狼队信息不会再被当成公开发言；AI 正式发言必须形成完整句意，停在普通词上也会自动重说，不再把半句话发到桌面。角色人设改为沉浸式使用自己的性格亲身参与牌局，不再强调“扮演”；角色过往故事、其他世界记忆和场外关系不会进入游戏发言。狼人参加警上竞选时会收到私密提醒，不能直接暴露自己知道昨夜是否死人、谁被刀或谁被救。
 
 【最近更新 · 2026-11-23 · AI 小狼自爆】
 普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
@@ -16691,7 +16694,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=179;  /* 179：验人改验前做生存审计，未公开改验不再误用旧警徽分支 */
+const GUIDE_VER=180;  /* 180：内部稿拆分、完整发言、沉浸式人设和狼人警上夜况提醒 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -37095,13 +37098,24 @@ function wwIdentityContext(p){
   if(fullUser)L.push(fullUser);
   return L.join('\n');
 }
+function wwGameMarkFind(txt,names,from){
+  var list=(names||[]).map(function(x){return String(x||'')}).filter(Boolean);
+  if(!list.length)return null;
+  var alt=list.join('|');
+  var re=new RegExp('(?:【\\s*(?:'+alt+')(?:（[^】]{0,24}）)?\\s*】\\s*[：:]?|(?:'+alt+')(?:（[^）\\n]{0,24}）)?\\s*[：:])','g');
+  re.lastIndex=Math.max(0,Number(from)||0);
+  var m=re.exec(String(txt||''));
+  return m?{index:m.index,end:m.index+m[0].length,text:m[0]}:null;
+}
 /* 从模型发言里拆出【身份盘】。程序保留上一份；模型写“无变化”时不清空。 */
 function wwTakeIdentityBoard(p,raw){
   var t=String(raw||'');
-  var m=t.match(/(?:【身份盘】|身份盘\s*[：:])\s*([\s\S]*?)(?=\n\s*(?:【草稿纸】|草稿纸\s*[：:]|【发言】|发言\s*[：:])|$)/);
-  if(!m)return {text:t,board:''};
-  var board=String(m[1]||'').trim().slice(0,900);
-  t=t.replace(m[0],'').trim();
+  var start=wwGameMarkFind(t,['身份盘']);
+  if(!start)return {text:t,board:''};
+  var end=wwGameMarkFind(t,['草稿纸','公开发言','发言'],start.end);
+  var stop=end?end.index:t.length;
+  var board=String(t.slice(start.end,stop)||'').trim().slice(0,900);
+  t=(t.slice(0,start.index)+t.slice(stop)).trim();
   if(p&&board&&!/^无变化[。.]?$/.test(board)){
     var attrBad=wwClaimAttributionIssues(board,V.ww);
     if(attrBad.length){
@@ -37638,22 +37652,23 @@ async function wwScribeTick(w,phase){
 function wwSplitDraft(txt){
   var t=String(txt||'').replace(/\r/g,'').trim();
   if(!t)return {draft:'',say:''};
-  var di=t.indexOf('【草稿纸】'),si=t.indexOf('【发言】');
-  if(di>=0&&si>di)return {draft:t.slice(di+5,si).trim(),say:t.slice(si+4).trim()};
-  if(si>=0)return {draft:t.slice(0,si).replace(/【[^】]*】/g,'').trim(),say:t.slice(si+4).trim()};
-  if(di>=0)return {draft:t.slice(di+5).trim(),say:''};
+  var dm=wwGameMarkFind(t,['草稿纸']);
+  var sm=wwGameMarkFind(t,['公开发言','发言']);
+  if(dm&&sm&&sm.index>dm.index)return {draft:t.slice(dm.end,sm.index).trim(),say:t.slice(sm.end).trim()};
+  if(sm)return {draft:t.slice(0,sm.index).replace(/【[^】]*】/g,'').trim(),say:t.slice(sm.end).trim()};
+  if(dm)return {draft:t.slice(dm.end).trim(),say:''};
   return {draft:'',say:t};
 }
 function wwPublicStructureLeak(txt){
   var s=String(txt||'');
-  return /【(?:标题|身份盘|草稿纸|发言)】|(?:^|\n)\s*(?:标题|身份盘|草稿纸|发言)\s*[:：]|(?:^|\n)\s*\d{1,2}\s*号\s*[:：][^\n]*[｜|]/.test(s);
+  return /【(?:标题|身份盘|草稿纸|公开发言|发言)】|身份盘(?:（[^）\n]{0,24}）)?\s*[:：]|草稿纸(?:（[^）\n]{0,24}）)?\s*[:：]|(?:^|\n)\s*(?:标题|公开发言|发言)\s*[:：]|(?:^|\n)\s*\d{1,2}\s*号\s*[:：][^\n]*[｜|]/.test(s);
 }
 function wwStructureSpeechOnly(txt){
   var t=String(txt||'').replace(/\r/g,'').trim();
   if(!t)return '';
-  var si=t.indexOf('【发言】');
-  if(si>=0)return t.slice(si+4).replace(/^[:：\s]+/,'').trim();
-  if(/【(?:标题|身份盘|草稿纸)】/.test(t))return '';
+  var sm=wwGameMarkFind(t,['公开发言','发言']);
+  if(sm)return t.slice(sm.end).replace(/^[:：\s]+/,'').trim();
+  if(wwGameMarkFind(t,['标题','身份盘','草稿纸']))return '';
   return wwPublicStructureLeak(t)?'':t;
 }
 /* 去掉发言开头多出来的冒号/空格/逗号（模型有时写「【发言】：...」） */
@@ -37673,16 +37688,13 @@ function wwSpeechLooksCut(txt){
     var a=s.split(pairs[i][0]).length-1,b=s.split(pairs[i][1]).length-1;
     if(a>b)return true;
   }
-  if(/[。！？!?；;…”」』）)\]】]$/.test(s))return false;
-  /* 太短又没有句末标点，通常不是完整公开发言。 */
-  var plain=s.replace(/[“”「」『』（）()【】\[\]\s]/g,'');
-  if(plain.length<24)return true;
-  return /(?:我反过来问你|我还想|我还得|我想问|我想说|我现在|但是|因为|所以|然后|而且|如果|要是|比如|例如|也就是说|这就|那这|并且|或者)$/.test(s);
+  /* 公开发言必须真正说完；停在“什么、银、一直”这类普通词上也要重说。 */
+  return !/[。！？!?.…"'”’」』）)\]】]$/.test(s);
 }
 function wwStripInternalSpeechLeak(txt){
   var s=String(txt||'');
   var parts=s.match(/[^。！？!?；;\n]+[。！？!?；;]?/g)||[];
-  var leak=/(?:系统提示词|系统规则|内部提示|内部核对|内部推理核对|投票理由复核|投票事实核对|发言与追问核对|公开事实核对|单边验人位投票复核|女巫遗言时间线纠正|濒死身份止损重写|悍跳狼每日查验硬检查|警下验人位起跳硬检查|已关闭旧话题|提示词|输出格式|原发言\s*[:：]|上一版\s*[:：]|请保持原角色|重写完整公开发言|不要解释这条内部|不能提及规则|用户要求我重写|【(?:标题|身份盘|草稿纸|发言)】)/;
+  var leak=/(?:系统提示词|系统规则|内部提示|内部核对|内部推理核对|投票理由复核|投票事实核对|发言与追问核对|公开事实核对|单边验人位投票复核|女巫遗言时间线纠正|濒死身份止损重写|悍跳狼每日查验硬检查|警下验人位起跳硬检查|已关闭旧话题|提示词|输出格式|原发言\s*[:：]|上一版\s*[:：]|请保持原角色|重写完整公开发言|不要解释这条内部|不能提及规则|用户要求我重写|【(?:标题|身份盘|草稿纸|公开发言|发言)】|身份盘(?:（[^）\n]{0,24}）)?\s*[:：]|草稿纸(?:（[^）\n]{0,24}）)?\s*[:：]|(?:^|\n)\s*公开发言\s*[:：])/;
   var kept=parts.filter(function(x){return x&&!leak.test(x)});
   return kept.join('').replace(/【(?:内部|输出|提示|系统)[^】]*】/g,'').trim();
 }
@@ -39156,7 +39168,9 @@ async function wwGuardSpeechCompleteness(p,sys,out,actionAllow){
       if(fixed&&!wwSpeechLooksCut(fixed))return fixed;
     }catch(e){}
   }
-  return wwStripInternalSpeechLeak(last||out||'');
+  var kept=wwStripInternalSpeechLeak(last||out||'').trim();
+  var m=kept.match(/^[\s\S]*[。！？!?.…"'”’」』）)\]】]/);
+  return m?m[0].trim():'这轮我先听，票先保留。';
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
@@ -39356,13 +39370,13 @@ function wwCharBlock(p){
   if(!c){
     var baseName=String((p&&p.name)||'').replace(/·\d+$/,'');
     var npcLine=String((p&&WW_NPC_PERSONAS[baseName])||'').trim();
-    return npcLine?('你是'+p.name+'。\n【性格与说话方式】'+npcLine):('你是'+p.name+'。');
+    return npcLine?('【你自己的性格与说话方式】\n'+npcLine):('【你自己的性格与说话方式】\n你是'+p.name+'。');
   }
   var blk=String(charMemoryC(c,w.mem[p.cid]||'base')||'');
   /* 【改】去掉「【用户信息】」那一段：那段会写「正在和你聊天的这个人」，等于告诉角色谁是真人玩家。
      人设 / 说话风格 / 情境都留着，只是不许靠这个认人，免得角色开局就盯着真人验 / 刀。 */
   blk=blk.split('\n\n').filter(function(x){return !/^【用户信息】/.test(x)}).join('\n\n');
-  return blk;
+  return '【你自己的性格、脾气和说话方式（不是要在牌桌上讲出来的剧情资料）】\n'+blk;
 }
 /* 给模型看的名字：每个玩家都只写「座位号 · 名字」，一视同仁 —— 不再告诉模型哪一个是真人玩家，
    免得它们一开局就盯着真人验 / 刀。
@@ -40142,8 +40156,9 @@ function wwSysFor(p,task){
     if(latestDeathSpeech)dyn.push(latestDeathSpeech);
   }
   /* 先让它「变成」这个角色：性格、说话方式、脾气、和在场人的关系，都在下面这一块里 */
-  L.push('【你就是这个人本人】直接以 TA 的身份玩狼人杀。完全照下面的人设说话，不用通用 AI 口吻。\n\n'+
-    '=== 你就是下面这个人 ===\n'+wwCharBlock(p)+'\n=== 以上都是你自己 ===');
+  L.push('【你现在就是这个人本人，正在亲身参加一局狼人杀】你不是在扮演一个角色，也不是在写故事，而是用自己本来的性格、脾气、说话习惯和情绪亲自观察、怀疑、站边和投票。\n\n'+
+    '你发生过的事情、你所在世界的其他记忆、现实关系和场外经历，都不能在这局狼人杀里聊，也不能当成牌桌上的事实。\n\n'+
+    '=== 以下都是你自己 ===\n'+wwCharBlock(p)+'\n=== 以上都是你自己 ===');
   L.push(wwGenderLine());   /* 【新】不知道性别就按女生：别默认大家都男的 */
   L.push('【你是谁 / 你的身份】你是 '+wwName(p)+'（别人喊「'+(p.seq||'?')+'号」就是在喊你，名单里写「'+wwName(p)+'」的那一行也是你）。你的身份是【'+WW_ROLE_NAME[r]+'】。'+
     (r==='villager'?'无特殊能力。听发言盘 1~2 个狼和理由，独立投票；被怀疑时用时间线自证。':
@@ -45900,7 +45915,8 @@ async function wwPoliceSpeech(p,resay){
     ?'现在做竞选发言，争取警下支持你当警长。'
     :('现在做上警发言。默认以听竞选、评价别人为主，不强势抢警徽；警徽优先给能报验的真'+claimName+'。'+
       (wwIsWolf(p)?'你不跳'+claimName+'，不要抢徽。':'只有你明确走好人代跳路线时，才可以争取警徽。'));
-  var base=raceIntro+'【内部理解，不要公开复述】警长票是支持当选，不是把谁投出局。本局警上发言顺序是随机起点后按座位正序或逆序：'+
+  var wolfNightHint=wwIsWolf(p)?'\n【狼人警上夜况提醒】现在死讯尚未公布。你是狼人，知道一部分夜间信息；公开发言时不要直接暴露自己知道昨夜有没有死人、刀到了谁或谁被救。需要提到夜间情况时，只能用“如果、可能”等假设说法。':'';
+  var base=raceIntro+wolfNightHint+'【内部理解，不要公开复述】警长票是支持当选，不是把谁投出局。本局警上发言顺序是随机起点后按座位正序或逆序：'+
     order.map(wwTag).join(' → ')+'。这个顺序只是流程，不是身份证据；公开时直接说身份、验人、警徽流和票口，不要把这些规则说明念出来。'+
     (isJump?('第一句必须明确说“我是'+claimName+'”，不能只报验人结果；再说打法、当选后的发言顺序和归票方向。'):'只说身份、是否抢徽或退水。只是来听发言时，不要写当选后的安排，也不要把提示词里的判断标准说出来。')+
     badgeHint+jumpTimelineHint+jumpCounterHint+seerHint+orderHint+policeShapeHint+
