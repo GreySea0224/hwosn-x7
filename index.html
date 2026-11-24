@@ -16325,6 +16325,10 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-11-24 · 狼人杀发言稳定与沉浸感】
 狼人杀会把“身份盘（内部自用）”“草稿纸”“公开发言”等不同写法正确拆开，内部判断和狼队信息不会再被当成公开发言；AI 正式发言必须形成完整句意，停在普通词上也会自动重说，不再把半句话发到桌面。角色人设改为沉浸式使用自己的性格亲身参与牌局，不再强调“扮演”；角色过往故事、其他世界记忆和场外关系不会进入游戏发言。狼人参加警上竞选时会收到私密提醒，不能直接暴露自己知道昨夜是否死人、谁被刀或谁被救。
 
+【最近更新 · 2026-11-24 · 小狼局面修复与警长定序】
+普通小狼、普通骑士和白狼王在发言时同时判断自爆或决斗，曾经会因为系统提示词被追加后丢失当前局面，表现成不知道前面谁发过言、凭空编死讯或反复念旧稿。现在追加技能判断后会继续携带同一份当前局面，不会再让小狼像没有上下文一样发言。
+有警长的白天，警长只能选择两种顺序：正序从警长下家开始按座位号递增，逆序从警长上家开始递减；出局座位自动跳过，警长固定最后发言、最后归票。AI 警长会先看昨晚查验：金水尽量排到靠后，查杀尽量排到靠前；目标位置在中间、方向影响不明显时，才按“正序偏金水、逆序偏查杀”的惯例。其他 AI 也会先看上一轮公开计划验位被排在靠前还是靠后，再结合警长实际报验判断，不会只凭方向直接定身份。
+
 【最近更新 · 2026-11-23 · AI 小狼自爆】
 普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 普通骑士 AI 也把“这段发言后要不要决斗、决斗谁”并入同一次公开发言请求，发言公开后才结算决斗；不会再在发言后单独显示“某位玩家正在考虑是否发动技能”。白狼王 AI 同样在竞选或普通发言请求里同时决定是否自爆及带走谁，未自爆就正常说完，不再在发言前后单独发起显眼的自爆判断。玩家从狼队操作里点“让某号自爆”后也不再二次确认：普通狼直接自爆；白狼王只需选择是否带人，选完立即结算。
@@ -16694,7 +16698,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=180;  /* 180：内部稿拆分、完整发言、沉浸式人设和狼人警上夜况提醒 */
+const GUIDE_VER=181;  /* 181：小狼动态局面修复与警长正逆序末置位规则 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -34095,6 +34099,8 @@ function wwFactsFor(p){
       '顺序：'+(so.list.map(wwTag).join(' → ')||'（无人')+'。'+
       '未轮到不等于心虚。'+
       (w.speaking?('当前：'+wwTag(wwPlayerByUid(w.speaking))+'。'):''));
+    var orderSignal=wwSheriffOrderSignalText(w);
+    if(orderSignal)L.push(orderSignal);
   }
   var seerAudit=wwSeerCommitmentText(w);
   if(seerAudit)L.push(seerAudit);
@@ -38897,7 +38903,7 @@ function wwDayPlayStyleNeutralityText(p,w,forVote){
     '有多名跳预者时，先比较双方公开发言本身：谁正面解释查验和当前票向、谁回答了具体质疑、谁的原话与公开事实冲突。验人力度也可以盘，但盘的是每名跳预者给目标和目标当时的相对位置与结果风险，不是拿两名跳预者谁先起跳来判真假。首夜验人理由、上线时点和两名跳预者谁先说谁后说都不作为真假预的比较项，也不拿来扣被查杀者。'+
     '被验位说“别浪费验在我身上，可以改验X”是正常策略建议，不等于心虚、推验或自爆；要看建议的X是否是难判断、值得验的位置，以及她后续票向。多个 AI 复读同一条软质疑不会变成多份独立证据。'+
     '主要证据只能来自可核验内容：身份声明与时间线冲突、验人或技能结果矛盾、票型与明确承诺冲突、已知信息不可能、明显的假验或对跳问题、后续方案实际伤害好人。'+
-    '【发言顺序不是身份证据】上警和白天顺序都是随机起点后按座位正序或逆序，只用于安排谁先说。不得把“首置位、前面没信息、起跳时机干净”写成某人的好人理由，也不得把“后手起跳、听完她才跳”写成狼点。狼人同样可以在首置位完整报假验，真预也可能在后手接上。'+
+    '【发言顺序不是身份证据】警上竞选顺序是随机的；没有警长时，白天顺序也是随机开头。有警长时，警长只能选从下家开始的正序或从上家开始的逆序，并且自己最后发言；这属于警长给出的流程信息。不得把普通先后、首置位或后手起跳直接写成某人的好坏身份。警长定序可以先看她上一轮公开计划验的人被排在前还是后：目标靠后通常更像传金水，目标靠前通常更像传查杀；目标在中间时，正序偏传金水、逆序偏传查杀。这个潜台词是弱线索，必须和警长实际报验、票向和回应一起看，不能单凭方向定身份。'+
     '第一天在没有硬信息时点出“X/Y开一狼”、列出多个候选、狼坑暂时较散，都是正常推理方式；只要没有超过场上剩余狼数、没有把已出局者当今天票口、没有前后票口正面冲突，就不能因为“狼坑太散、不敢这么划、没给完整狼坑”投人。'+
     '不要因为“我看不懂她、她不像常规好人、她太主动、她说话太绝对、她不肯回答无效问题”就投票。尤其不能因为某人表达流畅、信息完整、反应很快或过程巧合，就跟着别人踩她或投她；必须指出具体是哪条身份、时间线、规则、查验结果或票型承诺存在硬矛盾。换成其他任何玩家、任何风格，也用同一标准；硬矛盾存在时仍可正常怀疑和投票。'+
     (human?('\n【真人座位标记·仅用于风格容错】'+(human.seq||'?')+'号是本局真人玩家。这个标记只说明她的表达方式可能与 AI 不同，不是阵营信息，不得在公开发言里提到“真人/用户/标记”，也不能因此默认她是好人或降低硬逻辑要求。若她出现真实硬矛盾，仍按同一标准质疑和投票。') :'');
@@ -39174,7 +39180,15 @@ async function wwGuardSpeechCompleteness(p,sys,out,actionAllow){
 }
 /* 叫一个角色说话，并把它写的草稿纸收进 p.scratch（下次它自己还能看到）。
    接口偶尔会回空、或者它只写了草稿纸没写发言：这里会再要一次，别让角色当场哑掉。 */
+function wwCarryDynContext(from,to){
+  if(!from||!to||from===to)return;
+  try{
+    var dyn=WW_DYNMAP&&WW_DYNMAP[from];
+    if(dyn)WW_DYNMAP[to]=dyn;
+  }catch(e){}
+}
 async function wwSpeak(p,sys,resay,actionOpts){
+  var sysBase=String(sys||'');
   wwMarkSpeechStart(p);
   if(p)p._lastSayTitle='';
   var resayPrompt=wwResayCorrectionText(resay,'发言');
@@ -39183,6 +39197,7 @@ async function wwSpeak(p,sys,resay,actionOpts){
   if(actionAllow.knightDuel&&p)p._aiKnightDuelTargetUid='';
   if(actionAllow.selfBoom||actionAllow.kingBoom||actionAllow.knightDuel)
     sys=String(sys||'')+wwSpeechActionPrompt(p,actionAllow);
+  wwCarryDynContext(sysBase,sys);
   var raw=String(await wwCall(sys,(resayPrompt?'请按重说要求重新发言。':'请发言。'),wwSayMax(),.9)||'').trim();
   if(V.ww&&V.ww.awakenedKnightInterrupt)return '';
   var act=wwTakeSpeechActionMarkers(p,raw,actionAllow);
@@ -40293,9 +40308,10 @@ function wwSysFor(p,task){
     (wwSheriffOn()?'':'本局没有警长，只按验人、死讯、身份和票型判断。'));
   L.push('【所有神职声明的行动时间线】真假神职都必须遵守真实时序：第 1 夜早于第 1 天的上警、竞选发言、普通发言和死讯。首夜空守是常见稳妥选择但不是硬规则；真守卫或假跳守卫都可以用开局前就有的头像、名字、座位、眼缘等信息解释盲守，不能用“某人刚上警、已经报验、已经成了唯一通灵”等白天信息补第一夜守人。'+
     '夜里出局在公开信息中只写“出局”，没有公开技能结果时不能把死因写成确定的“被狼刀/被女巫毒/被守卫挡下”。');
-  L.push('【内部禁令·发言先后】警上竞选发言顺序每局随机打乱；不得把“谁先发言、谁后发言、谁没轮到、谁一直没说话、谁先起跳、谁后跳身份”当成狼面或好人面。'+
-    '这些先后由系统或警长安排，不是玩家自己选的；竞选时可以对尚未发言者用假设句试探，但不能把尚未轮到发言本身当证据。'+
-    '这是只给自己看的自检，不得在公开发言里复述、解释或声明“随机顺序”“系统安排”“内部提示”“提示词”“不能因为顺序判断”等幕后信息，也不要写成免责声明。');
+  L.push('【内部禁令·发言先后】警上竞选顺序随机；无警长时，白天发言也随机开头；有警长时，由警长选择正序或逆序，且警长固定最后发言。'+
+    '不得把谁先发言、谁后发言、谁没轮到当成普通玩家的狼面或好人面；竞选时可以对尚未发言者用假设句试探。'+
+    '警长定序可以结合她上一轮公开计划验位来读：目标被排靠后通常偏传金水，目标被排靠前通常偏传查杀；目标在中间时，正序偏金水、逆序偏查杀。这只是弱线索，必须等她的实际报验和票向印证，不能单凭方向定狼。'+
+    '以上只给自己判断，不得在公开发言里复述、解释或声明“随机顺序”“系统安排”“内部提示”“提示词”等幕后信息，也不要写成免责声明。');
   L.push('【总规则】只把主持人公告、自身身份和技能结果当事实；他人身份、验人、遗言可假。你是 '+(p.seq||'?')+' 号，别投自己。'+
     (wwFaceOn()
       ? '面杀可写少量括号动作，不用 markdown。'
@@ -45769,11 +45785,37 @@ function wwPoliceOrderP(){
   wwPoliceUpP().forEach(function(p){if(!seen[p.uid])out.push(p)});
   return out;
 }
-/* 今天的发言顺序：警长定过就按警长定的来，否则随机挑一个开头、按座位号往下 */
+/* 警长定序：正序从下家开始递增，逆序从上家开始递减，警长固定最后归票。 */
+function wwSheriffOrderRing(sh,alive,dir){
+  var seats=(alive||[]).filter(function(p){return p&&p.alive}).slice().sort(function(a,b){
+    return (Number(a.seq)||99)-(Number(b.seq)||99);
+  });
+  if(!sh||!sh.alive||!seats.length)return [];
+  var si=-1;
+  seats.forEach(function(p,i){if(p.uid===sh.uid)si=i});
+  if(si<0)return seats;
+  var out=[],step=(dir===-1?-1:1);
+  for(var k=1;k<seats.length;k++){
+    var p=seats[(((si+step*k)%seats.length)+seats.length)%seats.length];
+    if(p&&p.uid!==sh.uid)out.push(p);
+  }
+  out.push(sh);
+  return out;
+}
+function wwSheriffOrderText(sh,alive,dir){
+  return wwSheriffOrderRing(sh,alive,dir).map(wwTag).join(' → ');
+}
+/* 今天的发言顺序：有警长时按上家/下家自动生成并让警长末置位；无警长时才随机开头。 */
 function wwSpeechOrderList(){
   var w=V.ww,alive=wwAlive(),n=alive.length,out=[];
   if(!n)return {list:[],dir:1};
   var si=-1,dir=(w.speechDir===-1)?-1:1;
+  var sh=wwSheriffP();
+  if(sh&&sh.alive&&w.speechMode==='sheriff'){
+    out=wwSheriffOrderRing(sh,alive,dir);
+    if(out.length)w.speechStart=out[0].uid;
+    return {list:out,dir:dir};
+  }
   if(w.speechStart){for(var i=0;i<n;i++){if(alive[i].uid===w.speechStart){si=i;break}}}
   if(si<0){
     si=Math.floor(Math.random()*n);
@@ -45781,6 +45823,30 @@ function wwSpeechOrderList(){
   }
   for(var k=0;k<n;k++)out.push(alive[(((si+dir*k)%n)+n)%n]);
   return {list:out,dir:dir};
+}
+function wwSheriffOrderSignalText(w){
+  if(!w||w.phase!=='day'||w.speechMode!=='sheriff')return '';
+  var sh=wwSheriffP();
+  if(!sh||!sh.alive)return '';
+  var so=wwSpeechOrderList(),list=so.list||[],dir=so.dir===-1?'逆序':'正序';
+  var base='【警长定序潜台词（弱线索）】'+wwTag(sh)+'只能选正序或逆序，自己固定末置位归票。'+
+    '本轮顺序：'+(list.map(wwTag).join(' → ')||'（无人）')+'。';
+  var target=wwLastPlannedSeerTarget(sh,w);
+  if(!target||!target.alive){
+    return base+'如果她上一轮公开计划验过某人，先看那个人被排在靠前还是靠后：靠后通常传金水，靠前通常传查杀；'+
+      '目标正好在中间时，才用“正序偏金水、逆序偏查杀”的惯例。方向本身只是弱线索，要结合她随后报出的查验、票向和回应。';
+  }
+  var idx=-1;
+  list.forEach(function(q,i){if(q&&q.uid===target.uid)idx=i});
+  var nonSheriff=Math.max(1,list.length-1),edge=Math.max(1,Math.ceil(nonSheriff/3));
+  var place=idx<0?'无法判断':(idx<edge?'靠前':(idx>=nonSheriff-edge?'靠后':'中间'));
+  var hint=place==='靠后'
+    ?'按常见网杀惯例，靠后更常用来传“她是金水”。'
+    :(place==='靠前'
+      ?'按常见网杀惯例，靠前更常用来传“她是查杀”。'
+      :('目标在中间，正逆序对前后位置影响不大；此时通常正序偏金水、逆序偏查杀。'));
+  return base+'她上一轮公开计划验'+wwTag(target)+'；'+wwTag(target)+'本轮排第 '+(idx+1)+' 位，判断为'+place+
+    '（当前'+dir+'）。'+hint+'这只是她可能想先听谁、保护谁的弱线索，必须等她的实际报验和票向印证，不能只凭顺序定身份。';
 }
 /* 非真预的好人 AI 偶尔会突然想上警做点操作；只增加变化，不强迫一定上警。 */
 var WW_UP_MOOD_CHANCE=1/3;
@@ -46034,11 +46100,34 @@ async function wwPoliceVote(p,pool){
 }
 /* 一个 AI 警长决定今天的发言顺序 */
 async function wwOrderAI(sh,alive){
-  var sys=wwSysFor(sh,'你决定今天的发言起点和方向；先开口的人会更早被集火。\n可选的人：'+alive.map(wwName).join('、')+
-    '\n【输出格式】第一行写从哪个人开始（编号或名字，例如「3号」）；第二行写「正序」或「逆序」（正序＝按座位号从小到大）。');
-  var txt=String(await wwCall(sys,'请决定今天的发言顺序。',40,.85)||'');
-  var who=wwMatch(txt.split(/\n+/)[0]||txt,alive);
-  return {uid:who?who.uid:'',dir:/逆|倒/.test(txt)?-1:1};
+  var w=V.ww,check=null;
+  if(sh&&(sh.role==='seer'||sh.role==='medium')){
+    var rows=(sh.check||[]).filter(function(c){
+      return c&&Number(c.day)===Number(w.day)&&(sh.role==='seer'?!c.kind:c.kind==='medium');
+    });
+    check=rows.length?rows[rows.length-1]:null;
+  }
+  var checkHint='';
+  if(check){
+    var target=wwPlayerByUid(check.uid);
+    if(target&&target.alive){
+      var good=sh.role==='seer'?!check.isWolf:!wwIsWolf({role:check.role});
+      checkHint='你昨晚验的是 '+wwTag(target)+'，结果是'+(good?'好人（金水）':'狼人（查杀）')+'。'+
+        '按网杀常规，金水应尽量排到靠后、靠近你；查杀应尽量排到靠前，让她先回应。请比较下面的两个完整顺序后再选方向。';
+    }
+  }else if(sh&&wwIsWolf(sh)&&wwActivePublicSeerClaim(sh,w)){
+    checkHint='你仍在公开维持验人身份。请按你准备公开报出的假金水/假查杀决定方向：假金水靠后，假查杀靠前，不要暴露夜间私有信息。';
+  }
+  var posList=wwSheriffOrderText(sh,alive,1),negList=wwSheriffOrderText(sh,alive,-1);
+  var sys=wwSysFor(sh,'你作为警长只能选正序或逆序，不能再指定任意起点；无论选哪边，你都固定最后发言、最后归票。\n'+
+    '正序：从你的下家开始按座位号递增，最后到你。顺序：'+posList+'。\n'+
+    '逆序：从你的上家开始按座位号递减，最后到你。顺序：'+negList+'。\n'+
+    (checkHint?('【你的私有定序依据】'+checkHint+'\n'):'')+
+    '如果验人目标靠后更利于听反应或传递金水信息，就选让目标靠后的方向；如果目标靠前更利于先施压查杀，就选让目标靠前的方向。'+
+    '只有目标大致在中间、两个方向对前后位置影响不明显时，才按“正序偏金水、逆序偏查杀”的惯例。\n'+
+    '【输出格式】只输出：正序 或 逆序。');
+  var txt=String(await wwCall(sys,'请决定今天从下家还是上家开始。',30,.85)||'');
+  return {dir:/逆|倒/.test(txt)?-1:1};
 }
 /* 一个 AI 警长决定警徽交给谁 / 撕毁 */
 async function wwBadgeAI(sh,pool,strictUid){
@@ -46278,12 +46367,12 @@ async function wwDecideOrder(){
   var w=V.ww,gen=wwGenNow();
   var sh=wwSheriffP(),alive=wwAlive();
   if(!sh||!sh.alive||alive.length<2)return null;
-  var startUid='',dir=1;
+  var dir=1;
   if(sh.isUser){
-    var r=await wwAsk('👮 你是警长：今天从谁开始发言？（从 TA 开始，按座位号往下或往上轮）',alive,{none:'随便挑一个开头'});
-    if(wwStaleG(gen))return null;
-    startUid=r.uid||'';
-    var r2=await wwAskOpt('👮 从 TA 开始，往哪个方向轮？',[['按座位号往下（正序）',1],['按座位号往上（逆序）',-1]]);
+    var r2=await wwAskOpt('👮 你是警长：今天从哪边开始？你会最后发言、最后归票。',[
+      ['逆序',-1],
+      ['正序',1]
+    ]);
     if(wwStaleG(gen))return null;
     dir=(r2&&r2.val===-1)?-1:1;
   }else{
@@ -46292,13 +46381,15 @@ async function wwDecideOrder(){
     w.msg='👮 警长「'+wwTag(sh)+'」正在决定发言顺序…';render(true);
     var res=await wwOrderAI(sh,alive);
     if(wwStaleG(gen))return null;
-    startUid=(res&&res.uid)||'';dir=(res&&res.dir===-1)?-1:1;
+    dir=(res&&res.dir===-1)?-1:1;
   }
-  w.speechStart=startUid;w.speechDir=dir;w.speechMode=startUid?'sheriff':'sheriff-random';
+  var ring=wwSheriffOrderRing(sh,alive,dir);
+  var startUid=ring.length?ring[0].uid:'';
+  w.speechStart=startUid;w.speechDir=dir;w.speechMode='sheriff';
   var sP=startUid?wwPlayerByUid(startUid):null;
-  w.log.push({k:'sys',text:'👮 '+(sP?wwTag(sP):'随机座位')+'起，'+(dir===-1?'逆序':'正序')});
+  w.log.push({k:'sys',text:'👮 '+wwTag(sh)+'定序：'+(sP?wwTag(sP):'下一位')+'起，'+(dir===-1?'逆序':'正序')+'；'+wwTag(sh)+'末置位归票。'});
   render(true);
-  return {start:startUid,dir:dir};
+  return {start:startUid,dir:dir,list:ring};
 }
 /* 警长出局了：由 TA 决定把警徽交给谁，或者撕毁 */
 async function wwBadgePass(){
