@@ -14275,6 +14275,9 @@ function cfgDataCardHTML(){
   '<input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="importAll(this)">'+
   '<div class="row" style="margin-top:10px"><button class="col" onclick="showStorageUse()">📦 本地存储用量</button>'+
   '<button class="col" onclick="recoverFromMirror(true)">🛟 从安全副本找回</button></div>'+
+  '<div class="row" style="align-items:center;margin-top:10px"><div class="col"><b>旧战绩也清理收藏局</b><div class="dim" style="font-size:12px">关闭时，收藏的狼人杀战绩始终保留完整思考</div></div>'+
+  '<input type="checkbox" '+(cfg.wwCleanFavs?'checked':'')+' onchange="setWWCleanFavorites(this.checked)"></div>'+
+  '<div class="row" style="margin-top:8px"><button class="ghost col" onclick="wwCleanOldRecordThoughts()">🧹 清理旧狼人杀战绩思考</button></div>'+
   '<div class="row" style="margin-top:10px"><button class="col" onclick="scanChatImages()">🖼 统计能清理的旧图片</button>'+
   '<button class="col" onclick="cleanChatImages()">🧹 清理旧图片</button></div>'+
   '<div class="row" style="margin-top:10px"><button class="pri col" onclick="chooseBackupFile()">'+(backupHandle?'更换自动备份文件':'开启自动备份到文件')+'</button></div>'+
@@ -16313,6 +16316,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这是一个「AI 角色聊天」前端：整个应用只有一个网页文件（index.HTML），不用安装，用手机浏览器打开就能用，界面是中文。
 所有数据和聊天记录都存在本机浏览器里（localStorage + IndexedDB），不上传云盘。所以换浏览器、换打开方式、清缓存以后可能看不到旧记录——重要聊天要先备份。
 
+【最近更新 · 2026-11-24 · 旧狼人杀战绩精简】
+设置 → 数据与备份新增“清理旧狼人杀战绩思考”。点击后会先提示保留最近多少局完整战绩，并显示预计清理局数、清理前后大小和预计节省空间。默认保留最近 5 局，未结束对局始终不清理；可以勾选是否连收藏局也一起精简。旧局会删除 AI 发言思考、夜间行动思考、投票详细思考、身份盘、内部场记和提示词体检结果，但保留公开发言、票型、行动、狼队交流、身份、胜负、MVP、裁判复盘、备注和标记。
+
 【最近更新 · 2026-11-23 · AI 小狼自爆】
 普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 普通骑士 AI 也把“这段发言后要不要决斗、决斗谁”并入同一次公开发言请求，发言公开后才结算决斗；不会再在发言后单独显示“某位玩家正在考虑是否发动技能”。白狼王 AI 同样在竞选或普通发言请求里同时决定是否自爆及带走谁，未自爆就正常说完，不再在发言前后单独发起显眼的自爆判断。玩家从狼队操作里点“让某号自爆”后也不再二次确认：普通狼直接自爆；白狼王只需选择是否带人，选完立即结算。
@@ -16682,7 +16688,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=177;  /* 177：骑士/白狼王行动并入发言，手动自爆去掉二次确认 */
+const GUIDE_VER=178;  /* 178：可精简旧狼人杀战绩的隐藏思考 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -30101,6 +30107,131 @@ function recTrim(list){
   function newest(a,b){return b.t-a.t||a.i-b.i}
   favorites.sort(newest);normal.sort(newest);
   return favorites.concat(normal.slice(0,REC_NORMAL_LIMIT)).map(function(x){return x.r});
+}
+function setWWCleanFavorites(on){
+  try{
+    cfg=cfg||{};
+    cfg.wwCleanFavs=!!on;
+    save(LS.cfg,cfg);
+  }catch(e){}
+}
+function wwRecordBytes(v){
+  try{
+    var s=(typeof v==='string')?v:JSON.stringify(v);
+    if(window.Blob)return new Blob([s]).size;
+    if(window.TextEncoder)return new TextEncoder().encode(s).length;
+    return s.length*2;
+  }catch(e){return 0}
+}
+function wwRecordTime(r){return Number((r&&(r.t||r.at))||0)||0}
+function wwRecordHasThoughts(r){
+  if(!r)return false;
+  var hit=false;
+  (r.log||[]).forEach(function(e){if(e&&e.think)hit=true});
+  (r.rec||[]).forEach(function(e){if(e&&e.tk)hit=true});
+  (r.players||[]).forEach(function(p){if(p&&(p.readBoard||(p.readBoardLog&&p.readBoardLog.length)))hit=true});
+  [r.voteMeta,r.policeVoteMeta].forEach(function(meta){
+    if(!meta)return;
+    Object.keys(meta).forEach(function(k){
+      var x=meta[k];
+      if(x&&x.think)hit=true;
+      if(x&&typeof x==='object')Object.keys(x).forEach(function(uid){if(x[uid]&&x[uid].think)hit=true});
+    });
+  });
+  if(r.scribe||r.audit)hit=true;
+  return hit;
+}
+function wwCompactOldRecord(r){
+  var out=Object.assign({},r||{});
+  out.log=(r.log||[]).map(function(e){
+    var x=Object.assign({},e||{});
+    delete x.think;
+    return x;
+  });
+  out.rec=(r.rec||[]).map(function(e){
+    var x=Object.assign({},e||{});
+    delete x.tk;
+    return x;
+  });
+  out.players=(r.players||[]).map(function(p){
+    var x=Object.assign({},p||{});
+    delete x.readBoard;
+    delete x.readBoardLog;
+    return x;
+  });
+  function slimMeta(meta){
+    var copy={};
+    Object.keys(meta||{}).forEach(function(k){
+      var x=meta[k];
+      if(x&&typeof x==='object'&&(x.think||x.reason||x.target||x.worldline)){
+        var one=Object.assign({},x);delete one.think;copy[k]=one;
+        return;
+      }
+      if(x&&typeof x==='object'){
+        var group={};
+        Object.keys(x).forEach(function(uid){
+          var one=Object.assign({},x[uid]||{});delete one.think;group[uid]=one;
+        });
+        copy[k]=group;
+      }else copy[k]=x;
+    });
+    return copy;
+  }
+  out.voteMeta=slimMeta(r.voteMeta);
+  out.policeVoteMeta=slimMeta(r.policeVoteMeta);
+  delete out.scribe;
+  delete out.audit;
+  delete out.auditAt;
+  return out;
+}
+function wwCleanOldRecordThoughts(){
+  var list=recStore();
+  var wwList=list.filter(function(r){return r&&r.game==='ww'});
+  if(!wwList.length)return alert('现在还没有狼人杀战绩。');
+  var raw=prompt('保留最近多少局狼人杀战绩的完整思考？\n\n默认 5。未结束的对局无论填多少都会保留。','5');
+  if(raw==null)return;
+  var keep=parseInt(raw,10);
+  if(!Number.isFinite(keep)||keep<0)keep=5;
+  keep=Math.min(80,keep);
+  var byTime=wwList.slice().sort(function(a,b){return wwRecordTime(b)-wwRecordTime(a)});
+  var keepIds={};
+  byTime.slice(0,keep).forEach(function(r){if(r&&r.id)keepIds[r.id]=1});
+  var includeFavs=!!(cfg&&cfg.wwCleanFavs);
+  var eligible=[],eligibleIds={};
+  wwList.forEach(function(r){
+    if(!r||!r.id||keepIds[r.id])return;
+    if(!(r.finished||r.winner||r.endText))return;
+    if(!includeFavs&&recFavorite(r))return;
+    if(!wwRecordHasThoughts(r))return;
+    eligible.push(r);eligibleIds[r.id]=1;
+  });
+  if(!eligible.length)return alert('没有需要清理的旧狼人杀战绩。\n\n最近 '+keep+' 局、未结束局'+(includeFavs?'':'和收藏局')+'都已经保留。');
+  var beforeBytes=wwRecordBytes(list);
+  var compacted=list.map(function(r){return eligibleIds[r.id]?wwCompactOldRecord(r):r});
+  var afterBytes=wwRecordBytes(compacted);
+  var saved=Math.max(0,beforeBytes-afterBytes);
+  var favoriteCount=eligible.filter(recFavorite).length;
+  var text='将精简 '+eligible.length+' 局旧狼人杀战绩'+(favoriteCount?('（其中收藏局 '+favoriteCount+' 局）'):'')+'。\n\n'+
+    '完整保留最近 '+keep+' 局、所有未结束对局'+(includeFavs?'。':'和其他收藏局。')+'\n'+
+    '预期从约 '+kbTxt(beforeBytes)+' 降到约 '+kbTxt(afterBytes)+'，预计腾出约 '+kbTxt(saved)+'。\n\n'+
+    '会删除：AI 发言思考、夜间思考、投票详细思考、身份盘、内部场记和提示词体检结果。\n'+
+    '会保留：公开发言、票型、行动、狼队交流、身份、胜负、MVP、裁判复盘、备注和标记。\n\n'+
+    '清理后不能撤销。建议先“导出备份”。继续吗？';
+  if(!confirm(text))return;
+  try{
+    recPut(compacted);
+    if(typeof scheduleBackup==='function')scheduleBackup();
+    var now=recStore(),dirty=now.filter(function(r){return r&&eligibleIds[r.id]&&wwRecordHasThoughts(r)});
+    var actual=wwRecordBytes(now);
+    if(dirty.length){
+      alert('清理写入了，但还有 '+dirty.length+' 局没有完全更新。\n请刷新页面后再试一次。');
+    }else{
+      alert('清理完成。\n\n精简了 '+eligible.length+' 局旧战绩，现在狼人杀战绩约 '+kbTxt(actual)+
+        '，本次约省下 '+kbTxt(Math.max(0,beforeBytes-actual))+'。\n\n最近 '+keep+' 局仍可查看完整思考。');
+    }
+  }catch(e){
+    alert('清理失败：'+((e&&e.message)||e));
+  }
 }
 function recPut(list,opts){
   try{
