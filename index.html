@@ -16340,6 +16340,9 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 “搏杀预言家”只适用于起跳者在目标前面、发查杀时目标尚未起跳，或两名候选只剩A、B这类位置闭环。后置位起跳者查杀前置位已经起跳的验人位，只能叫正面双跳、后手反打或悍跳，绝不是搏杀真预，也不能拿这个名称给任一边增加身份面。
 警徽流提取现在会跳过“她说、原话、复述、转述”等引用段，优先识别本人“我开警徽流/警徽流我开”的那一套；一段发言里既有别人计划又有本人计划时取本人自述，无法确认归属时宁可不提取。发言者复述前置位警徽流后再说自己的警徽流，不会再被当成同一套或错安到复述者头上。
 
+【最近更新 · 2026-11-25 · 局面读取保护与术语边界】
+狼人杀 AI 发言前会核对本轮动态局面是否真的送达。万一查找失败，会按同一份任务自动重建一次；仍然失败时不把空局面交给模型编造死讯或查验，而是给用户“重说”和“这轮先听”两个按钮。新增程序生成的术语边界卡：第三人给同一目标反报查杀不算反水立警，后手给前置金水目标报查杀不算搏杀；只有本人接到A的金水后拒绝并起跳，才算反水立警。
+
 【最近更新 · 2026-11-23 · AI 小狼自爆】
 普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 普通骑士 AI 也把“这段发言后要不要决斗、决斗谁”并入同一次公开发言请求，发言公开后才结算决斗；不会再在发言后单独显示“某位玩家正在考虑是否发动技能”。白狼王 AI 同样在竞选或普通发言请求里同时决定是否自爆及带走谁，未自爆就正常说完，不再在发言前后单独发起显眼的自爆判断。玩家从狼队操作里点“让某号自爆”后也不再二次确认：普通狼直接自爆；白狼王只需选择是否带人，选完立即结算。
@@ -16709,7 +16712,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=184;  /* 184：搏杀预言家边界与警徽流原话归属 */
+const GUIDE_VER=185;  /* 185：局面读取保护与验人术语硬边界 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -39208,6 +39211,8 @@ function wwCarryDynContext(from,to){
   try{
     var dyn=WW_DYNMAP&&WW_DYNMAP[from];
     if(dyn)WW_DYNMAP[to]=dyn;
+    var meta=WW_DYNMETA&&WW_DYNMETA[from];
+    if(meta)WW_DYNMETA[to]=meta;
   }catch(e){}
 }
 async function wwSpeak(p,sys,resay,actionOpts){
@@ -39221,7 +39226,7 @@ async function wwSpeak(p,sys,resay,actionOpts){
   if(actionAllow.selfBoom||actionAllow.kingBoom||actionAllow.knightDuel)
     sys=String(sys||'')+wwSpeechActionPrompt(p,actionAllow);
   wwCarryDynContext(sysBase,sys);
-  var raw=String(await wwCall(sys,(resayPrompt?'请按重说要求重新发言。':'请发言。'),wwSayMax(),.9)||'').trim();
+  var raw=String(await wwCallSpeech(p,sys,(resayPrompt?'请按重说要求重新发言。':'请发言。'),wwSayMax(),.9,sysBase,'这轮我先听，票先保留。')||'').trim();
   if(V.ww&&V.ww.awakenedKnightInterrupt)return '';
   var act=wwTakeSpeechActionMarkers(p,raw,actionAllow);
   if(act.boom)return '';
@@ -39229,8 +39234,8 @@ async function wwSpeak(p,sys,resay,actionOpts){
   var searchQ=wwParseSourceQuery(raw);
   if(searchQ){
     var hits=wwSearchPublicRaw(V.ww,searchQ);
-    raw=String(await wwCall(sys,'你请求核对旧原文：'+searchQ+'\n\n'+hits+
-      '\n\n请根据上面的完整原文重新完成原任务。必须结合原文判断，不要再输出【查原文】，也不要再凭记忆说对方没解释。',wwSayMax(),.9)||'').trim();
+    raw=String(await wwCallSpeech(p,sys,'你请求核对旧原文：'+searchQ+'\n\n'+hits+
+      '\n\n请根据上面的完整原文重新完成原任务。必须结合原文判断，不要再输出【查原文】，也不要再凭记忆说对方没解释。',wwSayMax(),.9,sysBase,'这轮我先听，票先保留。')||'').trim();
     act=wwTakeSpeechActionMarkers(p,raw,actionAllow);
     if(act.boom)return '';
     raw=act.text;
@@ -39241,7 +39246,7 @@ async function wwSpeak(p,sys,resay,actionOpts){
   var sp=wwSplitDraft(raw);
   if(!sp.say&&!sp.draft){
     /* 接口回了空：再要一次，别让角色当场哑掉 */
-    raw=String(await wwCall(sys,'请直接说你要说的话。',wwSayMax(),.9)||'').trim();
+    raw=String(await wwCallSpeech(p,sys,'请直接说你要说的话。',wwSayMax(),.9,sysBase,'这轮我先听，票先保留。')||'').trim();
     act=wwTakeSpeechActionMarkers(p,raw,actionAllow);
     if(act.boom)return '';
     raw=wwTakeTitle(p,act.text);
@@ -39253,7 +39258,7 @@ async function wwSpeak(p,sys,resay,actionOpts){
     var sys2Base=wwSysFor(p,'现在只写你要说给别人听的那几句话。不要写草稿纸、不要写名字、不要用括号写动作，只输出你要说的话。');
     var sys2=String(sys2Base||'')+(resayPrompt?('\n\n'+resayPrompt):'');
     wwCarryDynContext(sys2Base,sys2);
-    var s2raw=String(await wwCall(sys2,'请发言。',wwSayMax(),.9)||'').trim();
+    var s2raw=String(await wwCallSpeech(p,sys2,'请发言。',wwSayMax(),.9,sys2Base,'这轮我先听，票先保留。')||'').trim();
     var s2=wwTakeTitle(p,s2raw);
     var ib2=wwTakeIdentityBoard(p,s2);
     s2=ib2.text;
@@ -40184,6 +40189,8 @@ function wwGuardHistoryText(p,w){
    每轮会变的（验人结果、用药、场上名单、公开记录、事实清单、草稿纸、本轮任务）
    先攒在 dyn 里，交给 wwCall 附到用户消息中——这样一局里几十次调用都能反复命中缓存。 */
 var WW_DYNMAP={};
+var WW_DYNMETA={};
+var WW_LAST_CTX_MISSING=false;
 function wwSysFor(p,task){
   var w=V.ww,L=[],r=p.role,dyn=[];
   if(w&&w._resumeRecovery){
@@ -40283,6 +40290,8 @@ function wwSysFor(p,task){
   if(turnState)dyn.push(turnState);
   var bountySeer=wwPoliceBountySeerText(w,p);
   if(bountySeer)dyn.push(bountySeer);
+  var seerTermBoundary=wwSeerTermBoundaryText(w);
+  if(seerTermBoundary)dyn.push(seerTermBoundary);
   var checkFacts=wwPublicCheckFactsText(w);
   if(checkFacts)dyn.push(checkFacts);
   var mechMediumActions=wwMechanicMediumActionCard(w);
@@ -40396,8 +40405,14 @@ function wwSysFor(p,task){
   var sysTxt=L.join('\n\n'),dynTxt=dyn.filter(function(x){return x}).join('\n\n');
   try{
     WW_DYNMAP[sysTxt]=dynTxt;
+    WW_DYNMETA[sysTxt]={p:p,task:task};
     var ks=Object.keys(WW_DYNMAP);
-    if(ks.length>6){for(var i=0;i<ks.length-4;i++)delete WW_DYNMAP[ks[i]]}
+    if(ks.length>6){
+      for(var i=0;i<ks.length-4;i++){
+        delete WW_DYNMAP[ks[i]];
+        delete WW_DYNMETA[ks[i]];
+      }
+    }
   }catch(e){}
   return sysTxt;
 }
@@ -40413,10 +40428,28 @@ var _WWAC=null,_WWRETHINK=0;
 var WW_HUSH='【别想太久】这是个快节奏的桌游，不是写论文：只做一次简短比较，先锁住最硬且仍未解决的一条主证据，再看反证。道歉、语气、票型、暗跳身份或突然反查杀都不能盖过未解决的规则/时间线硬冲突。别复述输入、别反复自我推翻；有数了就立刻按当前任务规定的字段给出结论，不省字段。';
 function wwHushOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwHush===false)}
 function wwScribeOn(){return !(typeof cfg!=='undefined'&&cfg&&cfg.wwScribe===false)}
-async function wwCall(sys,usr,maxtok,temp){
+async function wwCall(sys,usr,maxtok,temp,opt){
   var mt=(maxtok==null)?160:maxtok;   /* 0 是「不限制」：请求里就不放 max_tokens */
-  var dyn='';
-  try{dyn=(WW_DYNMAP&&WW_DYNMAP[sys])||''}catch(e){}
+  opt=opt||{};
+  WW_LAST_CTX_MISSING=false;
+  function readDyn(key){
+    try{return String((WW_DYNMAP&&WW_DYNMAP[key])||'')}catch(e){return ''}
+  }
+  var dyn=readDyn(sys);
+  var base=String(opt.dynBase||'');
+  if(!dyn&&base)dyn=readDyn(base);
+  var meta=null;
+  try{meta=(WW_DYNMETA&&(WW_DYNMETA[sys]||(base&&WW_DYNMETA[base])))||null}catch(e){}
+  if(!dyn&&meta&&meta.p&&typeof meta.task==='string'){
+    /* 动态局面靠提示词文字作索引，偶尔会查不到。先按同一份任务重建一次，
+       不允许直接把空局面当成“游戏刚开始”交给模型自由补剧情。 */
+    try{
+      wwSysFor(meta.p,meta.task);
+      dyn=readDyn(sys)||(base?readDyn(base):'');
+    }catch(e){}
+  }
+  WW_LAST_CTX_MISSING=!!(opt.speech&&!dyn);
+  if(WW_LAST_CTX_MISSING)return '';
   var usr2=dyn?('【当前局面（每轮更新）】下面是主持人给你的最新情况，不是谁说的话：\n'+dyn+'\n\n'+usr):usr;
   var msgs=[{role:'system',content:(sys&&wwHushOn())?(sys+'\n\n'+WW_HUSH):sys},{role:'user',content:usr2}];
   var rushed=false;   /* 【新】她按过「打断→重新想」之后，给这个角色加一句「别想太久、快点直接说」 */
@@ -40448,6 +40481,19 @@ async function wwCall(sys,usr,maxtok,temp){
     }
   }
   return '';
+}
+/* 发言专用的上下文保护：自动重建一次仍失败时，让用户选择重说或安全跳过，
+   不把空局面直接交给模型编造死讯和别人的查验。 */
+async function wwCallSpeech(p,sys,usr,maxtok,temp,dynBase,fallback){
+  var gen=wwGenNow(),opts={speech:true,dynBase:String(dynBase||sys),player:p};
+  while(true){
+    var out=await wwCall(sys,usr,maxtok,temp,opts);
+    if(!WW_LAST_CTX_MISSING)return out;
+    if(wwStaleG(gen))return '';
+    var r=await wwAskOpt('当前局面没有读取完整，先不让 AI 猜。',[['重说',1],['这轮先听',0]]);
+    if(wwStaleG(gen))return '';
+    if(!r||Number(r.val)!==1)return fallback||'这轮我先听，票先保留。';
+  }
 }
 /* 一条发言配的「思考」：模型的推理链（有就带上）+ 它自己的草稿纸 */
 function wwThinkOf(p){
@@ -45880,7 +45926,77 @@ function wwBountySeerRuleText(){
     '这两种都不是盲赌目标是不是女巫、猎人等强神，而可能是通过位置排除锁定真预后“搏杀预言家”。预言家没有女巫、猎人、骑士那种立即自证技能，被查杀后起跳还容易先背上“被查杀才跳”的怀疑，所以狼搏杀真预的收益很高，不能反过来把“敢查杀”直接当起跳者为真的证据。'+
     '若起跳者身后还有人迅速保她、却完全不盘“起跳者若狼、被查杀者若真预”，应同时提高搏杀狼＋冲锋狼联动线。'+
     '【搏杀预言家的硬边界】只有“起跳者在目标前面，且发查杀时目标尚未起跳”才可能叫搏杀预言家。后置位起跳者查杀前置位已经起跳的验人位，不是搏杀，而是正面双跳、后手反打或悍跳；不得再把“后手查杀前置已起跳者”称为搏杀真预，也不得拿这个名称给任一边增加身份面。'+
+    '【反水立警的硬边界】只适用于：A给B金水，B本人随后明确不接、拒绝或否定这张金水，并立刻起跳同一个验人身份。必须同时满足“被发金水的目标就是起跳者本人”和“起跳发生在这张金水之后”。第三人给同一个目标反报查杀、后手起跳者给前置金水目标报查杀、或者目标只是没有回应金水，都只是“对同一目标报相反结果／正面双跳／普通查杀”，绝不能叫反水立警。'+
+    '【“后手搏杀”不是术语】不得用“后手搏杀”概括普通后手对跳。只有前面命名的“搏杀预言家”严格结构成立时，才能讨论搏杀；其他后手起跳只写后手反打、悍跳或正面双跳。'+
     '仍要保留“A真验”“A狼查杀狼”“A狼查杀普通好人”“A狼搏杀真预”四条世界线，不能因为出现搏杀结构就直接翻牌。';
+}
+/* 把本局实际结构直接标成“是/不是”，避免 AI 把几条相近术语混用。 */
+function wwSeerTermBoundaryText(w){
+  if(!w||w.phase!=='day'||!wwSheriffOn()||Number(w.day)!==1)return '';
+  var ledger=wwSeerCommitmentLedger(w);
+  var claims=(ledger.claims||[]).filter(function(c){return c&&c.p&&!c.retractedDay&&(c.checks||[]).length});
+  if(claims.length<2)return '';
+  var rows=wwPublicEventRows(w),order=wwPoliceOrderP();
+  function rowIdx(uid,ref){
+    var hit=rows.filter(function(r){return r&&r.uid===uid&&String(r.ref||'')===String(ref||'')})[0];
+    return hit?Number(hit.idx)||0:0;
+  }
+  function targetOf(seq){return (w.players||[]).filter(function(p){return p&&Number(p.seq)===Number(seq)})[0]||null}
+  var checks=[],claimRow={};
+  claims.forEach(function(c){
+    claimRow[c.p.uid]={idx:rowIdx(c.p.uid,c.ref),ref:c.ref};
+    (c.checks||[]).forEach(function(x){
+      checks.push({giver:c.p,target:targetOf(x.seq),seq:Number(x.seq),result:String(x.result||''),
+        day:Number(x.day)||Number(c.day)||1,ref:x.ref||c.ref,idx:rowIdx(c.p.uid,x.ref||c.ref)});
+    });
+  });
+  var good={},wolf={},same=[];
+  checks.forEach(function(x){
+    if(!x.target)return;
+    var k=x.day+'|'+x.seq;
+    if(wwCheckResultIsWolf(x.result))wolf[k]=(wolf[k]||[]).concat([x]);
+    else if(wwPublicCheckIsGoodResult(x.result))good[k]=(good[k]||[]).concat([x]);
+  });
+  Object.keys(good).forEach(function(k){
+    (good[k]||[]).forEach(function(g){
+      (wolf[k]||[]).forEach(function(b){
+        if(g.giver&&b.giver&&g.giver.uid!==b.giver.uid&&!same.some(function(x){
+          return x.target===g.target&&x.giver===g.giver&&x.killer===b.giver;
+        }))same.push({target:g.target,giver:g.giver,killer:b.giver,gold:g,kill:b});
+      });
+    });
+  });
+  var anti=[],bounty=[];
+  checks.forEach(function(x){
+    if(!x.target)return;
+    if(wwPublicCheckIsGoodResult(x.result)){
+      var tc=claims.filter(function(c){return c.p&&c.p.uid===x.target.uid})[0];
+      if(tc){
+        var ci=rowIdx(tc.p.uid,tc.ref);
+        var tr=rows.filter(function(r){return r&&r.uid===tc.p.uid&&String(r.ref||'')===String(tc.ref||'')})[0];
+        var tt=tr?String(tr.text||''):'';
+        if(ci>x.idx&&(/(?:不接|不收|拒绝|反水)[^。！？!?；;\n]{0,20}(?:金水|预言家)|不认[^。！？!?；;\n]{0,12}金水|金水[^。！？!?；;\n]{0,12}(?:是|为)?(?:假|不接|不收|拒绝|反水)/.test(tt)))anti.push({giver:x.giver,target:x.target});
+      }
+    }
+    if(wwCheckResultIsWolf(x.result)&&order.indexOf(x.target)>=0&&order.indexOf(x.giver)>=0&&
+      order.indexOf(x.target)>order.indexOf(x.giver)){
+      var before=claimRow[x.target.uid];
+      if(!before||before.idx>x.idx)bounty.push({giver:x.giver,target:x.target});
+    }
+  });
+  var L=['【术语边界卡（程序按公开结构生成）】',
+    '· 搏杀预言家＝前面的起跳者查杀后面尚未起跳、且位置排除后仍可能是真验人的警上目标。',
+    '· 反水立警＝A给B金水，B本人随后明确拒绝这张金水并起跳同一个验人身份；第三人另报结果不算。'];
+  if(same.length)L.push('· 本局同一目标正反结果：'+same.slice(0,3).map(function(x){
+    var first=x.gold.idx<=x.kill.idx?x.gold:x.kill,second=first===x.gold?x.kill:x.gold;
+    return wwTag(first.giver)+'报'+wwTag(x.target)+(first===x.gold?'金水':'查杀')+'，'+
+      wwTag(second.giver)+'随后报'+wwTag(x.target)+(second===x.gold?'金水':'查杀');
+  }).join('；')+'。单凭“同一目标正反结果”不构成反水立警，也不自动构成搏杀；搏杀只按下面的严格候选单独判断。');
+  if(anti.length)L.push('· 反水立警结构候选：'+anti.slice(0,3).map(function(x){return wwTag(x.giver)+'给'+wwTag(x.target)+'金水后，'+wwTag(x.target)+'本人拒绝并起跳'}).join('；')+'。');
+  if(bounty.length)L.push('· 搏杀预言家结构候选：'+bounty.slice(0,3).map(function(x){return wwTag(x.giver)+'先查杀后置、当时尚未起跳的'+wwTag(x.target)}).join('；')+'；仍只是候选世界线。');
+  else L.push('· 本局目前没有满足“前面起跳者查杀后面尚未起跳的警上目标”的搏杀结构。');
+  L.push('· 术语条件不满足时，禁止借用这些名称给任一边增加或降低身份面。');
+  return L.join('\n');
 }
 function wwRiskStrengthRuleText(){
   return '\n【验人风险与力度方向 · 硬规则】这里的“验人风险”只指：如果该起跳者是假预，这条验人可能被目标当场反水、与真验撞车或很快被事实打破的代价。'+
