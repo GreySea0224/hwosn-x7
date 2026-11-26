@@ -16343,6 +16343,12 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 【最近更新 · 2026-11-25 · 局面读取保护与术语边界】
 狼人杀 AI 发言前会核对本轮动态局面是否真的送达。万一查找失败，会按同一份任务自动重建一次；仍然失败时不把空局面交给模型编造死讯或查验，而是给用户“重说”和“这轮先听”两个按钮。新增程序生成的术语边界卡：第三人给同一目标反报查杀不算反水立警，后手给前置金水目标报查杀不算搏杀；只有本人接到A的金水后拒绝并起跳，才算反水立警。
 
+【最近更新 · 2026-11-26 · 无警徽预言家最后一验】
+预言家夜间改验不再无条件害怕死亡。没有警徽时，死亡只会丢失本夜结果，不会造成警徽交接误读，因此已公开起跳、进入第二夜且可能只剩一验的预言家，应优先验能影响下一轮票局的深水、倒钩或未解决位置；旧计划目标若已被公开定狼、进入主票或公开毒口，不能为了守旧计划继续浪费查验。有警徽时仍保留高风险下的计划连续性保护，因为接徽者可能按旧计划理解最后一验。
+
+【最近更新 · 2026-11-26 · 警上单跳与四狼回应】
+警上前面只有一名预言家/通灵师起跳时，普通好人不再被暗示必须马上站边，可以用真人局常见话术“听后置位对比再交站边”“我警下再交站边”“不太想站X号”“我站边后置位”；如果明确支持或给警长票，必须有一条可核验理由。12 人 4 狼局里，普通好人草稿会保留一版暂定四狼。若有人公开交出完整四狼，AI 想反驳必须在草稿中先指出哪一席更像好人并给替代座位，或拿出另一套完整四狼；不能只以“没发言、点太快、凭什么”否定而自己不给答案。
+
 【最近更新 · 2026-11-23 · AI 小狼自爆】
 普通小狼 AI 会把自己的警上竞选发言或白天普通发言、自爆判断放在同一次请求里完成：先看只给狼队看的夜间频道、当前被怀疑和票向压力、以及白狼王、狼美人等关键队友是否更需要保住，再决定这次是自爆还是继续正常发言。不会再单独请求一次“要不要自爆”，界面也不会出现额外的思考状态。只有确实能立刻打乱好人节奏、避免自己或关键队友被票出、执行队长明确安排等具体收益时才自爆；局势顺手、自己还能把话聊回来时不会为了“换节奏”白送一狼。自爆后立即翻牌出局，并沿用现有规则直接结束白天进入黑夜。机械狼、假面、石像鬼、觉醒狼美人等不能套用普通小狼自爆。
 普通骑士 AI 也把“这段发言后要不要决斗、决斗谁”并入同一次公开发言请求，发言公开后才结算决斗；不会再在发言后单独显示“某位玩家正在考虑是否发动技能”。白狼王 AI 同样在竞选或普通发言请求里同时决定是否自爆及带走谁，未自爆就正常说完，不再在发言前后单独发起显眼的自爆判断。玩家从狼队操作里点“让某号自爆”后也不再二次确认：普通狼直接自爆；白狼王只需选择是否带人，选完立即结算。
@@ -16712,7 +16718,7 @@ const GUIDE_MEM_CORE=`【这个前端是什么】
 这段知识会随版本更新，新功能会补进来；她问的东西这里没有，就老实说没写到。`;
 /* 【引导者知识版本】以后给引导者补了新知识，把这个数字 +1：
    老账号上的引导者下次打开 App 会自动更新记忆（只动引导者自己，不碰别的角色）。 */
-const GUIDE_VER=185;  /* 185：局面读取保护与验人术语硬边界 */
+const GUIDE_VER=187;  /* 187：警上单跳站边与四狼回应 */
 /* 【新手引导角色】第一次打开 App 时默认送的那个「引导者」，长这样：
    权限能开的都开，只关掉「自动发消息」「隐私角色」「角色自控潮汐」和「角色自己塑形」；
    「自己决定什么时候回」保持关（开了它可能觉得不用回，就不回你了）。 */
@@ -37777,6 +37783,56 @@ function wwConditionalAssertionIssue(say,w){
 function wwWolfPitScopeText(){
   return '【狼坑范围】完整总狼坑可以包含已经出局、你已经判断为狼的死者；盘点狼队组成、解释还剩几狼时，把死狼列进去是正常的。今天实际票口只能从存活玩家中选择。不能仅因为某人的狼坑名单包含死者，就说她“拿死人凑人头”、逻辑差或是狼；只有她把死者当成今天要投的人、声称死者尚未出局，或把未翻牌死者直接写成已确认身份时，才是真问题。';
 }
+function wwGameWolfCount(w){
+  if(!w)return 0;
+  var b=wwBoard(w.count,w),keys=['wolf','wolfbeauty','awakenedwolfbeauty','wolfking','wolfkingdeath','mechanicwolf','maskwolf','gargoyle','nightmare'],n=0;
+  keys.forEach(function(k){n+=Number(b[k])||0});
+  return n;
+}
+function wwFourWolfSeatsFromClause(txt,excludeSeq){
+  var c=String(txt||''),refs=wwSeatRefsInText(c,excludeSeq);
+  if(refs.length>=4)return refs.slice(0,4);
+  var m=c.match(/(?:狼坑|四狼|四个狼|4\s*狼)[^0-9]{0,14}((?:\d{1,2}[\s,，、/和或-]*){4,})/);
+  if(!m)m=c.match(/((?:\d{1,2}[\s,，、/和或-]*){4,})[^0-9]{0,8}(?:是|为)?(?:四狼|四个狼|4\s*狼)/);
+  if(!m)return [];
+  var out=[],seen={},re=/\d{1,2}/g,x;
+  while((x=re.exec(m[1]))&&out.length<4){
+    var n=Number(x[0]);
+    if(n&&n!==Number(excludeSeq)&&!seen[n]){seen[n]=1;out.push(n)}
+  }
+  return out.length===4?out:[];
+}
+function wwRecentFourWolfPit(w){
+  if(!w||wwGameWolfCount(w)!==4)return null;
+  var me=(w.players||[]).filter(function(p){return p&&p.isUser})[0];
+  if(!me)return null;
+  var rows=wwPublicEventRows(w).filter(function(r){return r&&r.uid===me.uid&&Number(r.day)===Number(w.day)}).slice().reverse();
+  for(var i=0;i<rows.length;i++){
+    var clauses=String(rows[i].text||'').split(/[。！？!?；;\n]+/).reverse();
+    for(var j=0;j<clauses.length;j++){
+      var c=clauses[j];
+      if(!/(?:狼坑|四狼|四个狼|4\s*狼)/.test(c))continue;
+      var seats=wwFourWolfSeatsFromClause(c,me.seq);
+      if(seats.length===4)return {p:me,row:rows[i],text:c,seats:seats};
+    }
+  }
+  return null;
+}
+function wwFourWolfResponseText(w,p){
+  var q=wwRecentFourWolfPit(w);
+  if(!q||!p||p.isUser)return '';
+  var list=q.seats.map(function(n){return n+'号'}).join('、');
+  return '【完整四狼回应卡】\n'+
+    '· 公开记录里最近的一套四狼是：'+list+'（'+q.row.ref+'）。这是一套完整暂定世界线，不是已经全部确认。\n'+
+    '· 没发言的玩家可以用位置学、身份坑、排除法和已知票型暂放进四狼，必须标“暂定、等发言更新”；不能只说“她还没发言，凭什么进狼坑”。\n'+
+    '· 你要反驳这套四狼，必须在草稿纸里先完成下面任一项：①接受全部四席；②指出其中一席为什么更像好人，并给出替代座位和新的完整四狼；③给出另一套完整四狼并说明至少一处差异；④只保留一席待验证，同时承认其余三席可以作为暂定线。\n'+
+    '· 如果无法给出“哪席不是狼”或任何替代四狼，就不能只用“点得太快、没发言、凭什么、太武断”反驳；只能接受为暂定线，或明确说自己也排不出四狼。\n'+
+    '· 你被怀疑时，至少要做到一项：用具体原话、票型、验人、时间线表水，或同步交出你自己的暂定四狼。只反问“凭什么怀疑我”不算完整回应。';
+}
+function wwFourWolfDraftRule(p,w){
+  if(!p||p.isUser||wwIsWolf(p)||!w||w.electing||wwGameWolfCount(w)!==4)return '';
+  return '\n【普通好人草稿必须保留暂定四狼】本局总共 4 个狼。即使信息不足，草稿纸也要写“暂定四狼：X、Y、Z、W（主狼/次狼/容错）”，并标明会随后置发言和票型更新。不能因为有人没发言就不给四狼版本；也不能把暂定名单写成人人已经翻牌。';
+}
 function wwDeadPitAttackText(txt){
   var clauses=String(txt||'').split(/[。！？!?；;\n]+/);
   for(var i=0;i<clauses.length;i++){
@@ -38918,7 +38974,7 @@ function wwDayPlayStyleNeutralityText(p,w,forVote){
   (w.players||[]).forEach(function(x){if(!human&&x&&x.isUser&&x.alive)human=x});
   var when=forVote?'投票前':'公开发言前';
   return '\n【决策果断·最高优先级】从现在起，每个 AI 都要像真人局一样主动给结论，不要用“再听、再等等、都可以、先看看”拖到无法投票。'+
-    '从第一个白天普通发言开始，必须给出：①你现在站哪条验人线或主要站边；②至少一个点名怀疑目标，狼坑点一个或两个就够，不要求凑齐四狼；③当前主票向和一条实质理由。'+
+    '从第一个白天普通发言开始，必须给出：①当前站边态度：支持某线、暂不站边或明确不信某线；暂不站边必须说清在等后置位对跳、目标回应还是新票型，不能只写空泛的“再听”；②至少一个点名怀疑目标，狼坑点一个或两个就够；③当前主票向和一条实质理由。'+
     '可以附加条件票，但不能让条件票代替当前结论。后续听到新事实可改票，改票要有具体新依据。'+
     '推理果断、结论快、敢直接点狼、表达自信、很早就给出狼坑，都是正常好人行为，不能单独当狼点。'+
     '不能使用“太快、太果断、一句就站边、结论给得快、狼坑给得早、太有主见”来否定一个人；必须指出具体哪句事实、时间线、票型或因果推错。'+
@@ -38986,6 +39042,7 @@ function wwSpeakTask(p,base){
     wwMinorityWorldlineSpeechHint()+wwGoodLeadDefenseHint(p)+
     wwDayPlayStyleNeutralityText(p,V.ww,false)+
     (wwVoteFactText(V.ww)?'\n'+wwVoteFactText(V.ww):'');
+  plain+=wwFourWolfDraftRule(p,V.ww);
   plain+='\n'+wwWolfPitScopeText();
   plain+='\n'+wwSeerRebuttalQualityText();
   plain+='\n'+wwClaimResultGrammarRuleText();
@@ -40321,6 +40378,8 @@ function wwSysFor(p,task){
   if(badgeAudit)dyn.push(badgeAudit);
   var userClaims=wwUserClaimText(w,false,p);
   if(userClaims)dyn.push(userClaims);
+  var fourWolfResponse=wwFourWolfResponseText(w,p);
+  if(fourWolfResponse)dyn.push(fourWolfResponse);
   var lateCounterclaim=wwLateCounterclaimAuditText(w,p);
   if(lateCounterclaim)dyn.push(lateCounterclaim);
   /* 【新·面杀】你自己抿到的：抿身份那会儿你盯着别人看出来的样子（别人不知道你在看） */
@@ -41537,11 +41596,16 @@ function wwSeerNightIntentConflictText(w,pool){
   }
   rows.forEach(function(r){
     String(r.text||'').split(/[。！？!?；;\n]+/).forEach(function(c){
-      if(/(?:今晚|今夜|明晚|准备|计划|建议|可以|打算)/.test(c)){
-        var pm=c.match(/(?:毒|开毒|用毒)[^。！？!?；;\n]{0,18}?(\d{1,2})\s*号/);
-        var pv=c.match(/(?:建议|可以|最好|优先|记得)[^。！？!?；;\n]{0,14}?(?:验|查验|摸)\s*(\d{1,2})\s*号/);
-        if(pm)add(poison,seenP,wwPlayerByUidTarget(w,Number(pm[1])),r.p,c.trim());
-        if(pv)add(verify,seenV,wwPlayerByUidTarget(w,Number(pv[1])),r.p,c.trim());
+      if(/(?:今晚|今夜|明晚|准备|计划|建议|可以|打算|优先|记得|如果|要是|若|真女巫|你毒)/.test(c)||
+        /\d{1,2}\s*号\s*(?:验|查验|摸)\s*\d{1,2}\s*[、/和或]\s*\d{1,2}/.test(c)){
+        var pm=c.match(/(?:毒|开毒|用毒)\s*((?:\d{1,2}\s*号?)(?:\s*(?:、|\/|和|或者|或)\s*\d{1,2}\s*号?)*)/);
+        var pv=c.match(/(?:(?:建议|可以|最好|优先|记得)[^。！？!?；;\n]{0,18}?|\d{1,2}\s*号\s*)(?:验|查验|摸)\s*((?:\d{1,2}\s*号?)(?:\s*(?:、|\/|和|或者|或)\s*\d{1,2}\s*号?)*)/);
+        if(pm)String(pm[1]||'').split(/\s*(?:、|\/|和|或者|或)\s*/).forEach(function(n){
+          add(poison,seenP,wwPlayerByUidTarget(w,Number(String(n).replace(/号/g,'').trim())),r.p,c.trim());
+        });
+        if(pv)String(pv[1]||'').split(/\s*(?:、|\/|和|或者|或)\s*/).forEach(function(n){
+          add(verify,seenV,wwPlayerByUidTarget(w,Number(String(n).replace(/号/g,'').trim())),r.p,c.trim());
+        });
       }
     });
   });
@@ -41549,9 +41613,15 @@ function wwSeerNightIntentConflictText(w,pool){
   var L=['【今晚行动冲突核对（只给你看）】'];
   if(poison.length)L.push('· 公开毒药计划：'+poison.map(function(x){return wwTag(x.p)+'（'+wwTag(x.who)+'提出）'}).join('、')+'。');
   if(verify.length)L.push('· 公开验人建议：'+verify.map(function(x){return wwTag(x.p)+'（'+wwTag(x.who)+'建议）'}).join('、')+'。');
+  var noBadgePoisonNote=false;
   poison.forEach(function(x){
-    if((pool||[]).some(function(q){return q&&q.uid===x.p.uid}))
+    if((pool||[]).some(function(q){return q&&q.uid===x.p.uid})){
       L.push('· '+wwTag(x.p)+'可能当夜死于毒药。验她即使得到真实结果，也大概率缺少活人作公开证明；除非有特殊理由，优先比较不会当夜死亡、身份仍不明的存活玩家。');
+      if(!wwHasBadge()&&!noBadgePoisonNote){
+        noBadgePoisonNote=true;
+        L.push('· 你现在没有警徽。如果原计划目标正好在这类毒口里，死亡不会造成警徽交接误读，不能为了守旧计划继续浪费最后一验；改验未解决位置不亏。');
+      }
+    }
   });
   L.push('· 不要求你一定听从公开建议；若你坚持验毒口或否决别人的验人建议，必须比较“私有确认价值”和“第二天可公开传递的信息量”。');
   return L.join('\n');
@@ -41573,6 +41643,7 @@ function wwSeerNightSurvivalAuditText(p,w,pool){
   if(Number(w.day)>=3){risk+=1;reasons.push('已经进入第三天，狼队有足够时间处理明验人位')}
   if(same.length<=1){risk+=1;reasons.push('你目前是唯一可执行的公开验人线')}
   var level=risk>=6?'高':(risk>=3?'中':'低');
+  var noBadgeLastCheck=!badge&&claim&&!claim.retractedDay&&Number(w.day)>=2;
   var L=['【今夜改验前·生存审计（只给你看）】',
     '· 当前死亡风险：'+level+'。'+(reasons.length?('依据：'+reasons.join('；')+'。'):'目前没有明显的公开暴露信号。')];
   if(planned)L.push('· 上一轮公开计划验：'+wwTag(planned)+(planned.alive?'（仍存活）':'（已出局）')+'。');
@@ -41580,11 +41651,17 @@ function wwSeerNightSurvivalAuditText(p,w,pool){
   var protection=wwBoard(w.count,w).guard||wwBoard(w.count,w).witch;
   if(protection)L.push('· 本板存在保护类神职，但你现在不能把“昨夜没死”当成今夜一定有人继续保护；连续保护条件和女巫药量都可能改变。');
   if(planned&&planned.alive&&planned!==p){
-    if(level==='高')L.push('· 高风险硬规则：如果原计划目标仍存活、没有出现让原计划失效的新硬事实，默认继续验 '+wwTag(planned)+
-      '。不要因为临时觉得另一个人更像就改验；你今夜若死，公开玩家只能按旧计划理解你的警徽。');
-    else L.push('· 原计划目标仍存活时，改验必须有明确新事实；优先比较“新验的收益”和“死后旧计划被误读”的代价。');
+    if(badge&&level==='高')L.push('· 高风险且有警徽：如果原计划目标仍存活、没有出现让原计划失效的新硬事实，默认继续验 '+wwTag(planned)+
+      '。你今夜若死，接徽者可能按旧计划理解你的警徽和最后一验。');
+    else if(badge)L.push('· 你有警徽。原计划目标仍存活时，改验要同时比较“新验的收益”和“死后接徽者误读旧计划的代价”。');
+    else L.push('· 你现在没有警徽。死亡只会丢失本夜结果，不会产生警徽交接误读，不能把“怕死”当成保留旧计划的理由。'+
+      '原计划只在这些条件同时成立时才继续：'+wwTag(planned)+'仍身份不明、今夜大概率能活、且验她对下一轮票局有实际作用；'+
+      '如果她已被公开定狼、进入主票/公开毒口、或验完也不会改变狼坑，就优先改验未解决的深水/倒钩位。');
   }
-  if(level==='高')L.push('· 若仍决定改验，必须是原计划已无法执行，或新查验能直接决定胜负；否则保留公开承诺是更稳的选择。你无法保证自己一定活到明天，不能在死后靠第一人称补说改验。');
+  if(noBadgeLastCheck)L.push('· 第二夜默认按“可能只剩一验”估算价值：你已经公开起跳且活过一夜，狼队下刀概率高。'+
+    '没有警徽时，活着就能公开新结果，死了也只是没有结果；因此应优先验最影响下一轮投票的未知位，不要机械兑现低信息价值的旧计划。');
+  if(badge&&level==='高')L.push('· 你有警徽且死亡风险高：若仍决定改验，必须是原计划已无法执行，或新查验能直接决定胜负；否则保留公开承诺更稳。你无法保证自己一定活到明天。');
+  else if(!badge)L.push('· 没有警徽就不存在“死后必须让接徽者看懂旧计划”的义务。旧计划是公开承诺，不是不能调整的锁票；改验后若今天还有发言机会，最好公开说明。');
   return L.join('\n');
 }
 async function wwSeerChoose(seer){
@@ -46107,6 +46184,18 @@ function wwPoliceStanceIssue(say,priorClaims){
   var reason=/(?:查杀|金水|力度|风险|反水|时间线|警徽流|验人目标|正面冲突|矛盾|更实|更弱|更强|可信|不可信)/;
   return refs<2||!preference.test(s)||!reason.test(s);
 }
+function wwPoliceSingleClaimStanceText(p,earlierClaims,later,claimName){
+  var claims=(earlierClaims||[]).filter(Boolean);
+  if(claims.length!==1)return '';
+  var x=claims[0],tail=later&&later.length?('后面还有'+later.map(wwTag).join('、')+'没发言。'):'你后面没有其他竞选者了。';
+  return '\n【警上单跳·站边不是必选题】你前面目前只有 '+wwTag(x)+' 一个人起跳'+claimName+'。'+tail+
+    '先听验人、警徽流和票向，不等于必须当场认下这条线；单做起跳顺序、敢报结果或格式完整，都不能单独成为支持理由。'+
+    (later&&later.length
+      ?'可以暂不交站边；比较自然的话术是“听后置位对比发言再交站边”“我警下再交站边”“觉得'+wwTag(x)+'不是很像'+claimName+'”“不太想站'+wwTag(x)+'”；态度强硬时也可以说“我站边后置位”“我先不信'+wwTag(x)+'这条线”。'
+      :'没有后置位可等时，也可以说“不太想站'+wwTag(x)+'”或“先把票当流程保底，不等于认下这条线”。')+
+    '如果你明确说“支持'+wwTag(x)+'”“警长票给'+wwTag(x)+'”，就必须给出一条可核验理由，例如验人目标结构、警徽流信息量、对方回应或具体规则问题；不能只因为她先起跳。'+
+    '觉得她发言一般、警徽流不太好或像冲锋狼时，要直接说出你暂不站或想站后置位，不要先写“站'+wwTag(x)+'”。';
+}
 function wwPoliceBoardShape(w){
   var up=wwPoliceUpP(),upUids={};
   up.forEach(function(p){if(p&&p.uid)upUids[p.uid]=1});
@@ -46139,6 +46228,7 @@ async function wwPoliceSpeech(p,resay){
   var isJump=trueSeer||wwWolfJobOf(p)==='jump';
   var claimedUids=wwKnightClaims();
   var earlierClaims=earlier.filter(function(x){return claimedUids.indexOf(x.uid)>=0});
+  var singleClaimHint=wwPoliceSingleClaimStanceText(p,earlierClaims,later,claimName);
   var policeShapeHint=!isJump?wwPoliceShapeHint(V.ww,order):'';
   var jumpTimelineHint=isJump
     ?'【验人时间线自检】首夜验人发生在任何上警发言、死讯和白天表现之前；首验理由只能用盲选、头像、名字、座位、眼缘或历史印象，绝不能把“上警积极、发言、警徽表现”等白天信息说成首夜选人的原因。每天只报新增的一夜验人。若假验理由或警徽流无法自圆，宁可普通上警或退水，不要为了悍跳硬编到聊爆。'
@@ -46153,7 +46243,8 @@ async function wwPoliceSpeech(p,resay){
     '明确说自己是好人，可退水。②好人代跳：直接假跳'+claimName+'，不必说“我是来听发言”；'+
     '可给可信者报'+checkWord+'或做假查杀试探，尤其可以给排在你后面、尚未发言的上警者报一个看似可信的结果，观察谁急着接话。目标反应像狼、真'+claimName+'明显接受代跳且继续装能挡刀或带票，才留下；'+
     '真验人位反驳、试探没收获或可能被骑士决斗，就退水。退水后说明自己是好人代跳，假验不算，转听真'+claimName+'归票。'+
-    (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后面尚未发言的人金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'');
+    (wwClassicProxyBoard()&&!wwIsWolf(p)?'\n本板上警时，给后面尚未发言的人金水、观察反应后退水，是可解释的常规压跳；说清假验作废即可，不必因为怕被说“爱秀”而放弃。':'')+
+    singleClaimHint;
   var priorSeer=order.slice(0,Math.max(0,pos)).filter(function(x){return claimedUids.indexOf(x.uid)>=0});
   var jumpCounterHint=(wwWolfJobOf(p)==='jump'&&priorSeer.length)
     ?('排在你前面、已经发言的'+priorSeer.map(wwTag).join('、')+'已经起跳'+claimName+'。回应她时直接说不退水就按对跳处理，不要反复喊“我不接受未结算代跳”，也不能一边打她、一边保留“她若是好人我就站她/警徽给她”的软分支。若她报出的村民、平民或具体身份被目标本人核对为发对了，也不能说“她这条说得通/成立/可信”；你还在自称'+claimName+'，就必须继续把她的验人线打成假验，或者当场明确退水作废，不能同时支持两边。今晚验人目标必须选外置位，不能继续验这个仍在场的对跳者；如果旧计划是对方起跳前定的，现在就明确改验。')
