@@ -43903,11 +43903,11 @@ function wwRoomPick(list){
     render(true);
   });
 }
-async function wwRoomScene(cause,list,deaths){
+async function wwRoomScene(cause,list,deaths,opts){
   /* 【改·稳】整段夜戏都包在 try 里：万一里面哪一步出错（接口抽风、数据缺一块…），
      也只能安静地把这段戏收掉、按「没发生」继续往下走，绝不能把整局打断。 */
   try{
-  var w=V.ww,gen=wwGenNow(),me=wwMe();
+  var w=V.ww,gen=wwGenNow(),me=wwMe(),noSpare=!!(opts&&opts.noSpare);
   if(!w||!me||!wwFaceOn()||w.stopped)return false;
   list=(list||[]).filter(function(p){return p&&p!==me});
   if(!list.length)return false;
@@ -43919,7 +43919,7 @@ async function wwRoomScene(cause,list,deaths){
   }
   if(list.length>3)list=list.slice(0,3);      /* 最多和 3 个人对线，省一点请求 */
   /* max＝基础轮数（聊完这几轮，角色可以自己决定要不要再拖一会儿）；hardMax＝最多拖到几轮 */
-  w.room={mode:'chat',cause:cause,killers:list.map(function(p){return p.uid}),msgs:[],busy:true,turn:0,max:5,hardMax:999,draft:''};
+  w.room={mode:'chat',cause:cause,killers:list.map(function(p){return p.uid}),msgs:[],busy:true,turn:0,max:5,hardMax:999,draft:'',noSpare:noSpare};
   w.log.push({k:'scene',text:'【夜间 · 你的房间】'+(cause==='poison'?'夜里，你的房门被轻轻推开……':'夜里，有人带着刀走进了你的房间……')});
   render(true);
   /* 开场：每人一句 */
@@ -43975,7 +43975,7 @@ async function wwRoomScene(cause,list,deaths){
   /* 收场：先看狼队会不会「收刀」放过她（只有刀杀能收 —— 毒已经下在酒里了，挽回不了）；
      不肯收刀就动手，写「你的生命值：0」。 */
   var spared=false;
-  if(!w.room.skip&&cause==='wolf'){
+  if(!w.room.skip&&cause==='wolf'&&!noSpare){
     w.room.busy=true;render(true);
     spared=await wwRoomSpare(list,wwRoomHist());
     if(wwStaleG(gen)||!w.room)return false;
@@ -44048,15 +44048,43 @@ function wwQuietNight(){
   var w=V.ww;
   return !!(wwFaceOn()&&w&&w.night&&w.night.wolf&&w.night.wolf.isUser);
 }
-async function wwRoomTrigger(deaths){
+async function wwRoomTrigger(deaths,opts){
   var w=V.ww,me=wwMe();
   if(!w||!me||!wwFaceOn()||w.stopped)return false;
   var dead=(deaths||[]).some(function(p){return p&&p.uid===me.uid});
   if(!dead)return false;                        /* 你没真死（被守 / 被救回来）：不演 */
   if(me.killedBy==='charmnight'||me.killedBy==='awbsubnight')return false;   /* 替身死亡不是狼队来房门口动刀，不能演成夜间密会。 */
-  var list=wwRoomKillers(me);
+  var list=(opts&&opts.killers&&opts.killers.length)?opts.killers:wwRoomKillers(me);
   if(!list.length)return false;
-  return !!(await wwRoomScene((me.killedBy==='poison'||me.killedBy==='mechpoison')?'poison':'wolf',list,deaths));
+  var cause=(opts&&opts.cause)||((me.killedBy==='poison'||me.killedBy==='mechpoison')?'poison':'wolf');
+  return !!(await wwRoomScene(cause,list,deaths,opts));
+}
+/* 【修·剧透】夜里被刀的猎人/机械猎枪不能先看见房间里的狼再决定开枪。
+   把这一场房间戏先押后，等枪和连锁枪全部结算完再作为回放播放；回放不能再触发收刀复活。 */
+function wwDeferGunRoom(p){
+  var w=V.ww;
+  if(!w||!p||!p.isUser||!wwFaceOn()||w.stopped)return false;
+  if(!wwHasHunterGun(p))return false;
+  if(p.killedBy==='poison'||p.killedBy==='mechpoison'||p.killedBy==='guardSave')return false;
+  if(p.fearedDay&&Number(p.fearedDay)===Number(w.day))return false;
+  if(!wwAlive().length)return false;
+  var list=wwRoomKillers(p);
+  if(!list.length)return false;
+  w.pendingGunRoom={
+    uid:p.uid,
+    day:w.day,
+    cause:(p.killedBy==='poison'||p.killedBy==='mechpoison')?'poison':'wolf',
+    killers:list.map(function(x){return x.uid})
+  };
+  return true;
+}
+async function wwRunPendingGunRoom(p,deaths){
+  var w=V.ww,q=w&&w.pendingGunRoom;
+  if(!q||!p||q.uid!==p.uid||Number(q.day)!==Number(w.day))return false;
+  w.pendingGunRoom=null;
+  var list=(q.killers||[]).map(wwPlayerByUid).filter(function(x){return !!x});
+  if(!list.length)return false;
+  return await wwRoomTrigger(deaths,{cause:q.cause,killers:list,noSpare:true});
 }
 /* 不改状态地看一眼：这一下会不会直接把游戏判完（用来决定还要不要留遗言） */
 function wwWillOver(){
@@ -44067,8 +44095,8 @@ function wwWillOver(){
 }
 /* 【新·面杀】你死在夜里之后的三步，顺序很重要：
    ① 先让你留遗言——这时候你还没进那个房间、不知道是谁下的手，所以遗言不可能把狼爆出来；
-   ② 再演「夜间 · 你的房间」（这时候你才见到凶手）；
-   ③ 戏演完、天亮了，才把遗言公开到场上，其余玩家这才读得到。 */
+   ② 普通情况再演「夜间 · 你的房间」（这时候你才见到凶手），戏演完才把遗言公开；
+      带可用猎枪的人例外：遗言仍先盲留，但房间戏押后到白天开枪结算完再回放。 */
 async function wwUserDeathFlow(deaths){
   /* 【改·稳】这段（盲留遗言 + 你的房间 + 公开遗言）整块包 try：
      里面出错只是这段没走完，不能影响这一局继续打。 */
@@ -44083,7 +44111,8 @@ async function wwUserDeathFlow(deaths){
     words=await wwUserLastWords('你死了……这是第一夜。趁你现在还不知道是谁下的手，先把要交待的留下：可以说说自己的身份、知道什么线索、最怀疑谁。');
     if(wwStaleG(gen))return;
   }
-  var spared=await wwRoomTrigger(deaths);     /* ② 你的房间（她要是把人说动了，狼可能收刀） */
+  var gunRoomDeferred=wwDeferGunRoom(me);
+  var spared=gunRoomDeferred?false:(await wwRoomTrigger(deaths));     /* ② 你的房间（带枪时押后到枪后） */
   if(wwStaleG(gen))return;
   if(spared){
     /* 【新】收刀放过：撤销这一刀 —— 她还活着，这一夜算平安夜，刚才那段遗言也不公布 */
@@ -44165,8 +44194,8 @@ function wwRoomHTML(){
     if(rn.mode==='end'){
       h+='<div class="gx-row"><button class="pri" onclick="GAME.wwRoomDone()">天亮了 ›</button></div>';
     }else{
-      h+='<textarea id="wwRoomIn" rows="2" placeholder="说点什么…（可以骂她、问为什么、也可以求饶）" oninput="GAME.wwRoomDraft(this.value)">'+esc(rn.draft||'')+'</textarea>';
-      if(rn.cause!=='poison')h+='<div class="ww-room-s">'+esc('※ 说动对方的话，TA 有可能收刀放过你。')+'</div>';
+      h+='<textarea id="wwRoomIn" rows="2" placeholder="'+esc(rn.noSpare?'说点什么…（可以骂她、问为什么）':'说点什么…（可以骂她、问为什么、也可以求饶）')+'" oninput="GAME.wwRoomDraft(this.value)">'+esc(rn.draft||'')+'</textarea>';
+      if(rn.cause!=='poison'&&!rn.noSpare)h+='<div class="ww-room-s">'+esc('※ 说动对方的话，TA 有可能收刀放过你。')+'</div>';
       h+='<div class="gx-row"><button class="pri" onclick="GAME.wwRoomSay()">说出口</button><button class="ghost" onclick="GAME.wwRoomEnd()">动手吧（结束）</button></div>';
       h+='<div class="gx-row"><button class="ghost" onclick="GAME.wwRoomSkip()">跳过这段</button></div>';
     }
@@ -44897,7 +44926,8 @@ async function wwNight(){
     deaths.forEach(function(p){p.alive=true;p.killedBy=''});
     w.night.deaths=[];
   }else{
-    /* 【新·面杀】天亮之前：先让你盲留遗言，再演「夜间 · 你的房间」，最后才公开遗言 */
+    /* 【新·面杀】天亮之前：先让你盲留遗言，再演「夜间 · 你的房间」，最后才公开遗言。
+       带可用猎枪的夜间死者例外：房间戏押后到开枪结算之后。 */
     if(!w.stopped){await wwUserDeathFlow(deaths);if(wwStaleG(gen))return}
     /* 【新·面杀】天亮这一条：面杀写在「集会堂」聚齐，网杀照旧 */
     w.log.push({k:'sys',text:'第 '+w.day+' 天：'+
@@ -47405,6 +47435,8 @@ async function wwDay(){
     await wwWolfKingDeathCheck(p);
     if(wwStaleG(gen))return;
     await wwHunterCheck(p);
+    if(wwStaleG(gen))return;
+    await wwRunPendingGunRoom(p,dead);
     if(wwStaleG(gen))return;
     if(wwCheckOver())return;
   }
