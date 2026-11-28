@@ -39589,8 +39589,9 @@ function wwNameIdentityNotice(w,p){
   if(!w||!(w.players||[]).length)return '';
   var risky=w.players.filter(wwNameLooksLikeRole);
   if(!risky.length)return '';
-  var L=['【姓名不是身份 · 必须分清】']+
-    risky.map(function(x){return '· '+wwName(x)+'：括号里的称呼只是玩家姓名，不是她的身份或阵营。';});
+  var L=['【姓名不是身份 · 必须分清】'].concat(
+    risky.map(function(x){return '· '+wwName(x)+'：括号里的称呼只是玩家姓名，不是她的身份或阵营。';})
+  );
   L.push('· 判断身份只能看你自己的私有底牌、私有狼队名单、主持人翻牌和可信查验；看到名字里有“狼、女巫、守卫、村民”等字，绝不能据此认队友或判身份。');
   if(p&&(wwIsPackWolf(p)||(p.role==='nightmare'&&w.nightmareMetWolves))){
     var known={};wwKnownWolfVoteAllies(p).forEach(function(x){known[x.uid]=1});
